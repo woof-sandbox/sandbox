@@ -86,6 +86,8 @@ export async function deploy<C extends Contract>(
   hre: HardhatRuntimeEnvironment,
   deployOpts: DeployOpts
 ): Promise<C> {
+  console.log(contractFile, '- contract file');
+  console.log(deployArgs, '- deploy args');
   const contractFileName = contractFile.split('/').reverse()[0];
   const contractName = contractFileName.replace('.sol', '');
   let factory = (await hre.ethers.getContractFactory(contractName));

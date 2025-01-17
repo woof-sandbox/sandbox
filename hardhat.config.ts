@@ -18,63 +18,62 @@ import './tasks/scenario/task.ts';
 
 // Relation Config
 import relationConfigMap from './deployments/relations';
-import goerliRelationConfigMap from './deployments/goerli/usdc/relations';
-import goerliWethRelationConfigMap from './deployments/goerli/weth/relations';
+// import goerliRelationConfigMap from './deployments/goerli/usdc/relations';
+// import goerliWethRelationConfigMap from './deployments/goerli/weth/relations';
 import sepoliaUsdcRelationConfigMap from './deployments/sepolia/usdc/relations';
 import sepoliaWethRelationConfigMap from './deployments/sepolia/weth/relations';
-import mumbaiRelationConfigMap from './deployments/mumbai/usdc/relations';
-import mainnetRelationConfigMap from './deployments/mainnet/usdc/relations';
-import mainnetWethRelationConfigMap from './deployments/mainnet/weth/relations';
-import mainnetUsdtRelationConfigMap from './deployments/mainnet/usdt/relations';
-import mainnetWstETHRelationConfigMap from './deployments/mainnet/wsteth/relations';
-import mainnetUsdsRelationConfigMap from './deployments/mainnet/usds/relations';
-import polygonRelationConfigMap from './deployments/polygon/usdc/relations';
-import polygonUsdtRelationConfigMap from './deployments/polygon/usdt/relations';
-import arbitrumBridgedUsdcRelationConfigMap from './deployments/arbitrum/usdc.e/relations';
-import arbitrumNativeUsdcRelationConfigMap from './deployments/arbitrum/usdc/relations';
-import arbitrumWETHRelationConfigMap from './deployments/arbitrum/weth/relations';
-import arbitrumBridgedUsdcGoerliRelationConfigMap from './deployments/arbitrum-goerli/usdc.e/relations';
-import arbitrumGoerliNativeUsdcRelationConfigMap from './deployments/arbitrum-goerli/usdc/relations';
-import arbitrumUsdtRelationConfigMap from './deployments/arbitrum/usdt/relations';
-import baseUsdbcRelationConfigMap from './deployments/base/usdbc/relations';
-import baseWethRelationConfigMap from './deployments/base/weth/relations';
-import baseUsdcRelationConfigMap from './deployments/base/usdc/relations';
-import baseAeroRelationConfigMap from './deployments/base/aero/relations';
-import baseGoerliRelationConfigMap from './deployments/base-goerli/usdc/relations';
-import baseGoerliWethRelationConfigMap from './deployments/base-goerli/weth/relations';
-import lineaGoerliRelationConfigMap from './deployments/linea-goerli/usdc/relations';
-import optimismRelationConfigMap from './deployments/optimism/usdc/relations';
-import optimismUsdtRelationConfigMap from './deployments/optimism/usdt/relations';
-import optimismWethRelationConfigMap from './deployments/optimism/weth/relations';
-import mantleRelationConfigMap from './deployments/mantle/usde/relations';
-import scrollGoerliRelationConfigMap from './deployments/scroll-goerli/usdc/relations';
-import scrollRelationConfigMap from './deployments/scroll/usdc/relations';
+// import mumbaiRelationConfigMap from './deployments/mumbai/usdc/relations';
+// import mainnetRelationConfigMap from './deployments/mainnet/usdc/relations';
+// import mainnetWethRelationConfigMap from './deployments/mainnet/weth/relations';
+// import mainnetUsdtRelationConfigMap from './deployments/mainnet/usdt/relations';
+// import mainnetWstETHRelationConfigMap from './deployments/mainnet/wsteth/relations';
+// import mainnetUsdsRelationConfigMap from './deployments/mainnet/usds/relations';
+// import polygonRelationConfigMap from './deployments/polygon/usdc/relations';
+// import polygonUsdtRelationConfigMap from './deployments/polygon/usdt/relations';
+// import arbitrumBridgedUsdcRelationConfigMap from './deployments/arbitrum/usdc.e/relations';
+// import arbitrumNativeUsdcRelationConfigMap from './deployments/arbitrum/usdc/relations';
+// import arbitrumWETHRelationConfigMap from './deployments/arbitrum/weth/relations';
+// import arbitrumBridgedUsdcGoerliRelationConfigMap from './deployments/arbitrum-goerli/usdc.e/relations';
+// import arbitrumGoerliNativeUsdcRelationConfigMap from './deployments/arbitrum-goerli/usdc/relations';
+// import arbitrumUsdtRelationConfigMap from './deployments/arbitrum/usdt/relations';
+// import baseUsdbcRelationConfigMap from './deployments/base/usdbc/relations';
+// import baseWethRelationConfigMap from './deployments/base/weth/relations';
+// import baseUsdcRelationConfigMap from './deployments/base/usdc/relations';
+// import baseAeroRelationConfigMap from './deployments/base/aero/relations';
+// import baseGoerliRelationConfigMap from './deployments/base-goerli/usdc/relations';
+// import baseGoerliWethRelationConfigMap from './deployments/base-goerli/weth/relations';
+// import lineaGoerliRelationConfigMap from './deployments/linea-goerli/usdc/relations';
+// import optimismRelationConfigMap from './deployments/optimism/usdc/relations';
+// import optimismUsdtRelationConfigMap from './deployments/optimism/usdt/relations';
+// import optimismWethRelationConfigMap from './deployments/optimism/weth/relations';
+// import mantleRelationConfigMap from './deployments/mantle/usde/relations';
+// import scrollGoerliRelationConfigMap from './deployments/scroll-goerli/usdc/relations';
+// import scrollRelationConfigMap from './deployments/scroll/usdc/relations';
 
 task('accounts', 'Prints the list of accounts', async (taskArgs, hre) => {
   for (const account of await hre.ethers.getSigners()) console.log(account.address);
 });
 
 /* note: boolean environment variables are imported as strings */
-const {
-  COINMARKETCAP_API_KEY,
-  ETH_PK = '',
-  ETHERSCAN_KEY,
-  SNOWTRACE_KEY,
-  POLYGONSCAN_KEY,
-  ARBISCAN_KEY,
-  BASESCAN_KEY,
-  LINEASCAN_KEY,
-  OPTIMISMSCAN_KEY,
-  MANTLESCAN_KEY,
-  INFURA_KEY,
-  ANKR_KEY,
-  MNEMONIC = 'myth like bonus scare over problem client lizard pioneer submit female collect',
-  REPORT_GAS = 'false',
-  NETWORK_PROVIDER = '',
-  GOV_NETWORK_PROVIDER = '',
-  GOV_NETWORK = '',
-  REMOTE_ACCOUNTS = ''
-} = process.env;
+const COINMARKETCAP_API_KEY = process.env.COINMARKETCAP_API_KEY || "";
+const ETH_PK = process.env.ETH_PK || "";
+const ETHERSCAN_KEY = process.env.ETHERSCAN_KEY || "";
+const SNOWTRACE_KEY = process.env.SNOWTRACE_KEY || "";
+const POLYGONSCAN_KEY = process.env.POLYGONSCAN_KEY || "";
+const ARBISCAN_KEY = process.env.ARBISCAN_KEY || "";
+const BASESCAN_KEY = process.env.BASESCAN_KEY || "";
+const LINEASCAN_KEY = process.env.LINEASCAN_KEY || "";
+const OPTIMISMSCAN_KEY = process.env.OPTIMISMSCAN_KEY || "";
+const MANTLESCAN_KEY = process.env.MANTLESCAN_KEY || "";
+const INFURA_KEY = process.env.INFURA_KEY || "";
+const ANKR_KEY = process.env.ANKR_KEY || "";
+// const MNEMONIC = 'myth like bonus scare over problem client lizard pioneer submit female collect';
+const MNEMONIC = process.env.MNEMONIC || "";  
+const REPORT_GAS = process.env.REPORT_GAS || 'false';
+const NETWORK_PROVIDER = process.env.NETWORK_PROVIDER || "";
+const GOV_NETWORK_PROVIDER = process.env.GOV_NETWORK_PROVIDER || "";
+const GOV_NETWORK = process.env.GOV_NETWORK || "";
+const REMOTE_ACCOUNTS = process.env.REMOTE_ACCOUNTS || "";
 
 function* deriveAccounts(pk: string, n: number = 10) {
   for (let i = 0; i < n; i++)
@@ -92,14 +91,14 @@ export function requireEnv(varName, msg?: string): string {
 // required environment variables
 [
   'ETHERSCAN_KEY',
-  'SNOWTRACE_KEY',
+  // 'SNOWTRACE_KEY',
   'INFURA_KEY',
-  'ANKR_KEY',
-  'POLYGONSCAN_KEY',
-  'ARBISCAN_KEY',
-  'LINEASCAN_KEY',
-  'OPTIMISMSCAN_KEY',
-  'MANTLESCAN_KEY',
+  // 'ANKR_KEY',
+  // 'POLYGONSCAN_KEY',
+  // 'ARBISCAN_KEY',
+  // 'LINEASCAN_KEY',
+  // 'OPTIMISMSCAN_KEY',
+  // 'MANTLESCAN_KEY',
 ].map((v) => requireEnv(v));
 
 // Networks
@@ -116,7 +115,11 @@ const networkConfigs: NetworkConfig[] = [
   { network: 'ropsten', chainId: 3 },
   { network: 'rinkeby', chainId: 4 },
   { network: 'goerli', chainId: 5 },
-  { network: 'sepolia', chainId: 11155111 },
+  { 
+    network: 'sepolia', 
+    chainId: 11155111,
+    url: `https://rpc.ankr.com/eth_sepolia/${ANKR_KEY}`,
+  },
   {
     network: 'polygon',
     chainId: 137,
@@ -369,65 +372,65 @@ const config: HardhatUserConfig = {
   deploymentManager: {
     relationConfigMap,
     networks: {
-      goerli: {
-        usdc: goerliRelationConfigMap,
-        weth: goerliWethRelationConfigMap
-      },
+      // goerli: {
+      //   usdc: goerliRelationConfigMap,
+      //   weth: goerliWethRelationConfigMap
+      // },
       sepolia: {
         usdc: sepoliaUsdcRelationConfigMap,
         weth: sepoliaWethRelationConfigMap
       },
-      mumbai: {
-        usdc: mumbaiRelationConfigMap
-      },
-      mainnet: {
-        usdc: mainnetRelationConfigMap,
-        weth: mainnetWethRelationConfigMap,
-        usdt: mainnetUsdtRelationConfigMap,
-        wsteth: mainnetWstETHRelationConfigMap,
-        usds: mainnetUsdsRelationConfigMap,
-      },
-      polygon: {
-        usdc: polygonRelationConfigMap,
-        usdt: polygonUsdtRelationConfigMap
-      },
-      arbitrum: {
-        'usdc.e': arbitrumBridgedUsdcRelationConfigMap,
-        usdc: arbitrumNativeUsdcRelationConfigMap,
-        usdt: arbitrumUsdtRelationConfigMap,
-        weth: arbitrumWETHRelationConfigMap
-      },
-      'arbitrum-goerli': {
-        'usdc.e': arbitrumBridgedUsdcGoerliRelationConfigMap,
-        usdc: arbitrumGoerliNativeUsdcRelationConfigMap
-      },
-      'base': {
-        usdbc: baseUsdbcRelationConfigMap,
-        weth: baseWethRelationConfigMap,
-        usdc: baseUsdcRelationConfigMap,
-        aero: baseAeroRelationConfigMap
-      },
-      'base-goerli': {
-        usdc: baseGoerliRelationConfigMap,
-        weth: baseGoerliWethRelationConfigMap
-      },
-      'linea-goerli': {
-        usdc: lineaGoerliRelationConfigMap
-      },
-      optimism: {
-        usdc: optimismRelationConfigMap,
-        usdt: optimismUsdtRelationConfigMap,
-        weth: optimismWethRelationConfigMap
-      },
-      'mantle': {
-        'usde': mantleRelationConfigMap
-      },
-      'scroll-goerli': {
-        usdc: scrollGoerliRelationConfigMap
-      },
-      'scroll': {
-        usdc: scrollRelationConfigMap
-      }
+      // mumbai: {
+      //   usdc: mumbaiRelationConfigMap
+      // },
+      // mainnet: {
+      //   usdc: mainnetRelationConfigMap,
+      //   weth: mainnetWethRelationConfigMap,
+      //   usdt: mainnetUsdtRelationConfigMap,
+      //   wsteth: mainnetWstETHRelationConfigMap,
+      //   usds: mainnetUsdsRelationConfigMap,
+      // },
+      // polygon: {
+      //   usdc: polygonRelationConfigMap,
+      //   usdt: polygonUsdtRelationConfigMap
+      // },
+      // arbitrum: {
+      //   'usdc.e': arbitrumBridgedUsdcRelationConfigMap,
+      //   usdc: arbitrumNativeUsdcRelationConfigMap,
+      //   usdt: arbitrumUsdtRelationConfigMap,
+      //   weth: arbitrumWETHRelationConfigMap
+      // },
+      // 'arbitrum-goerli': {
+      //   'usdc.e': arbitrumBridgedUsdcGoerliRelationConfigMap,
+      //   usdc: arbitrumGoerliNativeUsdcRelationConfigMap
+      // },
+      // 'base': {
+      //   usdbc: baseUsdbcRelationConfigMap,
+      //   weth: baseWethRelationConfigMap,
+      //   usdc: baseUsdcRelationConfigMap,
+      //   aero: baseAeroRelationConfigMap
+      // },
+      // 'base-goerli': {
+      //   usdc: baseGoerliRelationConfigMap,
+      //   weth: baseGoerliWethRelationConfigMap
+      // },
+      // 'linea-goerli': {
+      //   usdc: lineaGoerliRelationConfigMap
+      // },
+      // optimism: {
+      //   usdc: optimismRelationConfigMap,
+      //   usdt: optimismUsdtRelationConfigMap,
+      //   weth: optimismWethRelationConfigMap
+      // },
+      // 'mantle': {
+      //   'usde': mantleRelationConfigMap
+      // },
+      // 'scroll-goerli': {
+      //   usdc: scrollGoerliRelationConfigMap
+      // },
+      // 'scroll': {
+      //   usdc: scrollRelationConfigMap
+      // }
     },
   },
 

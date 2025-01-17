@@ -1,5 +1,5 @@
 import { Deployed, DeploymentManager } from '../../../plugins/deployment_manager';
-import { DeploySpec, cloneGov, deployComet, exp, sameAddress, wait } from '../../../src/deploy';
+import { DeploySpec, cloneInfrastructure, deployComet, deployCustomNetworkComet, exp, sameAddress, wait } from '../../../src/deploy';
 
 const clone = {
   wbtc: '0x2260fac5e5542a773aa44fbcfedf7c193bc2c599',
@@ -15,23 +15,22 @@ export default async function deploy(deploymentManager: DeploymentManager, deplo
 async function deployContracts(deploymentManager: DeploymentManager, deploySpec: DeploySpec): Promise<Deployed> {
   const trace = deploymentManager.tracer()
   const signer = await deploymentManager.getSigner();
-
   // Deploy governance contracts
-  const { COMP, fauceteer, timelock } = await cloneGov(deploymentManager);
+  const { COMP, fauceteer } = await cloneInfrastructure(deploymentManager);
 
   // Clone collateral assets from mainnet
   const WBTC = await deploymentManager.clone('WBTC', clone.wbtc, []);
   const WETH = await deploymentManager.clone('WETH', clone.weth, []);
-
+  console.log('deploy comet');
   // Deploy all Comet-related contracts
-  const deployed = await deployComet(deploymentManager, deploySpec);
+  const deployed = await deployCustomNetworkComet(deploymentManager, deploySpec);
   const { rewards } = deployed;
-
+  console.log('deploy bulker')
   // Deploy Bulker
   const bulker = await deploymentManager.deploy(
     'bulker',
     'bulkers/BaseBulker.sol',
-    [timelock.address, WETH.address]
+    [signer.address, WETH.address]
   );
 
   await deploymentManager.idempotent(
@@ -46,6 +45,7 @@ async function deployContracts(deploymentManager: DeploymentManager, deploySpec:
   );
 
   return { ...deployed, fauceteer, bulker };
+
 }
 
 async function mintTokens(deploymentManager: DeploymentManager) {
