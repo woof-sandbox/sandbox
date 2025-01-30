@@ -107,7 +107,7 @@
           "newLines": 6,
           "lines": [
             " // SPDX-License-Identifier: GPL-2.0-or-later",
-            "-pragma solidity 0.8.15;",
+            "-pragma solidity 0.8.28;",
             "+pragma solidity =0.7.6;",
             " ",
             " import '../interfaces/IPeripheryImmutableState.sol';",
@@ -208,7 +208,7 @@
           "newLines": 8,
           "lines": [
             " // SPDX-License-Identifier: GPL-2.0-or-later",
-            "-pragma solidity 0.8.15;",
+            "-pragma solidity 0.8.28;",
             "+pragma solidity =0.7.6;",
             " ",
             "-import '../../../v3-core/contracts/interfaces/IUniswapV3Pool.sol';",
@@ -312,7 +312,7 @@
           "newLines": 8,
           "lines": [
             " // SPDX-License-Identifier: GPL-2.0-or-later",
-            "-pragma solidity 0.8.15;",
+            "-pragma solidity 0.8.28;",
             "+pragma solidity =0.7.6;",
             " ",
             "-import '../../../../../@openzeppelin/contracts/token/ERC20/IERC20.sol';",

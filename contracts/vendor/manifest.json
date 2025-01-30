@@ -45,7 +45,7 @@
             " // You should have received a copy of the GNU General Public License",
             " // along with this program.  If not, see <http://www.gnu.org/licenses/>.",
             " ",
-            "-pragma solidity 0.8.15;",
+            "-pragma solidity 0.8.28;",
             "+pragma solidity >=0.4.22 <0.6;",
             " ",
             " contract WETH9 {",
@@ -224,7 +224,7 @@
           "newLines": 34,
           "lines": [
             "-// SPDX-License-Identifier: BUSL-1.1",
-            "-pragma solidity 0.8.15;",
+            "-pragma solidity 0.8.28;",
             "+// SPDX-License-Identifier: BSD-3-Clause",
             "+pragma solidity ^0.8.10;",
             " ",
