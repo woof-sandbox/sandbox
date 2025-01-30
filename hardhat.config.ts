@@ -21,7 +21,7 @@ import relationConfigMap from './deployments/relations';
 // import goerliRelationConfigMap from './deployments/goerli/usdc/relations';
 // import goerliWethRelationConfigMap from './deployments/goerli/weth/relations';
 import sepoliaUsdcRelationConfigMap from './deployments/sepolia/usdc/relations';
-import sepoliaWethRelationConfigMap from './deployments/sepolia/weth/relations';
+// import sepoliaWethRelationConfigMap from './deployments/sepolia/weth/relations';
 // import mumbaiRelationConfigMap from './deployments/mumbai/usdc/relations';
 // import mainnetRelationConfigMap from './deployments/mainnet/usdc/relations';
 // import mainnetWethRelationConfigMap from './deployments/mainnet/weth/relations';
@@ -93,7 +93,7 @@ export function requireEnv(varName, msg?: string): string {
   'ETHERSCAN_KEY',
   // 'SNOWTRACE_KEY',
   'INFURA_KEY',
-  // 'ANKR_KEY',
+  'ANKR_KEY',
   // 'POLYGONSCAN_KEY',
   // 'ARBISCAN_KEY',
   // 'LINEASCAN_KEY',
@@ -372,258 +372,19 @@ const config: HardhatUserConfig = {
   deploymentManager: {
     relationConfigMap,
     networks: {
-      // goerli: {
-      //   usdc: goerliRelationConfigMap,
-      //   weth: goerliWethRelationConfigMap
-      // },
       sepolia: {
-        usdc: sepoliaUsdcRelationConfigMap,
-        weth: sepoliaWethRelationConfigMap
-      },
-      // mumbai: {
-      //   usdc: mumbaiRelationConfigMap
-      // },
-      // mainnet: {
-      //   usdc: mainnetRelationConfigMap,
-      //   weth: mainnetWethRelationConfigMap,
-      //   usdt: mainnetUsdtRelationConfigMap,
-      //   wsteth: mainnetWstETHRelationConfigMap,
-      //   usds: mainnetUsdsRelationConfigMap,
-      // },
-      // polygon: {
-      //   usdc: polygonRelationConfigMap,
-      //   usdt: polygonUsdtRelationConfigMap
-      // },
-      // arbitrum: {
-      //   'usdc.e': arbitrumBridgedUsdcRelationConfigMap,
-      //   usdc: arbitrumNativeUsdcRelationConfigMap,
-      //   usdt: arbitrumUsdtRelationConfigMap,
-      //   weth: arbitrumWETHRelationConfigMap
-      // },
-      // 'arbitrum-goerli': {
-      //   'usdc.e': arbitrumBridgedUsdcGoerliRelationConfigMap,
-      //   usdc: arbitrumGoerliNativeUsdcRelationConfigMap
-      // },
-      // 'base': {
-      //   usdbc: baseUsdbcRelationConfigMap,
-      //   weth: baseWethRelationConfigMap,
-      //   usdc: baseUsdcRelationConfigMap,
-      //   aero: baseAeroRelationConfigMap
-      // },
-      // 'base-goerli': {
-      //   usdc: baseGoerliRelationConfigMap,
-      //   weth: baseGoerliWethRelationConfigMap
-      // },
-      // 'linea-goerli': {
-      //   usdc: lineaGoerliRelationConfigMap
-      // },
-      // optimism: {
-      //   usdc: optimismRelationConfigMap,
-      //   usdt: optimismUsdtRelationConfigMap,
-      //   weth: optimismWethRelationConfigMap
-      // },
-      // 'mantle': {
-      //   'usde': mantleRelationConfigMap
-      // },
-      // 'scroll-goerli': {
-      //   usdc: scrollGoerliRelationConfigMap
-      // },
-      // 'scroll': {
-      //   usdc: scrollRelationConfigMap
-      // }
+        usdc: sepoliaUsdcRelationConfigMap
+      }
     },
   },
 
   scenario: {
     bases: [
       {
-        name: 'mainnet',
-        network: 'mainnet',
-        deployment: 'usdc',
-        allocation: 1.0, // eth
-      },
-      {
-        name: 'mainnet-weth',
-        network: 'mainnet',
-        deployment: 'weth',
-      },
-      {
-        name: 'mainnet-usdt',
-        network: 'mainnet',
-        deployment: 'usdt'
-      },
-      {
-        name: 'mainnet-wsteth',
-        network: 'mainnet',
-        deployment: 'wsteth'
-      },
-      {
-        name: 'mainnet-usds',
-        network: 'mainnet',
-        deployment: 'usds'
-      },
-      {
-        name: 'development',
-        network: 'hardhat',
-        deployment: 'dai'
-      },
-      {
-        name: 'fuji',
-        network: 'fuji',
-        deployment: 'usdc'
-      },
-      {
-        name: 'goerli',
-        network: 'goerli',
-        deployment: 'usdc'
-      },
-      {
-        name: 'goerli-weth',
-        network: 'goerli',
-        deployment: 'weth',
-      },
-      {
         name: 'sepolia-usdc',
         network: 'sepolia',
         deployment: 'usdc'
       },
-      {
-        name: 'sepolia-weth',
-        network: 'sepolia',
-        deployment: 'weth'
-      },
-      {
-        name: 'mumbai',
-        network: 'mumbai',
-        deployment: 'usdc',
-        auxiliaryBase: 'goerli'
-      },
-      {
-        name: 'polygon',
-        network: 'polygon',
-        deployment: 'usdc',
-        auxiliaryBase: 'mainnet'
-      },
-      {
-        name: 'polygon-usdt',
-        network: 'polygon',
-        deployment: 'usdt',
-        auxiliaryBase: 'mainnet'
-      },
-      {
-        name: 'arbitrum-usdc.e',
-        network: 'arbitrum',
-        deployment: 'usdc.e',
-        auxiliaryBase: 'mainnet'
-      },
-      {
-        name: 'arbitrum-usdt',
-        network: 'arbitrum',
-        deployment: 'usdt',
-        auxiliaryBase: 'mainnet'
-      },
-      {
-        name: 'arbitrum-usdc',
-        network: 'arbitrum',
-        deployment: 'usdc',
-        auxiliaryBase: 'mainnet'
-      },
-      {
-        name: 'arbitrum-weth',
-        network: 'arbitrum',
-        deployment: 'weth',
-        auxiliaryBase: 'mainnet'
-      },
-      {
-        name: 'arbitrum-goerli-usdc.e',
-        network: 'arbitrum-goerli',
-        deployment: 'usdc.e',
-        auxiliaryBase: 'goerli'
-      },
-      {
-        name: 'arbitrum-goerli-usdc',
-        network: 'arbitrum-goerli',
-        deployment: 'usdc',
-        auxiliaryBase: 'goerli'
-      },
-      {
-        name: 'base-usdbc',
-        network: 'base',
-        deployment: 'usdbc',
-        auxiliaryBase: 'mainnet'
-      },
-      {
-        name: 'base-weth',
-        network: 'base',
-        deployment: 'weth',
-        auxiliaryBase: 'mainnet'
-      },
-      {
-        name: 'base-usdc',
-        network: 'base',
-        deployment: 'usdc',
-        auxiliaryBase: 'mainnet'
-      },
-      {
-        name: 'base-aero',
-        network: 'base',
-        deployment: 'aero',
-        auxiliaryBase: 'mainnet'
-      },
-      {
-        name: 'base-goerli',
-        network: 'base-goerli',
-        deployment: 'usdc',
-        auxiliaryBase: 'goerli'
-      },
-      {
-        name: 'base-goerli-weth',
-        network: 'base-goerli',
-        deployment: 'weth',
-        auxiliaryBase: 'goerli'
-      },
-      {
-        name: 'linea-goerli',
-        network: 'linea-goerli',
-        deployment: 'usdc',
-        auxiliaryBase: 'goerli'
-      },
-      {
-        name: 'optimism-usdc',
-        network: 'optimism',
-        deployment: 'usdc',
-        auxiliaryBase: 'mainnet'
-      },
-      {
-        name: 'optimism-usdt',
-        network: 'optimism',
-        deployment: 'usdt',
-        auxiliaryBase: 'mainnet',
-      },
-      {
-        name: 'optimism-weth',
-        network: 'optimism',
-        deployment: 'weth',
-        auxiliaryBase: 'mainnet'
-      },
-      {
-        name: 'mantle-usde',
-        network: 'mantle',
-        deployment: 'usde',
-        auxiliaryBase: 'mainnet'
-      },
-      {
-        name: 'scroll-goerli',
-        network: 'scroll-goerli',
-        deployment: 'usdc',
-        auxiliaryBase: 'goerli'
-      },
-      {
-        name: 'scroll-usdc',
-        network: 'scroll',
-        deployment: 'usdc',
-        auxiliaryBase: 'mainnet'
-      }
     ],
   },
 

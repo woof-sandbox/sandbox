@@ -76,19 +76,19 @@ const relationConfigMap: RelationConfigMap = {
     }
   },
   cometAdmin: {
-    relations: {
-      timelock: {
-        field: async (cometAdmin) => cometAdmin.owner()
-      }
-    }
+    // relations: {
+    //   timelock: {
+    //     field: async (cometAdmin) => cometAdmin.owner()
+    //   }
+    // }
   },
-  timelock: {
-    relations: {
-      governor: {
-        field: async (timelock) => timelock.admin(),
-      }
-    }
-  },
+  // timelock: {
+  //   relations: {
+  //     governor: {
+  //       field: async (timelock) => timelock.admin(),
+  //     }
+  //   }
+  // },
 
   governor: {
     artifact: 'contracts/IProxy.sol:IProxy',
