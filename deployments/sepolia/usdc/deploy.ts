@@ -1,5 +1,5 @@
 import { Deployed, DeploymentManager } from '../../../plugins/deployment_manager';
-import { DeploySpec, cloneGov, deployComet, exp, sameAddress, wait } from '../../../src/deploy';
+import { DeploySpec, cloneGov, deployComet, exp, wait } from '../../../src/deploy';
 
 const clone = {
   wbtc: '0x2260fac5e5542a773aa44fbcfedf7c193bc2c599',
@@ -13,14 +13,14 @@ export default async function deploy(deploymentManager: DeploymentManager, deplo
 }
 
 async function deployContracts(deploymentManager: DeploymentManager, deploySpec: DeploySpec): Promise<Deployed> {
-  const trace = deploymentManager.tracer()
+  const trace = deploymentManager.tracer();
   const signer = await deploymentManager.getSigner();
 
   // Deploy governance contracts
   const { COMP, fauceteer, timelock } = await cloneGov(deploymentManager);
 
   // Clone collateral assets from mainnet
-  const WBTC = await deploymentManager.clone('WBTC', clone.wbtc, []);
+  const _WBTC = await deploymentManager.clone('WBTC', clone.wbtc, []);
   const WETH = await deploymentManager.clone('WETH', clone.weth, []);
 
   // Deploy all Comet-related contracts
@@ -51,12 +51,16 @@ async function deployContracts(deploymentManager: DeploymentManager, deploySpec:
 async function mintTokens(deploymentManager: DeploymentManager) {
   const trace = deploymentManager.tracer();
   const signer = await deploymentManager.getSigner();
-  const contracts = await deploymentManager.contracts();
-  const fauceteer = contracts.get('fauceteer');
+  // const contracts = await deploymentManager.contracts();
+  // const fauceteer = contracts.get('fauceteer');
 
   trace(`Attempting to mint as ${signer.address}...`);
 
-  const WETH = contracts.get('WETH');
+  const {
+    WETH,
+    fauceteer,
+    WBTC,
+  } = await deploymentManager.getContracts();
   await deploymentManager.idempotent(
     async () => (await WETH.balanceOf(signer.address)).lt(exp(0.01, 18)),
     async () => {
@@ -66,7 +70,7 @@ async function mintTokens(deploymentManager: DeploymentManager) {
     }
   );
 
-  const WBTC = contracts.get('WBTC');
+  // const WBTC = contracts.get('WBTC');
   await deploymentManager.idempotent(
     async () => (await WBTC.balanceOf(fauceteer.address)).eq(0),
     async () => {
