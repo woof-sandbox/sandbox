@@ -17,7 +17,7 @@ async function deployContracts(deploymentManager: DeploymentManager, deploySpec:
   const signer = await deploymentManager.getSigner();
 
   // Deploy governance contracts
-  const { COMP, fauceteer, timelock } = await cloneGov(deploymentManager);
+  const { COMP, fauceteer } = await cloneGov(deploymentManager);
 
   // Clone collateral assets from mainnet
   const _WBTC = await deploymentManager.clone('WBTC', clone.wbtc, []);
@@ -31,7 +31,7 @@ async function deployContracts(deploymentManager: DeploymentManager, deploySpec:
   const bulker = await deploymentManager.deploy(
     'bulker',
     'bulkers/BaseBulker.sol',
-    [timelock.address, WETH.address]
+    [signer.address, WETH.address]
   );
 
   await deploymentManager.idempotent(
