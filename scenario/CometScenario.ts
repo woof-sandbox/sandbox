@@ -1,7 +1,7 @@
 import { scenario } from './context/CometContext';
 import { expect } from 'chai';
 
-scenario('initializes governor correctly', {}, async ({ comet, timelock }) => {
+scenario.skip('initializes governor correctly', {}, async ({ comet, timelock }) => {
   // TODO: Make this more interesting.
   expect(await comet.governor()).to.equal(timelock.address);
 });

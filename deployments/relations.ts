@@ -14,6 +14,9 @@ const relationConfigMap: RelationConfigMap = {
       },
     },
     relations: {
+      governor: {
+        field: async (comet) => comet.governor()
+      },
       baseToken: {
         alias: async (token) => token.symbol(),
       },
@@ -76,34 +79,29 @@ const relationConfigMap: RelationConfigMap = {
     }
   },
   cometAdmin: {
-    relations: {
-      timelock: {
-        field: async (cometAdmin) => cometAdmin.owner()
-      }
-    }
   },
-  timelock: {
-    relations: {
-      governor: {
-        field: async (timelock) => timelock.admin(),
-      }
-    }
-  },
+  // timelock: {
+  //   relations: {
+  //     governor: {
+  //       field: async (timelock) => timelock.admin(),
+  //     }
+  //   }
+  // },
 
-  governor: {
-    artifact: 'contracts/IProxy.sol:IProxy',
-    delegates: {
-      field: async (governor) => governor.implementation(),
-    },
-    relations: {
-      COMP: {
-        field: async (governor) => governor.comp(),
-      }
-    }
-  },
-  'governor:implementation': {
-    artifact: 'contracts/IGovernorBravo.sol:IGovernorBravo',
-  },
+  // governor: {
+  //   artifact: 'contracts/IProxy.sol:IProxy',
+  //   delegates: {
+  //     field: async (governor) => governor.implementation(),
+  //   },
+  //   relations: {
+  //     COMP: {
+  //       field: async (governor) => governor.comp(),
+  //     }
+  //   }
+  // },
+  // 'governor:implementation': {
+  //   artifact: 'contracts/IGovernorBravo.sol:IGovernorBravo',
+  // },
 
   COMP: {
     artifact: 'contracts/IComp.sol:IComp',

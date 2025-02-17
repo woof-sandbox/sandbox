@@ -2,11 +2,11 @@ import { scenario } from './context/CometContext';
 import { expectRevertCustom } from './utils';
 import { expect } from 'chai';
 
-scenario('upgrade governor', {}, async ({ comet, configurator, timelock, actors }, context) => {
+scenario('upgrade governor', {}, async ({ comet, configurator, actors }, context) => {
   const { admin, albert } = actors;
 
-  expect(await comet.governor()).to.equal(timelock.address);
-  expect((await configurator.getConfiguration(comet.address)).governor).to.equal(timelock.address);
+  expect(await comet.governor()).to.equal(admin.address);
+  expect((await configurator.getConfiguration(comet.address)).governor).to.equal(admin.address);
 
   await context.setNextBaseFeeToZero();
   await configurator.connect(admin.signer).setGovernor(comet.address, albert.address, { gasPrice: 0 });
