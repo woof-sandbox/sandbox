@@ -1,5 +1,6 @@
 import { Deployed, DeploymentManager } from '../../../plugins/deployment_manager';
 import { DeploySpec, cloneGov, deployComet, exp, wait } from '../../../src/deploy';
+import { ManagedFaucetToken, ManagedSimplePriceFeed } from '../../../build/types';
 
 const clone = {
   wbtc: '0x2260fac5e5542a773aa44fbcfedf7c193bc2c599',
@@ -12,19 +13,53 @@ export default async function deploy(deploymentManager: DeploymentManager, deplo
   return deployed;
 }
 
+
+async function makeToken(
+  deploymentManager: DeploymentManager,
+  amount: number,
+  name: string,
+  decimals: number,
+  symbol: string
+): Promise<ManagedFaucetToken> {
+  const mint = (BigInt(amount) * 10n ** BigInt(decimals)).toString();
+  return deploymentManager.deploy(symbol, 'test/ManagedFaucetToken.sol', [mint, name, decimals, symbol]);
+}
+
+async function makePriceFeed(
+  deploymentManager: DeploymentManager,
+  alias: string,
+  initialPrice: number,
+): Promise<ManagedSimplePriceFeed> {
+  return deploymentManager.deploy(alias, 'test/ManagedSimplePriceFeed.sol', [initialPrice * 1e8, 8]);
+}
+
 async function deployContracts(deploymentManager: DeploymentManager, deploySpec: DeploySpec): Promise<Deployed> {
   const trace = deploymentManager.tracer();
   const signer = await deploymentManager.getSigner();
 
   // Deploy governance contracts
-  const { COMP, fauceteer } = await cloneGov(deploymentManager);
+  // const { COMP, fauceteer } = await cloneGov(deploymentManager);
+  const fauceteer = await deploymentManager.deploy('fauceteer', 'test/Fauceteer.sol', []);
 
   // Clone collateral assets from mainnet
-  const _WBTC = await deploymentManager.clone('WBTC', clone.wbtc, []);
+  // const _WBTC = await deploymentManager.clone('WBTC', clone.wbtc, []);
   const WETH = await deploymentManager.clone('WETH', clone.weth, []);
 
+  const USDC = await makeToken(deploymentManager, 10000000, 'USD Coin', 6, 'USDC');
+  const _WBTC = await makeToken(deploymentManager, 20000000, 'Wrapped BTC', 8, 'WBTC');
+  const COMP = await makeToken(deploymentManager, 20000000, 'Compound', 18, 'COMP');
+
+  const usdcPriceFeed = await makePriceFeed(deploymentManager, 'USDC:priceFeed', 0.99999);
+  const _wbtcPriceFeed = await makePriceFeed(deploymentManager, 'WBTC:priceFeed', 95_000);
+  const _compPriceFeed = await makePriceFeed(deploymentManager, 'COMP:priceFeed', 55);
+  const _wethPriceFeed = await makePriceFeed(deploymentManager, 'WETH:priceFeed', 2700);
+
+
   // Deploy all Comet-related contracts
-  const deployed = await deployComet(deploymentManager, deploySpec);
+  const deployed = await deployComet(deploymentManager, deploySpec, {
+    baseToken: USDC.address,
+    baseTokenPriceFeed: usdcPriceFeed.address
+  });
   const { rewards } = deployed;
 
   // Deploy Bulker
@@ -76,7 +111,7 @@ async function mintTokens(deploymentManager: DeploymentManager) {
     async () => {
       trace(`Minting 20 WBTC to fauceteer`);
       const amount = exp(20, await WBTC.decimals());
-      trace(await wait(WBTC.connect(signer).mint(fauceteer.address, amount)));
+      trace(await wait(WBTC.connect(signer).allocateTo(fauceteer.address, amount)));
       trace(`WBTC.balanceOf(${fauceteer.address}): ${await WBTC.balanceOf(fauceteer.address)}`);
     }
   );

@@ -10,6 +10,7 @@ import { storeBuildFile } from './ContractMap';
 import { BuildFile, TraceFn } from './Types';
 import { debug, getPrimaryContract, stringifyJson, asyncCallWithTimeout } from './Utils';
 import { VerifyArgs, verifyContract, VerificationStrategy } from './Verify';
+// import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
 
 export interface DeployOpts {
   cache?: Cache; // caches the build file, if included
@@ -47,10 +48,11 @@ async function doDeploy<C extends Contract>(
   factory: ContractFactory,
   args: any[],
   opts: DeployOpts,
-  src: string
+  src: string,
+  // signer: SignerWithAddress
 ): Promise<C> {
   const trace = opts.trace ?? debug;
-  trace(`Deploying ${name} with args ${stringifyJson(args)} via ${src}`);
+  trace(`Deploying ${name} with args ${stringifyJson(args)} via ${src}`);  
   const contract = await factory.deploy(...args);
   await contract.deployed();
   trace(contract.deployTransaction, `Deployed ${name} @ ${contract.address}`);
@@ -105,7 +107,8 @@ export async function deploy<C extends Contract>(
   contractFile: string,
   deployArgs: any[],
   hre: HardhatRuntimeEnvironment,
-  deployOpts: DeployOpts
+  deployOpts: DeployOpts,
+  // signer: SignerWithAddress
 ): Promise<C> {
   const contractFileName = contractFile.split('/').reverse()[0];
   const contractName = contractFileName.replace('.sol', '');

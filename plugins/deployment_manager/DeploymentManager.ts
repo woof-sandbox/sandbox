@@ -178,8 +178,11 @@ export class DeploymentManager {
     contractFile: string,
     deployArgs: DeployArgs,
     force?: boolean,
-    retries?: number
+    retries?: number,
+    // signer: SignerWithAddress = undefined,
   ): Promise<C> {
+    // signer = signer ?? await this.getSigner();
+
     const maybeExisting: C = await this.contract(alias);
     if (!maybeExisting || force) {
       const contract: C = await this._deploy(contractFile, deployArgs, retries);
@@ -241,7 +244,9 @@ export class DeploymentManager {
   }
 
   /* Deploys a contract from Hardhat artifacts */
-  async _deploy<C extends Contract>(contractFile: string, deployArgs: any[], retries?: number): Promise<C> {
+  async _deploy<C extends Contract>(contractFile: string, deployArgs: any[],
+    // signer: SignerWithAddress,
+    retries?: number): Promise<C> {
     const contract = await this.retry(
       async () => deploy(contractFile, deployArgs, this.hre, await this.deployOpts()),
       retries
