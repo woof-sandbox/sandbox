@@ -59,16 +59,12 @@ contract SandboxController is AccessControl {
     /// @notice Event emitted when a base asset curve is added.
     event BaseAssetCurveAdded(
         address indexed token,
-        address indexed priceFeed,
-        uint8 decimals,
         BaseAssetCurve baseAssetCurve
     );
 
     /// @notice Event emitted when a base asset curve is changed.
     event BaseAssetCurveChanged(
         address indexed token,
-        address indexed priceFeed,
-        uint8 decimals,
         BaseAssetCurve baseAssetCurveBefore,
         BaseAssetCurve baseAssetCurve
     );
@@ -183,7 +179,7 @@ contract SandboxController is AccessControl {
         }
 
         baseAssets[token].baseAssetCurves.push(baseAssetCurve);
-        emit BaseAssetCurveAdded(token, baseAssets[token].priceFeed, uint8(baseAssets[token].decimals), baseAssetCurve);
+        emit BaseAssetCurveAdded(token, baseAssetCurve);
     }
 
     /**
@@ -223,7 +219,7 @@ contract SandboxController is AccessControl {
         }
 
         baseAssets[token].baseAssetCurves[curveIndex] = baseAssetCurve;
-        emit BaseAssetCurveChanged(token, baseAssets[token].priceFeed, uint8(baseAssets[token].decimals), baseAssetCurveBefore, baseAssetCurve);
+        emit BaseAssetCurveChanged(token, baseAssetCurveBefore, baseAssetCurve);
     }
 
     /**
