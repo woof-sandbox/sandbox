@@ -10,7 +10,10 @@ import {IPriceFeed} from "./IPriceFeed.sol";
  * @dev Manages base asset configurations and interest rate curves.
  */
 contract SandboxController is AccessControl {
-    
+
+    /// @notice Role identifier for owner.
+    bytes32 public constant OWNER_ROLE = keccak256("OWNER_ROLE");
+
     /// @notice Role identifier for DAO governance.
     bytes32 public constant DAO_ROLE = keccak256("DAO_ROLE");
 
@@ -35,13 +38,13 @@ contract SandboxController is AccessControl {
 
     /// @notice Mapping of base assets to their configurations.
     mapping(address => BaseAssetConfiguration) public baseAssets;
-    
+
     /// @notice Tracks whitelisted price feeds.
     mapping(address => bool) public isPriceFeedWhitelisted;
-    
+
     /// @notice Array of base asset tokens.
     address[] public baseAssetTokens;
-    
+
     /// @notice Total count of base assets.
     uint256 public baseAssetCount;
 
@@ -50,6 +53,23 @@ contract SandboxController is AccessControl {
         address indexed token,
         address indexed priceFeed,
         uint8 decimals,
+        BaseAssetCurve baseAssetCurve
+    );
+
+    /// @notice Event emitted when a base asset curve is added.
+    event BaseAssetCurveAdded(
+        address indexed token,
+        address indexed priceFeed,
+        uint8 decimals,
+        BaseAssetCurve baseAssetCurve
+    );
+
+    /// @notice Event emitted when a base asset curve is changed.
+    event BaseAssetCurveChanged(
+        address indexed token,
+        address indexed priceFeed,
+        uint8 decimals,
+        BaseAssetCurve baseAssetCurveBefore,
         BaseAssetCurve baseAssetCurve
     );
 
@@ -64,7 +84,7 @@ contract SandboxController is AccessControl {
 
     /// @dev Modifier to restrict function access to authorized roles.
     modifier onlyAuthorized() {
-        if (!(hasRole(DEFAULT_ADMIN_ROLE, msg.sender) || hasRole(DAO_ROLE, msg.sender))) {
+        if (!(hasRole(OWNER_ROLE, msg.sender) || hasRole(DAO_ROLE, msg.sender))) {
             revert NotAuthorized(msg.sender);
         }
         _;
@@ -77,15 +97,29 @@ contract SandboxController is AccessControl {
         }
         _;
     }
-    
+
+    /// @dev Modifier to restrict function access to owner role.
+    modifier onlyOwner() {
+        if (!hasRole(OWNER_ROLE, msg.sender)) {
+            revert NotAuthorized(msg.sender);
+        }
+        _;
+    }
+
     /**
      * @dev Constructor initializes roles.
      * @param ownerMultisig Address of the owner multisig.
      * @param dao Address of the DAO.
      */
     constructor(address ownerMultisig, address dao) {
-        _grantRole(DEFAULT_ADMIN_ROLE, ownerMultisig);
+        if (ownerMultisig == address(0) || dao == address(0)) {
+            revert ZeroAddress();
+        }
+
+        _grantRole(OWNER_ROLE, ownerMultisig);
         _grantRole(DAO_ROLE, dao);
+        _setRoleAdmin(OWNER_ROLE, 0x0);
+        _setRoleAdmin(DAO_ROLE, 0x0);
     }
 
     /**
@@ -107,6 +141,9 @@ contract SandboxController is AccessControl {
         }
         if (isPriceFeedWhitelisted[priceFeed]) {
             revert PriceFeedAlreadyWhitelisted();
+        }
+        if (!isCurveConfigurationValid(baseAssetCurve)) {
+            revert InvalidCurveConfiguration();
         }
 
         uint8 decimals = IERC20NonStandard(token).decimals();
@@ -141,9 +178,12 @@ contract SandboxController is AccessControl {
         if (!isTokenWhitelisted(token)) {
             revert TokenNotWhitelisted();
         }
+        if (!isCurveConfigurationValid(baseAssetCurve)) {
+            revert InvalidCurveConfiguration();
+        }
 
         baseAssets[token].baseAssetCurves.push(baseAssetCurve);
-        emit BaseAssetWhitelisted(token, baseAssets[token].priceFeed, uint8(baseAssets[token].decimals), baseAssetCurve);
+        emit BaseAssetCurveAdded(token, baseAssets[token].priceFeed, uint8(baseAssets[token].decimals), baseAssetCurve);
     }
 
     /**
@@ -163,9 +203,27 @@ contract SandboxController is AccessControl {
         if (!isTokenWhitelisted(token)) {
             revert TokenNotWhitelisted();
         }
+        if (!isCurveConfigurationValid(baseAssetCurve) || curveIndex >= baseAssets[token].baseAssetCurves.length) {
+            revert InvalidCurveConfiguration();
+        }
+
+        BaseAssetCurve memory baseAssetCurveBefore = baseAssets[token].baseAssetCurves[curveIndex];
+
+        if (
+            baseAssetCurveBefore.supplyKink == baseAssetCurve.supplyKink &&
+            baseAssetCurveBefore.supplyPerYearInterestRateSlopeLow == baseAssetCurve.supplyPerYearInterestRateSlopeLow &&
+            baseAssetCurveBefore.supplyPerYearInterestRateSlopeHigh == baseAssetCurve.supplyPerYearInterestRateSlopeHigh &&
+            baseAssetCurveBefore.supplyPerYearInterestRateSlopeBase == baseAssetCurve.supplyPerYearInterestRateSlopeBase &&
+            baseAssetCurveBefore.borrowKink == baseAssetCurve.borrowKink &&
+            baseAssetCurveBefore.borrowPerYearInterestRateSlopeLow == baseAssetCurve.borrowPerYearInterestRateSlopeLow &&
+            baseAssetCurveBefore.borrowPerYearInterestRateSlopeHigh == baseAssetCurve.borrowPerYearInterestRateSlopeHigh &&
+            baseAssetCurveBefore.borrowPerYearInterestRateSlopeBase == baseAssetCurve.borrowPerYearInterestRateSlopeBase
+        ) {
+            revert InvalidCurveConfiguration();
+        }
 
         baseAssets[token].baseAssetCurves[curveIndex] = baseAssetCurve;
-        emit BaseAssetWhitelisted(token, baseAssets[token].priceFeed, uint8(baseAssets[token].decimals), baseAssetCurve);
+        emit BaseAssetCurveChanged(token, baseAssets[token].priceFeed, uint8(baseAssets[token].decimals), baseAssetCurveBefore, baseAssetCurve);
     }
 
     /**
@@ -178,18 +236,46 @@ contract SandboxController is AccessControl {
     }
 
     /**
-     * @notice Grants DAO role to a new address.
-     * @param newDao The address to receive DAO role.
+     * @notice Checks if the curve configuration is valid.
+     * @param baseAssetCurve The interest rate curve configuration to validate.
+     * @return True if the curve configuration is valid, otherwise false.
      */
-    function grantDaoRole(address newDao) external onlyDAO {
-        _grantRole(DAO_ROLE, newDao);
+    function isCurveConfigurationValid(BaseAssetCurve memory baseAssetCurve) public pure returns (bool) {
+        return (
+            baseAssetCurve.supplyKink != 0 &&
+            baseAssetCurve.supplyPerYearInterestRateSlopeLow != 0 &&
+            baseAssetCurve.supplyPerYearInterestRateSlopeHigh != 0 &&
+            baseAssetCurve.supplyPerYearInterestRateSlopeBase != 0 &&
+            baseAssetCurve.borrowKink != 0 &&
+            baseAssetCurve.borrowPerYearInterestRateSlopeLow != 0 &&
+            baseAssetCurve.borrowPerYearInterestRateSlopeHigh != 0 &&
+            baseAssetCurve.borrowPerYearInterestRateSlopeBase != 0
+        );
     }
 
     /**
-     * @notice Grants Admin role to a new address.
-     * @param newAdmin The address to receive Admin role.
+     * @notice Transfers the owner role to a new address.
+     * @param newOwner The address of the new owner.
      */
-    function grantAdminRole(address newAdmin) external onlyDAO {
-        _grantRole(DEFAULT_ADMIN_ROLE, newAdmin);
+    function transferOwnerRole(address newOwner) external onlyOwner {
+        if (newOwner == address(0)) {
+            revert ZeroAddress();
+        }
+
+        _revokeRole(OWNER_ROLE, msg.sender);
+        _grantRole(OWNER_ROLE, newOwner);
+    }
+
+    /**
+     * @notice Transfers the DAO role to a new address.
+     * @param newDAO The address of the new DAO.
+     */
+    function transferDAORole(address newDAO) external onlyDAO {
+        if (newDAO == address(0)) {
+            revert ZeroAddress();
+        }
+
+        _revokeRole(DAO_ROLE, msg.sender);
+        _grantRole(DAO_ROLE, newDAO);
     }
 }
