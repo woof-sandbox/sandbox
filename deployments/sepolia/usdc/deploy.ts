@@ -36,7 +36,6 @@ async function makePriceFeed(
 async function deployContracts(deploymentManager: DeploymentManager, deploySpec: DeploySpec): Promise<Deployed> {
   const trace = deploymentManager.tracer();
   const signer = await deploymentManager.getSigner();
-
   // Deploy governance contracts
   // const { COMP, fauceteer } = await cloneGov(deploymentManager);
   const fauceteer = await deploymentManager.deploy('fauceteer', 'test/Fauceteer.sol', []);
@@ -61,7 +60,7 @@ async function deployContracts(deploymentManager: DeploymentManager, deploySpec:
     baseTokenPriceFeed: usdcPriceFeed.address
   });
   const { rewards } = deployed;
-
+  console.log('deploy bulker')
   // Deploy Bulker
   const bulker = await deploymentManager.deploy(
     'bulker',
@@ -81,6 +80,7 @@ async function deployContracts(deploymentManager: DeploymentManager, deploySpec:
   );
 
   return { ...deployed, fauceteer, bulker };
+
 }
 
 async function mintTokens(deploymentManager: DeploymentManager) {
