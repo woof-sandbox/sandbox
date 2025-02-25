@@ -1,6 +1,5 @@
 import { expect } from 'chai';
-import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
-import { BigNumber, BigNumberish, Contract, ContractReceipt, ContractTransaction, Event, EventFilter, constants, utils } from 'ethers';
+import { BigNumber, Contract, ContractReceipt, ContractTransaction, Event, EventFilter, constants, utils } from 'ethers';
 import { execSync } from 'child_process';
 import { existsSync } from 'fs';
 import { CometContext } from '../context/CometContext';
@@ -13,13 +12,13 @@ import { debug } from '../../plugins/deployment_manager/Utils';
 import { COMP_WHALES } from '../../src/deploy';
 import relayMessage from './relayMessage';
 import { mineBlocks, setNextBaseFeeToZero, setNextBlockTimestamp } from './hreUtils';
-import { BaseBridgeReceiver, CometInterface } from '../../build/types';
+import { CometInterface } from '../../build/types';
 import CometActor from './../context/CometActor';
 import { isBridgeProposal } from './isBridgeProposal';
 
 export { mineBlocks, setNextBaseFeeToZero, setNextBlockTimestamp };
 
-export const MAX_ASSETS = 15;
+export const MAX_ASSETS = 30;
 export const UINT256_MAX = 2n ** 256n - 1n;
 
 export interface ComparativeAmount {
@@ -299,10 +298,15 @@ export function matchesDeployment(ctx: CometContext, deploymentCriteria: Deploym
 export async function isRewardSupported(ctx: CometContext): Promise<boolean> {
   const rewards = await ctx.getRewards();
   const comet = await ctx.getComet();
+  const COMP = await ctx.getComp();
+
   if (rewards == null) return false;
 
   const [rewardTokenAddress] = await rewards.rewardConfig(comet.address);
   if (rewardTokenAddress === constants.AddressZero) return false;
+
+  const totalSupply = await COMP.totalSupply();
+  if (totalSupply.toBigInt() < exp(1, 18)) return false;
 
   return true;
 }
@@ -422,11 +426,7 @@ async function mockRedstoneOracle(dm: DeploymentManager, feed: string){
   await proxyAdmin.connect(owner).upgrade(feed, newImplementation.address);
 }
 
-
-export async function executeOpenProposal(
-  dm: DeploymentManager,
-  { id, startBlock, endBlock }: OpenProposal
-) {
+export async function voteForOpenProposal(dm: DeploymentManager, { id, startBlock, endBlock }: OpenProposal) {
   const governor = await dm.getContractOrThrow('governor');
   const blockNow = await dm.hre.ethers.provider.getBlockNumber();
   const blocksUntilStart = startBlock.toNumber() - blockNow;
@@ -449,6 +449,18 @@ export async function executeOpenProposal(
         debug(`Error while voting for ${whale}`, err.message);
       }
     }
+  }
+}
+
+export async function executeOpenProposal(
+  dm: DeploymentManager,
+  { id, startBlock, endBlock }: OpenProposal
+) {
+  const governor = await dm.getContractOrThrow('governor');
+  const blockNow = await dm.hre.ethers.provider.getBlockNumber();
+  const blocksUntilEnd = endBlock.toNumber() - Math.max(startBlock.toNumber(), blockNow) + 1;
+
+  if (blocksUntilEnd > 0) {
     await mineBlocks(dm, blocksUntilEnd);
   }
 
@@ -461,207 +473,210 @@ export async function executeOpenProposal(
   // Execute proposal (maybe, w/ gas limit so we see if exec reverts, not a gas estimation error)
   if (await governor.state(id) == ProposalState.Queued) {
     const block = await dm.hre.ethers.provider.getBlock('latest');
-    const proposal = await governor.proposals(id);
-    await setNextBlockTimestamp(dm, Math.max(block.timestamp, proposal.eta.toNumber()) + 1);
+    const eta = await governor.proposalEta(id);
+    
+    await setNextBlockTimestamp(dm, Math.max(block.timestamp, eta.toNumber()) + 1);
     await setNextBaseFeeToZero(dm);
-    await governor.execute(id, { gasPrice: 0, gasLimit: 12000000 });
+    await governor.execute(id, { gasPrice: 0, gasLimit: 120000000 });
   }
   await redeployRenzoOracle(dm);
   await mockAllRedstoneOracles(dm);
+  // mine a block
+  await dm.hre.ethers.provider.send('evm_mine', []);
 }
 
 // Instantly executes some actions through the governance proposal process
-export async function fastGovernanceExecute(
-  dm: DeploymentManager,
-  proposer: SignerWithAddress,
-  targets: string[],
-  values: BigNumberish[],
-  signatures: string[],
-  calldatas: string[]
-) {
-  const governor = await dm.getContractOrThrow('governor');
+// export async function fastGovernanceExecute(
+//   dm: DeploymentManager,
+//   proposer: SignerWithAddress,
+//   targets: string[],
+//   values: BigNumberish[],
+//   signatures: string[],
+//   calldatas: string[]
+// ) {
+//   const governor = await dm.getContractOrThrow('governor');
 
-  await setNextBaseFeeToZero(dm);
+//   await setNextBaseFeeToZero(dm);
 
-  const proposeTxn = await (
-    await governor.connect(proposer).propose(
-      targets,
-      values,
-      signatures,
-      calldatas,
-      'FastExecuteProposal',
-      { gasPrice: 0 }
-    )
-  ).wait();
-  const proposeEvent = proposeTxn.events.find(event => event.event === 'ProposalCreated');
-  const [id, , , , , , startBlock, endBlock] = proposeEvent.args;
+//   const proposeTxn = await (
+//     await governor.connect(proposer).propose(
+//       targets,
+//       values,
+//       signatures,
+//       calldatas,
+//       'FastExecuteProposal',
+//       { gasPrice: 0 }
+//     )
+//   ).wait();
+//   const proposeEvent = proposeTxn.events.find(event => event.event === 'ProposalCreated');
+//   const [id, , , , , , startBlock, endBlock] = proposeEvent.args;
 
-  await executeOpenProposal(dm, { id, startBlock, endBlock });
-}
+//   await executeOpenProposal(dm, { id, startBlock, endBlock });
+// }
 
-export async function fastL2GovernanceExecute(
-  governanceDeploymentManager: DeploymentManager,
-  bridgeDeploymentManager: DeploymentManager,
-  proposer: SignerWithAddress,
-  targets: string[],
-  values: BigNumberish[],
-  signatures: string[],
-  calldatas: string[]
-) {
-  const startingBlockNumber = await governanceDeploymentManager.hre.ethers.provider.getBlockNumber();
-  await fastGovernanceExecute(
-    governanceDeploymentManager,
-    proposer,
-    targets,
-    values,
-    signatures,
-    calldatas
-  );
+// export async function fastL2GovernanceExecute(
+//   governanceDeploymentManager: DeploymentManager,
+//   bridgeDeploymentManager: DeploymentManager,
+//   proposer: SignerWithAddress,
+//   targets: string[],
+//   values: BigNumberish[],
+//   signatures: string[],
+//   calldatas: string[]
+// ) {
+//   const startingBlockNumber = await governanceDeploymentManager.hre.ethers.provider.getBlockNumber();
+//   await fastGovernanceExecute(
+//     governanceDeploymentManager,
+//     proposer,
+//     targets,
+//     values,
+//     signatures,
+//     calldatas
+//   );
 
-  await relayMessage(governanceDeploymentManager, bridgeDeploymentManager, startingBlockNumber);
-}
+//   await relayMessage(governanceDeploymentManager, bridgeDeploymentManager, startingBlockNumber);
+// }
 
-export async function createCrossChainProposal(context: CometContext, l2ProposalData: string, bridgeReceiver: BaseBridgeReceiver) {
-  const govDeploymentManager = context.world.auxiliaryDeploymentManager!;
-  const bridgeDeploymentManager = context.world.deploymentManager!;
-  const proposer = await context.getProposer();
-  const bridgeNetwork = bridgeDeploymentManager.network;
-  const targets: string[] = [];
-  const values: BigNumberish[] = [];
-  const signatures: string[] = [];
-  const calldata: string[] = [];
+// export async function createCrossChainProposal(context: CometContext, l2ProposalData: string, bridgeReceiver: BaseBridgeReceiver) {
+//   const govDeploymentManager = context.world.auxiliaryDeploymentManager!;
+//   const bridgeDeploymentManager = context.world.deploymentManager!;
+//   const proposer = await context.getProposer();
+//   const bridgeNetwork = bridgeDeploymentManager.network;
+//   const targets: string[] = [];
+//   const values: BigNumberish[] = [];
+//   const signatures: string[] = [];
+//   const calldata: string[] = [];
 
-  // Create the chain-specific wrapper around the L2 proposal data
-  switch (bridgeNetwork) {
-    case 'arbitrum':
-    case 'arbitrum-goerli': {
-      const inbox = await govDeploymentManager.getContractOrThrow('arbitrumInbox');
-      const refundAddress = constants.AddressZero;
-      const createRetryableTicketCalldata = utils.defaultAbiCoder.encode(
-        [
-          'address', 'uint256', 'uint256', 'address', 'address', 'uint256', 'uint256', 'bytes'
-        ],
-        [
-          bridgeReceiver.address, // address to,
-          0,                      // uint256 l2CallValue,
-          0,                      // uint256 maxSubmissionCost,
-          refundAddress,          // address excessFeeRefundAddress,
-          refundAddress,          // address callValueRefundAddress,
-          0,                      // uint256 gasLimit,
-          0,                      // uint256 maxFeePerGas,
-          l2ProposalData,         // bytes calldata data
-        ]
-      );
-      targets.push(inbox.address);
-      values.push(0);
-      signatures.push('createRetryableTicket(address,uint256,uint256,address,address,uint256,uint256,bytes)');
-      calldata.push(createRetryableTicketCalldata);
-      break;
-    }
-    case 'base':
-    case 'base-goerli': {
-      const sendMessageCalldata = utils.defaultAbiCoder.encode(
-        ['address', 'bytes', 'uint32'],
-        [bridgeReceiver.address, l2ProposalData, 1_000_000] // XXX find a reliable way to estimate the gasLimit
-      );
-      const baseL1CrossDomainMessenger = await govDeploymentManager.getContractOrThrow(
-        'baseL1CrossDomainMessenger'
-      );
+//   // Create the chain-specific wrapper around the L2 proposal data
+//   switch (bridgeNetwork) {
+//     case 'arbitrum':
+//     case 'arbitrum-goerli': {
+//       const inbox = await govDeploymentManager.getContractOrThrow('arbitrumInbox');
+//       const refundAddress = constants.AddressZero;
+//       const createRetryableTicketCalldata = utils.defaultAbiCoder.encode(
+//         [
+//           'address', 'uint256', 'uint256', 'address', 'address', 'uint256', 'uint256', 'bytes'
+//         ],
+//         [
+//           bridgeReceiver.address, // address to,
+//           0,                      // uint256 l2CallValue,
+//           0,                      // uint256 maxSubmissionCost,
+//           refundAddress,          // address excessFeeRefundAddress,
+//           refundAddress,          // address callValueRefundAddress,
+//           0,                      // uint256 gasLimit,
+//           0,                      // uint256 maxFeePerGas,
+//           l2ProposalData,         // bytes calldata data
+//         ]
+//       );
+//       targets.push(inbox.address);
+//       values.push(0);
+//       signatures.push('createRetryableTicket(address,uint256,uint256,address,address,uint256,uint256,bytes)');
+//       calldata.push(createRetryableTicketCalldata);
+//       break;
+//     }
+//     case 'base':
+//     case 'base-goerli': {
+//       const sendMessageCalldata = utils.defaultAbiCoder.encode(
+//         ['address', 'bytes', 'uint32'],
+//         [bridgeReceiver.address, l2ProposalData, 1_000_000] // XXX find a reliable way to estimate the gasLimit
+//       );
+//       const baseL1CrossDomainMessenger = await govDeploymentManager.getContractOrThrow(
+//         'baseL1CrossDomainMessenger'
+//       );
 
-      targets.push(baseL1CrossDomainMessenger.address);
-      values.push(0);
-      signatures.push('sendMessage(address,bytes,uint32)');
-      calldata.push(sendMessageCalldata);
-      break;
-    }
-    case 'mumbai':
-    case 'polygon': {
-      const sendMessageToChildCalldata = utils.defaultAbiCoder.encode(
-        ['address', 'bytes'],
-        [bridgeReceiver.address, l2ProposalData]
-      );
-      const fxRoot = await govDeploymentManager.getContractOrThrow('fxRoot');
+//       targets.push(baseL1CrossDomainMessenger.address);
+//       values.push(0);
+//       signatures.push('sendMessage(address,bytes,uint32)');
+//       calldata.push(sendMessageCalldata);
+//       break;
+//     }
+//     case 'mumbai':
+//     case 'polygon': {
+//       const sendMessageToChildCalldata = utils.defaultAbiCoder.encode(
+//         ['address', 'bytes'],
+//         [bridgeReceiver.address, l2ProposalData]
+//       );
+//       const fxRoot = await govDeploymentManager.getContractOrThrow('fxRoot');
 
-      targets.push(fxRoot.address);
-      values.push(0);
-      signatures.push('sendMessageToChild(address,bytes)');
-      calldata.push(sendMessageToChildCalldata);
-      break;
-    }
-    case 'linea-goerli': {
-      const sendMessageCalldata = utils.defaultAbiCoder.encode(
-        ['address', 'uint256', 'bytes'],
-        [bridgeReceiver.address, 0, l2ProposalData]
-      );
-      const lineaMessageService = await govDeploymentManager.getContractOrThrow(
-        'lineaMessageService'
-      );
-      targets.push(lineaMessageService.address);
-      values.push(0);
-      signatures.push('sendMessage(address,uint256,bytes)');
-      calldata.push(sendMessageCalldata);
-      break;
-    }
-    case 'optimism': {
-      const sendMessageCalldata = utils.defaultAbiCoder.encode(
-        ['address', 'bytes', 'uint32'],
-        [bridgeReceiver.address, l2ProposalData, 2_500_000]
-      );
-      const opL1CrossDomainMessenger = await govDeploymentManager.getContractOrThrow(
-        'opL1CrossDomainMessenger'
-      );
+//       targets.push(fxRoot.address);
+//       values.push(0);
+//       signatures.push('sendMessageToChild(address,bytes)');
+//       calldata.push(sendMessageToChildCalldata);
+//       break;
+//     }
+//     case 'linea-goerli': {
+//       const sendMessageCalldata = utils.defaultAbiCoder.encode(
+//         ['address', 'uint256', 'bytes'],
+//         [bridgeReceiver.address, 0, l2ProposalData]
+//       );
+//       const lineaMessageService = await govDeploymentManager.getContractOrThrow(
+//         'lineaMessageService'
+//       );
+//       targets.push(lineaMessageService.address);
+//       values.push(0);
+//       signatures.push('sendMessage(address,uint256,bytes)');
+//       calldata.push(sendMessageCalldata);
+//       break;
+//     }
+//     case 'optimism': {
+//       const sendMessageCalldata = utils.defaultAbiCoder.encode(
+//         ['address', 'bytes', 'uint32'],
+//         [bridgeReceiver.address, l2ProposalData, 2_500_000]
+//       );
+//       const opL1CrossDomainMessenger = await govDeploymentManager.getContractOrThrow(
+//         'opL1CrossDomainMessenger'
+//       );
 
-      targets.push(opL1CrossDomainMessenger.address);
-      values.push(0);
-      signatures.push('sendMessage(address,bytes,uint32)');
-      calldata.push(sendMessageCalldata);
-      break;
-    }
-    case 'mantle': {
-      const sendMessageCalldata = utils.defaultAbiCoder.encode(
-        ['address', 'bytes', 'uint256'],
-        [bridgeReceiver.address, l2ProposalData, 2_500_000]
-      );
-      const mantleL1CrossDomainMessenger = await govDeploymentManager.getContractOrThrow(
-        'mantleL1CrossDomainMessenger'
-      );
-      targets.push(mantleL1CrossDomainMessenger.address);
-      values.push(0);
-      signatures.push('sendMessage(address,bytes,uint32)');
-      calldata.push(sendMessageCalldata);
-      break;
-    }
-    case 'scroll': 
-    case 'scroll-goerli': {
-      const sendMessageCalldata = utils.defaultAbiCoder.encode(
-        ['address', 'uint256', 'bytes', 'uint256'],
-        [bridgeReceiver.address, 0, l2ProposalData, 1_000_000] // XXX find a reliable way to estimate the gasLimit
-      );
-      const scrollMessenger = await govDeploymentManager.getContractOrThrow(
-        'scrollMessenger'
-      );
-      targets.push(scrollMessenger.address);
-      values.push(exp(1, 18)); // XXX fees are paid via msg.value
-      signatures.push('sendMessage(address,uint256,bytes,uint256)');
-      calldata.push(sendMessageCalldata);
-      break;
-    }
-    default:
-      throw new Error(
-        `No cross-chain proposal constructor implementation for ${govDeploymentManager.network} -> ${bridgeNetwork}`
-      );
-  }
+//       targets.push(opL1CrossDomainMessenger.address);
+//       values.push(0);
+//       signatures.push('sendMessage(address,bytes,uint32)');
+//       calldata.push(sendMessageCalldata);
+//       break;
+//     }
+//     case 'mantle': {
+//       const sendMessageCalldata = utils.defaultAbiCoder.encode(
+//         ['address', 'bytes', 'uint256'],
+//         [bridgeReceiver.address, l2ProposalData, 2_500_000]
+//       );
+//       const mantleL1CrossDomainMessenger = await govDeploymentManager.getContractOrThrow(
+//         'mantleL1CrossDomainMessenger'
+//       );
+//       targets.push(mantleL1CrossDomainMessenger.address);
+//       values.push(0);
+//       signatures.push('sendMessage(address,bytes,uint32)');
+//       calldata.push(sendMessageCalldata);
+//       break;
+//     }
+//     case 'scroll': 
+//     case 'scroll-goerli': {
+//       const sendMessageCalldata = utils.defaultAbiCoder.encode(
+//         ['address', 'uint256', 'bytes', 'uint256'],
+//         [bridgeReceiver.address, 0, l2ProposalData, 1_000_000] // XXX find a reliable way to estimate the gasLimit
+//       );
+//       const scrollMessenger = await govDeploymentManager.getContractOrThrow(
+//         'scrollMessenger'
+//       );
+//       targets.push(scrollMessenger.address);
+//       values.push(exp(1, 18)); // XXX fees are paid via msg.value
+//       signatures.push('sendMessage(address,uint256,bytes,uint256)');
+//       calldata.push(sendMessageCalldata);
+//       break;
+//     }
+//     default:
+//       throw new Error(
+//         `No cross-chain proposal constructor implementation for ${govDeploymentManager.network} -> ${bridgeNetwork}`
+//       );
+//   }
 
-  await fastL2GovernanceExecute(
-    govDeploymentManager,
-    bridgeDeploymentManager,
-    proposer,
-    targets,
-    values,
-    signatures,
-    calldata
-  );
-}
+//   await fastL2GovernanceExecute(
+//     govDeploymentManager,
+//     bridgeDeploymentManager,
+//     proposer,
+//     targets,
+//     values,
+//     signatures,
+//     calldata
+//   );
+// }
 
 export async function executeOpenProposalAndRelay(
   governanceDeploymentManager: DeploymentManager,

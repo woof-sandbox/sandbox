@@ -89,6 +89,8 @@ async function removeTokens(
   });
 }
 
+const testnets = ['hardhat', 'sepolia'];
+
 async function addTokens(
   dm: DeploymentManager,
   amount: BigNumber,
@@ -105,6 +107,22 @@ async function addTokens(
   block = block ?? (await ethers.provider.getBlockNumber());
   let tokenContract = new ethers.Contract(asset, erc20, ethers.provider);
   let filter = tokenContract.filters.Transfer();
+  if(testnets.includes(dm.network)){
+    const token = await dm.getContractOrThrow(await tokenContract.symbol());
+    const admin = await dm.getSigner(await token.admin());
+    // impersonate admin
+    await dm.hre.network.provider.request({
+      method: 'hardhat_impersonateAccount',
+      params: [await admin.getAddress()],
+    });
+    await token.connect(admin).allocateTo(address, amount);
+    // stop impersonating admin
+    await dm.hre.network.provider.request({
+      method: 'hardhat_stopImpersonatingAccount',
+      params: [await admin.getAddress()],
+    });
+    return;
+  }
   let { recentLogs, blocksDelta } = await fetchQuery(
     tokenContract,
     filter,

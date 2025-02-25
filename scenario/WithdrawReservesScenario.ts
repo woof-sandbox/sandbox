@@ -10,7 +10,7 @@ scenario(
       albert: { $base: '== 0' },
     },
   },
-  async ({ comet, timelock, actors }, context) => {
+  async ({ comet, actors }, context) => {
     const { admin, albert } = actors;
 
     const baseToken = context.getAssetByAddress(await comet.baseToken());
@@ -18,7 +18,7 @@ scenario(
 
     const cometBaseBalance = await baseToken.balanceOf(comet.address);
 
-    expect(await comet.governor()).to.equal(timelock.address);
+    expect(await comet.governor()).to.equal(admin.address);
 
     const toWithdrawAmount = 10n * scale;
     await context.setNextBaseFeeToZero();
@@ -59,7 +59,7 @@ scenario(
 
     await context.setNextBaseFeeToZero();
     await expectRevertCustom(
-      admin.withdrawReserves(albert.address, 101n * scale, { gasPrice: 0 }),
+      admin.withdrawReserves(albert.address, 1001n * scale, { gasPrice: 0 }),
       'InsufficientReserves()'
     );
   }

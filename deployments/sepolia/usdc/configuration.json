@@ -2,10 +2,6 @@
   "name": "Compound USDC",
   "symbol": "cUSDCv3",
   "baseToken": "USDC",
-  "baseTokenAddress": "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238",
-  "baseTokenPriceFeed": "0xA2F78ab2355fe2f984D808B5CeE7FD0A93D5270E",
-  "governor": "0x48d2f945Eb3842a477715EBF5153795d46692FDB",
-  "pauseGuardian": "0x48d2f945Eb3842a477715EBF5153795d46692FDB",
   "borrowMin": "1e0",
   "storeFrontPriceFactor": 0.5,
   "targetReserves": "5000000e6",
@@ -28,7 +24,6 @@
   "rewardToken": "COMP",
   "assets": {
     "COMP": {
-      "priceFeed": "0x619db7F74C0061E2917D1D57f834D9D24C5529dA",
       "decimals": "18",
       "borrowCF": 0.65,
       "liquidateCF": 0.7,
@@ -36,7 +31,6 @@
       "supplyCap": "500000e18"
     },
     "WBTC": {
-      "priceFeed": "0x1b44F3514812d835EB1BDB0acB33d3fA3351Ee43",
       "decimals": "8",
       "borrowCF": 0.7,
       "liquidateCF": 0.75,
@@ -44,7 +38,6 @@
       "supplyCap": "35000e8"
     },
     "WETH": {
-      "priceFeed": "0x694AA1769357215DE4FAC081bf1f309aDC325306",
       "decimals": "18",
       "borrowCF": 0.82,
       "liquidateCF": 0.85,

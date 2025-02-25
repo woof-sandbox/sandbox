@@ -4,12 +4,12 @@ import { ProtocolConfiguration } from './index';
 import { ContractMap } from '../../plugins/deployment_manager/ContractMap';
 import { DeploymentManager } from '../../plugins/deployment_manager/DeploymentManager';
 
-function address(a: string): string {
-  if (!a.match(/^0x[a-fA-F0-9]{40}$/)) {
-    throw new Error(`expected address, got \`${a}\``);
-  }
-  return a;
-}
+// function address(a: string): string {
+//   if (!a.match(/^0x[a-fA-F0-9]{40}$/)) {
+//     throw new Error(`expected address, got \`${a}\``);
+//   }
+//   return a;
+// }
 
 function floor(n: number): bigint {
   return BigInt(Math.floor(n));
@@ -152,8 +152,8 @@ function getOverridesOrConfig(
   const mapping = () => ({
     name: _ => config.name,
     symbol: _ => config.symbol,
-    governor: _ => config.governor ? address(config.governor) : getContractAddress('timelock', contracts),
-    pauseGuardian: _ => config.pauseGuardian ? address(config.pauseGuardian) : getContractAddress('timelock', contracts),
+    governor: _ => config.governor,
+    pauseGuardian: _ => config.pauseGuardian,
     baseToken: _ => getContractAddress(config.baseToken, contracts, config.baseTokenAddress),
     baseTokenPriceFeed: _ => getContractAddress(`${config.baseToken}:priceFeed`, contracts, config.baseTokenPriceFeed),
     baseBorrowMin: _ => stringToBigInt(config.borrowMin),
@@ -177,7 +177,14 @@ export async function getConfiguration(
 ): Promise<ProtocolConfiguration> {
   const config = await deploymentManager.readConfig<NetworkConfiguration>();
   const contracts = await deploymentManager.contracts();
-  return getOverridesOrConfig(configOverrides, config, contracts);
+  const resultConfig = getOverridesOrConfig(configOverrides, config, contracts);
+  if(!resultConfig.governor) {
+    resultConfig.governor = (await deploymentManager.getSigner()).address;
+  }
+  if(!resultConfig.pauseGuardian) {
+    resultConfig.pauseGuardian = (await deploymentManager.getSigner()).address;
+  }
+  return resultConfig;
 }
 
 export async function getConfigurationStruct(
