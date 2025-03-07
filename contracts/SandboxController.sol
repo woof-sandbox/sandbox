@@ -20,18 +20,18 @@ contract SandboxController is AccessControl {
     struct BaseAssetConfiguration {
         address priceFeed;
         uint256 decimals;
-        uint64 storeFrontPriceFactor;
         bool feeEnabled;
-        uint256 protocolFactorBorrow;
-        uint256 reserveFactorBorrow;
+        BaseAssetFactors baseAssetFactors;
         BaseAssetCurve[] baseAssetCurves;
     }
 
-    struct BaseAssetOptions {
+    /// @notice Structure defining base asset factors.
+    struct BaseAssetFactors{
         uint64 storeFrontPriceFactor;
-        bool feeEnabled;
-        uint256 protocolFactorBorrow;
-        uint256 reserveFactorBorrow;
+        uint64 protocolFactorBorrow;
+        uint64 reserveFactorBorrow;
+        uint64 protocolFactorLiquidation;
+        uint64 reserveFactorLiquidation;
     }
 
     /// @notice Structure defining interest rate curve parameters.
@@ -88,8 +88,7 @@ contract SandboxController is AccessControl {
     error InvalidPriceFeed();
     error InvalidStoreFrontPriceFactorValue(uint64 storeFrontPriceFactor);
     error InvalidBorrowFactor(
-        uint256 protocolFactorBorrow,
-        uint256 reserveFactorBorrow
+        BaseAssetFactors baseAssetFactors
     );
     error NotAuthorized(address caller);
 
@@ -136,6 +135,22 @@ contract SandboxController is AccessControl {
     }
 
     /**
+     * @notice Checks if the base asset factors are valid.
+     * @param baseAssetFactors The base asset factors to validate.
+     * @return True if the factors are valid, otherwise false.
+     */
+    function isFactorsValid(BaseAssetFactors memory baseAssetFactors) public pure returns (bool) {
+        return (baseAssetFactors.protocolFactorBorrow != 0 &&
+            baseAssetFactors.reserveFactorBorrow != 0 &&
+            baseAssetFactors.protocolFactorBorrow + baseAssetFactors.reserveFactorBorrow <= 1e18 &&
+            baseAssetFactors.protocolFactorLiquidation != 0 &&
+            baseAssetFactors.reserveFactorLiquidation != 0 &&
+            baseAssetFactors.protocolFactorLiquidation + baseAssetFactors.reserveFactorLiquidation <= 1e18) &&
+            baseAssetFactors.storeFrontPriceFactor != 0 &&
+            baseAssetFactors.storeFrontPriceFactor <= 1e18;
+    }
+
+    /**
      * @notice Whitelists a new base asset.
      * @param token The address of the token to whitelist.
      * @param priceFeed The associated price feed address.
@@ -145,9 +160,8 @@ contract SandboxController is AccessControl {
         address token,
         address priceFeed,
         bool feeEnabled,
-        uint256 protocolFactorBorrow,
-        uint256 reserveFactorBorrow,
         uint64 storeFrontPriceFactor,
+        BaseAssetFactors memory baseAssetFactors,
         BaseAssetCurve memory baseAssetCurve
     ) external onlyAuthorized {
         if (token == address(0) || priceFeed == address(0)) {
@@ -167,13 +181,10 @@ contract SandboxController is AccessControl {
         }
 
         if (
-            protocolFactorBorrow == 0 ||
-            reserveFactorBorrow == 0 ||
-            protocolFactorBorrow + reserveFactorBorrow > 1e18
+            !isFactorsValid(baseAssetFactors)
         ) {
             revert InvalidBorrowFactor(
-                protocolFactorBorrow,
-                reserveFactorBorrow
+                baseAssetFactors
             );
         }
 
@@ -189,9 +200,7 @@ contract SandboxController is AccessControl {
             baseAssets[token].priceFeed = priceFeed;
             baseAssets[token].decimals = decimals;
             baseAssets[token].feeEnabled = feeEnabled;
-            baseAssets[token].storeFrontPriceFactor = storeFrontPriceFactor;
-            baseAssets[token].protocolFactorBorrow = protocolFactorBorrow;
-            baseAssets[token].reserveFactorBorrow = reserveFactorBorrow;
+            baseAssets[token].baseAssetFactors = baseAssetFactors;
             baseAssets[token].baseAssetCurves.push(baseAssetCurve);
         } catch {
             revert InvalidPriceFeed();
@@ -205,37 +214,13 @@ contract SandboxController is AccessControl {
     }
 
     /**
-     * @notice Updates the store front price factor for a base asset.
-     * @param token The address of the base asset.
-     * @param storeFrontPriceFactor The new store front price factor.
-     */
-    function setStoreFrontPriceFactor(
-        address token,
-        uint64 storeFrontPriceFactor
-    ) external onlyOwner {
-        if (token == address(0)) {
-            revert ZeroAddress();
-        }
-        if (!isTokenWhitelisted(token)) {
-            revert TokenNotWhitelisted();
-        }
-        if (storeFrontPriceFactor == 0 || storeFrontPriceFactor > 1e18) {
-            revert InvalidStoreFrontPriceFactorValue(storeFrontPriceFactor);
-        }
-
-        baseAssets[token].storeFrontPriceFactor = storeFrontPriceFactor;
-    }
-
-    /**
      * @notice Updates the protocol and reserve factors for a base asset.
      * @param token The address of the base asset.
-     * @param protocolFactorBorrow  The new protocol factor borrow.
-     * @param reserveFactorBorrow  The new reserve factor borrow.
+     * @param baseAssetFactors The new base asset factors.
      */
-    function setBorrowFactors(
+    function setFactors(
         address token,
-        uint256 protocolFactorBorrow,
-        uint256 reserveFactorBorrow
+        BaseAssetFactors memory baseAssetFactors
     ) external onlyOwner {
         if (token == address(0)) {
             revert ZeroAddress();
@@ -244,18 +229,14 @@ contract SandboxController is AccessControl {
             revert TokenNotWhitelisted();
         }
         if (
-            protocolFactorBorrow == 0 ||
-            reserveFactorBorrow == 0 ||
-            protocolFactorBorrow + reserveFactorBorrow > 1e18
+            !isFactorsValid(baseAssetFactors)
         ) {
             revert InvalidBorrowFactor(
-                protocolFactorBorrow,
-                reserveFactorBorrow
+                baseAssetFactors
             );
         }
 
-        baseAssets[token].protocolFactorBorrow = protocolFactorBorrow;
-        baseAssets[token].reserveFactorBorrow = reserveFactorBorrow;
+        baseAssets[token].baseAssetFactors = baseAssetFactors;
     }
 
         /**

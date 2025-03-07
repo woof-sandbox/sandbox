@@ -4,30 +4,28 @@ import { event, wait, makeSandboxController } from './helper/helpers';
 
 describe('SandboxController', function () {
   const parseEther = ethers.utils.parseEther;
+  const ZERO = parseEther("0");
+  const ONE_E18 = parseEther("1");
+  const ONE_E18_PLUS1 = ONE_E18.add(1);
 
-  const PROTOCOL_FACTOR = parseEther("0.5");
-  const RESERVE_FACTOR = parseEther("0.2");
-  const ONE_E18 = parseEther("1.0");
-  const ZERO = ethers.constants.Zero;
-  const ONE_E18_PLUS1 = parseEther("1.0").add(1);
-
-  async function deploySimplePriceFeed() {
-    const PriceFeedFactory = await ethers.getContractFactory('SimplePriceFeed');
-    const feed = await PriceFeedFactory.deploy("100000000", 8);
-    await feed.deployed();
-    return feed;
+  function validFactors() {
+    return {
+      storeFrontPriceFactor: ONE_E18.toString(),
+      protocolFactorBorrow: parseEther("0.5").toString(),
+      reserveFactorBorrow: parseEther("0.2").toString(),
+      protocolFactorLiquidation: parseEther("0.3").toString(),
+      reserveFactorLiquidation: parseEther("0.4").toString()
+    };
   }
 
-  async function deployTestToken(name = 'Test Token', symbol = 'TT', decimals = 18) {
-    const FaucetTokenFactory = await ethers.getContractFactory('FaucetToken');
-    const token = await FaucetTokenFactory.deploy(
-      parseEther("100000"),
-      name,
-      decimals,
-      symbol
-    );
-    await token.deployed();
-    return token;
+  function invalidFactors() {
+    return {
+      storeFrontPriceFactor: ZERO.toString(),
+      protocolFactorBorrow: ZERO.toString(),
+      reserveFactorBorrow: parseEther("0.2").toString(),
+      protocolFactorLiquidation: parseEther("0.3").toString(),
+      reserveFactorLiquidation: parseEther("0.4").toString()
+    };
   }
 
   function validCurve() {
@@ -56,6 +54,25 @@ describe('SandboxController', function () {
     };
   }
 
+  async function deploySimplePriceFeed() {
+    const PriceFeedFactory = await ethers.getContractFactory('SimplePriceFeed');
+    const feed = await PriceFeedFactory.deploy("100000000", 8);
+    await feed.deployed();
+    return feed;
+  }
+
+  async function deployTestToken(name = 'Test Token', symbol = 'TT', decimals = 18) {
+    const FaucetTokenFactory = await ethers.getContractFactory('FaucetToken');
+    const token = await FaucetTokenFactory.deploy(
+      parseEther("100000"),
+      name,
+      decimals,
+      symbol
+    );
+    await token.deployed();
+    return token;
+  }
+
   it('can create a new sandbox', async () => {
     const [owner, dao] = await ethers.getSigners();
     const { sandboxController } = await makeSandboxController({
@@ -78,22 +95,19 @@ describe('SandboxController', function () {
           ethers.constants.AddressZero,
           feed.address,
           false,
-          PROTOCOL_FACTOR,
-          RESERVE_FACTOR,
-          ONE_E18,
+          ONE_E18.toString(),
+          validFactors(),
           validCurve()
         )
       ).to.be.revertedWithCustomError(sandboxController, 'ZeroAddress');
-
       const token = await deployTestToken();
       await expect(
         sandboxController.whitelistBaseAsset(
           token.address,
           ethers.constants.AddressZero,
           false,
-          PROTOCOL_FACTOR,
-          RESERVE_FACTOR,
-          ONE_E18,
+          ONE_E18.toString(),
+          validFactors(),
           validCurve()
         )
       ).to.be.revertedWithCustomError(sandboxController, 'ZeroAddress');
@@ -105,10 +119,24 @@ describe('SandboxController', function () {
       const token = await deployTestToken();
       const feed = await deploySimplePriceFeed();
       await expect(
-        sandboxController.whitelistBaseAsset(token.address, feed.address, false, PROTOCOL_FACTOR, RESERVE_FACTOR, ZERO, validCurve())
+        sandboxController.whitelistBaseAsset(
+          token.address,
+          feed.address,
+          false,
+          ZERO.toString(),
+          validFactors(),
+          validCurve()
+        )
       ).to.be.revertedWithCustomError(sandboxController, 'InvalidStoreFrontPriceFactorValue');
       await expect(
-        sandboxController.whitelistBaseAsset(token.address, feed.address, false, PROTOCOL_FACTOR, RESERVE_FACTOR, ONE_E18_PLUS1, validCurve())
+        sandboxController.whitelistBaseAsset(
+          token.address,
+          feed.address,
+          false,
+          ONE_E18_PLUS1.toString(),
+          validFactors(),
+          validCurve()
+        )
       ).to.be.revertedWithCustomError(sandboxController, 'InvalidStoreFrontPriceFactorValue');
     });
 
@@ -118,7 +146,14 @@ describe('SandboxController', function () {
       const token = await deployTestToken();
       const feed = await deploySimplePriceFeed();
       await wait(
-        sandboxController.whitelistBaseAsset(token.address, feed.address, false, PROTOCOL_FACTOR, RESERVE_FACTOR, ONE_E18, validCurve())
+        sandboxController.whitelistBaseAsset(
+          token.address,
+          feed.address,
+          false,
+          ONE_E18.toString(),
+          validFactors(),
+          validCurve()
+        )
       );
       const anotherFeed = await deploySimplePriceFeed();
       await expect(
@@ -126,9 +161,8 @@ describe('SandboxController', function () {
           token.address,
           anotherFeed.address,
           false,
-          PROTOCOL_FACTOR,
-          RESERVE_FACTOR,
-          ONE_E18,
+          ONE_E18.toString(),
+          validFactors(),
           validCurve()
         )
       ).to.be.revertedWithCustomError(sandboxController, 'TokenAlreadyWhitelisted');
@@ -140,7 +174,7 @@ describe('SandboxController', function () {
       const tokenA = await deployTestToken();
       const feed = await deploySimplePriceFeed();
       await wait(
-        sandboxController.whitelistBaseAsset(tokenA.address, feed.address, false, PROTOCOL_FACTOR, RESERVE_FACTOR, ONE_E18, validCurve())
+        sandboxController.whitelistBaseAsset(tokenA.address, feed.address, false, ONE_E18.toString(), validFactors(), validCurve())
       );
       const tokenB = await deployTestToken('Token B', 'TKB');
       await expect(
@@ -148,9 +182,8 @@ describe('SandboxController', function () {
           tokenB.address,
           feed.address,
           false,
-          PROTOCOL_FACTOR,
-          RESERVE_FACTOR,
-          ONE_E18,
+          ONE_E18.toString(),
+          validFactors(),
           validCurve()
         )
       ).to.be.revertedWithCustomError(sandboxController, 'PriceFeedAlreadyWhitelisted');
@@ -162,20 +195,22 @@ describe('SandboxController', function () {
       const token = await deployTestToken();
       const feed = await deploySimplePriceFeed();
       await expect(
-        sandboxController.whitelistBaseAsset(token.address, feed.address, false, PROTOCOL_FACTOR, RESERVE_FACTOR, ONE_E18, invalidCurve())
+        sandboxController.whitelistBaseAsset(token.address, feed.address, false, ONE_E18.toString(), validFactors(), invalidCurve())
       ).to.be.revertedWithCustomError(sandboxController, 'InvalidCurveConfiguration');
     });
 
-    it('reverts if borrow factors invalid', async () => {
+    it('reverts if borrow or liquidation factors invalid', async () => {
       const [owner, dao] = await ethers.getSigners();
       const { sandboxController } = await makeSandboxController({ admin: owner, governor: dao });
       const token = await deployTestToken();
       const feed = await deploySimplePriceFeed();
+      const bad1 = { ...validFactors(), protocolFactorBorrow: ZERO.toString() };
       await expect(
-        sandboxController.whitelistBaseAsset(token.address, feed.address, false, ZERO, RESERVE_FACTOR, ONE_E18, validCurve())
+        sandboxController.whitelistBaseAsset(token.address, feed.address, false, ONE_E18.toString(), bad1, validCurve())
       ).to.be.revertedWithCustomError(sandboxController, 'InvalidBorrowFactor');
+      const bad2 = { ...validFactors(), protocolFactorLiquidation: "600000000000000000", reserveFactorLiquidation: "500000000000000000" };
       await expect(
-        sandboxController.whitelistBaseAsset(token.address, feed.address, false, parseEther("0.9"), RESERVE_FACTOR, ONE_E18, validCurve())
+        sandboxController.whitelistBaseAsset(token.address, feed.address, false, ONE_E18.toString(), bad2, validCurve())
       ).to.be.revertedWithCustomError(sandboxController, 'InvalidBorrowFactor');
     });
 
@@ -185,7 +220,7 @@ describe('SandboxController', function () {
       const token = await deployTestToken();
       const notAFeed = await deployTestToken("Random", "RND");
       await expect(
-        sandboxController.whitelistBaseAsset(token.address, notAFeed.address, false, PROTOCOL_FACTOR, RESERVE_FACTOR, ONE_E18, validCurve())
+        sandboxController.whitelistBaseAsset(token.address, notAFeed.address, false, ONE_E18.toString(), validFactors(), validCurve())
       ).to.be.revertedWithCustomError(sandboxController, 'InvalidPriceFeed');
     });
 
@@ -195,7 +230,7 @@ describe('SandboxController', function () {
       const token = await deployTestToken();
       const feed = await deploySimplePriceFeed();
       const tx = await wait(
-        sandboxController.whitelistBaseAsset(token.address, feed.address, false, PROTOCOL_FACTOR, RESERVE_FACTOR, ONE_E18, validCurve())
+        sandboxController.whitelistBaseAsset(token.address, feed.address, false, ONE_E18.toString(), validFactors(), validCurve())
       );
       const ev = event(tx, 0);
       expect(ev['BaseAssetWhitelisted'].token).to.equal(token.address);
@@ -203,9 +238,7 @@ describe('SandboxController', function () {
       const info = await sandboxController.baseAssets(token.address);
       expect(info.priceFeed).to.equal(feed.address);
       expect(info.feeEnabled).to.equal(false);
-      expect(info.protocolFactorBorrow).to.equal(PROTOCOL_FACTOR);
-      expect(info.reserveFactorBorrow).to.equal(RESERVE_FACTOR);
-      expect(info.storeFrontPriceFactor).to.equal(ONE_E18);
+      expect(info.baseAssetFactors.storeFrontPriceFactor).to.equal(ONE_E18.toString());
       expect(await sandboxController.isPriceFeedWhitelisted(feed.address)).to.be.true;
       expect(await sandboxController.baseAssetCount()).to.equal(1);
     });
@@ -216,54 +249,7 @@ describe('SandboxController', function () {
       const token = await deployTestToken();
       const feed = await deploySimplePriceFeed();
       await expect(
-        sandboxController.connect(attacker).whitelistBaseAsset(token.address, feed.address, false, PROTOCOL_FACTOR, RESERVE_FACTOR, ONE_E18, validCurve())
-      ).to.be.revertedWithCustomError(sandboxController, 'NotAuthorized');
-    });
-  });
-
-  describe('setStoreFrontPriceFactor', () => {
-    it('reverts if token=0 or token not whitelisted', async () => {
-      const [owner] = await ethers.getSigners();
-      const { sandboxController } = await makeSandboxController({ admin: owner, governor: owner });
-      await expect(
-        sandboxController.setStoreFrontPriceFactor(ethers.constants.AddressZero, "12345")
-      ).to.be.revertedWithCustomError(sandboxController, 'ZeroAddress');
-      const token = await deployTestToken();
-      await expect(
-        sandboxController.setStoreFrontPriceFactor(token.address, "12345")
-      ).to.be.revertedWithCustomError(sandboxController, 'TokenNotWhitelisted');
-    });
-
-    it('reverts if storeFrontPriceFactor is invalid', async () => {
-      const [owner] = await ethers.getSigners();
-      const { sandboxController } = await makeSandboxController({ admin: owner, governor: owner });
-      const token = await deployTestToken();
-      const feed = await deploySimplePriceFeed();
-      await wait(
-        sandboxController.whitelistBaseAsset(token.address, feed.address, false, PROTOCOL_FACTOR, RESERVE_FACTOR, ONE_E18, validCurve())
-      );
-      await expect(
-        sandboxController.setStoreFrontPriceFactor(token.address, ZERO)
-      ).to.be.revertedWithCustomError(sandboxController, 'InvalidStoreFrontPriceFactorValue');
-      await expect(
-        sandboxController.setStoreFrontPriceFactor(token.address, ONE_E18_PLUS1)
-      ).to.be.revertedWithCustomError(sandboxController, 'InvalidStoreFrontPriceFactorValue');
-    });
-
-    it('sets storeFrontPriceFactor successfully (owner-only)', async () => {
-      const [owner, dao] = await ethers.getSigners();
-      const { sandboxController } = await makeSandboxController({ admin: owner, governor: dao });
-      const token = await deployTestToken();
-      const feed = await deploySimplePriceFeed();
-      await wait(
-        sandboxController.whitelistBaseAsset(token.address, feed.address, false, PROTOCOL_FACTOR, RESERVE_FACTOR, ONE_E18, validCurve())
-      );
-      const newFactor = parseEther("0.5");
-      await wait(sandboxController.setStoreFrontPriceFactor(token.address, newFactor));
-      const info = await sandboxController.baseAssets(token.address);
-      expect(info.storeFrontPriceFactor).to.equal(newFactor);
-      await expect(
-        sandboxController.connect(dao).setStoreFrontPriceFactor(token.address, parseEther("0.9"))
+        sandboxController.connect(attacker).whitelistBaseAsset(token.address, feed.address, false, ONE_E18.toString(), validFactors(), validCurve())
       ).to.be.revertedWithCustomError(sandboxController, 'NotAuthorized');
     });
   });
@@ -287,7 +273,7 @@ describe('SandboxController', function () {
       const token = await deployTestToken();
       const feed = await deploySimplePriceFeed();
       await wait(
-        sandboxController.whitelistBaseAsset(token.address, feed.address, false, PROTOCOL_FACTOR, RESERVE_FACTOR, ONE_E18, validCurve())
+        sandboxController.whitelistBaseAsset(token.address, feed.address, false, ONE_E18.toString(), validFactors(), validCurve())
       );
       await expect(
         sandboxController.setFeeEnabled(token.address, true)
@@ -301,53 +287,81 @@ describe('SandboxController', function () {
     });
   });
 
-  describe('setBorrowFactors', () => {
+  describe('setFactors', () => {
     it('reverts if token=0 or not whitelisted', async () => {
       const [owner] = await ethers.getSigners();
       const { sandboxController } = await makeSandboxController({ admin: owner, governor: owner });
       await expect(
-        sandboxController.setBorrowFactors(ethers.constants.AddressZero, parseEther("0.5"), parseEther("0.2"))
+        sandboxController.setFactors(ethers.constants.AddressZero, validFactors())
       ).to.be.revertedWithCustomError(sandboxController, 'ZeroAddress');
       const token = await deployTestToken();
       await expect(
-        sandboxController.setBorrowFactors(token.address, parseEther("0.5"), parseEther("0.2"))
+        sandboxController.setFactors(token.address, validFactors())
       ).to.be.revertedWithCustomError(sandboxController, 'TokenNotWhitelisted');
     });
 
-    it('reverts if factors invalid (0 or sum>1e18)', async () => {
+    it('reverts if factors invalid', async () => {
       const [owner] = await ethers.getSigners();
       const { sandboxController } = await makeSandboxController({ admin: owner, governor: owner });
       const token = await deployTestToken();
       const feed = await deploySimplePriceFeed();
       await wait(
-        sandboxController.whitelistBaseAsset(token.address, feed.address, false, PROTOCOL_FACTOR, RESERVE_FACTOR, ONE_E18, validCurve())
+        sandboxController.whitelistBaseAsset(
+          token.address,
+          feed.address,
+          false,
+          ONE_E18.toString(),
+          validFactors(),
+          validCurve()
+        )
       );
+      const f1 = { ...validFactors(), storeFrontPriceFactor: "0" };
       await expect(
-        sandboxController.setBorrowFactors(token.address, ZERO, RESERVE_FACTOR)
+        sandboxController.setFactors(token.address, f1)
       ).to.be.revertedWithCustomError(sandboxController, 'InvalidBorrowFactor');
+      const f2 = { ...validFactors(), protocolFactorBorrow: "900000000000000000", reserveFactorBorrow: "200000000000000000" };
       await expect(
-        sandboxController.setBorrowFactors(token.address, parseEther("0.9"), RESERVE_FACTOR)
+        sandboxController.setFactors(token.address, f2)
+      ).to.be.revertedWithCustomError(sandboxController, 'InvalidBorrowFactor');
+      const f3 = { ...validFactors(), protocolFactorLiquidation: "600000000000000000", reserveFactorLiquidation: "600000000000000000" };
+      await expect(
+        sandboxController.setFactors(token.address, f3)
       ).to.be.revertedWithCustomError(sandboxController, 'InvalidBorrowFactor');
     });
 
-    it('sets borrowFactors (owner-only)', async () => {
+    it('sets factors (owner-only)', async () => {
       const [owner, dao, attacker] = await ethers.getSigners();
       const { sandboxController } = await makeSandboxController({ admin: owner, governor: dao });
       const token = await deployTestToken();
       const feed = await deploySimplePriceFeed();
       await wait(
-        sandboxController.whitelistBaseAsset(token.address, feed.address, false, PROTOCOL_FACTOR, RESERVE_FACTOR, ONE_E18, validCurve())
+        sandboxController.whitelistBaseAsset(
+          token.address,
+          feed.address,
+          false,
+          ONE_E18.toString(),
+          validFactors(),
+          validCurve()
+        )
       );
+      const newFactors = {
+        storeFrontPriceFactor: parseEther("0.8").toString(),
+        protocolFactorBorrow: parseEther("0.4").toString(),
+        reserveFactorBorrow: parseEther("0.2").toString(),
+        protocolFactorLiquidation: parseEther("0.3").toString(),
+        reserveFactorLiquidation: parseEther("0.1").toString()
+      };
       await expect(
-        sandboxController.connect(dao).setBorrowFactors(token.address, parseEther("0.4"), parseEther("0.2"))
+        sandboxController.connect(dao).setFactors(token.address, newFactors)
       ).to.be.revertedWithCustomError(sandboxController, 'NotAuthorized');
       await expect(
-        sandboxController.connect(attacker).setBorrowFactors(token.address, parseEther("0.4"), parseEther("0.2"))
+        sandboxController.connect(attacker).setFactors(token.address, newFactors)
       ).to.be.revertedWithCustomError(sandboxController, 'NotAuthorized');
-      await wait(sandboxController.setBorrowFactors(token.address, parseEther("0.4"), parseEther("0.3")));
+      await wait(sandboxController.setFactors(token.address, newFactors));
       const info = await sandboxController.baseAssets(token.address);
-      expect(info.protocolFactorBorrow).to.equal(parseEther("0.4"));
-      expect(info.reserveFactorBorrow).to.equal(parseEther("0.3"));
+      expect(info.baseAssetFactors.storeFrontPriceFactor).to.equal(newFactors.storeFrontPriceFactor);
+      expect(info.baseAssetFactors.protocolFactorBorrow).to.equal(newFactors.protocolFactorBorrow);
+      expect(info.baseAssetFactors.reserveFactorLiquidation).to.equal(newFactors.reserveFactorLiquidation);
     });
   });
 
@@ -370,7 +384,9 @@ describe('SandboxController', function () {
       const token = await deployTestToken();
       const feed = await deploySimplePriceFeed();
       await wait(
-        sandboxController.whitelistBaseAsset(token.address, feed.address, false, PROTOCOL_FACTOR, RESERVE_FACTOR, ONE_E18, validCurve())
+        sandboxController.whitelistBaseAsset(
+          token.address, feed.address, false, ONE_E18.toString(), validFactors(), validCurve()
+        )
       );
       await expect(
         sandboxController.addBaseAssetCurve(token.address, invalidCurve())
@@ -383,7 +399,7 @@ describe('SandboxController', function () {
       const token = await deployTestToken();
       const feed = await deploySimplePriceFeed();
       await wait(
-        sandboxController.whitelistBaseAsset(token.address, feed.address, false, PROTOCOL_FACTOR, RESERVE_FACTOR, ONE_E18, validCurve())
+        sandboxController.whitelistBaseAsset(token.address, feed.address, false, ONE_E18.toString(), validFactors(), validCurve())
       );
       const newCurve = {
         supplyKink: 10,
@@ -435,7 +451,7 @@ describe('SandboxController', function () {
       const token = await deployTestToken();
       const feed = await deploySimplePriceFeed();
       await wait(
-        sandboxController.whitelistBaseAsset(token.address, feed.address, false, PROTOCOL_FACTOR, RESERVE_FACTOR, ONE_E18, validCurve())
+        sandboxController.whitelistBaseAsset(token.address, feed.address, false, ONE_E18.toString(), validFactors(), validCurve())
       );
       await expect(
         sandboxController.connect(dao).changeBaseAssetCurve(token.address, 99, validCurve())
@@ -452,7 +468,7 @@ describe('SandboxController', function () {
       const feed = await deploySimplePriceFeed();
       const curve = validCurve();
       await wait(
-        sandboxController.whitelistBaseAsset(token.address, feed.address, false, PROTOCOL_FACTOR, RESERVE_FACTOR, ONE_E18, curve)
+        sandboxController.whitelistBaseAsset(token.address, feed.address, false, ONE_E18.toString(), validFactors(), curve)
       );
       await expect(
         sandboxController.connect(dao).changeBaseAssetCurve(token.address, 0, curve)
@@ -466,7 +482,7 @@ describe('SandboxController', function () {
       const feed = await deploySimplePriceFeed();
       const curve = validCurve();
       await wait(
-        sandboxController.whitelistBaseAsset(token.address, feed.address, false, PROTOCOL_FACTOR, RESERVE_FACTOR, ONE_E18, curve)
+        sandboxController.whitelistBaseAsset(token.address, feed.address, false, ONE_E18.toString(), validFactors(), curve)
       );
       const newCurve = {
         supplyKink: 9,
