@@ -1,4 +1,4 @@
-import { expect, exp, makeProtocol, ONE } from './helpers';
+import { expect, exp, makeProtocol, ONE } from './helper/helpers';
 import { ethers } from 'hardhat';
 import {
   SimplePriceFeed__factory,

@@ -37,10 +37,12 @@ import {
   AssetListFactory__factory,
   CometHarnessExtendedAssetList__factory,
   CometHarnessInterfaceExtendedAssetList as CometWithExtendedAssetList,
-} from '../build/types';
+  SandboxController,
+  SandboxController__factory,
+} from '../../build/types';
 import { BigNumber } from 'ethers';
 import { TransactionReceipt, TransactionResponse } from '@ethersproject/abstract-provider';
-import { TotalsBasicStructOutput, TotalsCollateralStructOutput } from '../build/types/CometHarness';
+import { TotalsBasicStructOutput, TotalsCollateralStructOutput } from '../../build/types/CometHarness';
 
 export { Comet, ethers, expect, hre };
 
@@ -138,10 +140,21 @@ export type BulkerOpts = {
   weth?: string;
 };
 
+export type SandboxControllerOpts = {
+  admin?: SignerWithAddress;
+  governor: SignerWithAddress;
+}
+  
+
 export type BulkerInfo = {
   opts: BulkerOpts;
   bulker: BaseBulker;
 };
+
+export type SandboxControllerInfo = {
+  opts: SandboxControllerOpts;
+  sandboxController: SandboxController;
+}
 
 export function dfn<T>(x: T | undefined | null, dflt: T): T {
   return x == undefined ? dflt : x;
@@ -552,6 +565,20 @@ export async function makeBulker(opts: BulkerOpts): Promise<BulkerInfo> {
     bulker
   };
 }
+
+export async function makeSandboxController(opts: SandboxControllerOpts): Promise<SandboxControllerInfo> {
+  const signers = await ethers.getSigners();
+  const admin = opts.admin || signers[0];
+  const governor = opts.governor;
+  const SandboxControllerFactory = (await ethers.getContractFactory('SandboxController')) as SandboxController__factory;
+  const sandboxController = await SandboxControllerFactory.deploy(admin.address, governor.address);
+  await sandboxController.deployed();
+  return {
+    opts,
+    sandboxController
+  }
+}
+
 export async function bumpTotalsCollateral(comet: CometHarnessInterface, token: FaucetToken | NonStandardFaucetFeeToken, delta: bigint): Promise<TotalsCollateralStructOutput> {
   const t0 = await comet.totalsCollateral(token.address);
   const t1 = Object.assign({}, t0, { totalSupplyAsset: t0.totalSupplyAsset.toBigInt() + delta });

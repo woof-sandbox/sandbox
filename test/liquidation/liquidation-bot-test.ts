@@ -1,4 +1,4 @@
-import { event, expect, exp, wait } from '../helpers';
+import { event, expect, exp, wait } from '../helper/helpers';
 import { ethers } from 'hardhat';
 import { Exchange, forkMainnet, makeLiquidatableProtocol, resetHardhatNetwork } from './makeLiquidatableProtocol';
 import { DAI, SUSHISWAP_ROUTER, UNISWAP_ROUTER } from './addresses';

@@ -3,7 +3,7 @@ import { BigNumberish, Signature, ethers, ContractReceipt, Overrides, PayableOve
 import { CometContext } from './CometContext';
 import { AddressLike, resolveAddress } from './Address';
 import { ERC20__factory } from '../../build/types';
-import { baseBalanceOf } from '../../test/helpers';
+import { baseBalanceOf } from '../../test/helper/helpers';
 
 const types = {
   Authorization: [

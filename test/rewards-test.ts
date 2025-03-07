@@ -1,5 +1,5 @@
 import { ethers } from 'hardhat';
-import { defaultAssets, expect, exp, factorScale, fastForward, makeProtocol, makeRewards, objectify, wait, event, getBlock } from './helpers';
+import { defaultAssets, expect, exp, factorScale, fastForward, makeProtocol, makeRewards, objectify, wait, event, getBlock } from './helper/helpers';
 
 describe('CometRewards', () => {
   describe('claim + supply', () => {

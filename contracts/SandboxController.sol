@@ -2,7 +2,7 @@
 pragma solidity 0.8.28;
 
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
-import {IERC20NonStandard} from  "./IERC20NonStandard.sol";
+import {IERC20NonStandard} from "./IERC20NonStandard.sol";
 import {IPriceFeed} from "./IPriceFeed.sol";
 
 /**
@@ -10,7 +10,6 @@ import {IPriceFeed} from "./IPriceFeed.sol";
  * @dev Manages base asset configurations and interest rate curves.
  */
 contract SandboxController is AccessControl {
-
     /// @notice Role identifier for owner.
     bytes32 public constant OWNER_ROLE = keccak256("OWNER_ROLE");
 
@@ -21,7 +20,18 @@ contract SandboxController is AccessControl {
     struct BaseAssetConfiguration {
         address priceFeed;
         uint256 decimals;
+        uint64 storeFrontPriceFactor;
+        bool feeEnabled;
+        uint256 protocolFactorBorrow;
+        uint256 reserveFactorBorrow;
         BaseAssetCurve[] baseAssetCurves;
+    }
+
+    struct BaseAssetOptions {
+        uint64 storeFrontPriceFactor;
+        bool feeEnabled;
+        uint256 protocolFactorBorrow;
+        uint256 reserveFactorBorrow;
     }
 
     /// @notice Structure defining interest rate curve parameters.
@@ -76,11 +86,18 @@ contract SandboxController is AccessControl {
     error PriceFeedAlreadyWhitelisted();
     error InvalidCurveConfiguration();
     error InvalidPriceFeed();
+    error InvalidStoreFrontPriceFactorValue(uint64 storeFrontPriceFactor);
+    error InvalidBorrowFactor(
+        uint256 protocolFactorBorrow,
+        uint256 reserveFactorBorrow
+    );
     error NotAuthorized(address caller);
 
     /// @dev Modifier to restrict function access to authorized roles.
     modifier onlyAuthorized() {
-        if (!(hasRole(OWNER_ROLE, msg.sender) || hasRole(DAO_ROLE, msg.sender))) {
+        if (
+            !(hasRole(OWNER_ROLE, msg.sender) || hasRole(DAO_ROLE, msg.sender))
+        ) {
             revert NotAuthorized(msg.sender);
         }
         _;
@@ -127,10 +144,17 @@ contract SandboxController is AccessControl {
     function whitelistBaseAsset(
         address token,
         address priceFeed,
+        bool feeEnabled,
+        uint256 protocolFactorBorrow,
+        uint256 reserveFactorBorrow,
+        uint64 storeFrontPriceFactor,
         BaseAssetCurve memory baseAssetCurve
     ) external onlyAuthorized {
         if (token == address(0) || priceFeed == address(0)) {
             revert ZeroAddress();
+        }
+        if (storeFrontPriceFactor == 0 || storeFrontPriceFactor > 1e18) {
+            revert InvalidStoreFrontPriceFactorValue(storeFrontPriceFactor);
         }
         if (isTokenWhitelisted(token)) {
             revert TokenAlreadyWhitelisted();
@@ -142,11 +166,32 @@ contract SandboxController is AccessControl {
             revert InvalidCurveConfiguration();
         }
 
+        if (
+            protocolFactorBorrow == 0 ||
+            reserveFactorBorrow == 0 ||
+            protocolFactorBorrow + reserveFactorBorrow > 1e18
+        ) {
+            revert InvalidBorrowFactor(
+                protocolFactorBorrow,
+                reserveFactorBorrow
+            );
+        }
+
         uint8 decimals = IERC20NonStandard(token).decimals();
 
-        try IPriceFeed(priceFeed).latestRoundData() returns (uint80, int256, uint256, uint256, uint80) {
+        try IPriceFeed(priceFeed).latestRoundData() returns (
+            uint80,
+            int256,
+            uint256,
+            uint256,
+            uint80
+        ) {
             baseAssets[token].priceFeed = priceFeed;
             baseAssets[token].decimals = decimals;
+            baseAssets[token].feeEnabled = feeEnabled;
+            baseAssets[token].storeFrontPriceFactor = storeFrontPriceFactor;
+            baseAssets[token].protocolFactorBorrow = protocolFactorBorrow;
+            baseAssets[token].reserveFactorBorrow = reserveFactorBorrow;
             baseAssets[token].baseAssetCurves.push(baseAssetCurve);
         } catch {
             revert InvalidPriceFeed();
@@ -157,6 +202,76 @@ contract SandboxController is AccessControl {
         baseAssetCount++;
 
         emit BaseAssetWhitelisted(token, priceFeed, decimals, baseAssetCurve);
+    }
+
+    /**
+     * @notice Updates the store front price factor for a base asset.
+     * @param token The address of the base asset.
+     * @param storeFrontPriceFactor The new store front price factor.
+     */
+    function setStoreFrontPriceFactor(
+        address token,
+        uint64 storeFrontPriceFactor
+    ) external onlyOwner {
+        if (token == address(0)) {
+            revert ZeroAddress();
+        }
+        if (!isTokenWhitelisted(token)) {
+            revert TokenNotWhitelisted();
+        }
+        if (storeFrontPriceFactor == 0 || storeFrontPriceFactor > 1e18) {
+            revert InvalidStoreFrontPriceFactorValue(storeFrontPriceFactor);
+        }
+
+        baseAssets[token].storeFrontPriceFactor = storeFrontPriceFactor;
+    }
+
+    /**
+     * @notice Updates the protocol and reserve factors for a base asset.
+     * @param token The address of the base asset.
+     * @param protocolFactorBorrow  The new protocol factor borrow.
+     * @param reserveFactorBorrow  The new reserve factor borrow.
+     */
+    function setBorrowFactors(
+        address token,
+        uint256 protocolFactorBorrow,
+        uint256 reserveFactorBorrow
+    ) external onlyOwner {
+        if (token == address(0)) {
+            revert ZeroAddress();
+        }
+        if (!isTokenWhitelisted(token)) {
+            revert TokenNotWhitelisted();
+        }
+        if (
+            protocolFactorBorrow == 0 ||
+            reserveFactorBorrow == 0 ||
+            protocolFactorBorrow + reserveFactorBorrow > 1e18
+        ) {
+            revert InvalidBorrowFactor(
+                protocolFactorBorrow,
+                reserveFactorBorrow
+            );
+        }
+
+        baseAssets[token].protocolFactorBorrow = protocolFactorBorrow;
+        baseAssets[token].reserveFactorBorrow = reserveFactorBorrow;
+    }
+
+        /**
+     * @notice Updates the protocol and reserve factors for a base asset.
+     * @param token The address of the base asset.
+     * @param feeEnabled  The new fee enabled status.
+     */
+    function setFeeEnabled(address token, bool feeEnabled) external onlyDAO {
+        if (token == address(0)) {
+            revert ZeroAddress();
+        }
+        if (!isTokenWhitelisted(token)) {
+            revert TokenNotWhitelisted();
+        }
+
+        baseAssets[token].feeEnabled = feeEnabled;
     }
 
     /**
@@ -199,21 +314,31 @@ contract SandboxController is AccessControl {
         if (!isTokenWhitelisted(token)) {
             revert TokenNotWhitelisted();
         }
-        if (!isCurveConfigurationValid(baseAssetCurve) || curveIndex >= baseAssets[token].baseAssetCurves.length) {
+        if (
+            !isCurveConfigurationValid(baseAssetCurve) ||
+            curveIndex >= baseAssets[token].baseAssetCurves.length
+        ) {
             revert InvalidCurveConfiguration();
         }
 
-        BaseAssetCurve memory baseAssetCurveBefore = baseAssets[token].baseAssetCurves[curveIndex];
+        BaseAssetCurve memory baseAssetCurveBefore = baseAssets[token]
+            .baseAssetCurves[curveIndex];
 
         if (
             baseAssetCurveBefore.supplyKink == baseAssetCurve.supplyKink &&
-            baseAssetCurveBefore.supplyPerYearInterestRateSlopeLow == baseAssetCurve.supplyPerYearInterestRateSlopeLow &&
-            baseAssetCurveBefore.supplyPerYearInterestRateSlopeHigh == baseAssetCurve.supplyPerYearInterestRateSlopeHigh &&
-            baseAssetCurveBefore.supplyPerYearInterestRateSlopeBase == baseAssetCurve.supplyPerYearInterestRateSlopeBase &&
+            baseAssetCurveBefore.supplyPerYearInterestRateSlopeLow ==
+            baseAssetCurve.supplyPerYearInterestRateSlopeLow &&
+            baseAssetCurveBefore.supplyPerYearInterestRateSlopeHigh ==
+            baseAssetCurve.supplyPerYearInterestRateSlopeHigh &&
+            baseAssetCurveBefore.supplyPerYearInterestRateSlopeBase ==
+            baseAssetCurve.supplyPerYearInterestRateSlopeBase &&
             baseAssetCurveBefore.borrowKink == baseAssetCurve.borrowKink &&
-            baseAssetCurveBefore.borrowPerYearInterestRateSlopeLow == baseAssetCurve.borrowPerYearInterestRateSlopeLow &&
-            baseAssetCurveBefore.borrowPerYearInterestRateSlopeHigh == baseAssetCurve.borrowPerYearInterestRateSlopeHigh &&
-            baseAssetCurveBefore.borrowPerYearInterestRateSlopeBase == baseAssetCurve.borrowPerYearInterestRateSlopeBase
+            baseAssetCurveBefore.borrowPerYearInterestRateSlopeLow ==
+            baseAssetCurve.borrowPerYearInterestRateSlopeLow &&
+            baseAssetCurveBefore.borrowPerYearInterestRateSlopeHigh ==
+            baseAssetCurve.borrowPerYearInterestRateSlopeHigh &&
+            baseAssetCurveBefore.borrowPerYearInterestRateSlopeBase ==
+            baseAssetCurve.borrowPerYearInterestRateSlopeBase
         ) {
             revert InvalidCurveConfiguration();
         }
@@ -236,17 +361,17 @@ contract SandboxController is AccessControl {
      * @param baseAssetCurve The interest rate curve configuration to validate.
      * @return True if the curve configuration is valid, otherwise false.
      */
-    function isCurveConfigurationValid(BaseAssetCurve memory baseAssetCurve) public pure returns (bool) {
-        return (
-            baseAssetCurve.supplyKink != 0 &&
+    function isCurveConfigurationValid(
+        BaseAssetCurve memory baseAssetCurve
+    ) public pure returns (bool) {
+        return (baseAssetCurve.supplyKink != 0 &&
             baseAssetCurve.supplyPerYearInterestRateSlopeLow != 0 &&
             baseAssetCurve.supplyPerYearInterestRateSlopeHigh != 0 &&
             baseAssetCurve.supplyPerYearInterestRateSlopeBase != 0 &&
             baseAssetCurve.borrowKink != 0 &&
             baseAssetCurve.borrowPerYearInterestRateSlopeLow != 0 &&
             baseAssetCurve.borrowPerYearInterestRateSlopeHigh != 0 &&
-            baseAssetCurve.borrowPerYearInterestRateSlopeBase != 0
-        );
+            baseAssetCurve.borrowPerYearInterestRateSlopeBase != 0);
     }
 
     /**

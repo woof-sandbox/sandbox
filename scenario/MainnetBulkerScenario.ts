@@ -7,7 +7,7 @@ import {
   IWstETH,
   MainnetBulker
 } from '../build/types';
-import { exp } from '../test/helpers';
+import { exp } from '../test/helper/helpers';
 import { expectApproximately, isBulkerSupported, matchesDeployment } from './utils';
 
 const MAINNET_WSTETH_ADDRESS = '0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0';

@@ -2,7 +2,7 @@ import { Constraint, Solution } from '../../plugins/scenario';
 import { CometContext } from '../context/CometContext';
 import { expect } from 'chai';
 import { Requirements } from './Requirements';
-import { exp } from '../../test/helpers';
+import { exp } from '../../test/helper/helpers';
 import { ComparisonOp, getAssetFromName, parseAmount } from '../utils';
 
 export class SupplyCapConstraint<T extends CometContext, R extends Requirements> implements Constraint<T, R> {

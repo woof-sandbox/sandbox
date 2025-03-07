@@ -1,4 +1,4 @@
-import { ethers, event, expect, wait } from './../helpers';
+import { ethers, event, expect, wait } from '../helper/helpers';
 import { utils } from 'ethers';
 import {
   BaseBridgeReceiverHarness__factory,

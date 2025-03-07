@@ -3,7 +3,7 @@ import { CometContext } from '../context/CometContext';
 import CometActor from '../context/CometActor';
 import { expect } from 'chai';
 import { Requirements } from './Requirements';
-import { baseBalanceOf, exp, factorScale } from '../../test/helpers';
+import { baseBalanceOf, exp, factorScale } from '../../test/helper/helpers';
 import { ComparativeAmount, ComparisonOp, getAssetFromName, parseAmount, getExpectedBaseBalance, getToTransferAmount } from '../utils';
 import { BigNumber } from 'ethers';
 

@@ -1,4 +1,4 @@
-import { expect, exp, fastForward, makeProtocol, setTotalsBasic, toYears } from './helpers';
+import { expect, exp, fastForward, makeProtocol, setTotalsBasic, toYears } from './helper/helpers';
 import { BigNumber } from 'ethers';
 
 describe('total tracking index bounds', function () {

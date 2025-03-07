@@ -1,4 +1,4 @@
-import { baseBalanceOf, ethers, event, expect, exp, makeProtocol, portfolio, setTotalsBasic, wait, fastForward } from './helpers';
+import { baseBalanceOf, ethers, event, expect, exp, makeProtocol, portfolio, setTotalsBasic, wait, fastForward } from './helper/helpers';
 
 describe('transfer', function () {
   it('transfers base from sender if the asset is base', async () => {

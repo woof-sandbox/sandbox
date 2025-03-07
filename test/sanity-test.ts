@@ -1,4 +1,4 @@
-import { ethers, expect, makeProtocol } from './helpers';
+import { ethers, expect, makeProtocol } from './helper/helpers';
 
 describe('getNow', function () {
   it('reverts if timestamp overflows', async () => {

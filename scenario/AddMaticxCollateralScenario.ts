@@ -1,7 +1,7 @@
 import { scenario } from './context/CometContext';
 import { expect } from 'chai';
 import { utils } from 'ethers';
-import { exp } from '../test/helpers';
+import { exp } from '../test/helper/helpers';
 import { calldata } from '../src/deploy';
 import { impersonateAddress } from '../plugins/scenario/utils';
 import { createCrossChainProposal, matchesDeployment } from './utils';

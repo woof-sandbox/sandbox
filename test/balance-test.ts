@@ -1,4 +1,4 @@
-import { expect, makeProtocol, setTotalsBasic } from './helpers';
+import { expect, makeProtocol, setTotalsBasic } from './helper/helpers';
 
 describe('totalBorrow', function () {
   it('has correct totalBorrow', async () => {

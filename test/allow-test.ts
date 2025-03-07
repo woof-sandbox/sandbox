@@ -1,4 +1,4 @@
-import { ethers, event, expect, makeProtocol, wait } from './helpers';
+import { ethers, event, expect, makeProtocol, wait } from './helper/helpers';
 
 describe('allow', function () {
   it('isAllowed defaults to false', async () => {

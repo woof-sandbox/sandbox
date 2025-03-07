@@ -4,7 +4,7 @@ import {
   OnChainLiquidator
 } from '../../build/types';
 import { PoolConfigStruct } from '../../build/types/OnChainLiquidator';
-import { ethers, exp } from '../../test/helpers';
+import { ethers, exp } from '../../test/helper/helpers';
 import { FlashbotsBundleProvider } from '@flashbots/ethers-provider-bundle';
 import { BigNumberish, Signer } from 'ethers';
 import googleCloudLog, { LogSeverity } from './googleCloudLog';

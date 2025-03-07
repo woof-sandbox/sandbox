@@ -1,4 +1,4 @@
-import { ethers, exp, expect, wait } from './../helpers';
+import { ethers, exp, expect, wait } from '../helper/helpers';
 import { utils } from 'ethers';
 import {
   SweepableBridgeReceiverHarness__factory,

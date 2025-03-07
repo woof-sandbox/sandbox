@@ -1,4 +1,4 @@
-import { baseBalanceOf, ethers, expect, exp, makeProtocol, wait, makeBulker, defaultAssets, getGasUsed, makeRewards, fastForward, event } from './helpers';
+import { baseBalanceOf, ethers, expect, exp, makeProtocol, wait, makeBulker, defaultAssets, getGasUsed, makeRewards, fastForward, event } from './helper/helpers';
 import { FaucetWETH__factory, NonStandardFaucetToken__factory } from '../build/types';
 
 // XXX Improve the "no permission" tests that should expect a custom error when
