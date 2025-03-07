@@ -1,19 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
-abstract contract ISandboxController {
-    /// @notice Mapping of base assets to their configurations.
-    mapping(address => BaseAssetConfiguration) public baseAssets;
-    /// @notice Mapping of collateral assets to their configurations.
-    mapping(address => CollateralAsset) public collateralAssets;
-
-    /// @notice Tracks whitelisted price feeds.
-    mapping(address => bool) public isPriceFeedWhitelisted;
-
+interface ISandboxController {
+    
     /// @notice Structure to store base asset configuration.
     struct BaseAssetConfiguration {
         address priceFeed;
         uint256 decimals;
+        uint256 minBorrow;
         BaseAssetCurve[] baseAssetCurves;
     }
 
@@ -22,14 +16,14 @@ abstract contract ISandboxController {
         uint64 supplyKink;
         uint64 supplyPerYearInterestRateSlopeLow;
         uint64 supplyPerYearInterestRateSlopeHigh;
-        uint64 supplyPerYearInterestRateSlopeBase;
+        uint64 supplyPerYearInterestRateBase;
         uint64 borrowKink;
         uint64 borrowPerYearInterestRateSlopeLow;
         uint64 borrowPerYearInterestRateSlopeHigh;
-        uint64 borrowPerYearInterestRateSlopeBase;
+        uint64 borrowPerYearInterestRateBase;
     }
 
-    struct CollateralAsset {
+    struct CollateralTokenConfig {
         address collateralToken;
         address priceFeed;
         uint256 decimals;
@@ -46,6 +40,7 @@ abstract contract ISandboxController {
     event BaseAssetWhitelisted(
         address indexed token,
         address indexed priceFeed,
+        uint256 minBorrow,
         uint8 decimals,
         BaseAssetCurve baseAssetCurve
     );
@@ -72,8 +67,13 @@ abstract contract ISandboxController {
     error InvalidPriceFeed();
     error NotAuthorized(address caller);
 
-    function baseAssetCount() virtual external view returns (uint256);
+    function baseAssetCount() external view returns (uint256);
 
-    function baseAssetTokens(uint256 index) virtual external view returns (address);
+    function baseAssetTokens(uint256 index) external view returns (address);
 
+    function isPriceFeedWhitelisted(address priceFeed) external view returns (bool);
+
+    function getBaseAssetByAddress(address _baseToken) external view returns (BaseAssetConfiguration memory);
+    
+    function getCollateralAssetByAddress(address _collateralToken) external view returns (CollateralTokenConfig memory);
 }

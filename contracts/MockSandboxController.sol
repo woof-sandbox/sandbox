@@ -10,8 +10,14 @@ import {IPriceFeed} from  "./IPriceFeed.sol";
  * @title SandboxController
  * @dev Manages base asset configurations and interest rate curves.
  */
-contract SandboxController is AccessControl, ISandboxController {
+contract MockSandboxController is AccessControl, ISandboxController {
+    /// @notice Mapping of base assets to their configurations.
+    mapping(address => BaseAssetConfiguration) public baseAssets;
+    /// @notice Mapping of collateral assets to their configurations.
+    mapping(address => CollateralTokenConfig) public collateralAssets;
 
+    /// @notice Tracks whitelisted price feeds.
+    mapping(address => bool) public isPriceFeedWhitelisted;
     /// @notice Role identifier for owner.
     bytes32 public constant OWNER_ROLE = keccak256("OWNER_ROLE");
 
@@ -24,6 +30,9 @@ contract SandboxController is AccessControl, ISandboxController {
     /// @notice Total count of base assets.
     uint256 override public baseAssetCount;
 
+    address[] public collateralAssetTokens;
+    uint256 public collateralAssetCount;
+    
     /// @dev Modifier to restrict function access to authorized roles.
     modifier onlyAuthorized() {
         if (!(hasRole(OWNER_ROLE, msg.sender) || hasRole(DAO_ROLE, msg.sender))) {
@@ -64,6 +73,44 @@ contract SandboxController is AccessControl, ISandboxController {
         _setRoleAdmin(DAO_ROLE, 0x0);
     }
 
+    function whitelistCollateralAsset(
+        address token,
+        address priceFeed,
+        uint64 minBorrowCollateralFactor,
+        uint64 maxBorrowCollateralFactor,
+        uint64 minLiquidateCollateralFactor,
+        uint64 maxLiquidateCollateralFactor,
+        uint64 minLiquidationFactor,
+        uint64 maxLiquidationFactor
+    ) external onlyAuthorized {
+        if (token == address(0) || priceFeed == address(0)) revert ZeroAddress();
+        uint8 decimals = IERC20NonStandard(token).decimals();
+
+        collateralAssets[token] = CollateralTokenConfig({
+            collateralToken: token,
+            priceFeed: priceFeed,
+            decimals: decimals,
+            maxBorrowCollateralFactor: maxBorrowCollateralFactor,
+            minBorrowCollateralFactor: minBorrowCollateralFactor,
+            minLiquidateCollateralFactor: minLiquidateCollateralFactor,
+            maxLiquidateCollateralFactor: maxLiquidateCollateralFactor,
+            minLiquidationFactor: minLiquidationFactor,
+            maxLiquidationFactor: maxLiquidationFactor
+        });      
+
+        collateralAssetTokens.push(token);
+        isPriceFeedWhitelisted[priceFeed] = true;
+        collateralAssetCount++;
+    }
+
+    function getCollateralAssetByAddress(address _collateralToken) external view returns (CollateralTokenConfig memory) {
+        return collateralAssets[_collateralToken];
+    }
+
+    function getBaseAssetByAddress(address _baseToken) external view returns (BaseAssetConfiguration memory) {
+        return baseAssets[_baseToken];
+    }
+
     /**
      * @notice Whitelists a new base asset.
      * @param token The address of the token to whitelist.
@@ -73,6 +120,7 @@ contract SandboxController is AccessControl, ISandboxController {
     function whitelistBaseAsset(
         address token,
         address priceFeed,
+        uint minBorrow,
         BaseAssetCurve memory baseAssetCurve
     ) external onlyAuthorized {
         if (token == address(0) || priceFeed == address(0)) {
@@ -93,6 +141,7 @@ contract SandboxController is AccessControl, ISandboxController {
         try IPriceFeed(priceFeed).latestRoundData() returns (uint80, int256, uint256, uint256, uint80) {
             baseAssets[token].priceFeed = priceFeed;
             baseAssets[token].decimals = decimals;
+            baseAssets[token].minBorrow = minBorrow;
             baseAssets[token].baseAssetCurves.push(baseAssetCurve);
         } catch {
             revert InvalidPriceFeed();
@@ -102,7 +151,7 @@ contract SandboxController is AccessControl, ISandboxController {
         isPriceFeedWhitelisted[priceFeed] = true;
         baseAssetCount++;
 
-        emit BaseAssetWhitelisted(token, priceFeed, decimals, baseAssetCurve);
+        emit BaseAssetWhitelisted(token, priceFeed, minBorrow, decimals, baseAssetCurve);
     }
 
     /**
@@ -155,11 +204,11 @@ contract SandboxController is AccessControl, ISandboxController {
             baseAssetCurveBefore.supplyKink == baseAssetCurve.supplyKink &&
             baseAssetCurveBefore.supplyPerYearInterestRateSlopeLow == baseAssetCurve.supplyPerYearInterestRateSlopeLow &&
             baseAssetCurveBefore.supplyPerYearInterestRateSlopeHigh == baseAssetCurve.supplyPerYearInterestRateSlopeHigh &&
-            baseAssetCurveBefore.supplyPerYearInterestRateSlopeBase == baseAssetCurve.supplyPerYearInterestRateSlopeBase &&
+            baseAssetCurveBefore.supplyPerYearInterestRateBase == baseAssetCurve.supplyPerYearInterestRateBase &&
             baseAssetCurveBefore.borrowKink == baseAssetCurve.borrowKink &&
             baseAssetCurveBefore.borrowPerYearInterestRateSlopeLow == baseAssetCurve.borrowPerYearInterestRateSlopeLow &&
             baseAssetCurveBefore.borrowPerYearInterestRateSlopeHigh == baseAssetCurve.borrowPerYearInterestRateSlopeHigh &&
-            baseAssetCurveBefore.borrowPerYearInterestRateSlopeBase == baseAssetCurve.borrowPerYearInterestRateSlopeBase
+            baseAssetCurveBefore.borrowPerYearInterestRateBase == baseAssetCurve.borrowPerYearInterestRateBase
         ) {
             revert InvalidCurveConfiguration();
         }
@@ -187,11 +236,11 @@ contract SandboxController is AccessControl, ISandboxController {
             baseAssetCurve.supplyKink != 0 &&
             baseAssetCurve.supplyPerYearInterestRateSlopeLow != 0 &&
             baseAssetCurve.supplyPerYearInterestRateSlopeHigh != 0 &&
-            baseAssetCurve.supplyPerYearInterestRateSlopeBase != 0 &&
+            baseAssetCurve.supplyPerYearInterestRateBase != 0 &&
             baseAssetCurve.borrowKink != 0 &&
             baseAssetCurve.borrowPerYearInterestRateSlopeLow != 0 &&
             baseAssetCurve.borrowPerYearInterestRateSlopeHigh != 0 &&
-            baseAssetCurve.borrowPerYearInterestRateSlopeBase != 0
+            baseAssetCurve.borrowPerYearInterestRateBase != 0
         );
     }
 

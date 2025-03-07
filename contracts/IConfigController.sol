@@ -3,6 +3,21 @@ pragma solidity 0.8.28;
 
 
 abstract contract IConfigController {
+    struct MarketConfig {
+        address baseToken;
+        address priceFeed;
+        CollateralTokenConfig[] collateraTokens;
+    }
+
+    struct CollateralTokenConfig {
+        address collateralToken;
+        address priceFeed;
+        uint64 borrowCollateralFactor;
+        uint64 liquidateCollateralFactor;
+        uint64 liquidationFactor;
+        uint128 supplyCap;
+    }
+
     error ZeroAddress();
     error Unauthorized();
     error WrongPriceFeed();
@@ -10,7 +25,22 @@ abstract contract IConfigController {
     error ZeroCollateralAssets();
     error SupplyCapCantBeZero();
     error WrongCollateralTokenSettings();
+    error LiquidateCollateralFactorTooLow();
+    error LiquidateCollateralFactorTooHigh();
+    error LiquidationFactorTooLow();
+    error LiquidationFactorTooHigh();
+    error BorrowCollateralFactorTooLow();
+    error BorrowCollateralFactorTooHigh();
+    error BaseTokenNotWhitelisted();
+    error CollateralTokenNotWhitelisted();
+    error CollateralTokenAlreadyAdded();
     
+    event MarketConfigurationCreated(
+        address market,
+        address baseToken,
+        address priceFeed,
+        uint baseTokenId
+    );
     event AddedCollateralTokenConfig(
         address asset,
         address priceFeed,
