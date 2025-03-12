@@ -16,17 +16,29 @@ contract SandboxController is AccessControl {
     /// @notice Role identifier for DAO governance.
     bytes32 public constant DAO_ROLE = keccak256("DAO_ROLE");
 
+    /// @notice Maximum number of assets for an asset list.
+    uint8 internal constant MAX_ASSETS_FOR_ASSET_LIST = 24;
+
     /// @notice Structure to store base asset configuration.
     struct BaseAssetConfiguration {
         address priceFeed;
         uint256 decimals;
         bool feeEnabled;
+        BaseAssetOptions baseAssetOptions;
         BaseAssetFactors baseAssetFactors;
         BaseAssetCurve[] baseAssetCurves;
     }
 
+    /// @notice Structure defining base asset options.
+    struct BaseAssetOptions {
+        uint256 minUpdateTime;
+        uint256 maxCollateralAssets;
+        uint256 suggestedAmountOfSeedReserves;
+        uint256 suggestedLockTimeOfSeedReserves;
+    }
+
     /// @notice Structure defining base asset factors.
-    struct BaseAssetFactors{
+    struct BaseAssetFactors {
         uint64 storeFrontPriceFactor;
         uint64 protocolFactorBorrow;
         uint64 reserveFactorBorrow;
@@ -86,10 +98,8 @@ contract SandboxController is AccessControl {
     error PriceFeedAlreadyWhitelisted();
     error InvalidCurveConfiguration();
     error InvalidPriceFeed();
-    error InvalidStoreFrontPriceFactorValue(uint64 storeFrontPriceFactor);
-    error InvalidBorrowFactor(
-        BaseAssetFactors baseAssetFactors
-    );
+    error InvalidBorrowFactor(BaseAssetFactors baseAssetFactors);
+    error InvalidOptions(BaseAssetOptions baseAssetOptions);
     error NotAuthorized(address caller);
 
     /// @dev Modifier to restrict function access to authorized roles.
@@ -135,22 +145,6 @@ contract SandboxController is AccessControl {
     }
 
     /**
-     * @notice Checks if the base asset factors are valid.
-     * @param baseAssetFactors The base asset factors to validate.
-     * @return True if the factors are valid, otherwise false.
-     */
-    function isFactorsValid(BaseAssetFactors memory baseAssetFactors) public pure returns (bool) {
-        return (baseAssetFactors.protocolFactorBorrow != 0 &&
-            baseAssetFactors.reserveFactorBorrow != 0 &&
-            baseAssetFactors.protocolFactorBorrow + baseAssetFactors.reserveFactorBorrow <= 1e18 &&
-            baseAssetFactors.protocolFactorLiquidation != 0 &&
-            baseAssetFactors.reserveFactorLiquidation != 0 &&
-            baseAssetFactors.protocolFactorLiquidation + baseAssetFactors.reserveFactorLiquidation <= 1e18) &&
-            baseAssetFactors.storeFrontPriceFactor != 0 &&
-            baseAssetFactors.storeFrontPriceFactor <= 1e18;
-    }
-
-    /**
      * @notice Whitelists a new base asset.
      * @param token The address of the token to whitelist.
      * @param priceFeed The associated price feed address.
@@ -160,15 +154,12 @@ contract SandboxController is AccessControl {
         address token,
         address priceFeed,
         bool feeEnabled,
-        uint64 storeFrontPriceFactor,
+        BaseAssetOptions memory baseAssetOptions,
         BaseAssetFactors memory baseAssetFactors,
         BaseAssetCurve memory baseAssetCurve
     ) external onlyAuthorized {
         if (token == address(0) || priceFeed == address(0)) {
             revert ZeroAddress();
-        }
-        if (storeFrontPriceFactor == 0 || storeFrontPriceFactor > 1e18) {
-            revert InvalidStoreFrontPriceFactorValue(storeFrontPriceFactor);
         }
         if (isTokenWhitelisted(token)) {
             revert TokenAlreadyWhitelisted();
@@ -180,12 +171,12 @@ contract SandboxController is AccessControl {
             revert InvalidCurveConfiguration();
         }
 
-        if (
-            !isFactorsValid(baseAssetFactors)
-        ) {
-            revert InvalidBorrowFactor(
-                baseAssetFactors
-            );
+        if (!isFactorsValid(baseAssetFactors)) {
+            revert InvalidBorrowFactor(baseAssetFactors);
+        }
+
+        if (!isOptionsValid(baseAssetOptions)) {
+            revert InvalidOptions(baseAssetOptions);
         }
 
         uint8 decimals = IERC20NonStandard(token).decimals();
@@ -200,6 +191,7 @@ contract SandboxController is AccessControl {
             baseAssets[token].priceFeed = priceFeed;
             baseAssets[token].decimals = decimals;
             baseAssets[token].feeEnabled = feeEnabled;
+            baseAssets[token].baseAssetOptions = baseAssetOptions;
             baseAssets[token].baseAssetFactors = baseAssetFactors;
             baseAssets[token].baseAssetCurves.push(baseAssetCurve);
         } catch {
@@ -211,6 +203,24 @@ contract SandboxController is AccessControl {
         baseAssetCount++;
 
         emit BaseAssetWhitelisted(token, priceFeed, decimals, baseAssetCurve);
+    }
+
+    function setOptions(
+        address token,
+        BaseAssetOptions memory baseAssetOptions
+    ) external onlyOwner {
+        if (token == address(0)) {
+            revert ZeroAddress();
+        }
+        if (!isTokenWhitelisted(token)) {
+            revert TokenNotWhitelisted();
+        }
+
+        if (!isOptionsValid(baseAssetOptions)) {
+            revert InvalidOptions(baseAssetOptions);
+        }
+
+        baseAssets[token].baseAssetOptions = baseAssetOptions;
     }
 
     /**
@@ -228,18 +238,14 @@ contract SandboxController is AccessControl {
         if (!isTokenWhitelisted(token)) {
             revert TokenNotWhitelisted();
         }
-        if (
-            !isFactorsValid(baseAssetFactors)
-        ) {
-            revert InvalidBorrowFactor(
-                baseAssetFactors
-            );
+        if (!isFactorsValid(baseAssetFactors)) {
+            revert InvalidBorrowFactor(baseAssetFactors);
         }
 
         baseAssets[token].baseAssetFactors = baseAssetFactors;
     }
 
-        /**
+    /**
      * @notice Updates the protocol and reserve factors for a base asset.
      * @param token The address of the base asset.
      * @param feeEnabled  The new fee enabled status.
@@ -353,6 +359,44 @@ contract SandboxController is AccessControl {
             baseAssetCurve.borrowPerYearInterestRateSlopeLow != 0 &&
             baseAssetCurve.borrowPerYearInterestRateSlopeHigh != 0 &&
             baseAssetCurve.borrowPerYearInterestRateSlopeBase != 0);
+    }
+
+    /**
+     * @notice Checks if the base asset options are valid.
+     * @param baseAssetOptions The base asset options to validate.
+     * @return True if the options are valid, otherwise false.
+     */
+    function isOptionsValid(
+        BaseAssetOptions memory baseAssetOptions
+    ) public pure returns (bool) {
+        return (baseAssetOptions.maxCollateralAssets != 0 &&
+            baseAssetOptions.maxCollateralAssets <= MAX_ASSETS_FOR_ASSET_LIST &&
+            baseAssetOptions.minUpdateTime != 0 &&
+            baseAssetOptions.suggestedAmountOfSeedReserves != 0 &&
+            baseAssetOptions.suggestedLockTimeOfSeedReserves != 0);
+    }
+
+    /**
+     * @notice Checks if the base asset factors are valid.
+     * @param baseAssetFactors The base asset factors to validate.
+     * @return True if the factors are valid, otherwise false.
+     */
+    function isFactorsValid(
+        BaseAssetFactors memory baseAssetFactors
+    ) public pure returns (bool) {
+        return
+            (baseAssetFactors.protocolFactorBorrow != 0 &&
+                baseAssetFactors.reserveFactorBorrow != 0 &&
+                baseAssetFactors.protocolFactorBorrow +
+                    baseAssetFactors.reserveFactorBorrow <=
+                1e18 &&
+                baseAssetFactors.protocolFactorLiquidation != 0 &&
+                baseAssetFactors.reserveFactorLiquidation != 0 &&
+                baseAssetFactors.protocolFactorLiquidation +
+                    baseAssetFactors.reserveFactorLiquidation <=
+                1e18) &&
+            baseAssetFactors.storeFrontPriceFactor != 0 &&
+            baseAssetFactors.storeFrontPriceFactor <= 1e18;
     }
 
     /**
