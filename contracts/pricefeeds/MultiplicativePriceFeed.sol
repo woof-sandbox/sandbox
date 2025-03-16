@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.15;
+pragma solidity 0.8.22;
 
-import "../vendor/@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
-import "../IPriceFeed.sol";
+import "@chainlink/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol";
+import "../interfaces/IPriceFeed.sol";
 
 /**
  * @title Multiplicative price feed

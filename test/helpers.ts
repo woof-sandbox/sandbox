@@ -403,7 +403,10 @@ export async function makeConfigurator(opts: ProtocolOpts = {}): Promise<Configu
 
   // Deploy ProxyAdmin
   const ProxyAdmin = (await ethers.getContractFactory('CometProxyAdmin')) as CometProxyAdmin__factory;
-  const proxyAdmin = await ProxyAdmin.connect(governor).deploy();
+  const signers = await ethers.getSigners();
+
+  const admin = signers[0];
+  const proxyAdmin = await ProxyAdmin.connect(admin).deploy();
   await proxyAdmin.deployed();
 
   // Deploy Comet proxy

@@ -124,7 +124,7 @@ export async function deployCustomNetworkComet(
   const cometAdmin = await deploymentManager.deploy(
     'cometAdmin',
     'CometProxyAdmin.sol',
-    [],
+    [governor],
     maybeForce()
   );
 
@@ -181,7 +181,7 @@ export async function deployCustomNetworkComet(
   console.log('deply comet proxy')
   const cometProxy = await deploymentManager.deploy(
     'comet',
-    'vendor/proxy/transparent/TransparentUpgradeableProxy.sol',
+    '../lib/openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol',
     [tmpCometImpl.address, cometAdmin.address, []], // NB: temporary implementation contract
     maybeForce(),
   );
@@ -326,7 +326,7 @@ export async function deployNetworkComet(
   const cometAdmin = await deploymentManager.deploy(
     'cometAdmin',
     'CometProxyAdmin.sol',
-    [],
+    [governor],
     maybeForce()
   );
 
