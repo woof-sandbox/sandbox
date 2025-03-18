@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.22;
 
-import "@chainlink/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol";
+import "../interfaces/AggregatorV3Interface.sol";
 import "../interfaces/IPriceFeed.sol";
 import "../interfaces/IWstETH.sol";
 

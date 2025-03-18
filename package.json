@@ -48,7 +48,6 @@
   "author": "Compound Finance",
   "license": "UNLICENSED",
   "dependencies": {
-    "@chainlink/contracts": "file:lib/chainlink",
     "@flashbots/ethers-provider-bundle": "^0.5.0",
     "@openzeppelin/contracts": "file:lib/openzeppelin-contracts/contracts",
     "chai": "^4.3.4",

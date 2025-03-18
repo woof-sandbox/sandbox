@@ -2,7 +2,7 @@
 pragma solidity 0.8.22;
 
 import "@openzeppelin/contracts/interfaces/IERC4626.sol";
-import "@chainlink/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol";
+import "../interfaces/AggregatorV3Interface.sol";
 import "../interfaces/IPriceFeed.sol";
 
 /**
