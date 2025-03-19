@@ -1006,4 +1006,139 @@ describe('SandboxController', function () {
       expect(await sandboxController.hasRole(DAO_ROLE, newDAO.address)).to.be.true;
     });
   });
+
+  describe('whitelistCollateralAsset', () => {
+    it('reverts if token or feed is the zero address', async () => {
+      const [owner, dao] = await ethers.getSigners();
+      const { sandboxController } = await makeSandboxController({
+        admin: owner,
+        governor: dao,
+      });
+      const feed = await deploySimplePriceFeed();
+
+      await expect(
+        sandboxController.whitelistCollateralAsset(
+          ethers.constants.AddressZero,
+          feed.address
+        )
+      ).to.be.revertedWithCustomError(sandboxController, 'ZeroAddress');
+
+      const token = await deployTestToken();
+      await expect(
+        sandboxController.whitelistCollateralAsset(
+          token.address,
+          ethers.constants.AddressZero
+        )
+      ).to.be.revertedWithCustomError(sandboxController, 'ZeroAddress');
+    });
+
+    it('reverts if token is already whitelisted as collateral', async () => {
+      const [owner, dao] = await ethers.getSigners();
+      const { sandboxController } = await makeSandboxController({
+        admin: owner,
+        governor: dao,
+      });
+      const token = await deployTestToken();
+      const feed = await deploySimplePriceFeed();
+
+      await wait(
+        sandboxController.whitelistCollateralAsset(token.address, feed.address)
+      );
+
+      const anotherFeed = await deploySimplePriceFeed();
+      await expect(
+        sandboxController.whitelistCollateralAsset(token.address, anotherFeed.address)
+      ).to.be.revertedWithCustomError(sandboxController, 'TokenAlreadyWhitelisted');
+    });
+
+    it('reverts if feed is already whitelisted for a different token', async () => {
+      const [owner, dao] = await ethers.getSigners();
+      const { sandboxController } = await makeSandboxController({
+        admin: owner,
+        governor: dao,
+      });
+      const tokenA = await deployTestToken();
+      const tokenB = await deployTestToken('Collateral Token B', 'CTB');
+      const feed = await deploySimplePriceFeed();
+
+      await wait(
+        sandboxController.whitelistCollateralAsset(tokenA.address, feed.address)
+      );
+
+      await expect(
+        sandboxController.whitelistCollateralAsset(tokenB.address, feed.address)
+      ).to.be.revertedWithCustomError(sandboxController, 'PriceFeedAlreadyWhitelisted');
+    });
+
+    it('reverts if feed is not a valid price feed (latestRoundData fails)', async () => {
+      const [owner, dao] = await ethers.getSigners();
+      const { sandboxController } = await makeSandboxController({
+        admin: owner,
+        governor: dao,
+      });
+      const token = await deployTestToken();
+      const notAFeed = await deployTestToken('RandomToken', 'RND');
+
+      await expect(
+        sandboxController.whitelistCollateralAsset(token.address, notAFeed.address)
+      ).to.be.revertedWithCustomError(sandboxController, 'InvalidPriceFeed');
+    });
+
+    it('reverts if called by non-owner/non-DAO (onlyAuthorized)', async () => {
+      const [owner, dao, attacker] = await ethers.getSigners();
+      const { sandboxController } = await makeSandboxController({
+        admin: owner,
+        governor: dao,
+      });
+      const token = await deployTestToken();
+      const feed = await deploySimplePriceFeed();
+
+      await expect(
+        sandboxController.connect(attacker).whitelistCollateralAsset(token.address, feed.address)
+      ).to.be.revertedWithCustomError(sandboxController, 'NotAuthorized');
+    });
+
+    it('whitelists a valid collateral token and feed (owner or DAO), updates state & emits event', async () => {
+      const [owner, dao] = await ethers.getSigners();
+      const { sandboxController } = await makeSandboxController({
+        admin: owner,
+        governor: dao,
+      });
+      const token = await deployTestToken();
+      const feed = await deploySimplePriceFeed();
+
+      let tx = await wait(
+        sandboxController.whitelistCollateralAsset(token.address, feed.address)
+      );
+      let ev = event(tx, 0);
+      expect(ev['CollateralAssetWhitelisted'].token).to.equal(token.address);
+      expect(ev['CollateralAssetWhitelisted'].priceFeed).to.equal(feed.address);
+
+      const collateralInfo = await sandboxController.collateralAssets(token.address);
+      expect(collateralInfo).to.equal(feed.address);
+
+      expect(await sandboxController.isPriceFeedWhitelisted(feed.address)).to.equal(true);
+      expect(await sandboxController.collateralAssetCount()).to.equal(1);
+      expect(await sandboxController.collateralAssetTokens(0)).to.equal(token.address);
+
+      const token2 = await deployTestToken('Collateral Token 2', 'CT2');
+      const feed2 = await deploySimplePriceFeed();
+      tx = await wait(
+        sandboxController.connect(dao).whitelistCollateralAsset(token2.address, feed2.address)
+      );
+      ev = event(tx, 0);
+      expect(ev['CollateralAssetWhitelisted'].token).to.equal(token2.address);
+      expect(ev['CollateralAssetWhitelisted'].priceFeed).to.equal(feed2.address);
+
+      // Check updated state for second token
+      const collateralInfo2 = await sandboxController.collateralAssets(token2.address);
+      expect(collateralInfo2).to.equal(feed2.address);
+
+      expect(await sandboxController.isPriceFeedWhitelisted(feed2.address)).to.equal(true);
+      expect(await sandboxController.collateralAssetCount()).to.equal(2);
+      expect(await sandboxController.collateralAssetTokens(1)).to.equal(token2.address);
+    });
+  });
+
+
 });

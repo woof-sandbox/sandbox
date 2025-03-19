@@ -90,7 +90,6 @@ task('deploy', 'Deploys market')
         console.log(`[${tag}] Failed to deploy with error: ${e}`);
       }
     }
-
     const verify = noVerify ? false : !simulate;
     const desc = verify ? 'Verify' : 'Would verify';
     if (noVerify && simulate) {

@@ -13442,11 +13442,11 @@
       ]
     },
     {
-      "path": "soljson-v0.7.1-nightly.2020.8.22+commit.bff0f9bd.js",
+      "path": "soljson-v0.7.1-nightly.2020.8.28+commit.bff0f9bd.js",
       "version": "0.7.1",
-      "prerelease": "nightly.2020.8.22",
+      "prerelease": "nightly.2020.8.28",
       "build": "commit.bff0f9bd",
-      "longVersion": "0.7.1-nightly.2020.8.22+commit.bff0f9bd",
+      "longVersion": "0.7.1-nightly.2020.8.28+commit.bff0f9bd",
       "keccak256": "0xd032339255b1c3b2f201719a09d216ac15b56889e58fa85e022cccdc52664c42",
       "sha256": "0xc20b7b86d775efb6f4defba159582f9432dc27bcaf7a24c590cc569b90918412",
       "urls": [

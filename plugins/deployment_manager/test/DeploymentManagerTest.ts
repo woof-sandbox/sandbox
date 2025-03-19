@@ -30,10 +30,10 @@ export interface TestContracts {
 }
 
 export async function setupContracts(deploymentManager: DeploymentManager): Promise<TestContracts> {
-  let proxyAdminArgs: [] = [];
+  let proxyAdminArgs: [string] = [await (await deploymentManager.getSigners())[0].getAddress()];
   let proxyAdmin: ProxyAdmin = await deploymentManager.deploy(
     'proxyAdmin',
-    'vendor/proxy/transparent/ProxyAdmin.sol',
+    '../lib/openzeppelin-contracts/contracts/proxy/transparent/ProxyAdmin.sol',
     proxyAdminArgs
   );
 
@@ -45,7 +45,7 @@ export async function setupContracts(deploymentManager: DeploymentManager): Prom
 
   let proxy: TransparentUpgradeableProxy = await deploymentManager.deploy(
     'proxy',
-    'vendor/proxy/transparent/TransparentUpgradeableProxy.sol',
+    '../lib/openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol',
     [finnImpl.address, proxyAdmin.address, (
       await finnImpl.populateTransaction.initializeDog(
         'finn',

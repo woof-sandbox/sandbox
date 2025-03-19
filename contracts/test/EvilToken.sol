@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
-import "./../ERC20.sol";
-import "./../Comet.sol";
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "./../CometSandbox.sol";
 import "./FaucetToken.sol";
 
 /**
@@ -74,27 +74,27 @@ contract EvilToken is FaucetToken {
     function performAttack(address src, address dst, uint256 amount) internal returns (bool) {
         ReentryAttack memory reentryAttack = attack;
        if (reentryAttack.attackType == AttackType.TRANSFER_FROM) {
-            Comet(payable(msg.sender)).transferFrom(
+            CometSandbox(payable(msg.sender)).transferFrom(
                 reentryAttack.source,
                 reentryAttack.destination,
                 reentryAttack.amount
             );
         } else if (reentryAttack.attackType == AttackType.WITHDRAW_FROM) {
-            Comet(payable(msg.sender)).withdrawFrom(
+            CometSandbox(payable(msg.sender)).withdrawFrom(
                 reentryAttack.source,
                 reentryAttack.destination,
                 reentryAttack.asset,
                 reentryAttack.amount
             );
         } else if (reentryAttack.attackType == AttackType.SUPPLY_FROM) {
-            Comet(payable(msg.sender)).supplyFrom(
+            CometSandbox(payable(msg.sender)).supplyFrom(
                 reentryAttack.source,
                 reentryAttack.destination,
                 reentryAttack.asset,
                 reentryAttack.amount
             );
         }  else if (reentryAttack.attackType == AttackType.BUY_COLLATERAL) {
-            Comet(payable(msg.sender)).buyCollateral(
+            CometSandbox(payable(msg.sender)).buyCollateral(
                 reentryAttack.asset,
                 0,
                 reentryAttack.amount,

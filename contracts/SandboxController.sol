@@ -2,8 +2,8 @@
 pragma solidity 0.8.28;
 
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
-import {IERC20NonStandard} from "./IERC20NonStandard.sol";
-import {IPriceFeed} from "./IPriceFeed.sol";
+import {IERC20NonStandard} from "./interfaces/IERC20NonStandard.sol";
+import {IPriceFeed} from "./interfaces/IPriceFeed.sol";
 
 /**
  * @title SandboxController
@@ -27,6 +27,10 @@ contract SandboxController is AccessControl {
         BaseAssetOptions baseAssetOptions;
         BaseAssetFactors baseAssetFactors;
         BaseAssetCurve[] baseAssetCurves;
+    }
+
+    struct CollateralAsssetConfiguration {
+        address priceFeed;
     }
 
     /// @notice Structure defining base asset options.
@@ -61,14 +65,23 @@ contract SandboxController is AccessControl {
     /// @notice Mapping of base assets to their configurations.
     mapping(address => BaseAssetConfiguration) public baseAssets;
 
+    /// @notice Mapping of collateral assets to their configurations.
+    mapping(address => CollateralAsssetConfiguration) public collateralAssets;
+
     /// @notice Tracks whitelisted price feeds.
     mapping(address => bool) public isPriceFeedWhitelisted;
 
     /// @notice Array of base asset tokens.
     address[] public baseAssetTokens;
 
+    /// @notice Array of collateral asset tokens.
+    address[] public collateralAssetTokens;
+
     /// @notice Total count of base assets.
     uint256 public baseAssetCount;
+
+    /// @notice Total count of collateral assets.
+    uint256 public collateralAssetCount;
 
     /// @notice Event emitted when a base asset is whitelisted.
     event BaseAssetWhitelisted(
@@ -76,6 +89,12 @@ contract SandboxController is AccessControl {
         address indexed priceFeed,
         uint8 decimals,
         BaseAssetCurve baseAssetCurve
+    );
+
+    /// @notice Event emitted when a collateral asset is whitelisted.
+    event CollateralAssetWhitelisted(
+        address indexed token,
+        address indexed priceFeed
     );
 
     /// @notice Event emitted when a base asset curve is added.
@@ -90,7 +109,7 @@ contract SandboxController is AccessControl {
         BaseAssetCurve baseAssetCurveBefore,
         BaseAssetCurve baseAssetCurve
     );
-
+    
     /// @notice Custom errors for various invalid operations.
     error ZeroAddress();
     error TokenAlreadyWhitelisted();
@@ -204,6 +223,45 @@ contract SandboxController is AccessControl {
 
         emit BaseAssetWhitelisted(token, priceFeed, decimals, baseAssetCurve);
     }
+
+     /**
+     * @notice Whitelists a new collateral asset.
+     * @param token The address of the token to whitelist.
+     * @param priceFeed The associated price feed address.
+     */
+    function whitelistCollateralAsset(
+        address token,
+        address priceFeed
+    ) external onlyAuthorized {
+        if (token == address(0) || priceFeed == address(0)) {
+            revert ZeroAddress();
+        }
+        if (collateralAssets[token].priceFeed != address(0)) {
+            revert TokenAlreadyWhitelisted();
+        }
+        if (isPriceFeedWhitelisted[priceFeed]) {
+            revert PriceFeedAlreadyWhitelisted();
+        }
+
+        try IPriceFeed(priceFeed).latestRoundData() returns (
+            uint80,
+            int256,
+            uint256,
+            uint256,
+            uint80
+        ) {
+            collateralAssets[token].priceFeed = priceFeed;
+        } catch {
+            revert InvalidPriceFeed();
+        }
+        collateralAssetTokens.push(token);
+
+        isPriceFeedWhitelisted[priceFeed] = true;
+
+        collateralAssetCount++;
+        
+        emit CollateralAssetWhitelisted(token, priceFeed);
+    }   
 
     function setOptions(
         address token,

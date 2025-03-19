@@ -580,7 +580,7 @@ describe('absorb', function () {
       },
       reward: 'COMP',
     });
-    const { cometWithExtendedAssetList : comet, tokens: {
+    const { comet : comet, tokens: {
       COMP,
       WETH,
     }, users: [absorber, underwater] } = protocol;

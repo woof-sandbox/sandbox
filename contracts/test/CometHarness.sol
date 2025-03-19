@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
-import "../Comet.sol";
+import "../CometSandbox.sol";
 
-contract CometHarness is Comet {
+contract CometHarness is CometSandbox {
     uint public nowOverride;
 
-    constructor(Configuration memory config) Comet(config) {}
+    constructor(Configuration memory config) CometSandbox(config) {}
 
     function getNowInternal() override internal view returns (uint40) {
         return nowOverride > 0 ? uint40(nowOverride) : super.getNowInternal();
@@ -60,7 +60,7 @@ contract CometHarness is Comet {
 
         uint8 count = 0;
         for (uint8 i = 0; i < numAssets; i++) {
-            if (isInAsset(assetsIn, i)) {
+            if (isInAsset(assetsIn, i, userBasic[account]._reserved)) {
                 count++;
             }
         }
@@ -69,7 +69,7 @@ contract CometHarness is Comet {
 
         uint j = 0;
         for (uint8 i = 0; i < numAssets; i++) {
-            if (isInAsset(assetsIn, i)) {
+            if (isInAsset(assetsIn, i, userBasic[account]._reserved)) {
                 result[j] = getAssetInfo(i).asset;
                 j++;
             }
