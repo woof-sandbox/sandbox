@@ -19,12 +19,14 @@ contract SandboxController is AccessControl {
     /// @notice Maximum number of assets for an asset list.
     uint8 internal constant MAX_ASSETS_FOR_ASSET_LIST = 24;
 
+    /// @notice Maximum number of base assets.
+    ControllerOptions options;
+
     /// @notice Structure to store base asset configuration.
     struct BaseAssetConfiguration {
         address priceFeed;
         uint256 decimals;
         bool feeEnabled;
-        BaseAssetOptions baseAssetOptions;
         BaseAssetFactors baseAssetFactors;
         BaseAssetCurve[] baseAssetCurves;
     }
@@ -34,7 +36,7 @@ contract SandboxController is AccessControl {
     }
 
     /// @notice Structure defining base asset options.
-    struct BaseAssetOptions {
+    struct ControllerOptions {
         uint256 minUpdateTime;
         uint256 maxCollateralAssets;
         uint256 suggestedAmountOfSeedReserves;
@@ -109,7 +111,10 @@ contract SandboxController is AccessControl {
         BaseAssetCurve baseAssetCurveBefore,
         BaseAssetCurve baseAssetCurve
     );
-    
+
+    /// @notice Set the base asset options.
+    event ControllerOptionsSet(ControllerOptions options);
+
     /// @notice Custom errors for various invalid operations.
     error ZeroAddress();
     error TokenAlreadyWhitelisted();
@@ -118,7 +123,7 @@ contract SandboxController is AccessControl {
     error InvalidCurveConfiguration();
     error InvalidPriceFeed();
     error InvalidBorrowFactor(BaseAssetFactors baseAssetFactors);
-    error InvalidOptions(BaseAssetOptions baseAssetOptions);
+    error InvalidOptions(ControllerOptions controller);
     error NotAuthorized(address caller);
 
     /// @dev Modifier to restrict function access to authorized roles.
@@ -164,6 +169,21 @@ contract SandboxController is AccessControl {
     }
 
     /**
+     * @notice Sets the base asset options.
+     * @param options The base asset options to set.
+     * @dev Only callable by the owner.
+     */
+    function setOptions(
+        ControllerOptions memory options
+    ) external onlyOwner {
+        if (!isOptionsValid(options)) {
+            revert InvalidOptions(options);
+        }
+
+        emit ControllerOptionsSet(options);
+    }
+
+    /**
      * @notice Whitelists a new base asset.
      * @param token The address of the token to whitelist.
      * @param priceFeed The associated price feed address.
@@ -173,7 +193,6 @@ contract SandboxController is AccessControl {
         address token,
         address priceFeed,
         bool feeEnabled,
-        BaseAssetOptions memory baseAssetOptions,
         BaseAssetFactors memory baseAssetFactors,
         BaseAssetCurve memory baseAssetCurve
     ) external onlyAuthorized {
@@ -194,10 +213,6 @@ contract SandboxController is AccessControl {
             revert InvalidBorrowFactor(baseAssetFactors);
         }
 
-        if (!isOptionsValid(baseAssetOptions)) {
-            revert InvalidOptions(baseAssetOptions);
-        }
-
         uint8 decimals = IERC20NonStandard(token).decimals();
 
         try IPriceFeed(priceFeed).latestRoundData() returns (
@@ -210,7 +225,6 @@ contract SandboxController is AccessControl {
             baseAssets[token].priceFeed = priceFeed;
             baseAssets[token].decimals = decimals;
             baseAssets[token].feeEnabled = feeEnabled;
-            baseAssets[token].baseAssetOptions = baseAssetOptions;
             baseAssets[token].baseAssetFactors = baseAssetFactors;
             baseAssets[token].baseAssetCurves.push(baseAssetCurve);
         } catch {
@@ -224,7 +238,7 @@ contract SandboxController is AccessControl {
         emit BaseAssetWhitelisted(token, priceFeed, decimals, baseAssetCurve);
     }
 
-     /**
+    /**
      * @notice Whitelists a new collateral asset.
      * @param token The address of the token to whitelist.
      * @param priceFeed The associated price feed address.
@@ -259,26 +273,8 @@ contract SandboxController is AccessControl {
         isPriceFeedWhitelisted[priceFeed] = true;
 
         collateralAssetCount++;
-        
+
         emit CollateralAssetWhitelisted(token, priceFeed);
-    }   
-
-    function setOptions(
-        address token,
-        BaseAssetOptions memory baseAssetOptions
-    ) external onlyOwner {
-        if (token == address(0)) {
-            revert ZeroAddress();
-        }
-        if (!isTokenWhitelisted(token)) {
-            revert TokenNotWhitelisted();
-        }
-
-        if (!isOptionsValid(baseAssetOptions)) {
-            revert InvalidOptions(baseAssetOptions);
-        }
-
-        baseAssets[token].baseAssetOptions = baseAssetOptions;
     }
 
     /**
@@ -421,17 +417,17 @@ contract SandboxController is AccessControl {
 
     /**
      * @notice Checks if the base asset options are valid.
-     * @param baseAssetOptions The base asset options to validate.
+     * @param options The base asset options to validate.
      * @return True if the options are valid, otherwise false.
      */
     function isOptionsValid(
-        BaseAssetOptions memory baseAssetOptions
+        ControllerOptions memory options
     ) public pure returns (bool) {
-        return (baseAssetOptions.maxCollateralAssets != 0 &&
-            baseAssetOptions.maxCollateralAssets <= MAX_ASSETS_FOR_ASSET_LIST &&
-            baseAssetOptions.minUpdateTime != 0 &&
-            baseAssetOptions.suggestedAmountOfSeedReserves != 0 &&
-            baseAssetOptions.suggestedLockTimeOfSeedReserves != 0);
+        return (options.maxCollateralAssets != 0 &&
+            options.maxCollateralAssets <= MAX_ASSETS_FOR_ASSET_LIST &&
+            options.minUpdateTime != 0 &&
+            options.suggestedAmountOfSeedReserves != 0 &&
+            options.suggestedLockTimeOfSeedReserves != 0);
     }
 
     /**
