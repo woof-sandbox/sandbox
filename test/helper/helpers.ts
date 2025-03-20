@@ -139,11 +139,20 @@ export type BulkerOpts = {
   weth?: string;
 };
 
-export type SandboxControllerOpts = {
-  admin?: SignerWithAddress;
-  governor: SignerWithAddress;
+export interface SandboxControllerOpts {
+  admin?: any
+  governor?: any
+  feeEnabled?: boolean
+  storeFrontPriceFactor?: string
+  protocolFactorBorrow?: string
+  reserveFactorBorrow?: string
+  protocolFactorLiquidation?: string
+  reserveFactorLiquidation?: string
+  minUpdateTime?: number
+  maxCollateralAssets?: number
+  suggestedAmountOfSeedReserves?: string
+  suggestedLockTimeOfSeedReserves?: number
 }
-  
 
 export type BulkerInfo = {
   opts: BulkerOpts;
@@ -555,13 +564,52 @@ export async function makeBulker(opts: BulkerOpts): Promise<BulkerInfo> {
   };
 }
 
-export async function makeSandboxController(opts: SandboxControllerOpts): Promise<SandboxControllerInfo> {
-  const signers = await ethers.getSigners();
-  const admin = opts.admin || signers[0];
-  const governor = opts.governor;
-  const SandboxControllerFactory = (await ethers.getContractFactory('SandboxController')) as SandboxController__factory;
-  const sandboxController = await SandboxControllerFactory.deploy(admin.address, governor.address);
-  await sandboxController.deployed();
+export function defaultControllerOpts(partial?: Partial<SandboxControllerOpts>): SandboxControllerOpts {
+  return {
+    admin: partial?.admin,
+    governor: partial?.governor,
+    feeEnabled: partial?.feeEnabled ?? false,
+    storeFrontPriceFactor: partial?.storeFrontPriceFactor ?? ethers.utils.parseEther("0.9999999999").toString(),
+    protocolFactorBorrow: partial?.protocolFactorBorrow ?? ethers.utils.parseEther("0.5").toString(),
+    reserveFactorBorrow: partial?.reserveFactorBorrow ?? ethers.utils.parseEther("0.2").toString(),
+    protocolFactorLiquidation: partial?.protocolFactorLiquidation ?? ethers.utils.parseEther("0.3").toString(),
+    reserveFactorLiquidation: partial?.reserveFactorLiquidation ?? ethers.utils.parseEther("0.4").toString(),
+    minUpdateTime: partial?.minUpdateTime ?? 300,
+    maxCollateralAssets: partial?.maxCollateralAssets ?? 10,
+    suggestedAmountOfSeedReserves: partial?.suggestedAmountOfSeedReserves ?? ethers.utils.parseEther("500").toString(),
+    suggestedLockTimeOfSeedReserves: partial?.suggestedLockTimeOfSeedReserves ?? 86400
+  };
+}
+
+
+export async function makeSandboxController(
+  opts: SandboxControllerOpts
+): Promise<SandboxControllerInfo> {
+  const signers = await ethers.getSigners()
+  const admin = opts.admin || signers[0]
+  const governor = opts.governor || signers[1]
+
+
+  const SandboxControllerFactory = (await ethers.getContractFactory(
+    'SandboxController'
+  )) as SandboxController__factory
+
+  const sandboxController = await SandboxControllerFactory.deploy(
+    admin.address,
+    governor.address,
+    opts.feeEnabled,
+    opts.storeFrontPriceFactor,
+    opts.protocolFactorBorrow,
+    opts.reserveFactorBorrow,
+    opts.protocolFactorLiquidation,
+    opts.reserveFactorLiquidation,
+    opts.minUpdateTime,
+    opts.maxCollateralAssets,
+    opts.suggestedAmountOfSeedReserves,
+    opts.suggestedLockTimeOfSeedReserves
+  )
+  await sandboxController.deployed()
+
   return {
     opts,
     sandboxController

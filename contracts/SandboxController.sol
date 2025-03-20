@@ -9,50 +9,59 @@ import {IPriceFeed} from "./interfaces/IPriceFeed.sol";
  * @title SandboxController
  * @dev Manages base asset configurations and interest rate curves.
  */
-contract SandboxController is AccessControl {
-    /// @notice Role identifier for owner.
-    bytes32 public constant OWNER_ROLE = keccak256("OWNER_ROLE");
+contract SandboxController {
 
-    /// @notice Role identifier for DAO governance.
-    bytes32 public constant DAO_ROLE = keccak256("DAO_ROLE");
+    error ZeroAddress();
+    error TokenAlreadyWhitelisted();
+    error TokenNotWhitelisted();
+    error PriceFeedAlreadyWhitelisted();
+    error InvalidCurveConfiguration();
+    error InvalidPriceFeed();
+    error InvalidFactors();
+    error NotOwner(address caller);
+    error NotDao(address caller);
+    error NotAuthorized(address caller);
 
-    /// @notice Maximum number of assets for an asset list.
-    uint8 internal constant MAX_ASSETS_FOR_ASSET_LIST = 24;
+    address public owner;
+    address public dao;
 
-    /// @notice Maximum number of base assets.
-    ControllerOptions options;
-
-    /// @notice Structure to store base asset configuration.
-    struct BaseAssetConfiguration {
-        address priceFeed;
-        uint256 decimals;
-        bool feeEnabled;
-        BaseAssetFactors baseAssetFactors;
-        BaseAssetCurve[] baseAssetCurves;
+    modifier onlyOwner() {
+        if (msg.sender != owner) revert NotOwner(msg.sender);
+        _;
     }
 
-    struct CollateralAsssetConfiguration {
-        address priceFeed;
+    modifier onlyDao() {
+        if (msg.sender != dao) revert NotDao(msg.sender);
+        _;
     }
 
-    /// @notice Structure defining base asset options.
-    struct ControllerOptions {
-        uint256 minUpdateTime;
-        uint256 maxCollateralAssets;
-        uint256 suggestedAmountOfSeedReserves;
-        uint256 suggestedLockTimeOfSeedReserves;
+    /**
+     * @dev Both owner and dao are considered "authorized."
+     *      If you want them to have separate powers, use onlyOwner or onlyDao
+     *      in the relevant functions. For shared powers, use onlyAuthorized.
+     */
+    modifier onlyAuthorized() {
+        if (msg.sender != owner && msg.sender != dao) {
+            revert NotAuthorized(msg.sender);
+        }
+        _;
     }
 
-    /// @notice Structure defining base asset factors.
-    struct BaseAssetFactors {
-        uint64 storeFrontPriceFactor;
-        uint64 protocolFactorBorrow;
-        uint64 reserveFactorBorrow;
-        uint64 protocolFactorLiquidation;
-        uint64 reserveFactorLiquidation;
-    }
+    bool public feeEnabled;
+    uint256 public storeFrontPriceFactor;
+    uint256 public protocolFactorBorrow;
+    uint256 public reserveFactorBorrow;
+    uint256 public protocolFactorLiquidation;
+    uint256 public reserveFactorLiquidation;
+    uint256 public minUpdateTime;
+    uint256 public maxCollateralAssets;
+    uint256 public suggestedAmountOfSeedReserves;
+    uint256 public suggestedLockTimeOfSeedReserves;
 
-    /// @notice Structure defining interest rate curve parameters.
+
+    /**
+     * @notice Structure defining interest rate curve parameters for a base asset.
+     */
     struct BaseAssetCurve {
         uint64 supplyKink;
         uint64 supplyPerYearInterestRateSlopeLow;
@@ -64,184 +73,203 @@ contract SandboxController is AccessControl {
         uint64 borrowPerYearInterestRateSlopeBase;
     }
 
-    /// @notice Mapping of base assets to their configurations.
+    /**
+     * @notice Configuration for each base asset.
+     */
+    struct BaseAssetConfiguration {
+        address priceFeed;
+        uint256 decimals;
+        uint256 minBorrow;
+        BaseAssetCurve[] baseAssetCurves;
+    }
+
+    /**
+     * @notice Configuration for each collateral asset.
+     */
+    struct CollateralAssetConfiguration {
+        address priceFeed;
+    }
+
+
     mapping(address => BaseAssetConfiguration) public baseAssets;
-
-    /// @notice Mapping of collateral assets to their configurations.
-    mapping(address => CollateralAsssetConfiguration) public collateralAssets;
-
-    /// @notice Tracks whitelisted price feeds.
+    mapping(address => CollateralAssetConfiguration) public collateralAssets;
     mapping(address => bool) public isPriceFeedWhitelisted;
 
-    /// @notice Array of base asset tokens.
     address[] public baseAssetTokens;
-
-    /// @notice Array of collateral asset tokens.
     address[] public collateralAssetTokens;
 
-    /// @notice Total count of base assets.
     uint256 public baseAssetCount;
-
-    /// @notice Total count of collateral assets.
     uint256 public collateralAssetCount;
 
-    /// @notice Event emitted when a base asset is whitelisted.
     event BaseAssetWhitelisted(
         address indexed token,
         address indexed priceFeed,
         uint8 decimals,
-        BaseAssetCurve baseAssetCurve
+        BaseAssetCurve baseAssetCurve,
+        uint256 minBorrow
     );
 
-    /// @notice Event emitted when a collateral asset is whitelisted.
     event CollateralAssetWhitelisted(
         address indexed token,
         address indexed priceFeed
     );
 
-    /// @notice Event emitted when a base asset curve is added.
     event BaseAssetCurveAdded(
         address indexed token,
         BaseAssetCurve baseAssetCurve
     );
 
-    /// @notice Event emitted when a base asset curve is changed.
     event BaseAssetCurveChanged(
         address indexed token,
         BaseAssetCurve baseAssetCurveBefore,
-        BaseAssetCurve baseAssetCurve
+        BaseAssetCurve baseAssetCurveAfter
     );
 
-    /// @notice Set the base asset options.
-    event ControllerOptionsSet(ControllerOptions options);
+    event FeeEnabledSet(bool enabled);
 
-    /// @notice Custom errors for various invalid operations.
-    error ZeroAddress();
-    error TokenAlreadyWhitelisted();
-    error TokenNotWhitelisted();
-    error PriceFeedAlreadyWhitelisted();
-    error InvalidCurveConfiguration();
-    error InvalidPriceFeed();
-    error InvalidBorrowFactor(BaseAssetFactors baseAssetFactors);
-    error InvalidOptions(ControllerOptions controller);
-    error NotAuthorized(address caller);
-
-    /// @dev Modifier to restrict function access to authorized roles.
-    modifier onlyAuthorized() {
-        if (
-            !(hasRole(OWNER_ROLE, msg.sender) || hasRole(DAO_ROLE, msg.sender))
-        ) {
-            revert NotAuthorized(msg.sender);
-        }
-        _;
-    }
-
-    /// @dev Modifier to restrict function access to DAO role.
-    modifier onlyDAO() {
-        if (!hasRole(DAO_ROLE, msg.sender)) {
-            revert NotAuthorized(msg.sender);
-        }
-        _;
-    }
-
-    /// @dev Modifier to restrict function access to owner role.
-    modifier onlyOwner() {
-        if (!hasRole(OWNER_ROLE, msg.sender)) {
-            revert NotAuthorized(msg.sender);
-        }
-        _;
-    }
-
+    event OwnerTransferred(address oldOwner, address newOwner);
+    event DaoTransferred(address oldDao, address newDao);
+    
     /**
-     * @dev Constructor initializes roles.
-     * @param ownerMultisig Address of the owner multisig.
-     * @param dao Address of the DAO.
+     * @dev Set all global parameters (including owner and DAO) at deployment.
+     *
+     * @param _owner  The address of the protocol owner.
+     * @param _dao    The address of the DAO (governance).
+     * @param _feeEnabled Global fee flag for the entire protocol.
+     * @param _storeFrontPriceFactor Must be < 1e18.
+     * @param _protocolFactorBorrow  Nonzero. Will combine with reserveFactorBorrow.
+     * @param _reserveFactorBorrow   Nonzero. Sum with _protocolFactorBorrow <= 1e18.
+     * @param _protocolFactorLiquidation Nonzero. Sum with _reserveFactorLiquidation <= 1e18.
+     * @param _reserveFactorLiquidation  Nonzero.
+     * @param _minUpdateTime             Nonzero.
+     * @param _maxCollateralAssets       > 0
+     * @param _suggestedAmountOfSeedReserves  > 0
+     * @param _suggestedLockTimeOfSeedReserves > 0
      */
-    constructor(address ownerMultisig, address dao) {
-        if (ownerMultisig == address(0) || dao == address(0)) {
+    constructor(
+        address _owner,
+        address _dao,
+        bool _feeEnabled,
+        uint256 _storeFrontPriceFactor,
+        uint256 _protocolFactorBorrow,
+        uint256 _reserveFactorBorrow,
+        uint256 _protocolFactorLiquidation,
+        uint256 _reserveFactorLiquidation,
+        uint256 _minUpdateTime,
+        uint256 _maxCollateralAssets,
+        uint256 _suggestedAmountOfSeedReserves,
+        uint256 _suggestedLockTimeOfSeedReserves
+    ) {
+        if (_owner == address(0) || _dao == address(0)) {
             revert ZeroAddress();
         }
+        owner = _owner;
+        dao = _dao;
 
-        _grantRole(OWNER_ROLE, ownerMultisig);
-        _grantRole(DAO_ROLE, dao);
-        _setRoleAdmin(OWNER_ROLE, 0x0);
-        _setRoleAdmin(DAO_ROLE, 0x0);
-    }
-
-    /**
-     * @notice Sets the base asset options.
-     * @param options The base asset options to set.
-     * @dev Only callable by the owner.
-     */
-    function setOptions(
-        ControllerOptions memory options
-    ) external onlyOwner {
-        if (!isOptionsValid(options)) {
-            revert InvalidOptions(options);
+        feeEnabled = _feeEnabled;
+        if (_storeFrontPriceFactor >= 1e18) {
+            revert InvalidFactors();
         }
+        storeFrontPriceFactor = _storeFrontPriceFactor;
 
-        emit ControllerOptionsSet(options);
+        if (
+            _protocolFactorBorrow == 0 ||
+            _reserveFactorBorrow == 0 ||
+            (_protocolFactorBorrow + _reserveFactorBorrow) > 1e18
+        ) {
+            revert InvalidFactors();
+        }
+        protocolFactorBorrow = _protocolFactorBorrow;
+        reserveFactorBorrow = _reserveFactorBorrow;
+
+        if (
+            _protocolFactorLiquidation == 0 ||
+            _reserveFactorLiquidation == 0 ||
+            (_protocolFactorLiquidation + _reserveFactorLiquidation) > 1e18
+        ) {
+            revert InvalidFactors();
+        }
+        protocolFactorLiquidation = _protocolFactorLiquidation;
+        reserveFactorLiquidation = _reserveFactorLiquidation;
+
+        if (
+            _minUpdateTime == 0 ||
+            _maxCollateralAssets == 0 ||
+            _suggestedAmountOfSeedReserves == 0 ||
+            _suggestedLockTimeOfSeedReserves == 0
+        ) {
+            revert InvalidFactors();
+        }
+        minUpdateTime = _minUpdateTime;
+        maxCollateralAssets = _maxCollateralAssets;
+        suggestedAmountOfSeedReserves = _suggestedAmountOfSeedReserves;
+        suggestedLockTimeOfSeedReserves = _suggestedLockTimeOfSeedReserves;
     }
 
     /**
-     * @notice Whitelists a new base asset.
-     * @param token The address of the token to whitelist.
-     * @param priceFeed The associated price feed address.
-     * @param baseAssetCurve Interest rate curve configuration.
+     * @notice Whitelists a new base asset with its price feed and curve configuration.
+     * @param token The address of the base asset token.
+     * @param priceFeed The associated price feed contract address.
+     * @param baseAssetCurve The initial interest rate curve configuration.
+     * @param minBorrow The minimal borrow amount for this asset.
      */
     function whitelistBaseAsset(
         address token,
         address priceFeed,
-        bool feeEnabled,
-        BaseAssetFactors memory baseAssetFactors,
-        BaseAssetCurve memory baseAssetCurve
+        BaseAssetCurve memory baseAssetCurve,
+        uint256 minBorrow
     ) external onlyAuthorized {
         if (token == address(0) || priceFeed == address(0)) {
             revert ZeroAddress();
         }
-        if (isTokenWhitelisted(token)) {
+        if (baseAssets[token].priceFeed != address(0)) {
             revert TokenAlreadyWhitelisted();
         }
         if (isPriceFeedWhitelisted[priceFeed]) {
             revert PriceFeedAlreadyWhitelisted();
         }
+
         if (!isCurveConfigurationValid(baseAssetCurve)) {
             revert InvalidCurveConfiguration();
         }
 
-        if (!isFactorsValid(baseAssetFactors)) {
-            revert InvalidBorrowFactor(baseAssetFactors);
+        {
+            (
+                ,
+                int256 answer,
+                ,
+                ,
+            ) = IPriceFeed(priceFeed).latestRoundData();
+            if (answer <= 0) {
+                revert InvalidPriceFeed();
+            }
         }
 
         uint8 decimals = IERC20NonStandard(token).decimals();
 
-        try IPriceFeed(priceFeed).latestRoundData() returns (
-            uint80,
-            int256,
-            uint256,
-            uint256,
-            uint80
-        ) {
-            baseAssets[token].priceFeed = priceFeed;
-            baseAssets[token].decimals = decimals;
-            baseAssets[token].feeEnabled = feeEnabled;
-            baseAssets[token].baseAssetFactors = baseAssetFactors;
-            baseAssets[token].baseAssetCurves.push(baseAssetCurve);
-        } catch {
-            revert InvalidPriceFeed();
-        }
+        baseAssets[token].priceFeed = priceFeed;
+        baseAssets[token].decimals = decimals;
+        baseAssets[token].minBorrow = minBorrow;
+        baseAssets[token].baseAssetCurves.push(baseAssetCurve);
 
         baseAssetTokens.push(token);
-        isPriceFeedWhitelisted[priceFeed] = true;
         baseAssetCount++;
 
-        emit BaseAssetWhitelisted(token, priceFeed, decimals, baseAssetCurve);
+        isPriceFeedWhitelisted[priceFeed] = true;
+
+        emit BaseAssetWhitelisted(
+            token,
+            priceFeed,
+            decimals,
+            baseAssetCurve,
+            minBorrow
+        );
     }
 
     /**
-     * @notice Whitelists a new collateral asset.
-     * @param token The address of the token to whitelist.
-     * @param priceFeed The associated price feed address.
+     * @notice Whitelists a new collateral asset with its price feed.
+     * @param token The address of the collateral token.
+     * @param priceFeed The price feed contract address for the collateral.
      */
     function whitelistCollateralAsset(
         address token,
@@ -257,62 +285,34 @@ contract SandboxController is AccessControl {
             revert PriceFeedAlreadyWhitelisted();
         }
 
-        try IPriceFeed(priceFeed).latestRoundData() returns (
-            uint80,
-            int256,
-            uint256,
-            uint256,
-            uint80
-        ) {
-            collateralAssets[token].priceFeed = priceFeed;
-        } catch {
-            revert InvalidPriceFeed();
+        {
+            (
+                ,
+                int256 answer,
+                ,
+                ,
+            ) = IPriceFeed(priceFeed).latestRoundData();
+            if (answer <= 0) {
+                revert InvalidPriceFeed();
+            }
         }
+
+        collateralAssets[token].priceFeed = priceFeed;
         collateralAssetTokens.push(token);
+        collateralAssetCount++;
 
         isPriceFeedWhitelisted[priceFeed] = true;
-
-        collateralAssetCount++;
 
         emit CollateralAssetWhitelisted(token, priceFeed);
     }
 
     /**
-     * @notice Updates the protocol and reserve factors for a base asset.
-     * @param token The address of the base asset.
-     * @param baseAssetFactors The new base asset factors.
+     * @notice Sets the global feeEnabled flag for the entire protocol.
+     * @param _feeEnabled True to enable fees, false to disable.
      */
-    function setFactors(
-        address token,
-        BaseAssetFactors memory baseAssetFactors
-    ) external onlyOwner {
-        if (token == address(0)) {
-            revert ZeroAddress();
-        }
-        if (!isTokenWhitelisted(token)) {
-            revert TokenNotWhitelisted();
-        }
-        if (!isFactorsValid(baseAssetFactors)) {
-            revert InvalidBorrowFactor(baseAssetFactors);
-        }
-
-        baseAssets[token].baseAssetFactors = baseAssetFactors;
-    }
-
-    /**
-     * @notice Updates the protocol and reserve factors for a base asset.
-     * @param token The address of the base asset.
-     * @param feeEnabled  The new fee enabled status.
-     */
-    function setFeeEnabled(address token, bool feeEnabled) external onlyDAO {
-        if (token == address(0)) {
-            revert ZeroAddress();
-        }
-        if (!isTokenWhitelisted(token)) {
-            revert TokenNotWhitelisted();
-        }
-
-        baseAssets[token].feeEnabled = feeEnabled;
+    function setFeeEnabled(bool _feeEnabled) external onlyOwner {
+        feeEnabled = _feeEnabled;
+        emit FeeEnabledSet(_feeEnabled);
     }
 
     /**
@@ -324,9 +324,7 @@ contract SandboxController is AccessControl {
         address token,
         BaseAssetCurve memory baseAssetCurve
     ) external onlyAuthorized {
-        if (token == address(0)) {
-            revert ZeroAddress();
-        }
+        if (token == address(0)) revert ZeroAddress();
         if (!isTokenWhitelisted(token)) {
             revert TokenNotWhitelisted();
         }
@@ -341,14 +339,14 @@ contract SandboxController is AccessControl {
     /**
      * @notice Updates an existing interest rate curve for a base asset.
      * @param token The address of the base asset.
-     * @param curveIndex Index of the curve to update.
-     * @param baseAssetCurve The updated interest rate curve.
+     * @param curveIndex The index of the curve to update.
+     * @param newCurve The updated interest rate curve.
      */
     function changeBaseAssetCurve(
         address token,
         uint256 curveIndex,
-        BaseAssetCurve memory baseAssetCurve
-    ) external onlyDAO {
+        BaseAssetCurve memory newCurve
+    ) external onlyDao {
         if (token == address(0)) {
             revert ZeroAddress();
         }
@@ -356,36 +354,18 @@ contract SandboxController is AccessControl {
             revert TokenNotWhitelisted();
         }
         if (
-            !isCurveConfigurationValid(baseAssetCurve) ||
-            curveIndex >= baseAssets[token].baseAssetCurves.length
+            curveIndex >= baseAssets[token].baseAssetCurves.length ||
+            !isCurveConfigurationValid(newCurve)
         ) {
             revert InvalidCurveConfiguration();
         }
 
-        BaseAssetCurve memory baseAssetCurveBefore = baseAssets[token]
-            .baseAssetCurves[curveIndex];
+        BaseAssetCurve memory oldCurve = baseAssets[token].baseAssetCurves[
+            curveIndex
+        ];
 
-        if (
-            baseAssetCurveBefore.supplyKink == baseAssetCurve.supplyKink &&
-            baseAssetCurveBefore.supplyPerYearInterestRateSlopeLow ==
-            baseAssetCurve.supplyPerYearInterestRateSlopeLow &&
-            baseAssetCurveBefore.supplyPerYearInterestRateSlopeHigh ==
-            baseAssetCurve.supplyPerYearInterestRateSlopeHigh &&
-            baseAssetCurveBefore.supplyPerYearInterestRateSlopeBase ==
-            baseAssetCurve.supplyPerYearInterestRateSlopeBase &&
-            baseAssetCurveBefore.borrowKink == baseAssetCurve.borrowKink &&
-            baseAssetCurveBefore.borrowPerYearInterestRateSlopeLow ==
-            baseAssetCurve.borrowPerYearInterestRateSlopeLow &&
-            baseAssetCurveBefore.borrowPerYearInterestRateSlopeHigh ==
-            baseAssetCurve.borrowPerYearInterestRateSlopeHigh &&
-            baseAssetCurveBefore.borrowPerYearInterestRateSlopeBase ==
-            baseAssetCurve.borrowPerYearInterestRateSlopeBase
-        ) {
-            revert InvalidCurveConfiguration();
-        }
-
-        baseAssets[token].baseAssetCurves[curveIndex] = baseAssetCurve;
-        emit BaseAssetCurveChanged(token, baseAssetCurveBefore, baseAssetCurve);
+        baseAssets[token].baseAssetCurves[curveIndex] = newCurve;
+        emit BaseAssetCurveChanged(token, oldCurve, newCurve);
     }
 
     /**
@@ -398,84 +378,47 @@ contract SandboxController is AccessControl {
     }
 
     /**
-     * @notice Checks if the curve configuration is valid.
-     * @param baseAssetCurve The interest rate curve configuration to validate.
-     * @return True if the curve configuration is valid, otherwise false.
+     * @notice Validates an interest rate curve configuration.
+     * @param curve The interest rate curve configuration to validate.
+     * @return True if valid, false otherwise.
      */
     function isCurveConfigurationValid(
-        BaseAssetCurve memory baseAssetCurve
+        BaseAssetCurve memory curve
     ) public pure returns (bool) {
-        return (baseAssetCurve.supplyKink != 0 &&
-            baseAssetCurve.supplyPerYearInterestRateSlopeLow != 0 &&
-            baseAssetCurve.supplyPerYearInterestRateSlopeHigh != 0 &&
-            baseAssetCurve.supplyPerYearInterestRateSlopeBase != 0 &&
-            baseAssetCurve.borrowKink != 0 &&
-            baseAssetCurve.borrowPerYearInterestRateSlopeLow != 0 &&
-            baseAssetCurve.borrowPerYearInterestRateSlopeHigh != 0 &&
-            baseAssetCurve.borrowPerYearInterestRateSlopeBase != 0);
+        if (curve.supplyKink >= 1e18 || curve.borrowKink >= 1e18) {
+            return false;
+        }
+        if (curve.borrowPerYearInterestRateSlopeBase == 0) {
+            return false;
+        }
+ 
+        return true;
     }
 
     /**
-     * @notice Checks if the base asset options are valid.
-     * @param options The base asset options to validate.
-     * @return True if the options are valid, otherwise false.
-     */
-    function isOptionsValid(
-        ControllerOptions memory options
-    ) public pure returns (bool) {
-        return (options.maxCollateralAssets != 0 &&
-            options.maxCollateralAssets <= MAX_ASSETS_FOR_ASSET_LIST &&
-            options.minUpdateTime != 0 &&
-            options.suggestedAmountOfSeedReserves != 0 &&
-            options.suggestedLockTimeOfSeedReserves != 0);
-    }
-
-    /**
-     * @notice Checks if the base asset factors are valid.
-     * @param baseAssetFactors The base asset factors to validate.
-     * @return True if the factors are valid, otherwise false.
-     */
-    function isFactorsValid(
-        BaseAssetFactors memory baseAssetFactors
-    ) public pure returns (bool) {
-        return
-            (baseAssetFactors.protocolFactorBorrow != 0 &&
-                baseAssetFactors.reserveFactorBorrow != 0 &&
-                baseAssetFactors.protocolFactorBorrow +
-                    baseAssetFactors.reserveFactorBorrow <=
-                1e18 &&
-                baseAssetFactors.protocolFactorLiquidation != 0 &&
-                baseAssetFactors.reserveFactorLiquidation != 0 &&
-                baseAssetFactors.protocolFactorLiquidation +
-                    baseAssetFactors.reserveFactorLiquidation <=
-                1e18) &&
-            baseAssetFactors.storeFrontPriceFactor != 0 &&
-            baseAssetFactors.storeFrontPriceFactor <= 1e18;
-    }
-
-    /**
-     * @notice Transfers the owner role to a new address.
+     * @notice Transfers the owner privileges to a new address.
      * @param newOwner The address of the new owner.
      */
-    function transferOwnerRole(address newOwner) external onlyOwner {
+    function transferOwner(address newOwner) external onlyOwner {
         if (newOwner == address(0)) {
             revert ZeroAddress();
         }
-
-        _revokeRole(OWNER_ROLE, msg.sender);
-        _grantRole(OWNER_ROLE, newOwner);
+        address oldOwner = owner;
+        owner = newOwner;
+        emit OwnerTransferred(oldOwner, newOwner);
     }
 
     /**
-     * @notice Transfers the DAO role to a new address.
-     * @param newDAO The address of the new DAO.
+     * @notice Transfers the DAO privileges to a new address.
+     * @param newDao The address of the new DAO.
      */
-    function transferDAORole(address newDAO) external onlyDAO {
-        if (newDAO == address(0)) {
+    function transferDao(address newDao) external onlyOwner {
+        if (newDao == address(0)) {
             revert ZeroAddress();
         }
-
-        _revokeRole(DAO_ROLE, msg.sender);
-        _grantRole(DAO_ROLE, newDAO);
+        address oldDao = dao;
+        dao = newDao;
+        emit DaoTransferred(oldDao, newDao);
     }
 }
+
