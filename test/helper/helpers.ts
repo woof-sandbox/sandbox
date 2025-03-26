@@ -164,6 +164,12 @@ export type SandboxControllerInfo = {
   sandboxController: SandboxController;
 }
 
+interface MockERC20Params {
+  name: string;
+  symbol: string;
+}
+
+
 export function dfn<T>(x: T | undefined | null, dflt: T): T {
   return x == undefined ? dflt : x;
 }
@@ -362,7 +368,7 @@ export async function makeProtocol(opts: ProtocolOpts = {}): Promise<Protocol> {
     }
     return acc;
   }, []);
-  
+
   config.extensionDelegate = extensionDelegateAssetList.address;
   const CometSandboxFactory = (await ethers.getContractFactory('CometHarness')) as CometHarnessExtendedAssetList__factory;
 
@@ -562,6 +568,20 @@ export async function makeBulker(opts: BulkerOpts): Promise<BulkerInfo> {
     opts,
     bulker
   };
+}
+
+export async function makeMockERC20({ name, symbol }: MockERC20Params): Promise<FaucetToken> {
+  const FaucetFactory = (await ethers.getContractFactory('FaucetToken')) as FaucetToken__factory;
+  const token = await FaucetFactory.deploy(1e12, name, 18, symbol);
+  await token.deployed();
+  return token;
+}
+
+export async function makePriceFeed({ }: any): Promise<SimplePriceFeed> {
+  const PriceFeedFactory = (await ethers.getContractFactory('SimplePriceFeed')) as SimplePriceFeed__factory;
+  const priceFeed = await PriceFeedFactory.deploy('100000000', 8);
+  await priceFeed.deployed();
+  return priceFeed;
 }
 
 export function defaultControllerOpts(partial?: Partial<SandboxControllerOpts>): SandboxControllerOpts {

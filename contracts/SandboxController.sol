@@ -4,132 +4,39 @@ pragma solidity 0.8.28;
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {IERC20NonStandard} from "./interfaces/IERC20NonStandard.sol";
 import {IPriceFeed} from "./interfaces/IPriceFeed.sol";
+import {ISandboxController} from "./interfaces/ISandboxController.sol";
 
 /**
  * @title SandboxController
  * @dev Manages base asset configurations and interest rate curves.
  */
-contract SandboxController {
-
-    error ZeroAddress();
-    error TokenAlreadyWhitelisted();
-    error TokenNotWhitelisted();
-    error PriceFeedAlreadyWhitelisted();
-    error InvalidCurveConfiguration();
-    error InvalidPriceFeed();
-    error InvalidFactors();
-    error NotOwner(address caller);
-    error NotDao(address caller);
-    error NotAuthorized(address caller);
-
+contract SandboxController is ISandboxController {
     address public owner;
     address public dao;
 
-    modifier onlyOwner() {
-        if (msg.sender != owner) revert NotOwner(msg.sender);
-        _;
-    }
-
-    modifier onlyDao() {
-        if (msg.sender != dao) revert NotDao(msg.sender);
-        _;
-    }
-
-    /**
-     * @dev Both owner and dao are considered "authorized."
-     *      If you want them to have separate powers, use onlyOwner or onlyDao
-     *      in the relevant functions. For shared powers, use onlyAuthorized.
-     */
-    modifier onlyAuthorized() {
-        if (msg.sender != owner && msg.sender != dao) {
-            revert NotAuthorized(msg.sender);
-        }
-        _;
-    }
-
-    bool public feeEnabled;
-    uint256 public storeFrontPriceFactor;
     uint256 public protocolFactorBorrow;
     uint256 public reserveFactorBorrow;
     uint256 public protocolFactorLiquidation;
     uint256 public reserveFactorLiquidation;
-    uint256 public minUpdateTime;
     uint256 public maxCollateralAssets;
+
+    uint256 public storeFrontPriceFactor;
+    uint256 public minUpdateTime;
     uint256 public suggestedAmountOfSeedReserves;
     uint256 public suggestedLockTimeOfSeedReserves;
 
+    uint256 public baseAssetCount;
+    uint256 public collateralAssetCount;
 
-    /**
-     * @notice Structure defining interest rate curve parameters for a base asset.
-     */
-    struct BaseAssetCurve {
-        uint64 supplyKink;
-        uint64 supplyPerYearInterestRateSlopeLow;
-        uint64 supplyPerYearInterestRateSlopeHigh;
-        uint64 supplyPerYearInterestRateSlopeBase;
-        uint64 borrowKink;
-        uint64 borrowPerYearInterestRateSlopeLow;
-        uint64 borrowPerYearInterestRateSlopeHigh;
-        uint64 borrowPerYearInterestRateSlopeBase;
-    }
+    bool public feeEnabled;
 
-    /**
-     * @notice Configuration for each base asset.
-     */
-    struct BaseAssetConfiguration {
-        address priceFeed;
-        uint256 decimals;
-        uint256 minBorrow;
-        BaseAssetCurve[] baseAssetCurves;
-    }
-
-    /**
-     * @notice Configuration for each collateral asset.
-     */
-    struct CollateralAssetConfiguration {
-        address priceFeed;
-    }
-
+    address[] public baseAssetTokens;
+    address[] public collateralAssetTokens;
 
     mapping(address => BaseAssetConfiguration) public baseAssets;
     mapping(address => CollateralAssetConfiguration) public collateralAssets;
     mapping(address => bool) public isPriceFeedWhitelisted;
 
-    address[] public baseAssetTokens;
-    address[] public collateralAssetTokens;
-
-    uint256 public baseAssetCount;
-    uint256 public collateralAssetCount;
-
-    event BaseAssetWhitelisted(
-        address indexed token,
-        address indexed priceFeed,
-        uint8 decimals,
-        BaseAssetCurve baseAssetCurve,
-        uint256 minBorrow
-    );
-
-    event CollateralAssetWhitelisted(
-        address indexed token,
-        address indexed priceFeed
-    );
-
-    event BaseAssetCurveAdded(
-        address indexed token,
-        BaseAssetCurve baseAssetCurve
-    );
-
-    event BaseAssetCurveChanged(
-        address indexed token,
-        BaseAssetCurve baseAssetCurveBefore,
-        BaseAssetCurve baseAssetCurveAfter
-    );
-
-    event FeeEnabledSet(bool enabled);
-
-    event OwnerTransferred(address oldOwner, address newOwner);
-    event DaoTransferred(address oldDao, address newDao);
-    
     /**
      * @dev Set all global parameters (including owner and DAO) at deployment.
      *
@@ -162,6 +69,9 @@ contract SandboxController {
     ) {
         if (_owner == address(0) || _dao == address(0)) {
             revert ZeroAddress();
+        }
+        if (_owner == _dao) {
+            revert InvalidFactors();
         }
         owner = _owner;
         dao = _dao;
@@ -206,6 +116,31 @@ contract SandboxController {
         suggestedLockTimeOfSeedReserves = _suggestedLockTimeOfSeedReserves;
     }
 
+    modifier onlyOwner() {
+        if (msg.sender != owner) revert NotOwner(msg.sender);
+        _;
+    }
+
+    modifier onlyDao() {
+        if (msg.sender != dao) revert NotDao(msg.sender);
+        _;
+    }
+
+    /**
+     * @dev Both owner and dao are considered "authorized."
+     *      If you want them to have separate powers, use onlyOwner or onlyDao
+     *      in the relevant functions. For shared powers, use onlyAuthorized.
+     */
+    modifier onlyAuthorized() {
+        if (msg.sender != owner && msg.sender != dao) {
+            revert NotAuthorized(msg.sender);
+        }
+        _;
+    }
+
+
+ 
+
     /**
      * @notice Whitelists a new base asset with its price feed and curve configuration.
      * @param token The address of the base asset token.
@@ -222,7 +157,7 @@ contract SandboxController {
         if (token == address(0) || priceFeed == address(0)) {
             revert ZeroAddress();
         }
-        if (baseAssets[token].priceFeed != address(0)) {
+        if (isBaseTokenWhitelisted(token)) {
             revert TokenAlreadyWhitelisted();
         }
         if (isPriceFeedWhitelisted[priceFeed]) {
@@ -234,12 +169,7 @@ contract SandboxController {
         }
 
         {
-            (
-                ,
-                int256 answer,
-                ,
-                ,
-            ) = IPriceFeed(priceFeed).latestRoundData();
+            (, int256 answer, , , ) = IPriceFeed(priceFeed).latestRoundData();
             if (answer <= 0) {
                 revert InvalidPriceFeed();
             }
@@ -278,7 +208,7 @@ contract SandboxController {
         if (token == address(0) || priceFeed == address(0)) {
             revert ZeroAddress();
         }
-        if (collateralAssets[token].priceFeed != address(0)) {
+        if (isCollateralTokenWhitelisted(token)) {
             revert TokenAlreadyWhitelisted();
         }
         if (isPriceFeedWhitelisted[priceFeed]) {
@@ -286,12 +216,7 @@ contract SandboxController {
         }
 
         {
-            (
-                ,
-                int256 answer,
-                ,
-                ,
-            ) = IPriceFeed(priceFeed).latestRoundData();
+            (, int256 answer, , , ) = IPriceFeed(priceFeed).latestRoundData();
             if (answer <= 0) {
                 revert InvalidPriceFeed();
             }
@@ -306,11 +231,46 @@ contract SandboxController {
         emit CollateralAssetWhitelisted(token, priceFeed);
     }
 
+          /**
+     * @dev Emitted when a base asset is whitelisted.
+     * 
+     * @param _storeFrontPriceFactor  The store front price factor.
+     * @param _minUpdateTime  The minimum update time.
+     * @param _suggestedAmountOfSeedReserves  The suggested amount of seed reserves.
+     * @param _suggestedLockTimeOfSeedReserves  The suggested lock time of seed reserves.
+     */ 
+    function setConfiguration(
+        uint256 _storeFrontPriceFactor,
+        uint256 _minUpdateTime,
+        uint256 _suggestedAmountOfSeedReserves,
+        uint256 _suggestedLockTimeOfSeedReserves
+    ) external onlyOwner {
+         if (_storeFrontPriceFactor >= 1e18 ||
+            _minUpdateTime == 0 ||
+            _suggestedAmountOfSeedReserves == 0 ||
+            _suggestedLockTimeOfSeedReserves == 0) {
+            revert InvalidFactors();
+        }
+
+        storeFrontPriceFactor = _storeFrontPriceFactor;
+        minUpdateTime = _minUpdateTime;
+        suggestedAmountOfSeedReserves = _suggestedAmountOfSeedReserves;
+        suggestedLockTimeOfSeedReserves = _suggestedLockTimeOfSeedReserves;
+       
+
+        emit ConfigChanged(
+            _storeFrontPriceFactor,
+            _minUpdateTime,
+            _suggestedAmountOfSeedReserves,
+            _suggestedLockTimeOfSeedReserves
+        );
+    }
+
     /**
      * @notice Sets the global feeEnabled flag for the entire protocol.
      * @param _feeEnabled True to enable fees, false to disable.
      */
-    function setFeeEnabled(bool _feeEnabled) external onlyOwner {
+    function setFeeEnabled(bool _feeEnabled) external onlyDao {
         feeEnabled = _feeEnabled;
         emit FeeEnabledSet(_feeEnabled);
     }
@@ -325,7 +285,7 @@ contract SandboxController {
         BaseAssetCurve memory baseAssetCurve
     ) external onlyAuthorized {
         if (token == address(0)) revert ZeroAddress();
-        if (!isTokenWhitelisted(token)) {
+        if (!isBaseTokenWhitelisted(token)) {
             revert TokenNotWhitelisted();
         }
         if (!isCurveConfigurationValid(baseAssetCurve)) {
@@ -350,7 +310,7 @@ contract SandboxController {
         if (token == address(0)) {
             revert ZeroAddress();
         }
-        if (!isTokenWhitelisted(token)) {
+        if (!isBaseTokenWhitelisted(token)) {
             revert TokenNotWhitelisted();
         }
         if (
@@ -373,8 +333,19 @@ contract SandboxController {
      * @param token The address of the token.
      * @return True if the token is whitelisted, otherwise false.
      */
-    function isTokenWhitelisted(address token) public view returns (bool) {
+    function isBaseTokenWhitelisted(address token) public view returns (bool) {
         return baseAssets[token].priceFeed != address(0);
+    }
+
+    /**
+     * @notice Checks if a token is whitelisted as a collateral asset.
+     * @param token The address of the token.
+     * @return True if the token is whitelisted, otherwise false.
+     */
+    function isCollateralTokenWhitelisted(
+        address token
+    ) public view returns (bool) {
+        return collateralAssets[token].priceFeed != address(0);
     }
 
     /**
@@ -391,7 +362,7 @@ contract SandboxController {
         if (curve.borrowPerYearInterestRateSlopeBase == 0) {
             return false;
         }
- 
+
         return true;
     }
 
@@ -412,7 +383,7 @@ contract SandboxController {
      * @notice Transfers the DAO privileges to a new address.
      * @param newDao The address of the new DAO.
      */
-    function transferDao(address newDao) external onlyOwner {
+    function transferDao(address newDao) external onlyDao {
         if (newDao == address(0)) {
             revert ZeroAddress();
         }
@@ -421,4 +392,3 @@ contract SandboxController {
         emit DaoTransferred(oldDao, newDao);
     }
 }
-

@@ -1,0 +1,81 @@
+// SPDX-License-Identifier: BUSL-1.1
+pragma solidity 0.8.28;
+
+contract ISandboxController {
+    error ZeroAddress();
+    error TokenAlreadyWhitelisted();
+    error TokenNotWhitelisted();
+    error PriceFeedAlreadyWhitelisted();
+    error InvalidCurveConfiguration();
+    error InvalidPriceFeed();
+    error InvalidFactors();
+    error NotOwner(address caller);
+    error NotDao(address caller);
+    error NotAuthorized(address caller);
+
+    /**
+     * @notice Structure defining interest rate curve parameters for a base asset.
+     */
+    struct BaseAssetCurve {
+        uint64 supplyKink;
+        uint64 supplyPerYearInterestRateSlopeLow;
+        uint64 supplyPerYearInterestRateSlopeHigh;
+        uint64 supplyPerYearInterestRateSlopeBase;
+        uint64 borrowKink;
+        uint64 borrowPerYearInterestRateSlopeLow;
+        uint64 borrowPerYearInterestRateSlopeHigh;
+        uint64 borrowPerYearInterestRateSlopeBase;
+    }
+
+    /**
+     * @notice Configuration for each base asset.
+     */
+    struct BaseAssetConfiguration {
+        address priceFeed;
+        uint256 decimals;
+        uint256 minBorrow;
+        BaseAssetCurve[] baseAssetCurves;
+    }
+
+    /**
+     * @notice Configuration for each collateral asset.
+     */
+    struct CollateralAssetConfiguration {
+        address priceFeed;
+    }
+
+    event BaseAssetWhitelisted(
+        address indexed token,
+        address indexed priceFeed,
+        uint8 decimals,
+        BaseAssetCurve baseAssetCurve,
+        uint256 minBorrow
+    );
+
+    event CollateralAssetWhitelisted(
+        address indexed token,
+        address indexed priceFeed
+    );
+
+    event BaseAssetCurveAdded(
+        address indexed token,
+        BaseAssetCurve baseAssetCurve
+    );
+
+    event BaseAssetCurveChanged(
+        address indexed token,
+        BaseAssetCurve baseAssetCurveBefore,
+        BaseAssetCurve baseAssetCurveAfter
+    );
+
+    event ConfigChanged(
+        uint256 _storeFrontPriceFactor,
+        uint256 _minUpdateTime,
+        uint256 _suggestedAmountOfSeedReserves,
+        uint256 _suggestedLockTimeOfSeedReserves
+    );
+
+    event FeeEnabledSet(bool enabled);
+    event OwnerTransferred(address oldOwner, address newOwner);
+    event DaoTransferred(address oldDao, address newDao);
+}
