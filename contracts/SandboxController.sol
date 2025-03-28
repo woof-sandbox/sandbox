@@ -138,9 +138,6 @@ contract SandboxController is ISandboxController {
         _;
     }
 
-
- 
-
     /**
      * @notice Whitelists a new base asset with its price feed and curve configuration.
      * @param token The address of the base asset token.
@@ -231,24 +228,25 @@ contract SandboxController is ISandboxController {
         emit CollateralAssetWhitelisted(token, priceFeed);
     }
 
-          /**
+    /**
      * @dev Emitted when a base asset is whitelisted.
-     * 
      * @param _storeFrontPriceFactor  The store front price factor.
      * @param _minUpdateTime  The minimum update time.
      * @param _suggestedAmountOfSeedReserves  The suggested amount of seed reserves.
      * @param _suggestedLockTimeOfSeedReserves  The suggested lock time of seed reserves.
-     */ 
+     */
     function setConfiguration(
         uint256 _storeFrontPriceFactor,
         uint256 _minUpdateTime,
         uint256 _suggestedAmountOfSeedReserves,
         uint256 _suggestedLockTimeOfSeedReserves
     ) external onlyOwner {
-         if (_storeFrontPriceFactor >= 1e18 ||
+        if (
+            _storeFrontPriceFactor >= 1e18 ||
             _minUpdateTime == 0 ||
             _suggestedAmountOfSeedReserves == 0 ||
-            _suggestedLockTimeOfSeedReserves == 0) {
+            _suggestedLockTimeOfSeedReserves == 0
+        ) {
             revert InvalidFactors();
         }
 
@@ -256,7 +254,6 @@ contract SandboxController is ISandboxController {
         minUpdateTime = _minUpdateTime;
         suggestedAmountOfSeedReserves = _suggestedAmountOfSeedReserves;
         suggestedLockTimeOfSeedReserves = _suggestedLockTimeOfSeedReserves;
-       
 
         emit ConfigChanged(
             _storeFrontPriceFactor,
@@ -377,6 +374,17 @@ contract SandboxController is ISandboxController {
         address oldOwner = owner;
         owner = newOwner;
         emit OwnerTransferred(oldOwner, newOwner);
+    }
+
+    /**
+     * @notice Returns the base asset configuration for a given token.
+     * @param token The address of the base asset token.
+     * @return The base asset configuration.
+     */
+    function getBaseAssetCurves(
+        address token
+    ) external view returns (BaseAssetCurve[] memory) {
+        return baseAssets[token].baseAssetCurves;
     }
 
     /**

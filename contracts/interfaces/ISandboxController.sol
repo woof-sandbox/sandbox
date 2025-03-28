@@ -64,8 +64,8 @@ contract ISandboxController {
 
     event BaseAssetCurveChanged(
         address indexed token,
-        BaseAssetCurve baseAssetCurveBefore,
-        BaseAssetCurve baseAssetCurveAfter
+        BaseAssetCurve baseAssetCurveOld,
+        BaseAssetCurve baseAssetCurveNew
     );
 
     event ConfigChanged(

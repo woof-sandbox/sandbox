@@ -776,9 +776,9 @@ export async function makeMockERC20({ name, symbol }: MockERC20Params): Promise<
   return token;
 }
 
-export async function makePriceFeed({ }: any): Promise<SimplePriceFeed> {
+export async function makePriceFeed({amount}: any = {}): Promise<SimplePriceFeed> {
   const PriceFeedFactory = (await ethers.getContractFactory('SimplePriceFeed')) as SimplePriceFeed__factory;
-  const priceFeed = await PriceFeedFactory.deploy('100000000', 8);
+  const priceFeed = await PriceFeedFactory.deploy(amount ?? '100000000', 8);
   await priceFeed.deployed();
   return priceFeed;
 }
