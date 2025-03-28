@@ -520,7 +520,7 @@ describe("SandboxController", function () {
   })
 
   describe("whitelistCollateralAsset", function () {
-    let sandboxController: any
+    let sandboxController
 
     beforeEach(async function () {
       const opts = defaultControllerOpts({
@@ -545,30 +545,83 @@ describe("SandboxController", function () {
       const token = await makeMockERC20({ name: "C1", symbol: "C1" })
       const priceFeed = await makePriceFeed({})
       await expect(
-        sandboxController.connect(attacker).whitelistCollateralAsset(token.address, priceFeed.address)
+        sandboxController
+          .connect(attacker)
+          .whitelistCollateralAsset(
+            token.address,
+            priceFeed.address,
+            18,
+            8000,
+            5000,
+            6000,
+            9000,
+            7000,
+            9500
+          )
       ).to.be.revertedWithCustomError(sandboxController, "NotAuthorized")
     })
 
     it("reverts if token=0", async function () {
       const priceFeed = await makePriceFeed({})
       await expect(
-        sandboxController.whitelistCollateralAsset(ethers.constants.AddressZero, priceFeed.address)
+        sandboxController.whitelistCollateralAsset(
+          ethers.constants.AddressZero,
+          priceFeed.address,
+          18,
+          8000,
+          5000,
+          6000,
+          9000,
+          7000,
+          9500
+        )
       ).to.be.revertedWithCustomError(sandboxController, "ZeroAddress")
     })
 
     it("reverts if feed=0", async function () {
       const token = await makeMockERC20({ name: "C2", symbol: "C2" })
       await expect(
-        sandboxController.whitelistCollateralAsset(token.address, ethers.constants.AddressZero)
+        sandboxController.whitelistCollateralAsset(
+          token.address,
+          ethers.constants.AddressZero,
+          18,
+          8000,
+          5000,
+          6000,
+          9000,
+          7000,
+          9500
+        )
       ).to.be.revertedWithCustomError(sandboxController, "ZeroAddress")
     })
 
     it("reverts if token already whitelisted as collateral", async function () {
       const token = await makeMockERC20({ name: "C3", symbol: "C3" })
       const priceFeed = await makePriceFeed({})
-      await sandboxController.whitelistCollateralAsset(token.address, priceFeed.address)
+      await sandboxController.whitelistCollateralAsset(
+        token.address,
+        priceFeed.address,
+        18,
+        8000,
+        5000,
+        6000,
+        9000,
+        7000,
+        9500
+      )
+      const newFeed = await makePriceFeed({})
       await expect(
-        sandboxController.whitelistCollateralAsset(token.address, (await makePriceFeed({})).address)
+        sandboxController.whitelistCollateralAsset(
+          token.address,
+          newFeed.address,
+          18,
+          8000,
+          5000,
+          6000,
+          9000,
+          7000,
+          9500
+        )
       ).to.be.revertedWithCustomError(sandboxController, "TokenAlreadyWhitelisted")
     })
 
@@ -576,65 +629,257 @@ describe("SandboxController", function () {
       const tokenA = await makeMockERC20({ name: "C4A", symbol: "C4A" })
       const tokenB = await makeMockERC20({ name: "C4B", symbol: "C4B" })
       const priceFeed = await makePriceFeed({})
-      await sandboxController.whitelistCollateralAsset(tokenA.address, priceFeed.address)
+
+      // Whitelist for tokenA
+      await sandboxController.whitelistCollateralAsset(
+        tokenA.address,
+        priceFeed.address,
+        18,
+        8000,
+        5000,
+        6000,
+        9000,
+        7000,
+        9500
+      )
+
+      // Try for tokenB with same feed
       await expect(
-        sandboxController.whitelistCollateralAsset(tokenB.address, priceFeed.address)
+        sandboxController.whitelistCollateralAsset(
+          tokenB.address,
+          priceFeed.address,
+          18,
+          8000,
+          5000,
+          6000,
+          9000,
+          7000,
+          9500
+        )
       ).to.be.revertedWithCustomError(sandboxController, "PriceFeedAlreadyWhitelisted")
     })
 
-    it("reverts if feed not valid aggregator", async function () {
+    it("reverts if feed not a valid aggregator (mock example)", async function () {
+      // Suppose we try to pass an ERC20 as feed
       const token = await makeMockERC20({ name: "C5", symbol: "C5" })
       const badFeed = await makeMockERC20({ name: "FakeFeed2", symbol: "FF2" })
       await expect(
-        sandboxController.whitelistCollateralAsset(token.address, badFeed.address)
+        sandboxController.whitelistCollateralAsset(
+          token.address,
+          badFeed.address,
+          18,
+          8000,
+          5000,
+          6000,
+          9000,
+          7000,
+          9500
+        )
       ).to.be.reverted
     })
 
-    it("reverts if invalid price feed", async function () {
-      const priceFeed = await makePriceFeed({ amount: 0 });
-      const token = await makeMockERC20({ name: "T6", symbol: "T6" });
+    it("reverts if invalid price feed (answer=0)", async function () {
+      const token = await makeMockERC20({ name: "T6", symbol: "T6" })
+      // Price feed that returns 0
+      const badPriceFeed = await makePriceFeed({ amount: 0 })
       await expect(
-        sandboxController.whitelistCollateralAsset(token.address, priceFeed.address)
+        sandboxController.whitelistCollateralAsset(
+          token.address,
+          badPriceFeed.address,
+          18,
+          8000,
+          5000,
+          6000,
+          9000,
+          7000,
+          9500
+        )
       ).to.be.revertedWithCustomError(sandboxController, "InvalidPriceFeed")
-    });
+    })
 
+    // NEW TESTS FOR COLLATERAL FACTOR VALIDATIONS
+
+    it("reverts if any factor is zero", async function () {
+      const token = await makeMockERC20({ name: "CZero", symbol: "CZero" })
+      const feed = await makePriceFeed({})
+      // Attempt with minBorrowCollateralFactor = 0
+      await expect(
+        sandboxController.whitelistCollateralAsset(
+          token.address,
+          feed.address,
+          18,
+          8000, // maxBorrowCollateralFactor
+          0,    // minBorrowCollateralFactor
+          6000,
+          9000,
+          7000,
+          9500
+        )
+      ).to.be.revertedWithCustomError(sandboxController, "InvalidFactors")
+
+      // You could repeat for each factor = 0 if you want separate tests
+    })
+
+    it("reverts if minBorrowCollateralFactor > maxBorrowCollateralFactor", async function () {
+      const token = await makeMockERC20({ name: "CInv", symbol: "CInv" })
+      const feed = await makePriceFeed({})
+      await expect(
+        sandboxController.whitelistCollateralAsset(
+          token.address,
+          feed.address,
+          18,
+          5000, // maxBorrowCollateralFactor
+          6000, // minBorrowCollateralFactor (bigger than max)
+          6000,
+          9000,
+          7000,
+          9500
+        )
+      ).to.be.revertedWithCustomError(sandboxController, "InvalidFactors")
+    })
+
+    it("reverts if minLiquidateCollateralFactor > maxLiquidateCollateralFactor", async function () {
+      const token = await makeMockERC20({ name: "CInv2", symbol: "CInv2" })
+      const feed = await makePriceFeed({})
+      await expect(
+        sandboxController.whitelistCollateralAsset(
+          token.address,
+          feed.address,
+          18,
+          8000,
+          5000,
+          9000, // minLiquidate
+          6000, // maxLiquidate (less than min)
+          7000,
+          9500
+        )
+      ).to.be.revertedWithCustomError(sandboxController, "InvalidFactors")
+    })
+
+    it("reverts if minLiquidationFactor > maxLiquidationFactor", async function () {
+      const token = await makeMockERC20({ name: "CInv3", symbol: "CInv3" })
+      const feed = await makePriceFeed({})
+      await expect(
+        sandboxController.whitelistCollateralAsset(
+          token.address,
+          feed.address,
+          18,
+          8000,
+          5000,
+          6000,
+          9000,
+          9500, // minLiquidation
+          7000  // maxLiquidation (less than min)
+        )
+      ).to.be.revertedWithCustomError(sandboxController, "InvalidFactors")
+    })
+
+    // EXAMPLE TEST: check successful whitelisting sets all fields
     it("whitelists valid collateral and updates state", async function () {
       const token = await makeMockERC20({ name: "C6", symbol: "C6" })
       const priceFeed = await makePriceFeed({})
-      await sandboxController.whitelistCollateralAsset(token.address, priceFeed.address)
+
+      // Let's pick a set of valid factors
+      const decimals = 18
+      const maxBorrowCollateralFactor = 8000
+      const minBorrowCollateralFactor = 5000
+      const minLiquidateCollateralFactor = 6000
+      const maxLiquidateCollateralFactor = 9000
+      const minLiquidationFactor = 7000
+      const maxLiquidationFactor = 9500
+
+      await sandboxController.whitelistCollateralAsset(
+        token.address,
+        priceFeed.address,
+        decimals,
+        maxBorrowCollateralFactor,
+        minBorrowCollateralFactor,
+        minLiquidateCollateralFactor,
+        maxLiquidateCollateralFactor,
+        minLiquidationFactor,
+        maxLiquidationFactor
+      )
+
       const data = await sandboxController.collateralAssets(token.address)
-      expect(data).to.equal(priceFeed.address)
+      expect(data.collateralToken).to.equal(token.address)
+      expect(data.priceFeed).to.equal(priceFeed.address)
+      expect(data.decimals).to.equal(decimals)
+      expect(data.maxBorrowCollateralFactor).to.equal(maxBorrowCollateralFactor)
+      expect(data.minBorrowCollateralFactor).to.equal(minBorrowCollateralFactor)
+      expect(data.minLiquidateCollateralFactor).to.equal(minLiquidateCollateralFactor)
+      expect(data.maxLiquidateCollateralFactor).to.equal(maxLiquidateCollateralFactor)
+      expect(data.minLiquidationFactor).to.equal(minLiquidationFactor)
+      expect(data.maxLiquidationFactor).to.equal(maxLiquidationFactor)
+
       expect(await sandboxController.collateralAssetCount()).to.equal(1)
+
       expect(await sandboxController.collateralAssetTokens(0)).to.equal(token.address)
+
       expect(await sandboxController.isPriceFeedWhitelisted(priceFeed.address)).to.equal(true)
     })
 
-
-    it("whitelists valid collateral and updates state, checking CollateralAssetWhitelisted event", async function() {
+    it("emits CollateralAssetWhitelisted event with correct args", async function () {
       const token = await makeMockERC20({ name: "C6", symbol: "C6" })
       const priceFeed = await makePriceFeed({})
-      const tx = await sandboxController.whitelistCollateralAsset(token.address, priceFeed.address)
+
+      const tx = await sandboxController.whitelistCollateralAsset(
+        token.address,
+        priceFeed.address,
+        18,
+        8000,
+        5000,
+        6000,
+        9000,
+        7000,
+        9500
+      )
       const rcpt = await tx.wait()
 
-      const ev = rcpt.events?.find((e: any) => e.event === "CollateralAssetWhitelisted")
+      const ev = rcpt.events?.find((e) => e.event === "CollateralAssetWhitelisted")
       expect(ev, "Expected CollateralAssetWhitelisted event").to.exist
       expect(ev.args.token).to.equal(token.address)
       expect(ev.args.priceFeed).to.equal(priceFeed.address)
-
-      const data = await sandboxController.collateralAssets(token.address)
-      expect(data).to.equal(priceFeed.address)
+      expect(ev.args.decimals).to.equal(18)
+      expect(ev.args.maxBorrowCollateralFactor).to.equal(8000)
     })
 
     it("owner can do it, dao can do it", async function () {
       const token1 = await makeMockERC20({ name: "C7", symbol: "C7" })
       const feed1 = await makePriceFeed({})
-      await sandboxController.connect(owner).whitelistCollateralAsset(token1.address, feed1.address)
+      await sandboxController
+        .connect(owner)
+        .whitelistCollateralAsset(
+          token1.address,
+          feed1.address,
+          18,
+          9000,
+          4000,
+          5000,
+          9500,
+          7000,
+          9000
+        )
+
       const token2 = await makeMockERC20({ name: "C8", symbol: "C8" })
       const feed2 = await makePriceFeed({})
-      await sandboxController.connect(dao).whitelistCollateralAsset(token2.address, feed2.address)
+      await sandboxController
+        .connect(dao)
+        .whitelistCollateralAsset(
+          token2.address,
+          feed2.address,
+          18,
+          9000,
+          4000,
+          5000,
+          9500,
+          7000,
+          9000
+        )
+
       expect(await sandboxController.collateralAssetCount()).to.equal(2)
     })
   })
+
 
   describe("setConfiguration", function () {
     let sandboxController: any
@@ -836,7 +1081,7 @@ describe("SandboxController", function () {
       ).to.be.revertedWithCustomError(sandboxController, "NotAuthorized")
     })
 
-    it("works if called by owner or dao, checks that a new curve is appended, checks BaseAssetCurveAdded event", async function() {
+    it("works if called by owner or dao, checks that a new curve is appended, checks BaseAssetCurveAdded event", async function () {
       const newCurve = makeValidCurve()
       let tx = await sandboxController.connect(owner).addBaseAssetCurve(token.address, newCurve)
       let rcpt = await tx.wait()
@@ -851,7 +1096,7 @@ describe("SandboxController", function () {
       expect(ev.args.baseAssetCurve.borrowPerYearInterestRateSlopeLow).to.equal(newCurve.borrowPerYearInterestRateSlopeLow)
       expect(ev.args.baseAssetCurve.borrowPerYearInterestRateSlopeHigh).to.equal(newCurve.borrowPerYearInterestRateSlopeHigh)
       expect(ev.args.baseAssetCurve.borrowPerYearInterestRateSlopeBase).to.equal(newCurve.borrowPerYearInterestRateSlopeBase)
-    
+
       let curves = await sandboxController.getBaseAssetCurves(token.address)
       expect(curves.length).to.equal(2)
       expect(curves[1].supplyKink).to.equal(newCurve.supplyKink)
@@ -862,7 +1107,7 @@ describe("SandboxController", function () {
       expect(curves[1].borrowPerYearInterestRateSlopeLow).to.equal(newCurve.borrowPerYearInterestRateSlopeLow)
       expect(curves[1].borrowPerYearInterestRateSlopeHigh).to.equal(newCurve.borrowPerYearInterestRateSlopeHigh)
       expect(curves[1].borrowPerYearInterestRateSlopeBase).to.equal(newCurve.borrowPerYearInterestRateSlopeBase)
-    
+
       const anotherCurve = makeValidCurve()
       tx = await sandboxController.connect(dao).addBaseAssetCurve(token.address, anotherCurve)
       rcpt = await tx.wait()
@@ -877,7 +1122,7 @@ describe("SandboxController", function () {
       expect(ev.args.baseAssetCurve.borrowPerYearInterestRateSlopeLow).to.equal(anotherCurve.borrowPerYearInterestRateSlopeLow)
       expect(ev.args.baseAssetCurve.borrowPerYearInterestRateSlopeHigh).to.equal(anotherCurve.borrowPerYearInterestRateSlopeHigh)
       expect(ev.args.baseAssetCurve.borrowPerYearInterestRateSlopeBase).to.equal(anotherCurve.borrowPerYearInterestRateSlopeBase)
-    
+
       curves = await sandboxController.getBaseAssetCurves(token.address)
       expect(curves.length).to.equal(3)
       expect(curves[2].supplyKink).to.equal(anotherCurve.supplyKink)
@@ -955,12 +1200,12 @@ describe("SandboxController", function () {
       ).to.be.revertedWithCustomError(sandboxController, "NotDao")
     })
 
-    it("works if dao calls it, checks old vs new curves and emits BaseAssetCurveChanged", async function() {
+    it("works if dao calls it, checks old vs new curves and emits BaseAssetCurveChanged", async function () {
       const secondCurve = makeValidCurve()
       await sandboxController.connect(owner).addBaseAssetCurve(token.address, secondCurve)
       let existingCurves = await sandboxController.getBaseAssetCurves(token.address)
       const oldCurve = existingCurves[1]
-    
+
       const newCurve = {
         supplyKink: 600,
         supplyPerYearInterestRateSlopeLow: 700,
@@ -971,7 +1216,7 @@ describe("SandboxController", function () {
         borrowPerYearInterestRateSlopeHigh: 2200,
         borrowPerYearInterestRateSlopeBase: 2
       }
-    
+
       const tx = await sandboxController.connect(dao).changeBaseAssetCurve(token.address, 1, newCurve)
       const rcpt = await tx.wait()
       const ev = rcpt.events?.find((e: any) => e.event === "BaseAssetCurveChanged")
@@ -985,7 +1230,7 @@ describe("SandboxController", function () {
       expect(ev.args.baseAssetCurveOld.borrowPerYearInterestRateSlopeLow).to.equal(oldCurve.borrowPerYearInterestRateSlopeLow)
       expect(ev.args.baseAssetCurveOld.borrowPerYearInterestRateSlopeHigh).to.equal(oldCurve.borrowPerYearInterestRateSlopeHigh)
       expect(ev.args.baseAssetCurveOld.borrowPerYearInterestRateSlopeBase).to.equal(oldCurve.borrowPerYearInterestRateSlopeBase)
-    
+
       expect(ev.args.baseAssetCurveNew.supplyKink).to.equal(newCurve.supplyKink)
       expect(ev.args.baseAssetCurveNew.supplyPerYearInterestRateSlopeLow).to.equal(newCurve.supplyPerYearInterestRateSlopeLow)
       expect(ev.args.baseAssetCurveNew.supplyPerYearInterestRateSlopeHigh).to.equal(newCurve.supplyPerYearInterestRateSlopeHigh)
@@ -994,7 +1239,7 @@ describe("SandboxController", function () {
       expect(ev.args.baseAssetCurveNew.borrowPerYearInterestRateSlopeLow).to.equal(newCurve.borrowPerYearInterestRateSlopeLow)
       expect(ev.args.baseAssetCurveNew.borrowPerYearInterestRateSlopeHigh).to.equal(newCurve.borrowPerYearInterestRateSlopeHigh)
       expect(ev.args.baseAssetCurveNew.borrowPerYearInterestRateSlopeBase).to.equal(newCurve.borrowPerYearInterestRateSlopeBase)
-    
+
       existingCurves = await sandboxController.getBaseAssetCurves(token.address)
       const updatedCurve = existingCurves[1]
       expect(updatedCurve.supplyKink).to.equal(newCurve.supplyKink)
@@ -1169,7 +1414,7 @@ describe("SandboxController", function () {
     it("returns true if collateral asset whitelisted", async function () {
       const token = await makeMockERC20({ name: "C16", symbol: "C16" })
       const priceFeed = await makePriceFeed({})
-      await sandboxController.whitelistCollateralAsset(token.address, priceFeed.address)
+      await sandboxController.whitelistCollateralAsset(token.address, priceFeed.address, 18, 8000, 5000, 6000, 9000, 7000, 9500)
       expect(await sandboxController.isCollateralTokenWhitelisted(token.address)).to.equal(true)
     })
 

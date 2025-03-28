@@ -19,6 +19,6 @@ contract MarketMock is IMarket, Initializable {
     }
     
     function getCollateralTokenConfig(uint _collateralTokenId) external view override returns (IConfigController.CollateralTokenConfig memory) {
-        return marketConfig.collateraTokens[_collateralTokenId];
+        return marketConfig.collateralTokens[_collateralTokenId];
     }
 } 

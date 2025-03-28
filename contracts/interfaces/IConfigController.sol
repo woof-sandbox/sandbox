@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
-
+    
 
 abstract contract IConfigController {
     struct MarketConfig {
         address baseToken;
         address priceFeed;
-        CollateralTokenConfig[] collateraTokens;
+        CollateralTokenConfig[] collateralTokens;
     }
 
     struct CollateralTokenConfig {

@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
-import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {IERC20NonStandard} from "./interfaces/IERC20NonStandard.sol";
 import {IPriceFeed} from "./interfaces/IPriceFeed.sol";
 import {ISandboxController} from "./interfaces/ISandboxController.sol";
@@ -33,8 +32,9 @@ contract SandboxController is ISandboxController {
     address[] public baseAssetTokens;
     address[] public collateralAssetTokens;
 
-    mapping(address => BaseAssetConfiguration) public baseAssets;
-    mapping(address => CollateralAssetConfiguration) public collateralAssets;
+    mapping(address => ISandboxController.BaseAssetConfiguration)  private _baseAssets;
+    mapping(address => ISandboxController.CollateralAssetConfiguration) private _collateralAssets;
+    
     mapping(address => bool) public isPriceFeedWhitelisted;
 
     /**
@@ -174,10 +174,10 @@ contract SandboxController is ISandboxController {
 
         uint8 decimals = IERC20NonStandard(token).decimals();
 
-        baseAssets[token].priceFeed = priceFeed;
-        baseAssets[token].decimals = decimals;
-        baseAssets[token].minBorrow = minBorrow;
-        baseAssets[token].baseAssetCurves.push(baseAssetCurve);
+        _baseAssets[token].priceFeed = priceFeed;
+        _baseAssets[token].decimals = decimals;
+        _baseAssets[token].minBorrow = minBorrow;
+        _baseAssets[token].baseAssetCurves.push(baseAssetCurve);
 
         baseAssetTokens.push(token);
         baseAssetCount++;
@@ -193,14 +193,29 @@ contract SandboxController is ISandboxController {
         );
     }
 
-    /**
-     * @notice Whitelists a new collateral asset with its price feed.
+      /**
+     * @notice Whitelists a new collateral asset with its full configuration and price feed.
+     * @dev Includes additional validation on the factors.
      * @param token The address of the collateral token.
      * @param priceFeed The price feed contract address for the collateral.
+     * @param decimals The decimals for this token (for front-end calculations).
+     * @param maxBorrowCollateralFactor The maximum borrow collateral factor, scaled by 1e4, e.g., 8000 = 80%.
+     * @param minBorrowCollateralFactor The minimum borrow collateral factor, scaled by 1e4.
+     * @param minLiquidateCollateralFactor The minimum collateral factor at which liquidation can start.
+     * @param maxLiquidateCollateralFactor The maximum collateral factor for liquidation calculations.
+     * @param minLiquidationFactor Minimum factor for liquidation penalty.
+     * @param maxLiquidationFactor Maximum factor for liquidation penalty.
      */
     function whitelistCollateralAsset(
         address token,
-        address priceFeed
+        address priceFeed,
+        uint256 decimals,
+        uint64 maxBorrowCollateralFactor,
+        uint64 minBorrowCollateralFactor,
+        uint64 minLiquidateCollateralFactor,
+        uint64 maxLiquidateCollateralFactor,
+        uint64 minLiquidationFactor,
+        uint64 maxLiquidationFactor
     ) external onlyAuthorized {
         if (token == address(0) || priceFeed == address(0)) {
             revert ZeroAddress();
@@ -212,6 +227,23 @@ contract SandboxController is ISandboxController {
             revert PriceFeedAlreadyWhitelisted();
         }
 
+        if (
+            minBorrowCollateralFactor == 0 ||
+            maxBorrowCollateralFactor == 0 ||
+            minLiquidateCollateralFactor == 0 ||
+            maxLiquidateCollateralFactor == 0 ||
+            minLiquidationFactor == 0 ||
+            maxLiquidationFactor == 0
+        ) {
+            revert InvalidFactors(); // All must be nonzero
+        }
+        if (
+            minBorrowCollateralFactor > maxBorrowCollateralFactor ||
+            minLiquidateCollateralFactor > maxLiquidateCollateralFactor ||
+            minLiquidationFactor > maxLiquidationFactor
+        ) {
+            revert InvalidFactors();
+        }
         {
             (, int256 answer, , , ) = IPriceFeed(priceFeed).latestRoundData();
             if (answer <= 0) {
@@ -219,14 +251,42 @@ contract SandboxController is ISandboxController {
             }
         }
 
-        collateralAssets[token].priceFeed = priceFeed;
+        // OPTIONAL: cross-check token decimals
+        // uint8 decimalsFromToken = IERC20NonStandard(token).decimals();
+        // if (decimalsFromToken != decimals) {
+        //     // revert or decide how strictly you want to handle this
+        //     revert InvalidFactors();
+        // }
+
+        // Store in `_collateralAssets` mapping
+        _collateralAssets[token].collateralToken = token;
+        _collateralAssets[token].priceFeed = priceFeed;
+        _collateralAssets[token].decimals = decimals;
+        _collateralAssets[token].maxBorrowCollateralFactor = maxBorrowCollateralFactor;
+        _collateralAssets[token].minBorrowCollateralFactor = minBorrowCollateralFactor;
+        _collateralAssets[token].minLiquidateCollateralFactor = minLiquidateCollateralFactor;
+        _collateralAssets[token].maxLiquidateCollateralFactor = maxLiquidateCollateralFactor;
+        _collateralAssets[token].minLiquidationFactor = minLiquidationFactor;
+        _collateralAssets[token].maxLiquidationFactor = maxLiquidationFactor;
+
         collateralAssetTokens.push(token);
         collateralAssetCount++;
 
         isPriceFeedWhitelisted[priceFeed] = true;
 
-        emit CollateralAssetWhitelisted(token, priceFeed);
+        emit CollateralAssetWhitelisted(
+            token,
+            priceFeed,
+            decimals,
+            maxBorrowCollateralFactor,
+            minBorrowCollateralFactor,
+            minLiquidateCollateralFactor,
+            maxLiquidateCollateralFactor,
+            minLiquidationFactor,
+            maxLiquidationFactor
+        );
     }
+
 
     /**
      * @dev Emitted when a base asset is whitelisted.
@@ -289,7 +349,7 @@ contract SandboxController is ISandboxController {
             revert InvalidCurveConfiguration();
         }
 
-        baseAssets[token].baseAssetCurves.push(baseAssetCurve);
+        _baseAssets[token].baseAssetCurves.push(baseAssetCurve);
         emit BaseAssetCurveAdded(token, baseAssetCurve);
     }
 
@@ -311,17 +371,17 @@ contract SandboxController is ISandboxController {
             revert TokenNotWhitelisted();
         }
         if (
-            curveIndex >= baseAssets[token].baseAssetCurves.length ||
+            curveIndex >= _baseAssets[token].baseAssetCurves.length ||
             !isCurveConfigurationValid(newCurve)
         ) {
             revert InvalidCurveConfiguration();
         }
 
-        BaseAssetCurve memory oldCurve = baseAssets[token].baseAssetCurves[
+        BaseAssetCurve memory oldCurve = _baseAssets[token].baseAssetCurves[
             curveIndex
         ];
 
-        baseAssets[token].baseAssetCurves[curveIndex] = newCurve;
+        _baseAssets[token].baseAssetCurves[curveIndex] = newCurve;
         emit BaseAssetCurveChanged(token, oldCurve, newCurve);
     }
 
@@ -330,8 +390,8 @@ contract SandboxController is ISandboxController {
      * @param token The address of the token.
      * @return True if the token is whitelisted, otherwise false.
      */
-    function isBaseTokenWhitelisted(address token) public view returns (bool) {
-        return baseAssets[token].priceFeed != address(0);
+    function isBaseTokenWhitelisted(address token) public override view returns (bool) {
+        return _baseAssets[token].priceFeed != address(0);
     }
 
     /**
@@ -341,8 +401,8 @@ contract SandboxController is ISandboxController {
      */
     function isCollateralTokenWhitelisted(
         address token
-    ) public view returns (bool) {
-        return collateralAssets[token].priceFeed != address(0);
+    ) public override view returns (bool) {
+        return _collateralAssets[token].priceFeed != address(0);
     }
 
     /**
@@ -376,15 +436,32 @@ contract SandboxController is ISandboxController {
         emit OwnerTransferred(oldOwner, newOwner);
     }
 
+
     /**
-     * @notice Returns the base asset configuration for a given token.
+     * @notice Returns base asset configuration for a given token.
      * @param token The address of the base asset token.
-     * @return The base asset configuration.
+     *  @return The base asset configuration.
      */
-    function getBaseAssetCurves(
-        address token
-    ) external view returns (BaseAssetCurve[] memory) {
-        return baseAssets[token].baseAssetCurves;
+    function baseAssets(address token) external view returns (ISandboxController.BaseAssetConfiguration memory) {
+        return _baseAssets[token];
+    }
+    
+    /**
+     * @notice Returns collateral asset configuration for a given token.
+     * @param token The address of the collateral asset token.
+     *  @return The collateral asset configuration.
+     */
+    function collateralAssets(address token) external view returns (ISandboxController.CollateralAssetConfiguration memory) {
+        return _collateralAssets[token];
+    }
+
+    /**
+     * @notice Returns base asset curves for a given token.
+     * @param token The address of the base asset token.
+     * @return The base asset curves.
+     */
+    function getBaseAssetCurves(address token) external view returns (BaseAssetCurve[] memory) {
+        return _baseAssets[token].baseAssetCurves;
     }
 
     /**

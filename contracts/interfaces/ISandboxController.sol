@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
-contract ISandboxController {
+interface ISandboxController {
     error ZeroAddress();
     error TokenAlreadyWhitelisted();
     error TokenNotWhitelisted();
@@ -26,6 +26,7 @@ contract ISandboxController {
         uint64 borrowPerYearInterestRateSlopeHigh;
         uint64 borrowPerYearInterestRateSlopeBase;
     }
+    
 
     /**
      * @notice Configuration for each base asset.
@@ -40,8 +41,16 @@ contract ISandboxController {
     /**
      * @notice Configuration for each collateral asset.
      */
-    struct CollateralAssetConfiguration {
+     struct CollateralAssetConfiguration {
+        address collateralToken;
         address priceFeed;
+        uint256 decimals;
+        uint64 maxBorrowCollateralFactor;
+        uint64 minBorrowCollateralFactor;
+        uint64 minLiquidateCollateralFactor;
+        uint64 maxLiquidateCollateralFactor;
+        uint64 minLiquidationFactor;
+        uint64 maxLiquidationFactor;
     }
 
     event BaseAssetWhitelisted(
@@ -52,10 +61,18 @@ contract ISandboxController {
         uint256 minBorrow
     );
 
-    event CollateralAssetWhitelisted(
+      event CollateralAssetWhitelisted(
         address indexed token,
-        address indexed priceFeed
+        address indexed priceFeed,
+        uint256 decimals,
+        uint64 maxBorrowCollateralFactor,
+        uint64 minBorrowCollateralFactor,
+        uint64 minLiquidateCollateralFactor,
+        uint64 maxLiquidateCollateralFactor,
+        uint64 minLiquidationFactor,
+        uint64 maxLiquidationFactor
     );
+
 
     event BaseAssetCurveAdded(
         address indexed token,
@@ -78,4 +95,20 @@ contract ISandboxController {
     event FeeEnabledSet(bool enabled);
     event OwnerTransferred(address oldOwner, address newOwner);
     event DaoTransferred(address oldDao, address newDao);
+
+    function baseAssets(address _token)
+        external
+        view
+        returns (BaseAssetConfiguration memory);
+
+    function collateralAssets(address _token)
+        external
+        view
+        returns (CollateralAssetConfiguration memory);
+
+    function isBaseTokenWhitelisted(address token) external view returns (bool);
+
+    function isCollateralTokenWhitelisted(address token) external view returns (bool);
+
+    function isPriceFeedWhitelisted(address priceFeed) external view returns (bool);
 }
