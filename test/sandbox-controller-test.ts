@@ -587,7 +587,6 @@ describe("SandboxController", function () {
           .whitelistCollateralAsset(
             token.address,
             priceFeed.address,
-            18,
             8000,
             5000,
             6000,
@@ -604,7 +603,6 @@ describe("SandboxController", function () {
         sandboxController.whitelistCollateralAsset(
           ethers.constants.AddressZero,
           priceFeed.address,
-          18,
           8000,
           5000,
           6000,
@@ -621,7 +619,6 @@ describe("SandboxController", function () {
         sandboxController.whitelistCollateralAsset(
           token.address,
           ethers.constants.AddressZero,
-          18,
           8000,
           5000,
           6000,
@@ -638,7 +635,6 @@ describe("SandboxController", function () {
       await sandboxController.whitelistCollateralAsset(
         token.address,
         priceFeed.address,
-        18,
         8000,
         5000,
         6000,
@@ -651,7 +647,6 @@ describe("SandboxController", function () {
         sandboxController.whitelistCollateralAsset(
           token.address,
           newFeed.address,
-          18,
           8000,
           5000,
           6000,
@@ -667,11 +662,9 @@ describe("SandboxController", function () {
       const tokenB = await makeMockERC20({ name: "C4B", symbol: "C4B" })
       const priceFeed = await makePriceFeed({})
 
-      // Whitelist for tokenA
       await sandboxController.whitelistCollateralAsset(
         tokenA.address,
         priceFeed.address,
-        18,
         8000,
         5000,
         6000,
@@ -680,12 +673,10 @@ describe("SandboxController", function () {
         9500
       )
 
-      // Try for tokenB with same feed
       await expect(
         sandboxController.whitelistCollateralAsset(
           tokenB.address,
           priceFeed.address,
-          18,
           8000,
           5000,
           6000,
@@ -697,14 +688,12 @@ describe("SandboxController", function () {
     })
 
     it("reverts if feed not a valid aggregator (mock example)", async function () {
-      // Suppose we try to pass an ERC20 as feed
       const token = await makeMockERC20({ name: "C5", symbol: "C5" })
       const badFeed = await makeMockERC20({ name: "FakeFeed2", symbol: "FF2" })
       await expect(
         sandboxController.whitelistCollateralAsset(
           token.address,
           badFeed.address,
-          18,
           8000,
           5000,
           6000,
@@ -717,13 +706,11 @@ describe("SandboxController", function () {
 
     it("reverts if invalid price feed (answer=0)", async function () {
       const token = await makeMockERC20({ name: "T6", symbol: "T6" })
-      // Price feed that returns 0
       const badPriceFeed = await makePriceFeed({ amount: 0 })
       await expect(
         sandboxController.whitelistCollateralAsset(
           token.address,
           badPriceFeed.address,
-          18,
           8000,
           5000,
           6000,
@@ -734,27 +721,21 @@ describe("SandboxController", function () {
       ).to.be.revertedWithCustomError(sandboxController, "InvalidPriceFeed")
     })
 
-    // NEW TESTS FOR COLLATERAL FACTOR VALIDATIONS
-
     it("reverts if any factor is zero", async function () {
       const token = await makeMockERC20({ name: "CZero", symbol: "CZero" })
       const feed = await makePriceFeed({})
-      // Attempt with minBorrowCollateralFactor = 0
       await expect(
         sandboxController.whitelistCollateralAsset(
           token.address,
           feed.address,
-          18,
-          8000, // maxBorrowCollateralFactor
-          0,    // minBorrowCollateralFactor
+          8000,
+          0,
           6000,
           9000,
           7000,
           9500
         )
       ).to.be.revertedWithCustomError(sandboxController, "InvalidFactors")
-
-      // You could repeat for each factor = 0 if you want separate tests
     })
 
     it("reverts if minBorrowCollateralFactor > maxBorrowCollateralFactor", async function () {
@@ -764,9 +745,8 @@ describe("SandboxController", function () {
         sandboxController.whitelistCollateralAsset(
           token.address,
           feed.address,
-          18,
-          5000, // maxBorrowCollateralFactor
-          6000, // minBorrowCollateralFactor (bigger than max)
+          5000,
+          6000,
           6000,
           9000,
           7000,
@@ -782,11 +762,10 @@ describe("SandboxController", function () {
         sandboxController.whitelistCollateralAsset(
           token.address,
           feed.address,
-          18,
           8000,
           5000,
-          9000, // minLiquidate
-          6000, // maxLiquidate (less than min)
+          9000,
+          6000,
           7000,
           9500
         )
@@ -800,24 +779,20 @@ describe("SandboxController", function () {
         sandboxController.whitelistCollateralAsset(
           token.address,
           feed.address,
-          18,
           8000,
           5000,
           6000,
           9000,
-          9500, // minLiquidation
-          7000  // maxLiquidation (less than min)
+          9500,
+          7000
         )
       ).to.be.revertedWithCustomError(sandboxController, "InvalidFactors")
     })
 
-    // EXAMPLE TEST: check successful whitelisting sets all fields
     it("whitelists valid collateral and updates state", async function () {
       const token = await makeMockERC20({ name: "C6", symbol: "C6" })
       const priceFeed = await makePriceFeed({})
 
-      // Let's pick a set of valid factors
-      const decimals = 18
       const maxBorrowCollateralFactor = 8000
       const minBorrowCollateralFactor = 5000
       const minLiquidateCollateralFactor = 6000
@@ -828,7 +803,6 @@ describe("SandboxController", function () {
       await sandboxController.whitelistCollateralAsset(
         token.address,
         priceFeed.address,
-        decimals,
         maxBorrowCollateralFactor,
         minBorrowCollateralFactor,
         minLiquidateCollateralFactor,
@@ -840,7 +814,7 @@ describe("SandboxController", function () {
       const data = await sandboxController.collateralAssets(token.address)
       expect(data.collateralToken).to.equal(token.address)
       expect(data.priceFeed).to.equal(priceFeed.address)
-      expect(data.decimals).to.equal(decimals)
+      expect(data.decimals).to.equal(18)
       expect(data.maxBorrowCollateralFactor).to.equal(maxBorrowCollateralFactor)
       expect(data.minBorrowCollateralFactor).to.equal(minBorrowCollateralFactor)
       expect(data.minLiquidateCollateralFactor).to.equal(minLiquidateCollateralFactor)
@@ -862,7 +836,6 @@ describe("SandboxController", function () {
       const tx = await sandboxController.whitelistCollateralAsset(
         token.address,
         priceFeed.address,
-        18,
         8000,
         5000,
         6000,
@@ -888,7 +861,6 @@ describe("SandboxController", function () {
         .whitelistCollateralAsset(
           token1.address,
           feed1.address,
-          18,
           9000,
           4000,
           5000,
@@ -904,7 +876,6 @@ describe("SandboxController", function () {
         .whitelistCollateralAsset(
           token2.address,
           feed2.address,
-          18,
           9000,
           4000,
           5000,
@@ -1459,7 +1430,7 @@ describe("SandboxController", function () {
     it("returns true if collateral asset whitelisted", async function () {
       const token = await makeMockERC20({ name: "C16", symbol: "C16" })
       const priceFeed = await makePriceFeed({})
-      await sandboxController.whitelistCollateralAsset(token.address, priceFeed.address, 18, 8000, 5000, 6000, 9000, 7000, 9500)
+      await sandboxController.whitelistCollateralAsset(token.address, priceFeed.address, 8000, 5000, 6000, 9000, 7000, 9500)
       expect(await sandboxController.isCollateralTokenWhitelisted(token.address)).to.equal(true)
     })
 
@@ -1601,6 +1572,180 @@ describe("SandboxController", function () {
       expect(ev.args[0]).to.equal(oldTarget)
       expect(ev.args[1]).to.equal(newTarget)
       expect(await sandboxController.targetReserves()).to.equal(newTarget)
+    })
+  })
+
+  describe("Reserve Commission and Thresholds", function () {
+    let sandboxController: any
+    let owner: any, dao: any, attacker: any
+    const MarketState = { UpTo25k: 0, Above25k: 1, AboveTarget: 2 }
+  
+    before(async function () {
+      [owner, dao, attacker] = await ethers.getSigners()
+    })
+  
+    beforeEach(async function () {
+      const opts = defaultControllerOpts({
+        admin: owner,
+        governor: dao,
+        feeEnabled: false,
+        storeFrontPriceFactor: "300000000000000000",
+        protocolFactorBorrow: "100000000000000000",
+        reserveFactorBorrow: "200000000000000000",
+        protocolFactorLiquidation: "100000000000000000",
+        reserveFactorLiquidation: "200000000000000000",
+        minUpdateTime: 400,
+        maxCollateralAssets: 5,
+        suggestedAmountOfSeedReserves: "1000",
+        suggestedLockTimeOfSeedReserves: 1000,
+        targetReserves: "300000000000000000"
+      })
+      const c = await makeSandboxController(opts)
+      sandboxController = c.sandboxController
+    })
+  
+    describe("setReserveCommissions", function () {
+      it("reverts if caller is not owner", async function () {
+        const newReserveCommissions = [
+          "500000000000000000",
+          "300000000000000000",
+          "200000000000000000"
+        ]
+        await expect(
+          sandboxController.connect(dao).setReserveCommissions(newReserveCommissions)
+        ).to.be.revertedWithCustomError(sandboxController, "NotOwner")
+        await expect(
+          sandboxController.connect(attacker).setReserveCommissions(newReserveCommissions)
+        ).to.be.revertedWithCustomError(sandboxController, "NotOwner")
+      })
+  
+      it("reverts if any new reserve commission causes sum with protocol commission to exceed 80%", async function () {
+        const newReserveCommissions = [
+          "800000000000000001", 
+          "300000000000000000",
+          "200000000000000000"
+        ]
+        await expect(
+          sandboxController.connect(owner).setReserveCommissions(newReserveCommissions)
+        ).to.be.revertedWithCustomError(sandboxController, "InvalidFactors")
+      })
+  
+      it("updates reserve commissions and emits events", async function () {
+        const newReserveCommissions = [
+          "500000000000000000",
+          "300000000000000000",
+          "200000000000000000"
+        ]
+        const tx = await sandboxController.connect(owner).setReserveCommissions(newReserveCommissions)
+        const rcpt = await tx.wait()
+        const events = rcpt.events.filter((e: any) => e.event === "ReserveCommissionChanged")
+        expect(events.length).to.equal(3)
+        for (let i = 0; i < 3; i++) {
+          expect(events[i].args.state).to.equal(i)
+          expect(events[i].args.oldValue).to.equal("0")
+          expect(events[i].args.newValue).to.equal(newReserveCommissions[i])
+          const value = await sandboxController.reserveCommission(i)
+          expect(value).to.equal(newReserveCommissions[i])
+        }
+      })
+    })
+  
+    describe("setProtocolCommissions", function () {
+      it("reverts if caller is not owner", async function () {
+        const protocolCommissions = [
+          "400000000000000000",
+          "200000000000000000",
+          "100000000000000000"
+        ]
+        await expect(
+          sandboxController.connect(dao).setProtocolCommissions(protocolCommissions)
+        ).to.be.revertedWithCustomError(sandboxController, "NotOwner")
+        await expect(
+          sandboxController.connect(attacker).setProtocolCommissions(protocolCommissions)
+        ).to.be.revertedWithCustomError(sandboxController, "NotOwner")
+      })
+  
+      it("reverts if any new protocol commission causes sum with reserve commission to exceed 80%", async function () {
+        await sandboxController.connect(owner).setReserveCommissions([
+          "100000000000000000",
+          "300000000000000000", 
+          "100000000000000000"
+        ])
+
+        const protocolCommissions = [
+          "100000000000000000",
+          "600000000000000001",
+          "100000000000000000"
+        ]
+        await expect(
+          sandboxController.connect(owner).setProtocolCommissions(protocolCommissions)
+        ).to.be.revertedWithCustomError(sandboxController, "InvalidFactors")
+      })
+  
+      it("updates protocol commissions and emits events", async function () {
+        const newProtocolCommissions = [
+          "400000000000000000",
+          "200000000000000000",
+          "100000000000000000"
+        ]
+        const tx = await sandboxController.connect(owner).setProtocolCommissions(newProtocolCommissions)
+        const rcpt = await tx.wait()
+        const events = rcpt.events.filter((e: any) => e.event === "ProtocolCommissionChanged")
+        expect(events.length).to.equal(3)
+        for (let i = 0; i < 3; i++) {
+          expect(events[i].args.state).to.equal(i)
+          expect(events[i].args.oldValue).to.equal("0")
+          expect(events[i].args.newValue).to.equal(newProtocolCommissions[i])
+          const value = await sandboxController.protocolCommission(i)
+          expect(value).to.equal(newProtocolCommissions[i])
+        }
+      })
+    })
+  
+    describe("setThresholds", function () {
+      it("reverts if caller is not owner", async function () {
+        const thresholds = [
+          "500000000000000000",
+          "400000000000000000",
+          "300000000000000000"
+        ]
+        await expect(
+          sandboxController.connect(dao).setThresholds(thresholds)
+        ).to.be.revertedWithCustomError(sandboxController, "NotOwner")
+        await expect(
+          sandboxController.connect(attacker).setThresholds(thresholds)
+        ).to.be.revertedWithCustomError(sandboxController, "NotOwner")
+      })
+  
+      it("reverts if any threshold is >= 1e18", async function () {
+        const thresholds = [
+          "500000000000000000",
+          "1000000000000000000",
+          "300000000000000000"
+        ]
+        await expect(
+          sandboxController.connect(owner).setThresholds(thresholds)
+        ).to.be.revertedWithCustomError(sandboxController, "InvalidFactors")
+      })
+  
+      it("updates thresholds and emits events", async function () {
+        const thresholds = [
+          "100000000000000000",
+          "200000000000000000",
+          "300000000000000000"
+        ]
+        const tx = await sandboxController.connect(owner).setThresholds(thresholds)
+        const rcpt = await tx.wait()
+        const events = rcpt.events.filter((e: any) => e.event === "ThresholdChanged")
+        expect(events.length).to.equal(3)
+        for (let i = 0; i < 3; i++) {
+          expect(events[i].args.state).to.equal(i)
+          expect(events[i].args.oldValue).to.equal("0")
+          expect(events[i].args.newValue).to.equal(thresholds[i])
+          const value = await sandboxController.threshold(i)
+          expect(value).to.equal(thresholds[i])
+        }
+      })
     })
   })
 })

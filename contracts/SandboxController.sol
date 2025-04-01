@@ -34,11 +34,14 @@ contract SandboxController is ISC {
     address[] public baseAssetTokens;
     address[] public collateralAssetTokens;
 
+    mapping(address => bool) public isPriceFeedWhitelisted;
+    mapping(MarketState => uint256) public reserveCommission;
+    mapping(MarketState => uint256) public protocolCommission;
+    mapping(MarketState => uint256) public threshold;
+
     mapping(address => ISC.BaseAssetConfiguration) private _baseAssets;
     mapping(address => ISC.CollateralAssetConfiguration)
         private _collateralAssets;
-
-    mapping(address => bool) public isPriceFeedWhitelisted;
 
     /**
      * @dev Set all global parameters (including owner and DAO) at deployment.
@@ -147,6 +150,60 @@ contract SandboxController is ISC {
     }
 
     /**
+     * @notice Sets the threshold factors for each market state.
+     * @param thresholds The new threshold factors, scaled by 1e18.
+     */
+    function setThresholds(
+        uint256[3] calldata thresholds
+    ) external onlyOwner {
+        for (uint256 i = 0; i < 3; i++) {
+            if (thresholds[i] >= 1e18) {
+                revert InvalidFactors();
+            }
+            MarketState state = MarketState(i);
+            uint256 oldValue = threshold[state];
+            threshold[state] = thresholds[i];
+            emit ThresholdChanged(state, oldValue, thresholds[i]);
+        }
+    }
+
+    /**
+     * @notice Sets the reserve commission factors for each market state.
+     * @param reserveCommissions The new reserve commission factors, scaled by 1e18.
+     */
+    function setReserveCommissions(
+        uint256[3] calldata reserveCommissions
+    ) external onlyOwner {
+        for (uint256 i = 0; i < 3; i++) {
+            MarketState state = MarketState(i);
+            if (reserveCommissions[i] + protocolCommission[state] > 8e17) {
+                revert InvalidFactors();
+            }
+            uint256 oldValue = reserveCommission[state];
+            reserveCommission[state] = reserveCommissions[i];
+            emit ReserveCommissionChanged(state, oldValue, reserveCommissions[i]);
+        }
+    }
+
+    /**
+     * @notice Sets the protocol commission factors for each market state.
+     * @param protocolCommissions The new protocol commission factors, scaled by 1e18.
+     */ 
+    function setProtocolCommissions(
+        uint256[3] calldata protocolCommissions
+    ) external onlyOwner {
+        for (uint256 i = 0; i < 3; i++) {
+            MarketState state = MarketState(i);
+            if (protocolCommissions[i] + reserveCommission[state] > 8e17) {
+                revert InvalidFactors();
+            }
+            uint256 oldValue = protocolCommission[state];
+            protocolCommission[state] = protocolCommissions[i];
+            emit ProtocolCommissionChanged(state, oldValue, protocolCommissions[i]);
+        }
+    }
+
+    /**
      * @notice Whitelists a new base asset with its price feed and curve configuration.
      * @param token The address of the base asset token.
      * @param priceFeed The associated price feed contract address.
@@ -206,7 +263,6 @@ contract SandboxController is ISC {
      * @dev Includes additional validation on the factors.
      * @param token The address of the collateral token.
      * @param priceFeed The price feed contract address for the collateral.
-     * @param decimals The decimals for this token (for front-end calculations).
      * @param maxBorrowCollateralFactor The maximum borrow collateral factor, scaled by 1e4, e.g., 8000 = 80%.
      * @param minBorrowCollateralFactor The minimum borrow collateral factor, scaled by 1e4.
      * @param minLiquidateCollateralFactor The minimum collateral factor at which liquidation can start.
@@ -217,7 +273,6 @@ contract SandboxController is ISC {
     function whitelistCollateralAsset(
         address token,
         address priceFeed,
-        uint256 decimals,
         uint64 maxBorrowCollateralFactor,
         uint64 minBorrowCollateralFactor,
         uint64 minLiquidateCollateralFactor,
@@ -259,17 +314,11 @@ contract SandboxController is ISC {
             }
         }
 
-        // OPTIONAL: cross-check token decimals
-        // uint8 decimalsFromToken = IERC20NonStandard(token).decimals();
-        // if (decimalsFromToken != decimals) {
-        //     // revert or decide how strictly you want to handle this
-        //     revert InvalidFactors();
-        // }
+        uint256 decimals = IERC20NonStandard(token).decimals();
 
-        // Store in `_collateralAssets` mapping
         _collateralAssets[token].collateralToken = token;
         _collateralAssets[token].priceFeed = priceFeed;
-        _collateralAssets[token].decimals = decimals;
+        _collateralAssets[token].decimals = IERC20NonStandard(token).decimals();
         _collateralAssets[token]
             .maxBorrowCollateralFactor = maxBorrowCollateralFactor;
         _collateralAssets[token]
