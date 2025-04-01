@@ -8,17 +8,6 @@ interface ISandboxController {
         High
     }
 
-    error ZeroAddress();
-    error TokenAlreadyWhitelisted();
-    error TokenNotWhitelisted();
-    error PriceFeedAlreadyWhitelisted();
-    error InvalidCurveConfiguration();
-    error InvalidPriceFeed();
-    error InvalidFactors();
-    error NotOwner(address caller);
-    error NotDao(address caller);
-    error NotAuthorized(address caller);
-
     /**
      * @notice Structure defining interest rate curve parameters for a base asset.
      */
@@ -57,6 +46,17 @@ interface ISandboxController {
         uint64 minLiquidationFactor;
         uint64 maxLiquidationFactor;
     }
+
+    error ZeroAddress();
+    error TokenAlreadyWhitelisted();
+    error TokenNotWhitelisted();
+    error PriceFeedAlreadyWhitelisted();
+    error InvalidCurveConfiguration();
+    error InvalidPriceFeed();
+    error InvalidFactors();
+    error NotOwner(address caller);
+    error NotDao(address caller);
+    error NotAuthorized(address caller);
 
     event BaseAssetWhitelisted(
         address indexed token,
@@ -100,7 +100,11 @@ interface ISandboxController {
 
     event TargetReservesChanged(uint256 oldReserves, uint256 newReserves);
 
-    event ThresholdChanged(MarketState indexed state, uint256 oldValue, uint256 newValue);
+    event ThresholdChanged(
+        MarketState indexed state,
+        uint256 oldValue,
+        uint256 newValue
+    );
 
     event ReserveCommissionChanged(
         MarketState indexed state,
