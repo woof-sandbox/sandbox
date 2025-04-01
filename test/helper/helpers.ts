@@ -39,6 +39,9 @@ import {
   AssetListFactory__factory,
   CometHarnessExtendedAssetList__factory,
   CometHarnessInterfaceExtendedAssetList as CometSandbox,
+  ISandboxController,
+  IMarket,
+  MarketFactory,
 } from '../../build/types';
 import { CometSandboxFactory } from '../../build/types/CometSandboxFactory';
 import { CometSandboxFactory__factory } from '../../build/types/factories/CometSandboxFactory__factory';
@@ -189,6 +192,7 @@ export interface SandboxControllerOpts {
   maxCollateralAssets?: number
   suggestedAmountOfSeedReserves?: string
   suggestedLockTimeOfSeedReserves?: number
+  targetReserves?: string
 }
 
 export type BulkerInfo = {
@@ -796,7 +800,8 @@ export function defaultControllerOpts(partial?: Partial<SandboxControllerOpts>):
     minUpdateTime: partial?.minUpdateTime ?? 300,
     maxCollateralAssets: partial?.maxCollateralAssets ?? 10,
     suggestedAmountOfSeedReserves: partial?.suggestedAmountOfSeedReserves ?? ethers.utils.parseEther("500").toString(),
-    suggestedLockTimeOfSeedReserves: partial?.suggestedLockTimeOfSeedReserves ?? 86400
+    suggestedLockTimeOfSeedReserves: partial?.suggestedLockTimeOfSeedReserves ?? 86400,
+    targetReserves: partial?.targetReserves ?? ethers.utils.parseEther("0.5").toString(),
   };
 }
 
@@ -825,7 +830,8 @@ export async function makeSandboxController(
     opts.minUpdateTime,
     opts.maxCollateralAssets,
     opts.suggestedAmountOfSeedReserves,
-    opts.suggestedLockTimeOfSeedReserves
+    opts.suggestedLockTimeOfSeedReserves,
+    opts.targetReserves
   )
   await sandboxController.deployed()
 

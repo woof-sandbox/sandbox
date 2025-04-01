@@ -73,7 +73,8 @@ describe("SandboxController", function () {
         minUpdateTime: 300,
         maxCollateralAssets: 5,
         suggestedAmountOfSeedReserves: "1000",
-        suggestedLockTimeOfSeedReserves: 500
+        suggestedLockTimeOfSeedReserves: 500,
+        targetReserves: "100"
       })
       const { sandboxController } = await makeSandboxController(opts)
       expect(await sandboxController.owner()).to.equal(owner.address)
@@ -104,7 +105,8 @@ describe("SandboxController", function () {
           300,
           5,
           1000,
-          500
+          500,
+          1
         )
       ).to.be.revertedWithCustomError(SandboxControllerFactory, "ZeroAddress")
     })
@@ -123,7 +125,8 @@ describe("SandboxController", function () {
           300,
           5,
           1000,
-          500
+          500,
+          1
         )
       ).to.be.revertedWithCustomError(SandboxControllerFactory, "ZeroAddress")
     })
@@ -142,7 +145,8 @@ describe("SandboxController", function () {
           300,
           5,
           1000,
-          500
+          500,
+          1
         )
       ).to.be.revertedWithCustomError(SandboxControllerFactory, "InvalidFactors")
     })
@@ -161,7 +165,8 @@ describe("SandboxController", function () {
           300,
           5,
           1000,
-          500
+          500,
+          1
         )
       ).to.be.revertedWithCustomError(SandboxControllerFactory, "InvalidFactors")
     })
@@ -180,7 +185,8 @@ describe("SandboxController", function () {
           300,
           5,
           1000,
-          500
+          500,
+          1
         )
       ).to.be.revertedWithCustomError(SandboxControllerFactory, "InvalidFactors")
     })
@@ -199,7 +205,8 @@ describe("SandboxController", function () {
           300,
           5,
           1000,
-          500
+          500,
+          1
         )
       ).to.be.revertedWithCustomError(SandboxControllerFactory, "InvalidFactors")
     })
@@ -218,7 +225,8 @@ describe("SandboxController", function () {
           300,
           5,
           1000,
-          500
+          500,
+          1
         )
       ).to.be.revertedWithCustomError(SandboxControllerFactory, "InvalidFactors")
     })
@@ -237,7 +245,8 @@ describe("SandboxController", function () {
           300,
           5,
           1000,
-          500
+          500,
+          1
         )
       ).to.be.revertedWithCustomError(SandboxControllerFactory, "InvalidFactors")
     })
@@ -256,7 +265,8 @@ describe("SandboxController", function () {
           300,
           5,
           1000,
-          500
+          500,
+          1
         )
       ).to.be.revertedWithCustomError(SandboxControllerFactory, "InvalidFactors")
     })
@@ -275,7 +285,8 @@ describe("SandboxController", function () {
           0,
           5,
           1000,
-          500
+          500,
+          1
         )
       ).to.be.revertedWithCustomError(SandboxControllerFactory, "InvalidFactors")
     })
@@ -294,7 +305,8 @@ describe("SandboxController", function () {
           300,
           0,
           1000,
-          500
+          500,
+          1
         )
       ).to.be.revertedWithCustomError(SandboxControllerFactory, "InvalidFactors")
     })
@@ -313,7 +325,8 @@ describe("SandboxController", function () {
           300,
           5,
           "0",
-          500
+          500,
+          1
         )
       ).to.be.revertedWithCustomError(SandboxControllerFactory, "InvalidFactors")
     })
@@ -332,7 +345,28 @@ describe("SandboxController", function () {
           300,
           5,
           1000,
-          0
+          0,
+          1
+        )
+      ).to.be.revertedWithCustomError(SandboxControllerFactory, "InvalidFactors")
+    })
+
+    it("reverts if targetReserves>5e17", async function () {
+      await expect(
+        SandboxControllerFactory.deploy(
+          owner.address,
+          dao.address,
+          false,
+          "500000000000000000",
+          "200000000000000000",
+          "200000000000000000",
+          "100000000000000000",
+          "200000000000000000",
+          300,
+          5,
+          1000,
+          500,
+          "500000000000000001"
         )
       ).to.be.revertedWithCustomError(SandboxControllerFactory, "InvalidFactors")
     })
@@ -351,7 +385,8 @@ describe("SandboxController", function () {
         minUpdateTime: 300,
         maxCollateralAssets: 10,
         suggestedAmountOfSeedReserves: "1000",
-        suggestedLockTimeOfSeedReserves: 3600
+        suggestedLockTimeOfSeedReserves: 3600,
+        targetReserves: "100"
       })
       const { sandboxController } = await makeSandboxController(opts)
       expect(await sandboxController.owner()).to.equal(owner.address)
@@ -387,7 +422,8 @@ describe("SandboxController", function () {
         minUpdateTime: 500,
         maxCollateralAssets: 5,
         suggestedAmountOfSeedReserves: "1000",
-        suggestedLockTimeOfSeedReserves: 1000
+        suggestedLockTimeOfSeedReserves: 1000,
+        targetReserves: "100"
       })
       const c = await makeSandboxController(opts)
       sandboxController = c.sandboxController
@@ -535,7 +571,8 @@ describe("SandboxController", function () {
         minUpdateTime: 500,
         maxCollateralAssets: 5,
         suggestedAmountOfSeedReserves: "1000",
-        suggestedLockTimeOfSeedReserves: 1000
+        suggestedLockTimeOfSeedReserves: 1000,
+        targetReserves: "100"
       })
       const c = await makeSandboxController(opts)
       sandboxController = c.sandboxController
@@ -897,7 +934,8 @@ describe("SandboxController", function () {
         minUpdateTime: 400,
         maxCollateralAssets: 5,
         suggestedAmountOfSeedReserves: "1000",
-        suggestedLockTimeOfSeedReserves: 1000
+        suggestedLockTimeOfSeedReserves: 1000,
+        targetReserves: "100"
       })
       const c = await makeSandboxController(opts)
       sandboxController = c.sandboxController
@@ -1001,7 +1039,8 @@ describe("SandboxController", function () {
         minUpdateTime: 400,
         maxCollateralAssets: 5,
         suggestedAmountOfSeedReserves: "1000",
-        suggestedLockTimeOfSeedReserves: 1000
+        suggestedLockTimeOfSeedReserves: 1000,
+        targetReserves: "100"
       })
       const c = await makeSandboxController(opts)
       sandboxController = c.sandboxController
@@ -1044,7 +1083,8 @@ describe("SandboxController", function () {
         minUpdateTime: 400,
         maxCollateralAssets: 5,
         suggestedAmountOfSeedReserves: "1000",
-        suggestedLockTimeOfSeedReserves: 1000
+        suggestedLockTimeOfSeedReserves: 1000,
+        targetReserves: "100"
       })
       const c = await makeSandboxController(opts)
       sandboxController = c.sandboxController
@@ -1154,7 +1194,8 @@ describe("SandboxController", function () {
         minUpdateTime: 400,
         maxCollateralAssets: 5,
         suggestedAmountOfSeedReserves: "1000",
-        suggestedLockTimeOfSeedReserves: 1000
+        suggestedLockTimeOfSeedReserves: 1000,
+        targetReserves: "100"
       })
       const c = await makeSandboxController(opts)
       sandboxController = c.sandboxController
@@ -1269,7 +1310,8 @@ describe("SandboxController", function () {
         minUpdateTime: 400,
         maxCollateralAssets: 5,
         suggestedAmountOfSeedReserves: "1000",
-        suggestedLockTimeOfSeedReserves: 1000
+        suggestedLockTimeOfSeedReserves: 1000,
+        targetReserves: "100"
       })
       const c = await makeSandboxController(opts)
       sandboxController = c.sandboxController
@@ -1317,7 +1359,8 @@ describe("SandboxController", function () {
         minUpdateTime: 400,
         maxCollateralAssets: 5,
         suggestedAmountOfSeedReserves: "1000",
-        suggestedLockTimeOfSeedReserves: 1000
+        suggestedLockTimeOfSeedReserves: 1000,
+        targetReserves: "100"
       })
       const c = await makeSandboxController(opts)
       sandboxController = c.sandboxController
@@ -1365,7 +1408,8 @@ describe("SandboxController", function () {
         minUpdateTime: 400,
         maxCollateralAssets: 5,
         suggestedAmountOfSeedReserves: "1000",
-        suggestedLockTimeOfSeedReserves: 1000
+        suggestedLockTimeOfSeedReserves: 1000,
+        targetReserves: "100"
       })
       const c = await makeSandboxController(opts)
       sandboxController = c.sandboxController
@@ -1400,7 +1444,8 @@ describe("SandboxController", function () {
         minUpdateTime: 400,
         maxCollateralAssets: 5,
         suggestedAmountOfSeedReserves: "1000",
-        suggestedLockTimeOfSeedReserves: 1000
+        suggestedLockTimeOfSeedReserves: 1000,
+        targetReserves: "100"
       })
       const c = await makeSandboxController(opts)
       sandboxController = c.sandboxController
@@ -1420,6 +1465,7 @@ describe("SandboxController", function () {
 
   });
 
+
   describe("isCurveConfigurationValid", function () {
     let sandboxController: any
 
@@ -1436,7 +1482,8 @@ describe("SandboxController", function () {
         minUpdateTime: 400,
         maxCollateralAssets: 5,
         suggestedAmountOfSeedReserves: "1000",
-        suggestedLockTimeOfSeedReserves: 1000
+        suggestedLockTimeOfSeedReserves: 1000,
+        targetReserves: "100"
       })
       const c = await makeSandboxController(opts)
       sandboxController = c.sandboxController
@@ -1503,6 +1550,57 @@ describe("SandboxController", function () {
         borrowPerYearInterestRateSlopeBase: c.borrowPerYearInterestRateSlopeBase
       })
       expect(ok).to.equal(false)
+    })
+  })
+
+  describe("setTargetReserves", function () {
+    let sandboxController: any
+
+    beforeEach(async function () {
+      const opts = defaultControllerOpts({
+        admin: owner,
+        governor: dao,
+        feeEnabled: false,
+        storeFrontPriceFactor: "300000000000000000",
+        protocolFactorBorrow: "100000000000000000",
+        reserveFactorBorrow: "200000000000000000",
+        protocolFactorLiquidation: "100000000000000000",
+        reserveFactorLiquidation: "200000000000000000",
+        minUpdateTime: 400,
+        maxCollateralAssets: 5,
+        suggestedAmountOfSeedReserves: "1000",
+        suggestedLockTimeOfSeedReserves: 1000,
+        targetReserves: "300000000000000000"
+      })
+      const c = await makeSandboxController(opts)
+      sandboxController = c.sandboxController
+    })
+
+    it("reverts if caller is not owner", async function () {
+      await expect(
+        sandboxController.connect(dao).setTargetReserves("200000000000000000")
+      ).to.be.revertedWithCustomError(sandboxController, "NotOwner")
+      await expect(
+        sandboxController.connect(attacker).setTargetReserves("200000000000000000")
+      ).to.be.revertedWithCustomError(sandboxController, "NotOwner")
+    })
+
+    it("reverts if new target reserves exceeds 50%", async function () {
+      await expect(
+        sandboxController.connect(owner).setTargetReserves("500000000000000001")
+      ).to.be.revertedWithCustomError(sandboxController, "InvalidFactors")
+    })
+
+    it("updates target reserves and emits event", async function () {
+      const oldTarget = await sandboxController.targetReserves()
+      const newTarget = "400000000000000000"
+      const tx = await sandboxController.connect(owner).setTargetReserves(newTarget)
+      const rcpt = await tx.wait()
+      const ev = rcpt.events?.find((e: any) => e.event === "TargetReservesChanged")
+      expect(ev).to.exist
+      expect(ev.args[0]).to.equal(oldTarget)
+      expect(ev.args[1]).to.equal(newTarget)
+      expect(await sandboxController.targetReserves()).to.equal(newTarget)
     })
   })
 })

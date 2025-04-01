@@ -3,13 +3,13 @@ pragma solidity 0.8.28;
 
 import {IERC20NonStandard} from "./interfaces/IERC20NonStandard.sol";
 import {IPriceFeed} from "./interfaces/IPriceFeed.sol";
-import {ISandboxController} from "./interfaces/ISandboxController.sol";
+import {ISandboxController as ISC} from "./interfaces/ISandboxController.sol";
 
 /**
  * @title SandboxController
  * @dev Manages base asset configurations and interest rate curves.
  */
-contract SandboxController is ISandboxController {
+contract SandboxController is ISC {
     address public owner;
     address public dao;
 
@@ -24,6 +24,8 @@ contract SandboxController is ISandboxController {
     uint256 public suggestedAmountOfSeedReserves;
     uint256 public suggestedLockTimeOfSeedReserves;
 
+    uint256 public targetReserves;
+
     uint256 public baseAssetCount;
     uint256 public collateralAssetCount;
 
@@ -32,9 +34,10 @@ contract SandboxController is ISandboxController {
     address[] public baseAssetTokens;
     address[] public collateralAssetTokens;
 
-    mapping(address => ISandboxController.BaseAssetConfiguration)  private _baseAssets;
-    mapping(address => ISandboxController.CollateralAssetConfiguration) private _collateralAssets;
-    
+    mapping(address => ISC.BaseAssetConfiguration) private _baseAssets;
+    mapping(address => ISC.CollateralAssetConfiguration)
+        private _collateralAssets;
+
     mapping(address => bool) public isPriceFeedWhitelisted;
 
     /**
@@ -65,7 +68,8 @@ contract SandboxController is ISandboxController {
         uint256 _minUpdateTime,
         uint256 _maxCollateralAssets,
         uint256 _suggestedAmountOfSeedReserves,
-        uint256 _suggestedLockTimeOfSeedReserves
+        uint256 _suggestedLockTimeOfSeedReserves,
+        uint256 _targetReserves
     ) {
         if (_owner == address(0) || _dao == address(0)) {
             revert ZeroAddress();
@@ -77,39 +81,29 @@ contract SandboxController is ISandboxController {
         dao = _dao;
 
         feeEnabled = _feeEnabled;
-        if (_storeFrontPriceFactor >= 1e18) {
-            revert InvalidFactors();
-        }
-        storeFrontPriceFactor = _storeFrontPriceFactor;
 
         if (
+            _storeFrontPriceFactor >= 1e18 ||
             _protocolFactorBorrow == 0 ||
             _reserveFactorBorrow == 0 ||
-            (_protocolFactorBorrow + _reserveFactorBorrow) > 1e18
-        ) {
-            revert InvalidFactors();
-        }
-        protocolFactorBorrow = _protocolFactorBorrow;
-        reserveFactorBorrow = _reserveFactorBorrow;
-
-        if (
+            (_protocolFactorBorrow + _reserveFactorBorrow) > 1e18 ||
             _protocolFactorLiquidation == 0 ||
             _reserveFactorLiquidation == 0 ||
-            (_protocolFactorLiquidation + _reserveFactorLiquidation) > 1e18
-        ) {
-            revert InvalidFactors();
-        }
-        protocolFactorLiquidation = _protocolFactorLiquidation;
-        reserveFactorLiquidation = _reserveFactorLiquidation;
-
-        if (
+            (_protocolFactorLiquidation + _reserveFactorLiquidation) > 1e18 ||
             _minUpdateTime == 0 ||
             _maxCollateralAssets == 0 ||
             _suggestedAmountOfSeedReserves == 0 ||
-            _suggestedLockTimeOfSeedReserves == 0
+            _suggestedLockTimeOfSeedReserves == 0 ||
+            _targetReserves > 5e17
         ) {
             revert InvalidFactors();
         }
+
+        storeFrontPriceFactor = _storeFrontPriceFactor;
+        protocolFactorBorrow = _protocolFactorBorrow;
+        reserveFactorBorrow = _reserveFactorBorrow;
+        protocolFactorLiquidation = _protocolFactorLiquidation;
+        reserveFactorLiquidation = _reserveFactorLiquidation;
         minUpdateTime = _minUpdateTime;
         maxCollateralAssets = _maxCollateralAssets;
         suggestedAmountOfSeedReserves = _suggestedAmountOfSeedReserves;
@@ -136,6 +130,20 @@ contract SandboxController is ISandboxController {
             revert NotAuthorized(msg.sender);
         }
         _;
+    }
+
+    /**
+     * @notice Sets the target reserves factor.
+     * @param _targetReserves The target reserves factor, scaled by 1e18.
+     * @dev Must be less than 0.5 (50%).
+     */
+    function setTargetReserves(uint256 _targetReserves) external onlyOwner {
+        if (_targetReserves > 5e17) {
+            revert InvalidFactors();
+        }
+        uint256 oldTargetReserves = targetReserves;
+        targetReserves = _targetReserves;
+        emit TargetReservesChanged(oldTargetReserves, _targetReserves);
     }
 
     /**
@@ -193,7 +201,7 @@ contract SandboxController is ISandboxController {
         );
     }
 
-      /**
+    /**
      * @notice Whitelists a new collateral asset with its full configuration and price feed.
      * @dev Includes additional validation on the factors.
      * @param token The address of the collateral token.
@@ -262,10 +270,14 @@ contract SandboxController is ISandboxController {
         _collateralAssets[token].collateralToken = token;
         _collateralAssets[token].priceFeed = priceFeed;
         _collateralAssets[token].decimals = decimals;
-        _collateralAssets[token].maxBorrowCollateralFactor = maxBorrowCollateralFactor;
-        _collateralAssets[token].minBorrowCollateralFactor = minBorrowCollateralFactor;
-        _collateralAssets[token].minLiquidateCollateralFactor = minLiquidateCollateralFactor;
-        _collateralAssets[token].maxLiquidateCollateralFactor = maxLiquidateCollateralFactor;
+        _collateralAssets[token]
+            .maxBorrowCollateralFactor = maxBorrowCollateralFactor;
+        _collateralAssets[token]
+            .minBorrowCollateralFactor = minBorrowCollateralFactor;
+        _collateralAssets[token]
+            .minLiquidateCollateralFactor = minLiquidateCollateralFactor;
+        _collateralAssets[token]
+            .maxLiquidateCollateralFactor = maxLiquidateCollateralFactor;
         _collateralAssets[token].minLiquidationFactor = minLiquidationFactor;
         _collateralAssets[token].maxLiquidationFactor = maxLiquidationFactor;
 
@@ -286,7 +298,6 @@ contract SandboxController is ISandboxController {
             maxLiquidationFactor
         );
     }
-
 
     /**
      * @dev Emitted when a base asset is whitelisted.
@@ -390,7 +401,9 @@ contract SandboxController is ISandboxController {
      * @param token The address of the token.
      * @return True if the token is whitelisted, otherwise false.
      */
-    function isBaseTokenWhitelisted(address token) public override view returns (bool) {
+    function isBaseTokenWhitelisted(
+        address token
+    ) public view override returns (bool) {
         return _baseAssets[token].priceFeed != address(0);
     }
 
@@ -401,7 +414,7 @@ contract SandboxController is ISandboxController {
      */
     function isCollateralTokenWhitelisted(
         address token
-    ) public override view returns (bool) {
+    ) public view override returns (bool) {
         return _collateralAssets[token].priceFeed != address(0);
     }
 
@@ -436,22 +449,25 @@ contract SandboxController is ISandboxController {
         emit OwnerTransferred(oldOwner, newOwner);
     }
 
-
     /**
      * @notice Returns base asset configuration for a given token.
      * @param token The address of the base asset token.
      *  @return The base asset configuration.
      */
-    function baseAssets(address token) external view returns (ISandboxController.BaseAssetConfiguration memory) {
+    function baseAssets(
+        address token
+    ) external view returns (ISC.BaseAssetConfiguration memory) {
         return _baseAssets[token];
     }
-    
+
     /**
      * @notice Returns collateral asset configuration for a given token.
      * @param token The address of the collateral asset token.
      *  @return The collateral asset configuration.
      */
-    function collateralAssets(address token) external view returns (ISandboxController.CollateralAssetConfiguration memory) {
+    function collateralAssets(
+        address token
+    ) external view returns (ISC.CollateralAssetConfiguration memory) {
         return _collateralAssets[token];
     }
 
@@ -460,7 +476,9 @@ contract SandboxController is ISandboxController {
      * @param token The address of the base asset token.
      * @return The base asset curves.
      */
-    function getBaseAssetCurves(address token) external view returns (BaseAssetCurve[] memory) {
+    function getBaseAssetCurves(
+        address token
+    ) external view returns (BaseAssetCurve[] memory) {
         return _baseAssets[token].baseAssetCurves;
     }
 

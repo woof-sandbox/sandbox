@@ -92,6 +92,8 @@ interface ISandboxController {
         uint256 _suggestedLockTimeOfSeedReserves
     );
 
+    event TargetReservesChanged(uint256 oldReserves, uint256 newReserves);
+
     event FeeEnabledSet(bool enabled);
     event OwnerTransferred(address oldOwner, address newOwner);
     event DaoTransferred(address oldDao, address newDao);
