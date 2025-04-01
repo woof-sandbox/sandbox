@@ -2,6 +2,10 @@
 pragma solidity 0.8.28;
 
 interface ISandboxController {
+
+    /**
+     * @notice Enum representing the state of the market.
+     */
     enum MarketState {
         Low,
         Medium,
