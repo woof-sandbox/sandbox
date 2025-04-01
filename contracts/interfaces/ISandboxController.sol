@@ -96,6 +96,8 @@ interface ISandboxController {
         uint256 _suggestedLockTimeOfSeedReserves
     );
 
+    event TreasuryChanged(address oldTreasury, address newTreasury);
+
     event TargetReservesChanged(uint256 oldReserves, uint256 newReserves);
 
     event ThresholdChanged(MarketState indexed state, uint256 oldValue, uint256 newValue);

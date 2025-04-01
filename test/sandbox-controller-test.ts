@@ -1578,8 +1578,7 @@ describe("SandboxController", function () {
   describe("Reserve Commission and Thresholds", function () {
     let sandboxController: any
     let owner: any, dao: any, attacker: any
-    const MarketState = { UpTo25k: 0, Above25k: 1, AboveTarget: 2 }
-  
+
     before(async function () {
       [owner, dao, attacker] = await ethers.getSigners()
     })
@@ -1748,4 +1747,62 @@ describe("SandboxController", function () {
       })
     })
   })
+
+  describe("setTreasury", function () {
+    let sandboxController: any;
+    let owner: any, dao: any, attacker: any;
+    const ZERO_ADDRESS = ethers.constants.AddressZero;
+  
+    before(async function () {
+      [owner, dao, attacker] = await ethers.getSigners();
+    });
+  
+    beforeEach(async function () {
+      const opts = defaultControllerOpts({
+        admin: owner,
+        governor: dao,
+        feeEnabled: false,
+        storeFrontPriceFactor: "300000000000000000",
+        protocolFactorBorrow: "100000000000000000",
+        reserveFactorBorrow: "200000000000000000",
+        protocolFactorLiquidation: "100000000000000000",
+        reserveFactorLiquidation: "200000000000000000",
+        minUpdateTime: 400,
+        maxCollateralAssets: 5,
+        suggestedAmountOfSeedReserves: "1000",
+        suggestedLockTimeOfSeedReserves: 1000,
+        targetReserves: "300000000000000000"
+      });
+      const c = await makeSandboxController(opts);
+      sandboxController = c.sandboxController;
+    });
+  
+    it("reverts if caller is not owner", async function () {
+      await expect(
+        sandboxController.connect(dao).setTreasury(attacker.address)
+      ).to.be.revertedWithCustomError(sandboxController, "NotOwner");
+      await expect(
+        sandboxController.connect(attacker).setTreasury(attacker.address)
+      ).to.be.revertedWithCustomError(sandboxController, "NotOwner");
+    });
+  
+    it("reverts if _treasury is the zero address", async function () {
+      await expect(
+        sandboxController.connect(owner).setTreasury(ZERO_ADDRESS)
+      ).to.be.revertedWithCustomError(sandboxController, "ZeroAddress");
+    });
+  
+    it("sets treasury and emits TreasuryChanged event", async function () {
+      expect(await sandboxController.treasury()).to.equal(ZERO_ADDRESS);
+      const newTreasury = attacker.address;
+      const tx = await sandboxController.connect(owner).setTreasury(newTreasury);
+      const rcpt = await tx.wait();
+      const ev = rcpt.events?.find((e: any) => e.event === "TreasuryChanged");
+      expect(ev, "Expected TreasuryChanged event").to.exist;
+      expect(ev.args.oldTreasury).to.equal(ZERO_ADDRESS);
+      expect(ev.args.newTreasury).to.equal(newTreasury);
+      expect(await sandboxController.treasury()).to.equal(newTreasury);
+    });
+  });
+  
 })

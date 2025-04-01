@@ -29,10 +29,12 @@ contract SandboxController is ISC {
     uint256 public baseAssetCount;
     uint256 public collateralAssetCount;
 
-    bool public feeEnabled;
+    address public treasury;
 
     address[] public baseAssetTokens;
     address[] public collateralAssetTokens;
+
+    bool public feeEnabled;
 
     mapping(address => bool) public isPriceFeedWhitelisted;
     mapping(MarketState => uint256) public reserveCommission;
@@ -201,6 +203,19 @@ contract SandboxController is ISC {
             protocolCommission[state] = protocolCommissions[i];
             emit ProtocolCommissionChanged(state, oldValue, protocolCommissions[i]);
         }
+    }
+
+    /**
+     * @notice Sets the treasury address.
+     * @param _treasury The address of the treasury.
+     */
+    function setTreasury(address _treasury) external onlyOwner {
+        if (_treasury == address(0)) {
+            revert ZeroAddress();
+        }
+        address oldTreasury = treasury;
+        treasury = _treasury;
+        emit TreasuryChanged(oldTreasury, _treasury);
     }
 
     /**
