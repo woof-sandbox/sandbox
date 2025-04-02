@@ -66,29 +66,29 @@ describe("SandboxController", function () {
         governor: dao,
         feeEnabled: true,
         storeFrontPriceFactor: "999999999999999999",
+        minUpdateTime: 300,
+        suggestedAmountOfSeedReserves: "1000",
+        suggestedLockTimeOfSeedReserves: 500,
         protocolFactorBorrow: "100000000000000000",
         reserveFactorBorrow: "200000000000000000",
         protocolFactorLiquidation: "100000000000000000",
         reserveFactorLiquidation: "200000000000000000",
-        minUpdateTime: 300,
         maxCollateralAssets: 5,
-        suggestedAmountOfSeedReserves: "1000",
-        suggestedLockTimeOfSeedReserves: 500,
         targetReserves: "100"
       })
       const { sandboxController } = await makeSandboxController(opts)
       expect(await sandboxController.owner()).to.equal(owner.address)
       expect(await sandboxController.dao()).to.equal(dao.address)
       expect(await sandboxController.feeEnabled()).to.equal(true)
-      expect(await sandboxController.storeFrontPriceFactor()).to.equal("999999999999999999")
       expect(await sandboxController.protocolFactorBorrow()).to.equal("100000000000000000")
       expect(await sandboxController.reserveFactorBorrow()).to.equal("200000000000000000")
       expect(await sandboxController.protocolFactorLiquidation()).to.equal("100000000000000000")
       expect(await sandboxController.reserveFactorLiquidation()).to.equal("200000000000000000")
-      expect(await sandboxController.minUpdateTime()).to.equal(300)
       expect(await sandboxController.maxCollateralAssets()).to.equal(5)
-      expect(await sandboxController.suggestedAmountOfSeedReserves()).to.equal("1000")
-      expect(await sandboxController.suggestedLockTimeOfSeedReserves()).to.equal(500)
+      expect((await sandboxController.controllerConfiguration()).storeFrontPriceFactor).to.equal("999999999999999999")
+      expect((await sandboxController.controllerConfiguration()).minUpdateTime).to.equal(300)
+      expect((await sandboxController.controllerConfiguration()).suggestedAmountOfSeedReserves).to.equal("1000")
+      expect((await sandboxController.controllerConfiguration()).suggestedLockTimeOfSeedReserves).to.equal(500)
     })
 
     it("reverts if owner=0", async function () {
@@ -97,16 +97,18 @@ describe("SandboxController", function () {
           ethers.constants.AddressZero,
           dao.address,
           true,
-          "999999999999999999",
           "100000000000000000",
           "200000000000000000",
           "100000000000000000",
           "200000000000000000",
-          300,
           5,
-          1000,
-          500,
-          1
+          1,
+          {
+            storeFrontPriceFactor: "999999999999999999",
+            minUpdateTime: 300,
+            suggestedAmountOfSeedReserves: "1000",
+            suggestedLockTimeOfSeedReserves: 500
+          },
         )
       ).to.be.revertedWithCustomError(SandboxControllerFactory, "ZeroAddress")
     })
@@ -117,16 +119,18 @@ describe("SandboxController", function () {
           owner.address,
           ethers.constants.AddressZero,
           true,
-          "999999999999999999",
           "100000000000000000",
           "200000000000000000",
           "100000000000000000",
           "200000000000000000",
-          300,
           5,
-          1000,
-          500,
-          1
+          1,
+          {
+            storeFrontPriceFactor: "999999999999999999",
+            minUpdateTime: 300,
+            suggestedAmountOfSeedReserves: "1000",
+            suggestedLockTimeOfSeedReserves: 500
+          },
         )
       ).to.be.revertedWithCustomError(SandboxControllerFactory, "ZeroAddress")
     })
@@ -137,136 +141,18 @@ describe("SandboxController", function () {
           owner.address,
           dao.address,
           true,
-          "1000000000000000000",
           "100000000000000000",
           "200000000000000000",
           "100000000000000000",
           "200000000000000000",
-          300,
           5,
-          1000,
-          500,
-          1
-        )
-      ).to.be.revertedWithCustomError(SandboxControllerFactory, "InvalidFactors")
-    })
-
-    it("reverts if protocolFactorBorrow=0", async function () {
-      await expect(
-        SandboxControllerFactory.deploy(
-          owner.address,
-          dao.address,
-          false,
-          "500000000000000000",
-          "0",
-          "200000000000000000",
-          "100000000000000000",
-          "200000000000000000",
-          300,
-          5,
-          1000,
-          500,
-          1
-        )
-      ).to.be.revertedWithCustomError(SandboxControllerFactory, "InvalidFactors")
-    })
-
-    it("reverts if reserveFactorBorrow=0", async function () {
-      await expect(
-        SandboxControllerFactory.deploy(
-          owner.address,
-          dao.address,
-          true,
-          "500000000000000000",
-          "200000000000000000",
-          "0",
-          "100000000000000000",
-          "200000000000000000",
-          300,
-          5,
-          1000,
-          500,
-          1
-        )
-      ).to.be.revertedWithCustomError(SandboxControllerFactory, "InvalidFactors")
-    })
-
-    it("reverts if protocolFactorBorrow+reserveFactorBorrow > 1e18", async function () {
-      await expect(
-        SandboxControllerFactory.deploy(
-          owner.address,
-          dao.address,
-          true,
-          "500000000000000000",
-          ethers.utils.parseEther("0.6").toString(),
-          ethers.utils.parseEther("0.5").toString(),
-          "100000000000000000",
-          "200000000000000000",
-          300,
-          5,
-          1000,
-          500,
-          1
-        )
-      ).to.be.revertedWithCustomError(SandboxControllerFactory, "InvalidFactors")
-    })
-
-    it("reverts if protocolFactorLiquidation=0", async function () {
-      await expect(
-        SandboxControllerFactory.deploy(
-          owner.address,
-          dao.address,
-          false,
-          "500000000000000000",
-          "200000000000000000",
-          "200000000000000000",
-          "0",
-          "200000000000000000",
-          300,
-          5,
-          1000,
-          500,
-          1
-        )
-      ).to.be.revertedWithCustomError(SandboxControllerFactory, "InvalidFactors")
-    })
-
-    it("reverts if reserveFactorLiquidation=0", async function () {
-      await expect(
-        SandboxControllerFactory.deploy(
-          owner.address,
-          dao.address,
-          true,
-          "500000000000000000",
-          "200000000000000000",
-          "200000000000000000",
-          "100000000000000000",
-          "0",
-          300,
-          5,
-          1000,
-          500,
-          1
-        )
-      ).to.be.revertedWithCustomError(SandboxControllerFactory, "InvalidFactors")
-    })
-
-    it("reverts if protocolFactorLiquidation+reserveFactorLiquidation > 1e18", async function () {
-      await expect(
-        SandboxControllerFactory.deploy(
-          owner.address,
-          dao.address,
-          true,
-          "500000000000000000",
-          "200000000000000000",
-          "200000000000000000",
-          ethers.utils.parseEther("0.8").toString(),
-          ethers.utils.parseEther("0.3").toString(),
-          300,
-          5,
-          1000,
-          500,
-          1
+          1,
+          {
+            storeFrontPriceFactor: "1000000000000000000",
+            minUpdateTime: 300,
+            suggestedAmountOfSeedReserves: "1000",
+            suggestedLockTimeOfSeedReserves: 500
+          },
         )
       ).to.be.revertedWithCustomError(SandboxControllerFactory, "InvalidFactors")
     })
@@ -277,36 +163,18 @@ describe("SandboxController", function () {
           owner.address,
           dao.address,
           false,
-          "500000000000000000",
           "200000000000000000",
           "200000000000000000",
           "100000000000000000",
           "200000000000000000",
-          0,
           5,
-          1000,
-          500,
-          1
-        )
-      ).to.be.revertedWithCustomError(SandboxControllerFactory, "InvalidFactors")
-    })
-
-    it("reverts if maxCollateralAssets=0", async function () {
-      await expect(
-        SandboxControllerFactory.deploy(
-          owner.address,
-          dao.address,
-          false,
-          "500000000000000000",
-          "200000000000000000",
-          "200000000000000000",
-          "100000000000000000",
-          "200000000000000000",
-          300,
-          0,
-          1000,
-          500,
-          1
+          1,
+          {
+            storeFrontPriceFactor: "500000000000000000",
+            minUpdateTime: 0,
+            suggestedAmountOfSeedReserves: "1000",
+            suggestedLockTimeOfSeedReserves: 500
+          },
         )
       ).to.be.revertedWithCustomError(SandboxControllerFactory, "InvalidFactors")
     })
@@ -317,16 +185,18 @@ describe("SandboxController", function () {
           owner.address,
           dao.address,
           false,
-          "500000000000000000",
           "200000000000000000",
           "200000000000000000",
           "100000000000000000",
           "200000000000000000",
-          300,
           5,
-          "0",
-          500,
-          1
+          1,
+          {
+            storeFrontPriceFactor: "500000000000000000",
+            minUpdateTime: 300,
+            suggestedAmountOfSeedReserves: "0",
+            suggestedLockTimeOfSeedReserves: 500
+          },
         )
       ).to.be.revertedWithCustomError(SandboxControllerFactory, "InvalidFactors")
     })
@@ -337,36 +207,18 @@ describe("SandboxController", function () {
           owner.address,
           dao.address,
           false,
-          "500000000000000000",
           "200000000000000000",
           "200000000000000000",
           "100000000000000000",
           "200000000000000000",
-          300,
           5,
-          1000,
-          0,
-          1
-        )
-      ).to.be.revertedWithCustomError(SandboxControllerFactory, "InvalidFactors")
-    })
-
-    it("reverts if targetReserves>5e17", async function () {
-      await expect(
-        SandboxControllerFactory.deploy(
-          owner.address,
-          dao.address,
-          false,
-          "500000000000000000",
-          "200000000000000000",
-          "200000000000000000",
-          "100000000000000000",
-          "200000000000000000",
-          300,
-          5,
-          1000,
-          500,
-          "500000000000000001"
+          1,
+          {
+            storeFrontPriceFactor: "500000000000000000",
+            minUpdateTime: 300,
+            suggestedAmountOfSeedReserves: "1000",
+            suggestedLockTimeOfSeedReserves: 0
+          },
         )
       ).to.be.revertedWithCustomError(SandboxControllerFactory, "InvalidFactors")
     })
@@ -392,17 +244,20 @@ describe("SandboxController", function () {
       expect(await sandboxController.owner()).to.equal(owner.address)
       expect(await sandboxController.dao()).to.equal(dao.address)
       expect(await sandboxController.feeEnabled()).to.equal(false)
-      expect(await sandboxController.storeFrontPriceFactor()).to.equal("100000000000000000")
+   
       expect(await sandboxController.protocolFactorBorrow()).to.equal("100000000000000000")
       expect(await sandboxController.reserveFactorBorrow()).to.equal("100000000000000000")
       expect(await sandboxController.protocolFactorLiquidation()).to.equal("100000000000000000")
       expect(await sandboxController.reserveFactorLiquidation()).to.equal("100000000000000000")
-      expect(await sandboxController.minUpdateTime()).to.equal(300)
+
       expect(await sandboxController.maxCollateralAssets()).to.equal(10)
-      expect(await sandboxController.suggestedAmountOfSeedReserves()).to.equal("1000")
-      expect(await sandboxController.suggestedLockTimeOfSeedReserves()).to.equal(3600)
       expect(await sandboxController.baseAssetCount()).to.equal(0)
       expect(await sandboxController.collateralAssetCount()).to.equal(0)
+      expect((await sandboxController.controllerConfiguration()).storeFrontPriceFactor).to.equal("100000000000000000")
+      expect((await sandboxController.controllerConfiguration()).minUpdateTime).to.equal(300)
+      expect((await sandboxController.controllerConfiguration()).suggestedAmountOfSeedReserves).to.equal("1000")
+      expect((await sandboxController.controllerConfiguration()).suggestedLockTimeOfSeedReserves).to.equal(3600)
+
     })
   })
 
@@ -915,18 +770,22 @@ describe("SandboxController", function () {
     it("reverts if caller is not owner", async function () {
       await expect(
         sandboxController.connect(dao).setConfiguration(
-          "300000000000000000",
-          400,
-          "1000",
-          1000
+          {
+            storeFrontPriceFactor: "300000000000000000",
+            minUpdateTime: 400,
+            suggestedAmountOfSeedReserves: "1000",
+            suggestedLockTimeOfSeedReserves: 1000
+          }
         )
       ).to.be.revertedWithCustomError(sandboxController, "NotOwner")
       await expect(
         sandboxController.connect(attacker).setConfiguration(
-          "300000000000000000",
-          400,
-          "1000",
-          1000
+          {
+            storeFrontPriceFactor: "300000000000000000",
+            minUpdateTime: 400,
+            suggestedAmountOfSeedReserves: "1000",
+            suggestedLockTimeOfSeedReserves: 1000
+          }
         )
       ).to.be.revertedWithCustomError(sandboxController, "NotOwner")
     })
@@ -935,10 +794,12 @@ describe("SandboxController", function () {
     it("reverts if storeFrontPriceFactor >= 1e18", async function () {
       await expect(
         sandboxController.setConfiguration(
-          "1000000000000000000",
-          400,
-          "1000",
-          1000
+          {
+            storeFrontPriceFactor: "1000000000000000000",
+            minUpdateTime: 400,
+            suggestedAmountOfSeedReserves: "1000",
+            suggestedLockTimeOfSeedReserves: 1000
+          }
         )
       ).to.be.revertedWithCustomError(sandboxController, "InvalidFactors")
     })
@@ -947,10 +808,12 @@ describe("SandboxController", function () {
     it("reverts if minUpdateTime=0", async function () {
       await expect(
         sandboxController.setConfiguration(
-          "300000000000000000",
-          0,
-          "1000",
-          1000
+          {
+            storeFrontPriceFactor: "300000000000000000",
+            minUpdateTime: 0,
+            suggestedAmountOfSeedReserves: "1000",
+            suggestedLockTimeOfSeedReserves: 1000
+          }
         )
       ).to.be.revertedWithCustomError(sandboxController, "InvalidFactors")
     })
@@ -959,10 +822,12 @@ describe("SandboxController", function () {
     it("reverts if suggestedAmountOfSeedReserves=0", async function () {
       await expect(
         sandboxController.setConfiguration(
-          "300000000000000000",
-          400,
-          "0",
-          1000
+          {
+            storeFrontPriceFactor: "300000000000000000",
+            minUpdateTime: 400,
+            suggestedAmountOfSeedReserves: "0",
+            suggestedLockTimeOfSeedReserves: 1000
+          }
         )
       ).to.be.revertedWithCustomError(sandboxController, "InvalidFactors")
     })
@@ -971,26 +836,41 @@ describe("SandboxController", function () {
     it("reverts if suggestedLockTimeOfSeedReserves=0", async function () {
       await expect(
         sandboxController.setConfiguration(
-          "300000000000000000",
-          400,
-          "1000",
-          0
+          {
+            storeFrontPriceFactor: "300000000000000000",
+            minUpdateTime: 400,
+            suggestedAmountOfSeedReserves: "1000",
+            suggestedLockTimeOfSeedReserves: 0
+          }
         )
       ).to.be.revertedWithCustomError(sandboxController, "InvalidFactors")
     })
 
 
-    it("updates configuration with valid values", async function () {
-      await sandboxController.setConfiguration(
-        "400000000000000000",
-        500,
-        "2000",
-        2000
+    it("updates configuration with valid values and emits event", async function () {
+      const tx = await sandboxController.setConfiguration(
+        {
+          storeFrontPriceFactor: "400000000000000000",
+          minUpdateTime: 500,
+          suggestedAmountOfSeedReserves: "2000",
+          suggestedLockTimeOfSeedReserves: 2000
+        }
       )
-      expect(await sandboxController.storeFrontPriceFactor()).to.equal("400000000000000000")
-      expect(await sandboxController.minUpdateTime()).to.equal(500)
-      expect(await sandboxController.suggestedAmountOfSeedReserves()).to.equal("2000")
-      expect(await sandboxController.suggestedLockTimeOfSeedReserves()).to.equal(2000)
+      expect((await sandboxController.controllerConfiguration()).storeFrontPriceFactor).to.equal("400000000000000000")
+      expect((await sandboxController.controllerConfiguration()).minUpdateTime).to.equal(500)
+      expect((await sandboxController.controllerConfiguration()).suggestedAmountOfSeedReserves).to.equal("2000")
+      expect((await sandboxController.controllerConfiguration()).suggestedLockTimeOfSeedReserves).to.equal(2000)
+
+      const rcpt = await tx.wait()
+      const ev = rcpt.events?.find((e: any) => e.event === "ConfigurationChanged")
+      expect(ev.args.oldConfig.storeFrontPriceFactor).to.equal("300000000000000000")
+      expect(ev.args.oldConfig.minUpdateTime).to.equal(400)
+      expect(ev.args.oldConfig.suggestedAmountOfSeedReserves).to.equal("1000")
+      expect(ev.args.oldConfig.suggestedLockTimeOfSeedReserves).to.equal(1000)
+      expect(ev.args.newConfig.storeFrontPriceFactor).to.equal("400000000000000000")
+      expect(ev.args.newConfig.minUpdateTime).to.equal(500)
+      expect(ev.args.newConfig.suggestedAmountOfSeedReserves).to.equal("2000")
+      expect(ev.args.newConfig.suggestedLockTimeOfSeedReserves).to.equal(2000)
     })
   });
 

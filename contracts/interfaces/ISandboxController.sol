@@ -51,6 +51,17 @@ interface ISandboxController {
         uint64 maxLiquidationFactor;
     }
 
+
+    /**
+     * @notice Configuration for the controller.
+     */
+    struct SandboxControllerConfiguration {
+        uint256 storeFrontPriceFactor;
+        uint256 minUpdateTime;
+        uint256 suggestedAmountOfSeedReserves;
+        uint256 suggestedLockTimeOfSeedReserves;
+    }
+
     error ZeroAddress();
     error TokenAlreadyWhitelisted();
     error TokenNotWhitelisted();
@@ -93,11 +104,9 @@ interface ISandboxController {
         BaseAssetCurve baseAssetCurveNew
     );
 
-    event ConfigChanged(
-        uint256 _storeFrontPriceFactor,
-        uint256 _minUpdateTime,
-        uint256 _suggestedAmountOfSeedReserves,
-        uint256 _suggestedLockTimeOfSeedReserves
+    event ConfigurationChanged(
+        SandboxControllerConfiguration oldConfig,
+        SandboxControllerConfiguration newConfig
     );
 
     event TreasuryChanged(address oldTreasury, address newTreasury);

@@ -3,13 +3,13 @@ pragma solidity 0.8.28;
 
 import {IERC20NonStandard} from "./interfaces/IERC20NonStandard.sol";
 import {IPriceFeed} from "./interfaces/IPriceFeed.sol";
-import {ISandboxController as ISC} from "./interfaces/ISandboxController.sol";
+import {ISandboxController} from "./interfaces/ISandboxController.sol";
 
 /**
  * @title SandboxController
  * @dev Manages base asset configurations and interest rate curves.
  */
-contract SandboxController is ISC {
+contract SandboxController is ISandboxController {
     address public owner;
     address public dao;
 
@@ -18,11 +18,6 @@ contract SandboxController is ISC {
     uint256 public protocolFactorLiquidation;
     uint256 public reserveFactorLiquidation;
     uint256 public maxCollateralAssets;
-
-    uint256 public storeFrontPriceFactor;
-    uint256 public minUpdateTime;
-    uint256 public suggestedAmountOfSeedReserves;
-    uint256 public suggestedLockTimeOfSeedReserves;
 
     uint256 public targetReserves;
 
@@ -36,14 +31,15 @@ contract SandboxController is ISC {
 
     bool public feeEnabled;
 
+    SandboxControllerConfiguration public controllerConfiguration;
+
     mapping(address => bool) public isPriceFeedWhitelisted;
     mapping(MarketState => uint256) public reserveCommission;
     mapping(MarketState => uint256) public protocolCommission;
     mapping(MarketState => uint256) public threshold;
 
-    mapping(address => ISC.BaseAssetConfiguration) private _baseAssets;
-    mapping(address => ISC.CollateralAssetConfiguration)
-        private _collateralAssets;
+    mapping(address => BaseAssetConfiguration) private _baseAssets;
+    mapping(address => CollateralAssetConfiguration) private _collateralAssets;
 
     /**
      * @dev Set all global parameters (including owner and DAO) at deployment.
@@ -51,30 +47,25 @@ contract SandboxController is ISC {
      * @param _owner  The address of the protocol owner.
      * @param _dao    The address of the DAO (governance).
      * @param _feeEnabled Global fee flag for the entire protocol.
-     * @param _storeFrontPriceFactor Must be < 1e18.
      * @param _protocolFactorBorrow  Nonzero. Will combine with reserveFactorBorrow.
      * @param _reserveFactorBorrow   Nonzero. Sum with _protocolFactorBorrow <= 1e18.
      * @param _protocolFactorLiquidation Nonzero. Sum with _reserveFactorLiquidation <= 1e18.
      * @param _reserveFactorLiquidation  Nonzero.
-     * @param _minUpdateTime             Nonzero.
      * @param _maxCollateralAssets       > 0
-     * @param _suggestedAmountOfSeedReserves  > 0
-     * @param _suggestedLockTimeOfSeedReserves > 0
+     * @param _targetReserves            < 0.5 (50%)
+     * @param _config                    Configuration of the sandbox controller.
      */
     constructor(
         address _owner,
         address _dao,
         bool _feeEnabled,
-        uint256 _storeFrontPriceFactor,
         uint256 _protocolFactorBorrow,
         uint256 _reserveFactorBorrow,
         uint256 _protocolFactorLiquidation,
         uint256 _reserveFactorLiquidation,
-        uint256 _minUpdateTime,
         uint256 _maxCollateralAssets,
-        uint256 _suggestedAmountOfSeedReserves,
-        uint256 _suggestedLockTimeOfSeedReserves,
-        uint256 _targetReserves
+        uint256 _targetReserves,
+        SandboxControllerConfiguration memory _config
     ) {
         if (_owner == address(0) || _dao == address(0)) {
             revert ZeroAddress();
@@ -88,31 +79,30 @@ contract SandboxController is ISC {
         feeEnabled = _feeEnabled;
 
         if (
-            _storeFrontPriceFactor >= 1e18 ||
             _protocolFactorBorrow == 0 ||
             _reserveFactorBorrow == 0 ||
             (_protocolFactorBorrow + _reserveFactorBorrow) > 1e18 ||
             _protocolFactorLiquidation == 0 ||
             _reserveFactorLiquidation == 0 ||
             (_protocolFactorLiquidation + _reserveFactorLiquidation) > 1e18 ||
-            _minUpdateTime == 0 ||
             _maxCollateralAssets == 0 ||
-            _suggestedAmountOfSeedReserves == 0 ||
-            _suggestedLockTimeOfSeedReserves == 0 ||
-            _targetReserves > 5e17
+            targetReserves > 5e17 ||
+            _config.storeFrontPriceFactor >= 1e18 ||
+            _config.minUpdateTime == 0 ||
+            _config.suggestedAmountOfSeedReserves == 0 ||
+            _config.suggestedLockTimeOfSeedReserves == 0
         ) {
             revert InvalidFactors();
         }
 
-        storeFrontPriceFactor = _storeFrontPriceFactor;
+      
         protocolFactorBorrow = _protocolFactorBorrow;
         reserveFactorBorrow = _reserveFactorBorrow;
         protocolFactorLiquidation = _protocolFactorLiquidation;
         reserveFactorLiquidation = _reserveFactorLiquidation;
-        minUpdateTime = _minUpdateTime;
         maxCollateralAssets = _maxCollateralAssets;
-        suggestedAmountOfSeedReserves = _suggestedAmountOfSeedReserves;
-        suggestedLockTimeOfSeedReserves = _suggestedLockTimeOfSeedReserves;
+        targetReserves = _targetReserves;
+        controllerConfiguration = _config;
     }
 
     modifier onlyOwner() {
@@ -155,9 +145,7 @@ contract SandboxController is ISC {
      * @notice Sets the threshold factors for each market state.
      * @param thresholds The new threshold factors, scaled by 1e18.
      */
-    function setThresholds(
-        uint256[3] calldata thresholds
-    ) external onlyOwner {
+    function setThresholds(uint256[3] calldata thresholds) external onlyOwner {
         for (uint256 i = 0; i < 3; i++) {
             if (thresholds[i] >= 1e18) {
                 revert InvalidFactors();
@@ -183,14 +171,18 @@ contract SandboxController is ISC {
             }
             uint256 oldValue = reserveCommission[state];
             reserveCommission[state] = reserveCommissions[i];
-            emit ReserveCommissionChanged(state, oldValue, reserveCommissions[i]);
+            emit ReserveCommissionChanged(
+                state,
+                oldValue,
+                reserveCommissions[i]
+            );
         }
     }
 
     /**
      * @notice Sets the protocol commission factors for each market state.
      * @param protocolCommissions The new protocol commission factors, scaled by 1e18.
-     */ 
+     */
     function setProtocolCommissions(
         uint256[3] calldata protocolCommissions
     ) external onlyOwner {
@@ -201,7 +193,11 @@ contract SandboxController is ISC {
             }
             uint256 oldValue = protocolCommission[state];
             protocolCommission[state] = protocolCommissions[i];
-            emit ProtocolCommissionChanged(state, oldValue, protocolCommissions[i]);
+            emit ProtocolCommissionChanged(
+                state,
+                oldValue,
+                protocolCommissions[i]
+            );
         }
     }
 
@@ -365,37 +361,25 @@ contract SandboxController is ISC {
 
     /**
      * @dev Emitted when a base asset is whitelisted.
-     * @param _storeFrontPriceFactor  The store front price factor.
-     * @param _minUpdateTime  The minimum update time.
-     * @param _suggestedAmountOfSeedReserves  The suggested amount of seed reserves.
-     * @param _suggestedLockTimeOfSeedReserves  The suggested lock time of seed reserves.
+     * @param _config Configuration of the sandbox controller.
      */
     function setConfiguration(
-        uint256 _storeFrontPriceFactor,
-        uint256 _minUpdateTime,
-        uint256 _suggestedAmountOfSeedReserves,
-        uint256 _suggestedLockTimeOfSeedReserves
+        SandboxControllerConfiguration memory _config
     ) external onlyOwner {
         if (
-            _storeFrontPriceFactor >= 1e18 ||
-            _minUpdateTime == 0 ||
-            _suggestedAmountOfSeedReserves == 0 ||
-            _suggestedLockTimeOfSeedReserves == 0
+            _config.storeFrontPriceFactor >= 1e18 ||
+            _config.minUpdateTime == 0 ||
+            _config.suggestedAmountOfSeedReserves == 0 ||
+            _config.suggestedLockTimeOfSeedReserves == 0
         ) {
             revert InvalidFactors();
         }
 
-        storeFrontPriceFactor = _storeFrontPriceFactor;
-        minUpdateTime = _minUpdateTime;
-        suggestedAmountOfSeedReserves = _suggestedAmountOfSeedReserves;
-        suggestedLockTimeOfSeedReserves = _suggestedLockTimeOfSeedReserves;
+        SandboxControllerConfiguration
+            memory oldConfig = controllerConfiguration;
+        controllerConfiguration = _config;
 
-        emit ConfigChanged(
-            _storeFrontPriceFactor,
-            _minUpdateTime,
-            _suggestedAmountOfSeedReserves,
-            _suggestedLockTimeOfSeedReserves
-        );
+        emit ConfigurationChanged(oldConfig, _config);
     }
 
     /**
@@ -520,7 +504,7 @@ contract SandboxController is ISC {
      */
     function baseAssets(
         address token
-    ) external view returns (ISC.BaseAssetConfiguration memory) {
+    ) external view returns (BaseAssetConfiguration memory) {
         return _baseAssets[token];
     }
 
@@ -531,7 +515,7 @@ contract SandboxController is ISC {
      */
     function collateralAssets(
         address token
-    ) external view returns (ISC.CollateralAssetConfiguration memory) {
+    ) external view returns (CollateralAssetConfiguration memory) {
         return _collateralAssets[token];
     }
 
