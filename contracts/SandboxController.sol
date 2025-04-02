@@ -10,8 +10,6 @@ import {ISandboxController} from "./interfaces/ISandboxController.sol";
  * @dev Manages base asset configurations and interest rate curves.
  */
 contract SandboxController is ISandboxController {
-    address public owner;
-    address public dao;
 
     uint256 public protocolFactorBorrow;
     uint256 public reserveFactorBorrow;
@@ -25,13 +23,15 @@ contract SandboxController is ISandboxController {
     uint256 public collateralAssetCount;
 
     address public treasury;
-
-    address[] public baseAssetTokens;
-    address[] public collateralAssetTokens;
-
+    address public owner;
+    address public dao;
+    
     bool public feeEnabled;
 
     SandboxControllerConfiguration public controllerConfiguration;
+
+    address[] public baseAssetTokens;
+    address[] public collateralAssetTokens;
 
     mapping(address => bool) public isPriceFeedWhitelisted;
     mapping(MarketState => uint256) public reserveCommission;
@@ -325,7 +325,7 @@ contract SandboxController is ISandboxController {
         ) {
             revert InvalidFactors();
         }
-        
+
         {
             (, int256 answer, , , ) = IPriceFeed(priceFeed).latestRoundData();
             if (answer <= 0) {
@@ -452,6 +452,33 @@ contract SandboxController is ISandboxController {
         emit BaseAssetCurveChanged(token, oldCurve, newCurve);
     }
 
+
+        /**
+     * @notice Transfers the owner privileges to a new address.
+     * @param newOwner The address of the new owner.
+     */
+    function transferOwner(address newOwner) external onlyOwner {
+        if (newOwner == address(0)) {
+            revert ZeroAddress();
+        }
+        address oldOwner = owner;
+        owner = newOwner;
+        emit OwnerTransferred(oldOwner, newOwner);
+    }
+
+        /**
+     * @notice Transfers the DAO privileges to a new address.
+     * @param newDao The address of the new DAO.
+     */
+    function transferDao(address newDao) external onlyDao {
+        if (newDao == address(0)) {
+            revert ZeroAddress();
+        }
+        address oldDao = dao;
+        dao = newDao;
+        emit DaoTransferred(oldDao, newDao);
+    }
+
     /**
      * @notice Checks if a token is whitelisted as a base asset.
      * @param token The address of the token.
@@ -493,19 +520,6 @@ contract SandboxController is ISandboxController {
     }
 
     /**
-     * @notice Transfers the owner privileges to a new address.
-     * @param newOwner The address of the new owner.
-     */
-    function transferOwner(address newOwner) external onlyOwner {
-        if (newOwner == address(0)) {
-            revert ZeroAddress();
-        }
-        address oldOwner = owner;
-        owner = newOwner;
-        emit OwnerTransferred(oldOwner, newOwner);
-    }
-
-    /**
      * @notice Returns base asset configuration for a given token.
      * @param token The address of the base asset token.
      *  @return The base asset configuration.
@@ -538,16 +552,5 @@ contract SandboxController is ISandboxController {
         return _baseAssets[token].baseAssetCurves;
     }
 
-    /**
-     * @notice Transfers the DAO privileges to a new address.
-     * @param newDao The address of the new DAO.
-     */
-    function transferDao(address newDao) external onlyDao {
-        if (newDao == address(0)) {
-            revert ZeroAddress();
-        }
-        address oldDao = dao;
-        dao = newDao;
-        emit DaoTransferred(oldDao, newDao);
-    }
+
 }

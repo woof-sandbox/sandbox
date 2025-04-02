@@ -2,19 +2,12 @@
 pragma solidity 0.8.28;
 
 interface ISandboxController {
-
-    /**
-     * @notice Enum representing the state of the market.
-     */
     enum MarketState {
         Low,
         Medium,
         High
     }
 
-    /**
-     * @notice Structure defining interest rate curve parameters for a base asset.
-     */
     struct BaseAssetCurve {
         uint64 supplyKink;
         uint64 supplyPerYearInterestRateSlopeLow;
@@ -26,9 +19,6 @@ interface ISandboxController {
         uint64 borrowPerYearInterestRateSlopeBase;
     }
 
-    /**
-     * @notice Configuration for each base asset.
-     */
     struct BaseAssetConfiguration {
         address priceFeed;
         uint256 decimals;
@@ -36,9 +26,6 @@ interface ISandboxController {
         BaseAssetCurve[] baseAssetCurves;
     }
 
-    /**
-     * @notice Configuration for each collateral asset.
-     */
     struct CollateralAssetConfiguration {
         address collateralToken;
         address priceFeed;
@@ -51,10 +38,6 @@ interface ISandboxController {
         uint64 maxLiquidationFactor;
     }
 
-
-    /**
-     * @notice Configuration for the controller.
-     */
     struct SandboxControllerConfiguration {
         uint256 storeFrontPriceFactor;
         uint256 minUpdateTime;
@@ -124,6 +107,7 @@ interface ISandboxController {
         uint256 oldValue,
         uint256 newValue
     );
+
     event ProtocolCommissionChanged(
         MarketState indexed state,
         uint256 oldValue,
@@ -134,13 +118,62 @@ interface ISandboxController {
     event OwnerTransferred(address oldOwner, address newOwner);
     event DaoTransferred(address oldDao, address newDao);
 
-    function baseAssets(
-        address _token
-    ) external view returns (BaseAssetConfiguration memory);
+    function setTargetReserves(uint256 _targetReserves) external;
 
-    function collateralAssets(
-        address _token
-    ) external view returns (CollateralAssetConfiguration memory);
+    function setThresholds(uint256[3] calldata thresholds) external;
+
+    function setReserveCommissions(
+        uint256[3] calldata reserveCommissions
+    ) external;
+
+    function setProtocolCommissions(
+        uint256[3] calldata protocolCommissions
+    ) external;
+
+    function setTreasury(address _treasury) external;
+
+    function whitelistBaseAsset(
+        address token,
+        address priceFeed,
+        BaseAssetCurve memory baseAssetCurve,
+        uint256 minBorrow
+    ) external;
+
+    function whitelistCollateralAsset(
+        address token,
+        address priceFeed,
+        uint64 maxBorrowCollateralFactor,
+        uint64 minBorrowCollateralFactor,
+        uint64 minLiquidateCollateralFactor,
+        uint64 maxLiquidateCollateralFactor,
+        uint64 minLiquidationFactor,
+        uint64 maxLiquidationFactor
+    ) external;
+
+    function setConfiguration(
+        SandboxControllerConfiguration memory _config
+    ) external;
+
+    function setFeeEnabled(bool _feeEnabled) external;
+
+    function addBaseAssetCurve(
+        address token,
+        BaseAssetCurve memory baseAssetCurve
+    ) external;
+
+    function changeBaseAssetCurve(
+        address token,
+        uint256 curveIndex,
+        BaseAssetCurve memory newCurve
+    ) external;
+
+    function transferOwner(address newOwner) external;
+
+    function transferDao(address newDao) external;
+
+    function isCurveConfigurationValid(
+        BaseAssetCurve memory curve
+    ) external pure returns (bool);
 
     function isBaseTokenWhitelisted(address token) external view returns (bool);
 
@@ -151,4 +184,16 @@ interface ISandboxController {
     function isPriceFeedWhitelisted(
         address priceFeed
     ) external view returns (bool);
+
+    function getBaseAssetCurves(
+        address token
+    ) external view returns (BaseAssetCurve[] memory);
+
+    function baseAssets(
+        address token
+    ) external view returns (BaseAssetConfiguration memory);
+
+    function collateralAssets(
+        address token
+    ) external view returns (CollateralAssetConfiguration memory);
 }
