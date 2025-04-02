@@ -66,14 +66,14 @@ describe("SandboxController", function () {
         governor: dao,
         feeEnabled: true,
         storeFrontPriceFactor: "999999999999999999",
-        minUpdateTime: 300,
-        suggestedAmountOfSeedReserves: "1000",
-        suggestedLockTimeOfSeedReserves: 500,
         protocolFactorBorrow: "100000000000000000",
         reserveFactorBorrow: "200000000000000000",
         protocolFactorLiquidation: "100000000000000000",
         reserveFactorLiquidation: "200000000000000000",
+        minUpdateTime: 300,
         maxCollateralAssets: 5,
+        suggestedAmountOfSeedReserves: "1000",
+        suggestedLockTimeOfSeedReserves: 500,
         targetReserves: "100"
       })
       const { sandboxController } = await makeSandboxController(opts)
@@ -91,7 +91,7 @@ describe("SandboxController", function () {
       expect((await sandboxController.controllerConfiguration()).suggestedLockTimeOfSeedReserves).to.equal(500)
     })
 
-    it("reverts if owner=0", async function () {
+    it("reverts if admin=0", async function () {
       await expect(
         SandboxControllerFactory.deploy(
           ethers.constants.AddressZero,
@@ -102,18 +102,16 @@ describe("SandboxController", function () {
           "100000000000000000",
           "200000000000000000",
           5,
-          1,
-          {
-            storeFrontPriceFactor: "999999999999999999",
-            minUpdateTime: 300,
-            suggestedAmountOfSeedReserves: "1000",
-            suggestedLockTimeOfSeedReserves: 500
-          },
+          "100000000000000000",
+          "999999999999999999",
+          300,
+          1000,
+          500
         )
-      ).to.be.revertedWithCustomError(SandboxControllerFactory, "ZeroAddress")
-    })
+      ).to.be.revertedWithCustomError(SandboxControllerFactory, "ZeroAddress");
+    });
 
-    it("reverts if dao=0", async function () {
+    it("reverts if governor=0", async function () {
       await expect(
         SandboxControllerFactory.deploy(
           owner.address,
@@ -124,16 +122,14 @@ describe("SandboxController", function () {
           "100000000000000000",
           "200000000000000000",
           5,
-          1,
-          {
-            storeFrontPriceFactor: "999999999999999999",
-            minUpdateTime: 300,
-            suggestedAmountOfSeedReserves: "1000",
-            suggestedLockTimeOfSeedReserves: 500
-          },
+          "100000000000000000",
+          "999999999999999999",
+          300,
+          1000,
+          500
         )
-      ).to.be.revertedWithCustomError(SandboxControllerFactory, "ZeroAddress")
-    })
+      ).to.be.revertedWithCustomError(SandboxControllerFactory, "ZeroAddress");
+    });
 
     it("reverts if storeFrontPriceFactor >= 1e18", async function () {
       await expect(
@@ -146,16 +142,134 @@ describe("SandboxController", function () {
           "100000000000000000",
           "200000000000000000",
           5,
-          1,
-          {
-            storeFrontPriceFactor: "1000000000000000000",
-            minUpdateTime: 300,
-            suggestedAmountOfSeedReserves: "1000",
-            suggestedLockTimeOfSeedReserves: 500
-          },
+          "100000000000000000",
+          "1000000000000000000",
+          300,
+          1000,
+          500
         )
-      ).to.be.revertedWithCustomError(SandboxControllerFactory, "InvalidFactors")
-    })
+      ).to.be.revertedWithCustomError(SandboxControllerFactory, "InvalidFactors");
+    });
+
+    it("reverts if protocolFactorBorrow=0", async function () {
+      await expect(
+        SandboxControllerFactory.deploy(
+          owner.address,
+          dao.address,
+          false,
+          "0",
+          "200000000000000000",
+          "100000000000000000",
+          "200000000000000000",
+          5,
+          "100000000000000000",
+          "500000000000000000",
+          300,
+          1000,
+          500
+        )
+      ).to.be.revertedWithCustomError(SandboxControllerFactory, "InvalidFactors");
+    });
+
+    it("reverts if reserveFactorBorrow=0", async function () {
+      await expect(
+        SandboxControllerFactory.deploy(
+          owner.address,
+          dao.address,
+          true,
+          "500000000000000000",
+          "0",
+          "100000000000000000",
+          "200000000000000000",
+          5,
+          "100000000000000000",
+          "500000000000000000",
+          300,
+          1000,
+          500
+        )
+      ).to.be.revertedWithCustomError(SandboxControllerFactory, "InvalidFactors");
+    });
+
+    it("reverts if protocolFactorBorrow+reserveFactorBorrow > 1e18", async function () {
+      await expect(
+        SandboxControllerFactory.deploy(
+          owner.address,
+          dao.address,
+          true,
+          ethers.utils.parseEther("0.6").toString(),
+          ethers.utils.parseEther("0.5").toString(),
+          "100000000000000000",
+          "200000000000000000",
+          5,
+          "100000000000000000",
+          "500000000000000000",
+          300,
+          1000,
+          500
+        )
+      ).to.be.revertedWithCustomError(SandboxControllerFactory, "InvalidFactors");
+    });
+
+    it("reverts if protocolFactorLiquidation=0", async function () {
+      await expect(
+        SandboxControllerFactory.deploy(
+          owner.address,
+          dao.address,
+          false,
+          "500000000000000000",
+          "200000000000000000",
+          "0",
+          "200000000000000000",
+          5,
+          "100000000000000000",
+          "500000000000000000",
+          300,
+          1000,
+          500
+        )
+      ).to.be.revertedWithCustomError(SandboxControllerFactory, "InvalidFactors");
+    });
+
+    it("reverts if reserveFactorLiquidation=0", async function () {
+      await expect(
+        SandboxControllerFactory.deploy(
+          owner.address,
+          dao.address,
+          true,
+          "500000000000000000",
+          "200000000000000000",
+          "100000000000000000",
+          "0",
+          5,
+          "100000000000000000",
+          "500000000000000000",
+          300,
+          1000,
+          500
+        )
+      ).to.be.revertedWithCustomError(SandboxControllerFactory, "InvalidFactors");
+    });
+
+    it("reverts if protocolFactorLiquidation+reserveFactorLiquidation > 1e18", async function () {
+      await expect(
+        SandboxControllerFactory.deploy(
+          owner.address,
+          dao.address,
+          true,
+          "500000000000000000",
+          "200000000000000000",
+          ethers.utils.parseEther("0.8").toString(),
+          ethers.utils.parseEther("0.3").toString(),
+          5,
+          "100000000000000000",
+          "500000000000000000",
+          300,
+          1000,
+          500
+        )
+      ).to.be.revertedWithCustomError(SandboxControllerFactory, "InvalidFactors");
+    });
 
     it("reverts if minUpdateTime=0", async function () {
       await expect(
@@ -163,21 +277,39 @@ describe("SandboxController", function () {
           owner.address,
           dao.address,
           false,
-          "200000000000000000",
+          "500000000000000000",
           "200000000000000000",
           "100000000000000000",
           "200000000000000000",
           5,
-          1,
-          {
-            storeFrontPriceFactor: "500000000000000000",
-            minUpdateTime: 0,
-            suggestedAmountOfSeedReserves: "1000",
-            suggestedLockTimeOfSeedReserves: 500
-          },
+          "100000000000000000",
+          "500000000000000000",
+          0,
+          1000,
+          500
         )
-      ).to.be.revertedWithCustomError(SandboxControllerFactory, "InvalidFactors")
-    })
+      ).to.be.revertedWithCustomError(SandboxControllerFactory, "InvalidFactors");
+    });
+
+    it("reverts if maxCollateralAssets=0", async function () {
+      await expect(
+        SandboxControllerFactory.deploy(
+          owner.address,
+          dao.address,
+          false,
+          "500000000000000000",
+          "200000000000000000",
+          "100000000000000000",
+          "200000000000000000",
+          0,
+          "100000000000000000",
+          "500000000000000000",
+          300,
+          1000,
+          500
+        )
+      ).to.be.revertedWithCustomError(SandboxControllerFactory, "InvalidFactors");
+    });
 
     it("reverts if suggestedAmountOfSeedReserves=0", async function () {
       await expect(
@@ -185,21 +317,19 @@ describe("SandboxController", function () {
           owner.address,
           dao.address,
           false,
-          "200000000000000000",
+          "500000000000000000",
           "200000000000000000",
           "100000000000000000",
           "200000000000000000",
           5,
-          1,
-          {
-            storeFrontPriceFactor: "500000000000000000",
-            minUpdateTime: 300,
-            suggestedAmountOfSeedReserves: "0",
-            suggestedLockTimeOfSeedReserves: 500
-          },
+          "100000000000000000",
+          "500000000000000000",
+          300,
+          "0",
+          500
         )
-      ).to.be.revertedWithCustomError(SandboxControllerFactory, "InvalidFactors")
-    })
+      ).to.be.revertedWithCustomError(SandboxControllerFactory, "InvalidFactors");
+    });
 
     it("reverts if suggestedLockTimeOfSeedReserves=0", async function () {
       await expect(
@@ -207,21 +337,39 @@ describe("SandboxController", function () {
           owner.address,
           dao.address,
           false,
-          "200000000000000000",
+          "500000000000000000",
           "200000000000000000",
           "100000000000000000",
           "200000000000000000",
           5,
-          1,
-          {
-            storeFrontPriceFactor: "500000000000000000",
-            minUpdateTime: 300,
-            suggestedAmountOfSeedReserves: "1000",
-            suggestedLockTimeOfSeedReserves: 0
-          },
+          "100000000000000000",
+          "500000000000000000",
+          300,
+          1000,
+          0
         )
-      ).to.be.revertedWithCustomError(SandboxControllerFactory, "InvalidFactors")
-    })
+      ).to.be.revertedWithCustomError(SandboxControllerFactory, "InvalidFactors");
+    });
+
+    it("reverts if targetReserves>5e17", async function () {
+      await expect(
+        SandboxControllerFactory.deploy(
+          owner.address,
+          dao.address,
+          false,
+          "500000000000000000",
+          "200000000000000000",
+          "100000000000000000",
+          "200000000000000000",
+          5,
+          "500000000000000001",
+          "500000000000000000",
+          300,
+          1000,
+          500
+        )
+      ).to.be.revertedWithCustomError(SandboxControllerFactory, "InvalidFactors");
+    });
   });
   describe("deployment with typical valid parameters", function () {
     it("verifies initial values after construction", async function () {
@@ -244,7 +392,7 @@ describe("SandboxController", function () {
       expect(await sandboxController.owner()).to.equal(owner.address)
       expect(await sandboxController.dao()).to.equal(dao.address)
       expect(await sandboxController.feeEnabled()).to.equal(false)
-   
+
       expect(await sandboxController.protocolFactorBorrow()).to.equal("100000000000000000")
       expect(await sandboxController.reserveFactorBorrow()).to.equal("100000000000000000")
       expect(await sandboxController.protocolFactorLiquidation()).to.equal("100000000000000000")
@@ -1462,7 +1610,7 @@ describe("SandboxController", function () {
     before(async function () {
       [owner, dao, attacker] = await ethers.getSigners()
     })
-  
+
     beforeEach(async function () {
       const opts = defaultControllerOpts({
         admin: owner,
@@ -1482,7 +1630,7 @@ describe("SandboxController", function () {
       const c = await makeSandboxController(opts)
       sandboxController = c.sandboxController
     })
-  
+
     describe("setReserveCommissions", function () {
       it("reverts if caller is not owner", async function () {
         const newReserveCommissions = [
@@ -1497,10 +1645,10 @@ describe("SandboxController", function () {
           sandboxController.connect(attacker).setReserveCommissions(newReserveCommissions)
         ).to.be.revertedWithCustomError(sandboxController, "NotOwner")
       })
-  
+
       it("reverts if any new reserve commission causes sum with protocol commission to exceed 80%", async function () {
         const newReserveCommissions = [
-          "800000000000000001", 
+          "800000000000000001",
           "300000000000000000",
           "200000000000000000"
         ]
@@ -1508,7 +1656,7 @@ describe("SandboxController", function () {
           sandboxController.connect(owner).setReserveCommissions(newReserveCommissions)
         ).to.be.revertedWithCustomError(sandboxController, "InvalidFactors")
       })
-  
+
       it("updates reserve commissions and emits events", async function () {
         const newReserveCommissions = [
           "500000000000000000",
@@ -1528,7 +1676,7 @@ describe("SandboxController", function () {
         }
       })
     })
-  
+
     describe("setProtocolCommissions", function () {
       it("reverts if caller is not owner", async function () {
         const protocolCommissions = [
@@ -1543,11 +1691,11 @@ describe("SandboxController", function () {
           sandboxController.connect(attacker).setProtocolCommissions(protocolCommissions)
         ).to.be.revertedWithCustomError(sandboxController, "NotOwner")
       })
-  
+
       it("reverts if any new protocol commission causes sum with reserve commission to exceed 80%", async function () {
         await sandboxController.connect(owner).setReserveCommissions([
           "100000000000000000",
-          "300000000000000000", 
+          "300000000000000000",
           "100000000000000000"
         ])
 
@@ -1560,7 +1708,7 @@ describe("SandboxController", function () {
           sandboxController.connect(owner).setProtocolCommissions(protocolCommissions)
         ).to.be.revertedWithCustomError(sandboxController, "InvalidFactors")
       })
-  
+
       it("updates protocol commissions and emits events", async function () {
         const newProtocolCommissions = [
           "400000000000000000",
@@ -1580,7 +1728,7 @@ describe("SandboxController", function () {
         }
       })
     })
-  
+
     describe("setThresholds", function () {
       it("reverts if caller is not owner", async function () {
         const thresholds = [
@@ -1595,7 +1743,7 @@ describe("SandboxController", function () {
           sandboxController.connect(attacker).setThresholds(thresholds)
         ).to.be.revertedWithCustomError(sandboxController, "NotOwner")
       })
-  
+
       it("reverts if any threshold is >= 1e18", async function () {
         const thresholds = [
           "500000000000000000",
@@ -1606,7 +1754,7 @@ describe("SandboxController", function () {
           sandboxController.connect(owner).setThresholds(thresholds)
         ).to.be.revertedWithCustomError(sandboxController, "InvalidFactors")
       })
-  
+
       it("updates thresholds and emits events", async function () {
         const thresholds = [
           "100000000000000000",
@@ -1632,11 +1780,11 @@ describe("SandboxController", function () {
     let sandboxController: any;
     let owner: any, dao: any, attacker: any;
     const ZERO_ADDRESS = ethers.constants.AddressZero;
-  
+
     before(async function () {
       [owner, dao, attacker] = await ethers.getSigners();
     });
-  
+
     beforeEach(async function () {
       const opts = defaultControllerOpts({
         admin: owner,
@@ -1656,7 +1804,7 @@ describe("SandboxController", function () {
       const c = await makeSandboxController(opts);
       sandboxController = c.sandboxController;
     });
-  
+
     it("reverts if caller is not owner", async function () {
       await expect(
         sandboxController.connect(dao).setTreasury(attacker.address)
@@ -1665,13 +1813,13 @@ describe("SandboxController", function () {
         sandboxController.connect(attacker).setTreasury(attacker.address)
       ).to.be.revertedWithCustomError(sandboxController, "NotOwner");
     });
-  
+
     it("reverts if _treasury is the zero address", async function () {
       await expect(
         sandboxController.connect(owner).setTreasury(ZERO_ADDRESS)
       ).to.be.revertedWithCustomError(sandboxController, "ZeroAddress");
     });
-  
+
     it("sets treasury and emits TreasuryChanged event", async function () {
       expect(await sandboxController.treasury()).to.equal(ZERO_ADDRESS);
       const newTreasury = attacker.address;
@@ -1684,5 +1832,5 @@ describe("SandboxController", function () {
       expect(await sandboxController.treasury()).to.equal(newTreasury);
     });
   });
-  
+
 })

@@ -39,9 +39,6 @@ import {
   AssetListFactory__factory,
   CometHarnessExtendedAssetList__factory,
   CometHarnessInterfaceExtendedAssetList as CometSandbox,
-  ISandboxController,
-  IMarket,
-  MarketFactory,
 } from '../../build/types';
 import { CometSandboxFactory } from '../../build/types/CometSandboxFactory';
 import { CometSandboxFactory__factory } from '../../build/types/factories/CometSandboxFactory__factory';
@@ -179,7 +176,7 @@ export type BulkerOpts = {
   weth?: string;
 };
 
-export interface SandboxControllerOptsRaw {
+export interface SandboxControllerOpts {
   admin?: any
   governor?: any
   feeEnabled?: boolean
@@ -188,30 +185,11 @@ export interface SandboxControllerOptsRaw {
   reserveFactorBorrow?: string
   protocolFactorLiquidation?: string
   reserveFactorLiquidation?: string
+  targetReserves: string
   minUpdateTime?: number
   maxCollateralAssets?: number
   suggestedAmountOfSeedReserves?: string
   suggestedLockTimeOfSeedReserves?: number
-  targetReserves?: string
-}
-
-
-export interface SandboxControllerOpts {
-  admin?: any
-  governor?: any
-  feeEnabled?: boolean
-  protocolFactorBorrow?: string
-  reserveFactorBorrow?: string
-  protocolFactorLiquidation?: string
-  reserveFactorLiquidation?: string
-  maxCollateralAssets?: number
-  targetReserves?: string
-  config?: {
-    storeFrontPriceFactor?: string
-    minUpdateTime?: number
-    suggestedAmountOfSeedReserves?: string
-    suggestedLockTimeOfSeedReserves?: number
-  }
 }
 
 export type BulkerInfo = {
@@ -336,9 +314,9 @@ export async function makeMarketFactory(opts: ProtocolOpts = {}, marketImpl: IMa
 }
 
 export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Protocol> {
-
+  
   const signers = await ethers.getSigners();
-
+  
   const assets = opts.assets || defaultAssets();
   const owner = opts.owner || signers[0];
   const curator = opts.curator || signers[1];
@@ -415,7 +393,7 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
       borrowPerYearInterestRateSlopeHigh
     }
   )
-
+  
   // --- Whitelist the collateral tokens ---
   for (const asset in assets) {
     if (asset == base) continue;
@@ -442,12 +420,12 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
         exp(0.9, 18),
       );
     }
-
+    
   }
-
+  
   // Deploy ConfigController.
   const ConfigControllerFactory = (await ethers.getContractFactory('ConfigController')) as ConfigController__factory;
-  const configController = await ConfigControllerFactory.deploy(
+  const configController  = await ConfigControllerFactory.deploy(
     owner.address,
     curator.address,
     guardian.address,
@@ -799,33 +777,28 @@ export async function makeMockERC20({ name, symbol }: MockERC20Params): Promise<
   return token;
 }
 
-export async function makePriceFeed({ amount }: any = {}): Promise<SimplePriceFeed> {
+export async function makePriceFeed({amount}: any = {}): Promise<SimplePriceFeed> {
   const PriceFeedFactory = (await ethers.getContractFactory('SimplePriceFeed')) as SimplePriceFeed__factory;
   const priceFeed = await PriceFeedFactory.deploy(amount ?? '100000000', 8);
   await priceFeed.deployed();
   return priceFeed;
 }
 
-export function defaultControllerOpts(partial?: Partial<SandboxControllerOptsRaw>): SandboxControllerOpts {
+export function defaultControllerOpts(partial?: Partial<SandboxControllerOpts>): SandboxControllerOpts {
   return {
     admin: partial?.admin,
     governor: partial?.governor,
     feeEnabled: partial?.feeEnabled ?? false,
-
+    storeFrontPriceFactor: partial?.storeFrontPriceFactor ?? ethers.utils.parseEther("0.9999999999").toString(),
     protocolFactorBorrow: partial?.protocolFactorBorrow ?? ethers.utils.parseEther("0.5").toString(),
     reserveFactorBorrow: partial?.reserveFactorBorrow ?? ethers.utils.parseEther("0.2").toString(),
     protocolFactorLiquidation: partial?.protocolFactorLiquidation ?? ethers.utils.parseEther("0.3").toString(),
     reserveFactorLiquidation: partial?.reserveFactorLiquidation ?? ethers.utils.parseEther("0.4").toString(),
-
+    targetReserves: partial?.targetReserves ?? ethers.utils.parseEther("1000").toString(),
+    minUpdateTime: partial?.minUpdateTime ?? 300,
     maxCollateralAssets: partial?.maxCollateralAssets ?? 10,
-
-    targetReserves: partial?.targetReserves ?? ethers.utils.parseEther("0.5").toString(),
-    config: {
-      storeFrontPriceFactor: partial?.storeFrontPriceFactor ?? ethers.utils.parseEther("0.9999999999").toString(),
-      minUpdateTime: partial?.minUpdateTime ?? 300,
-      suggestedAmountOfSeedReserves: partial?.suggestedAmountOfSeedReserves ?? ethers.utils.parseEther("500").toString(),
-      suggestedLockTimeOfSeedReserves: partial?.suggestedLockTimeOfSeedReserves ?? 86400,
-    }
+    suggestedAmountOfSeedReserves: partial?.suggestedAmountOfSeedReserves ?? ethers.utils.parseEther("500").toString(),
+    suggestedLockTimeOfSeedReserves: partial?.suggestedLockTimeOfSeedReserves ?? 86400
   };
 }
 
@@ -852,12 +825,10 @@ export async function makeSandboxController(
     opts.reserveFactorLiquidation,
     opts.maxCollateralAssets,
     opts.targetReserves,
-    {
-      storeFrontPriceFactor: opts.config?.storeFrontPriceFactor || "default_value",
-      minUpdateTime: opts.config?.minUpdateTime || 0,
-      suggestedAmountOfSeedReserves: opts.config?.suggestedAmountOfSeedReserves || "default_value",
-      suggestedLockTimeOfSeedReserves: opts.config?.suggestedLockTimeOfSeedReserves || 0,
-    }
+    opts.storeFrontPriceFactor,
+    opts.minUpdateTime,
+    opts.suggestedAmountOfSeedReserves,
+    opts.suggestedLockTimeOfSeedReserves
   )
   await sandboxController.deployed()
 

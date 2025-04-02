@@ -53,7 +53,10 @@ contract SandboxController is ISandboxController {
      * @param _reserveFactorLiquidation  Nonzero.
      * @param _maxCollateralAssets       > 0
      * @param _targetReserves            < 0.5 (50%)
-     * @param _config                    Configuration of the sandbox controller.
+     * @param _storeFrontPriceFactor     < 1e18
+     * @param _minUpdateTime             > 0
+     * @param _suggestedAmountOfSeedReserves > 0
+     * @param _suggestedLockTimeOfSeedReserves > 0
      */
     constructor(
         address _owner,
@@ -65,7 +68,10 @@ contract SandboxController is ISandboxController {
         uint256 _reserveFactorLiquidation,
         uint256 _maxCollateralAssets,
         uint256 _targetReserves,
-        SandboxControllerConfiguration memory _config
+        uint256 _storeFrontPriceFactor,
+        uint256 _minUpdateTime,
+        uint256 _suggestedAmountOfSeedReserves,
+        uint256 _suggestedLockTimeOfSeedReserves
     ) {
         if (_owner == address(0) || _dao == address(0)) {
             revert ZeroAddress();
@@ -86,11 +92,11 @@ contract SandboxController is ISandboxController {
             _reserveFactorLiquidation == 0 ||
             (_protocolFactorLiquidation + _reserveFactorLiquidation) > 1e18 ||
             _maxCollateralAssets == 0 ||
-            targetReserves > 5e17 ||
-            _config.storeFrontPriceFactor >= 1e18 ||
-            _config.minUpdateTime == 0 ||
-            _config.suggestedAmountOfSeedReserves == 0 ||
-            _config.suggestedLockTimeOfSeedReserves == 0
+            _targetReserves > 5e17 ||
+            _storeFrontPriceFactor >= 1e18 ||
+            _minUpdateTime == 0 ||
+            _suggestedAmountOfSeedReserves == 0 ||
+            _suggestedLockTimeOfSeedReserves == 0
         ) {
             revert InvalidFactors();
         }
@@ -102,7 +108,12 @@ contract SandboxController is ISandboxController {
         reserveFactorLiquidation = _reserveFactorLiquidation;
         maxCollateralAssets = _maxCollateralAssets;
         targetReserves = _targetReserves;
-        controllerConfiguration = _config;
+        controllerConfiguration = SandboxControllerConfiguration(
+            _storeFrontPriceFactor,
+            _minUpdateTime,
+            _suggestedAmountOfSeedReserves,
+            _suggestedLockTimeOfSeedReserves
+        );
     }
 
     modifier onlyOwner() {
@@ -307,17 +318,14 @@ contract SandboxController is ISandboxController {
             minLiquidateCollateralFactor == 0 ||
             maxLiquidateCollateralFactor == 0 ||
             minLiquidationFactor == 0 ||
-            maxLiquidationFactor == 0
-        ) {
-            revert InvalidFactors(); // All must be nonzero
-        }
-        if (
+            maxLiquidationFactor == 0 ||
             minBorrowCollateralFactor > maxBorrowCollateralFactor ||
             minLiquidateCollateralFactor > maxLiquidateCollateralFactor ||
             minLiquidationFactor > maxLiquidationFactor
         ) {
             revert InvalidFactors();
         }
+        
         {
             (, int256 answer, , , ) = IPriceFeed(priceFeed).latestRoundData();
             if (answer <= 0) {
