@@ -3,7 +3,7 @@ pragma solidity 0.8.28;
 
 import "./IConfigController.sol";
 
-interface IMarketFactory {
+interface ISandboxMarketFactory {
     function createMarket(
         IConfigController.MarketConfig memory _marketConfig
     ) external returns (address);

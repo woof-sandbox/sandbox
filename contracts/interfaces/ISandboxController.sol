@@ -1,17 +1,10 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
-interface ISandboxController {
-    error ZeroAddress();
-    error TokenAlreadyWhitelisted();
-    error TokenNotWhitelisted();
-    error PriceFeedAlreadyWhitelisted();
-    error InvalidCurveConfiguration();
-    error InvalidPriceFeed();
-    error InvalidFactors();
-    error NotOwner(address caller);
-    error NotDao(address caller);
-    error NotAuthorized(address caller);
+import "./ISandboxErrors.sol";
+
+
+interface ISandboxController is ISandboxErrors {
 
     /**
      * @notice Structure defining interest rate curve parameters for a base asset.

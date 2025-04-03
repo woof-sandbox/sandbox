@@ -2,11 +2,11 @@
 pragma solidity 0.8.28;
 
 import "@openzeppelin/contracts/proxy/Clones.sol";
-import "./interfaces/IMarket.sol";
-import "./interfaces/IMarketFactory.sol";
+import "./interfaces/ISandboxMarket.sol";
+import "./interfaces/ISandboxMarketFactory.sol";
 
 
-contract MarketFactory is IMarketFactory {
+contract SandboxMarketFactory is ISandboxMarketFactory {
     address public immutable implementation;
     address[] public markets;
     uint public lastMarket;
@@ -19,7 +19,7 @@ contract MarketFactory is IMarketFactory {
         IConfigController.MarketConfig memory _marketConfig
     ) external override returns (address) {
         address market = Clones.clone(implementation);
-        IMarket(market).initialize(_marketConfig);
+        ISandboxMarket(market).initialize(_marketConfig);
         
         markets.push(market);
         lastMarket++;

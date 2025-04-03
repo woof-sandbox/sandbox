@@ -3,7 +3,7 @@ pragma solidity 0.8.28;
 
 import "./interfaces/IConfigController.sol";
 import "./interfaces/ISandboxController.sol";
-import "./interfaces/IMarketFactory.sol";
+import "./interfaces/ISandboxMarketFactory.sol";
 
 contract ConfigController is IConfigController {
     /// @notice The admin of the protocol
@@ -11,7 +11,7 @@ contract ConfigController is IConfigController {
     address public curator;
     address public guardian;
     ISandboxController public sandboxController;
-    IMarketFactory public marketFactory;
+    ISandboxMarketFactory public marketFactory;
     address[] public markets;
     uint public marketsLength;
 
@@ -29,7 +29,7 @@ contract ConfigController is IConfigController {
         owner = _owner;
         guardian = _guardian;
         sandboxController = ISandboxController(_sandboxController);
-        marketFactory = IMarketFactory(_marketFactory);
+        marketFactory = ISandboxMarketFactory(_marketFactory);
     }
 
     function createMarket(
@@ -37,29 +37,59 @@ contract ConfigController is IConfigController {
     ) external returns (address) {
         if (msg.sender != owner) revert Unauthorized();
 
-        if (_marketConfig.baseToken == ZERO_ADDRESS) revert ZeroAddress();
         if (
-            sandboxController
-                .baseAssets(_marketConfig.baseToken)
-                .priceFeed == ZERO_ADDRESS
+            _marketConfig.baseToken == ZERO_ADDRESS ||
+            _marketConfig.priceFeed == ZERO_ADDRESS
+        ) revert ZeroAddress();
+        if (
+            sandboxController.baseAssets(_marketConfig.baseToken).priceFeed ==
+            ZERO_ADDRESS
         ) revert BaseTokenNotWhitelisted();
 
         if (!sandboxController.isPriceFeedWhitelisted(_marketConfig.priceFeed))
             revert WrongPriceFeed();
         if (_marketConfig.collateralTokens.length == 0)
             revert ZeroCollateralAssets();
-        // Gas saving.
+
         uint length = _marketConfig.collateralTokens.length;
         CollateralTokenConfig memory collateralTokenConfig;
         ISandboxController.CollateralAssetConfiguration
             memory collateralAssetLimitations;
         address[] memory addedCollateralTokens = new address[](length);
+
+        for (uint256 i = 0; i < length; ) {
+            address collateral = _marketConfig
+                .collateralTokens[i]
+                .collateralToken;
+            address priceFeed = _marketConfig
+                .collateralTokens[i]
+                .config
+                .priceFeed;
+            if (collateral == address(0) || priceFeed == address(0))
+                revert ZeroAddress();
+            for (uint256 j = i + 1; j < length; ) {
+                if (
+                    collateral ==
+                    _marketConfig.collateralTokens[j].collateralToken
+                ) {
+                    revert CollateralTokenAlreadyAdded();
+                }
+                unchecked {
+                    ++j;
+                }
+            }
+            unchecked {
+                ++i;
+            }
+        }
+
         for (uint i; i < length; ) {
             unchecked {
-                collateralTokenConfig = _marketConfig.collateralTokens[i];
-                collateralAssetLimitations = sandboxController
-                    .collateralAssets(
-                        collateralTokenConfig.collateralToken
+                collateralTokenConfig = _marketConfig
+                    .collateralTokens[i]
+                    .config;
+                collateralAssetLimitations = sandboxController.collateralAssets(
+                        _marketConfig.collateralTokens[i].collateralToken
                     );
                 // Default checks.
                 // more gas efficient than if statements
@@ -84,7 +114,8 @@ contract ConfigController is IConfigController {
                     collateralAssetLimitations.minLiquidationFactor
                 ) revert WrongCollateralTokenSettings();
 
-                addedCollateralTokens[i] = collateralTokenConfig
+                addedCollateralTokens[i] = _marketConfig
+                    .collateralTokens[i]
                     .collateralToken;
 
                 i++;

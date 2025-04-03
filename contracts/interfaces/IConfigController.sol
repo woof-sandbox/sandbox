@@ -3,14 +3,19 @@ pragma solidity 0.8.28;
     
 
 abstract contract IConfigController {
+    
     struct MarketConfig {
         address baseToken;
         address priceFeed;
-        CollateralTokenConfig[] collateralTokens;
+        CollateralToken[] collateralTokens;
+    }
+
+    struct CollateralToken{
+        address collateralToken;
+        CollateralTokenConfig config;
     }
 
     struct CollateralTokenConfig {
-        address collateralToken;
         address priceFeed;
         uint64 borrowCollateralFactor;
         uint64 liquidateCollateralFactor;

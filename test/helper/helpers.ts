@@ -39,6 +39,12 @@ import {
   AssetListFactory__factory,
   CometHarnessExtendedAssetList__factory,
   CometHarnessInterfaceExtendedAssetList as CometSandbox,
+  ISandboxMarket,
+  SandboxMarket__factory,
+  SandboxMarketFactory__factory,
+  SandboxMarketFactory,
+  ISandboxController,
+  ISandboxMarketFactory,
 } from '../../build/types';
 import { CometSandboxFactory } from '../../build/types/CometSandboxFactory';
 import { CometSandboxFactory__factory } from '../../build/types/factories/CometSandboxFactory__factory';
@@ -141,9 +147,9 @@ export type Protocol = {
     [symbol: string]: SimplePriceFeed;
   };
   configController: ConfigController;
-  sandboxControllerMock: ISandboxController;
-  marketImpl: IMarket;
-  marketFactory: MarketFactory;
+  sandboxController: ISandboxController
+  marketImpl: ISandboxMarket
+  marketFactory: ISandboxMarketFactory;
   owner: SignerWithAddress;
   curator: SignerWithAddress;
   guardian: SignerWithAddress;
@@ -305,8 +311,15 @@ export async function makeMockMarket(opts: ProtocolOpts = {}): Promise<MarketMoc
   return marketMock;
 }
 
-export async function makeMarketFactory(opts: ProtocolOpts = {}, marketImpl: IMarket): Promise<MarketFactory> {
-  const MarketFactory = await ethers.getContractFactory('MarketFactory') as MarketFactory__factory;
+export async function makeMarket(opts: ProtocolOpts = {}): Promise<ISandboxMarket> {
+  const Market = await ethers.getContractFactory('SandboxMarket') as SandboxMarket__factory
+  const market = await Market.deploy();
+  await market.deployed();
+  return market;
+}
+
+export async function makeMarketFactory(opts: ProtocolOpts = {}, marketImpl: ISandboxMarket): Promise<SandboxMarketFactory> {
+  const MarketFactory = await ethers.getContractFactory('SandboxMarketFactory') as SandboxMarketFactory__factory
   const marketFactory = await MarketFactory.deploy(marketImpl.address);
   await marketFactory.deployed();
   return marketFactory;
@@ -324,7 +337,7 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
   const users = signers.slice(4); // guaranteed to not be governor or pause guardian
   const base = opts.base || 'USDC';
   // --- Deploy mock of the Market ---
-  const marketImpl = await makeMockMarket();
+  const marketImpl = await makeMarket();
   // --- Deploy Market Factory ---
   const marketFactory = await makeMarketFactory({}, marketImpl);
   // --- Deploy tokens ---
@@ -345,7 +358,22 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
   // --- Deploy mock of the SandboxController ---
   opts.dao = dao;
   opts.owner = owner;
-  const sandboxControllerMock = await makeSandboxControllerMock(opts);
+  const sandboxControllerOpts = defaultControllerOpts({
+    admin: owner,
+    governor: dao,
+    feeEnabled: false,
+    storeFrontPriceFactor: "100000000000000000",
+    protocolFactorBorrow: "100000000000000000",
+    reserveFactorBorrow: "100000000000000000",
+    protocolFactorLiquidation: "100000000000000000",
+    reserveFactorLiquidation: "100000000000000000",
+    minUpdateTime: 300,
+    maxCollateralAssets: 10,
+    suggestedAmountOfSeedReserves: "1000",
+    suggestedLockTimeOfSeedReserves: 3600
+  })
+
+  const sandboxController = (await makeSandboxController(sandboxControllerOpts)).sandboxController;
   // --- Price feeds ---
   let priceFeeds = {};
   const PriceFeedFactory = (await ethers.getContractFactory('SimplePriceFeed')) as SimplePriceFeed__factory;
@@ -361,11 +389,11 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
   priceFeeds['USUP'] = priceFeed;
   // --- Parameters ---
   const supplyKink = dfn(opts.supplyKink, exp(0.8, 18));
-  const supplyPerYearInterestRateBase = dfn(opts.supplyInterestRateBase, exp(0.001, 18));
+  const supplyPerYearInterestRateSlopeBase = dfn(opts.supplyInterestRateBase, exp(0.001, 18));
   const supplyPerYearInterestRateSlopeLow = dfn(opts.supplyInterestRateSlopeLow, exp(0.05, 18));
   const supplyPerYearInterestRateSlopeHigh = dfn(opts.supplyInterestRateSlopeHigh, exp(2, 18));
   const borrowKink = dfn(opts.borrowKink, exp(0.8, 18));
-  const borrowPerYearInterestRateBase = dfn(opts.borrowInterestRateBase, exp(0.005, 18));
+  const borrowPerYearInterestRateSlopeBase = dfn(opts.borrowInterestRateBase, exp(0.005, 18));
   const borrowPerYearInterestRateSlopeLow = dfn(opts.borrowInterestRateSlopeLow, exp(0.1, 18));
   const borrowPerYearInterestRateSlopeHigh = dfn(opts.borrowInterestRateSlopeHigh, exp(3, 18));
   const storeFrontPriceFactor = dfn(opts.storeFrontPriceFactor, ONE);
@@ -377,29 +405,30 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
   const baseToken = tokens[base];
 
   // --- Whitelist the base token ---
-  await sandboxControllerMock.whitelistBaseAsset(
+  await sandboxController.whitelistBaseAsset(
     tokens[base].address,
     priceFeeds[base].address,
-    baseBorrowMin,
     {
       supplyKink,
-      supplyPerYearInterestRateBase,
+      supplyPerYearInterestRateSlopeBase,
       supplyPerYearInterestRateSlopeLow,
       supplyPerYearInterestRateSlopeHigh,
       borrowKink,
-      borrowPerYearInterestRateBase,
+      borrowPerYearInterestRateSlopeBase,
       borrowPerYearInterestRateSlopeLow,
       borrowPerYearInterestRateSlopeHigh
-    }
+    },
+    baseBorrowMin
   )
   
   // --- Whitelist the collateral tokens ---
   for (const asset in assets) {
     if (asset == base) continue;
     if (opts.assets) {
-      await sandboxControllerMock.whitelistCollateralAsset(
+      await sandboxController.whitelistCollateralAsset(
         tokens[asset].address,
         priceFeeds[asset].address,
+        18,
         opts.assets[asset].minBorrowCF,
         opts.assets[asset].maxBorrowCF,
         opts.assets[asset].minLiquidateCF,
@@ -408,16 +437,18 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
         opts.assets[asset].maxLiquidationFactor
       );
     } else {
-      await sandboxControllerMock.whitelistCollateralAsset(
+      await sandboxController.whitelistCollateralAsset(
         tokens[asset].address,
         priceFeeds[asset].address,
-        exp(0.5, 18),
+        18,
         exp(1, 18),
+        exp(0.5, 18),
         exp(0.6, 18),
         exp(0.7, 18),
         exp(0.8, 18),
         exp(0.9, 18),
       );
+      
     }
     
   }
@@ -428,7 +459,7 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
     owner.address,
     curator.address,
     guardian.address,
-    sandboxControllerMock.address,
+    sandboxController.address,
     marketFactory.address,
   );
 
@@ -441,7 +472,7 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
     unsupportedToken,
     priceFeeds,
     configController,
-    sandboxControllerMock,
+    sandboxController,
     marketImpl,
     marketFactory,
     owner,
