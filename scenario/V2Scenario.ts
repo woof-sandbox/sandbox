@@ -1,5 +1,5 @@
 import { scenario } from './context/CometContext';
-import { exp } from '../test/helpers';
+import { exp } from '../test/helper/helpers';
 import { expect } from 'chai';
 
 // note: meant for sanity checking v2 proposals, can normally be set to skip

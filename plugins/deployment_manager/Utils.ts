@@ -46,6 +46,14 @@ export async function fileExists(path: string): Promise<boolean> {
   }
 }
 
+async function isContract(contractAddress: string, hre: HRE) {
+  const code = await hre.ethers.provider.getCode(contractAddress);
+  if (!code) {
+    return false;
+  }
+  return true;
+}
+
 export function getPrimaryContract(buildFile: BuildFile): [string, ContractMetadata] {
   let targetContract = buildFile.contract;
   if (!targetContract) {
@@ -78,7 +86,10 @@ export function getPrimaryContract(buildFile: BuildFile): [string, ContractMetad
   return [targetContract, contractMetadata];
 }
 
-export function getEthersContract<C extends Contract>(address: string, buildFile: BuildFile, hre: HRE): C {
+export async function getEthersContract<C extends Contract>(address: string, buildFile: BuildFile, hre: HRE): Promise<C> {
+  if (!isContract(address, hre)) {
+    throw new Error(`${address} is not the contract.`)
+  } 
   const [_, metadata] = getPrimaryContract(buildFile);
   return new hre.ethers.Contract(address, metadata.abi, hre.ethers.provider) as C;
 }

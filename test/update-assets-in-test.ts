@@ -1,4 +1,4 @@
-import { ethers, expect, makeProtocol } from './helpers';
+import { ethers, expect, makeProtocol } from './helper/helpers';
 
 describe('updateAssetsIn', function () {
   it("adds asset to user's asset list when initialUserBalance=0 and finalUserBalance>0", async () => {

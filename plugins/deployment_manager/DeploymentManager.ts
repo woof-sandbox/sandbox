@@ -304,6 +304,7 @@ export class DeploymentManager {
 
   /* Loads contract configuration by tracing from roots outwards, based on relationConfig */
   async spider(deployed: Deployed = {}): Promise<Spider> {
+    console.log('spider load contracts')
     const relationConfigMap = getRelationConfig(
       this.hre.config.deploymentManager,
       this.network,
@@ -313,6 +314,7 @@ export class DeploymentManager {
       ...await getRoots(this.cache),
       ...Object.entries(deployed).map(([a, c]): [Alias, Address] => [a, c.address])
     ]);
+    // console.log(relationConfigMap)
     const crawl = await spider(
       this.cache,
       this.network,

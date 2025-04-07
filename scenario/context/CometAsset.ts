@@ -4,7 +4,7 @@ import { ERC20 } from '../../build/types';
 import CometActor from './CometActor';
 import { AddressLike, resolveAddress } from './Address';
 import { constants } from 'ethers';
-import { wait } from '../../test/helpers';
+import { wait } from '../../test/helper/helpers';
 
 export default class CometAsset {
   token: ERC20;

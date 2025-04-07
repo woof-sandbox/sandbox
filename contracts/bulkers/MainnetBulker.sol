@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.15;
+pragma solidity 0.8.28;
 
 import "./BaseBulker.sol";
-import "../IWstETH.sol";
+import "../interfaces/IWstETH.sol";
 
 /**
  * @title Compound's Bulker contract for Ethereum mainnet
@@ -69,9 +69,9 @@ contract MainnetBulker is BaseBulker {
         if (CometInterface(comet).baseToken() == wsteth) revert UnsupportedBaseAsset();
 
         doTransferIn(steth, msg.sender, stETHAmount);
-        ERC20(steth).approve(wsteth, stETHAmount);
+        IERC20(steth).approve(wsteth, stETHAmount);
         uint wstETHAmount = IWstETH(wsteth).wrap(stETHAmount);
-        ERC20(wsteth).approve(comet, wstETHAmount);
+        IERC20(wsteth).approve(comet, wstETHAmount);
         CometInterface(comet).supplyFrom(address(this), to, wsteth, wstETHAmount);
     }
 

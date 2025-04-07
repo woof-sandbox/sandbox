@@ -2,7 +2,7 @@ import { CometContext, scenario } from './context/CometContext';
 import { constants, utils } from 'ethers';
 import { expect } from 'chai';
 import { expectBase, isRewardSupported, isBulkerSupported, getExpectedBaseBalance, matchesDeployment } from './utils';
-import { exp } from '../test/helpers';
+import { exp } from '../test/helper/helpers';
 import { getConfigForScenario } from './utils/scenarioHelper';
 
 async function hasNativeAsCollateralOrBase(ctx: CometContext): Promise<boolean> {

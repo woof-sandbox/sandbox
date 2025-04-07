@@ -1,5 +1,5 @@
 import { ethers } from 'ethers';
-import { event, expect, exp, factor, defaultAssets, makeProtocol, mulPrice, portfolio, totalsAndReserves, wait, bumpTotalsCollateral, setTotalsBasic } from './helpers';
+import { event, expect, exp, factor, defaultAssets, makeProtocol, mulPrice, portfolio, totalsAndReserves, wait, bumpTotalsCollateral, setTotalsBasic } from './helper/helpers';
 
 describe('absorb', function () {
   it('reverts if total borrows underflows', async () => {
@@ -580,7 +580,7 @@ describe('absorb', function () {
       },
       reward: 'COMP',
     });
-    const { cometWithExtendedAssetList : comet, tokens: {
+    const { comet : comet, tokens: {
       COMP,
       WETH,
     }, users: [absorber, underwater] } = protocol;

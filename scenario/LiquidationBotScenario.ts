@@ -1,7 +1,7 @@
 import { CometContext, scenario } from './context/CometContext';
 import { expect } from 'chai';
 import { isValidAssetIndex, matchesDeployment, MAX_ASSETS, timeUntilUnderwater } from './utils';
-import { ethers, event, exp, wait } from '../test/helpers';
+import { ethers, event, exp, wait } from '../test/helper/helpers';
 import CometActor from './context/CometActor';
 import { CometInterface, OnChainLiquidator } from '../build/types';
 import { getPoolConfig, flashLoanPools } from '../scripts/liquidation_bot/liquidateUnderwaterBorrowers';

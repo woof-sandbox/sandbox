@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.15;
+pragma solidity 0.8.28;
 
-import "../vendor/@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
+import "../interfaces/AggregatorV3Interface.sol";
 
 contract ManagedSimplePriceFeed is AggregatorV3Interface {
     string public constant override description = "Mock Chainlink price aggregator";

@@ -1,7 +1,7 @@
 import { Constraint } from '../../plugins/scenario';
 import { CometContext } from '../context/CometContext';
 import { optionalNumber } from '../utils';
-import { defactor, factor, factorScale } from '../../test/helpers';
+import { defactor, factor, factorScale } from '../../test/helper/helpers';
 import { expect } from 'chai';
 import { Requirements } from './Requirements';
 

@@ -1,5 +1,5 @@
 import { scenario } from './context/CometContext';
-import { event, expect } from '../test/helpers';
+import { event, expect } from '../test/helper/helpers';
 import { expectRevertCustom, timeUntilUnderwater } from './utils';
 import { matchesDeployment } from './utils';
 

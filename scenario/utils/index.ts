@@ -4,7 +4,7 @@ import { execSync } from 'child_process';
 import { existsSync } from 'fs';
 import { CometContext } from '../context/CometContext';
 import CometAsset from '../context/CometAsset';
-import { exp } from '../../test/helpers';
+import { exp } from '../../test/helper/helpers';
 import { DeploymentManager } from '../../plugins/deployment_manager';
 import { impersonateAddress } from '../../plugins/scenario/utils';
 import { ProposalState, OpenProposal } from '../context/Gov';

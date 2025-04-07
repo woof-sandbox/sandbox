@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.15;
+pragma solidity 0.8.28;
 
-import "../vendor/@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
-import "../vendor/kelp/ILRTOracle.sol";
-import "../IPriceFeed.sol";
+import "../interfaces/AggregatorV3Interface.sol";
+import "../interfaces/ILRTOracle.sol";
+import "../interfaces/IPriceFeed.sol";
 
 /**
  * @title Scaling price feed for rsETH

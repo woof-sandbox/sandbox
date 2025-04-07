@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.15;
+pragma solidity 0.8.28;
 
-import "../vendor/canonical-weth/contracts/WETH9.sol";
+import "../WETH9.sol";
 
 /**
  * @title The faucet WETH Test Token

@@ -1,7 +1,7 @@
 import { scenario } from './context/CometContext';
 import { expect } from 'chai';
 import { BigNumberish, constants, utils } from 'ethers';
-import { exp } from '../test/helpers';
+import { exp } from '../test/helper/helpers';
 import { FaucetToken } from '../build/types';
 // import { calldata } from '../src/deploy';
 import { expectBase, isBridgedDeployment } from './utils';

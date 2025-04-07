@@ -35,4 +35,4 @@ jobs:
 
       - name: Build Comet with older solc versions
         run: |
-          forge build --contracts contracts/Comet.sol --use solc:0.8.15 --via-ir --optimizer-runs 1
+          forge build --contracts contracts/Comet.sol --use solc:0.8.28 --via-ir --optimizer-runs 1

@@ -187,7 +187,6 @@ async function asyncCallWithTimeout(asyncPromise: Promise<any>, timeLimit: numbe
 export async function runScenarios(bases: ForkSpec[]) {
   const loader = await Loader.load();
   const [runningScenarios, skippedScenarios] = loader.splitScenarios();
-
   const startTime = Date.now();
   const results: Result[] = [];
 

@@ -1,4 +1,4 @@
-import { ethers, expect, exp, fastForward, getBlock, makeProtocol, wait, setTotalsBasic } from './helpers';
+import { ethers, expect, exp, fastForward, getBlock, makeProtocol, wait, setTotalsBasic } from './helper/helpers';
 
 function projectBaseIndex(index, rate, time, factorScale = exp(1, 18)) {
   return index.add(index.mul(rate.mul(time)).div(factorScale));

@@ -1,4 +1,4 @@
-import { expect, makeProtocol, setTotalsBasic } from './helpers';
+import { expect, makeProtocol, setTotalsBasic } from './helper/helpers';
 
 describe('getReserves', function () {
   it('calculates 0 reserves', async () => {

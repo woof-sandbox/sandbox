@@ -86,7 +86,15 @@ async function readKey(contract: Contract, fnName: string): Promise<any> {
 export async function readField(contract: Contract, fieldKey: FieldKey, context: Ctx): Promise<Address[]> {
   if (fieldKey.slot) {
     // Read from slot
-    let addressRaw = await contract.provider.getStorageAt(contract.address, fieldKey.slot);
+    let addressRaw;
+    // try {
+    //   addressRaw = await contract.provider.getStorageAt(contract.address, fieldKey.slot);
+    // }
+    // catch {
+    //   console.log(addressRaw)
+    // }
+    addressRaw = await contract.provider.getStorageAt(contract.address, fieldKey.slot);
+    
     let address = utils.getAddress('0x' + addressRaw.substring(26));
     return [address];
   } else if (fieldKey.key) {

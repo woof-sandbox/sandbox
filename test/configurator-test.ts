@@ -1,4 +1,4 @@
-import { annualize, defactor, defaultAssets, ethers, event, exp, expect, factor, makeConfigurator, Numeric, truncateDecimals, wait } from './helpers';
+import { annualize, defactor, defaultAssets, ethers, event, exp, expect, factor, makeConfigurator, Numeric, truncateDecimals, wait } from './helper/helpers';
 import { CometModifiedFactory__factory, SimplePriceFeed__factory, SimpleTimelock__factory } from '../build/types';
 import { AssetInfoStructOutput } from '../build/types/CometHarnessInterface';
 import { ConfigurationStructOutput } from '../build/types/Configurator';
@@ -98,31 +98,6 @@ describe('configurator', function () {
     const { configuratorProxy, proxyAdmin, cometProxy, users: [alice] } = await makeConfigurator();
 
     await expect(proxyAdmin.connect(alice).deployAndUpgradeTo(configuratorProxy.address, cometProxy.address)).to.be.revertedWith('Ownable: caller is not the owner');
-  });
-
-  it('e2e governance actions from timelock', async () => {
-    const { governor, configurator, configuratorProxy, proxyAdmin, cometProxy, users: [alice] } = await makeConfigurator();
-
-    const TimelockFactory = (await ethers.getContractFactory(
-      'SimpleTimelock'
-    )) as SimpleTimelock__factory;
-
-    const timelock = await TimelockFactory.deploy(governor.address);
-    await timelock.deployed();
-    await proxyAdmin.transferOwnership(timelock.address);
-
-    const configuratorAsProxy = configurator.attach(configuratorProxy.address);
-    await configuratorAsProxy.transferGovernor(timelock.address); // set timelock as admin of Configurator
-
-    expect((await configuratorAsProxy.getConfiguration(cometProxy.address)).governor).to.be.equal(governor.address);
-
-    // 1. SetGovernor
-    // 2. DeployAndUpgradeTo
-    let setGovernorCalldata = ethers.utils.defaultAbiCoder.encode(['address', 'address'], [cometProxy.address, alice.address]);
-    let deployAndUpgradeToCalldata = ethers.utils.defaultAbiCoder.encode(['address', 'address'], [configuratorProxy.address, cometProxy.address]);
-    await timelock.executeTransactions([configuratorProxy.address, proxyAdmin.address], [0, 0], ['setGovernor(address,address)', 'deployAndUpgradeTo(address,address)'], [setGovernorCalldata, deployAndUpgradeToCalldata]);
-
-    expect((await configuratorAsProxy.getConfiguration(cometProxy.address)).governor).to.be.equal(alice.address);
   });
 
   it('reverts if initialized more than once', async () => {

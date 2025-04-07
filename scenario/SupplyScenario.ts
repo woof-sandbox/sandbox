@@ -3,7 +3,7 @@ import { expect } from 'chai';
 import { expectApproximately, expectBase, expectRevertCustom, expectRevertMatches, getExpectedBaseBalance, getInterest, isTriviallySourceable, isValidAssetIndex, MAX_ASSETS, UINT256_MAX } from './utils';
 import { ContractReceipt } from 'ethers';
 import { matchesDeployment } from './utils';
-import { exp } from '../test/helpers';
+import { exp } from '../test/helper/helpers';
 import { ethers } from 'hardhat';
 
 // XXX introduce a SupplyCapConstraint to separately test the happy path and revert path instead
