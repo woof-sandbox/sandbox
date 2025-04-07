@@ -194,7 +194,7 @@ contract MockSandboxController is AccessControl, ISandboxController {
         if (!isTokenWhitelisted(token)) {
             revert TokenNotWhitelisted();
         }
-        if (!isCurveConfigurationValid(baseAssetCurve) || curveIndex >= baseAssets[token].baseAssetCurves.length) {
+        if (!isCurveConfigurationValid(baseAssetCurve)) {
             revert InvalidCurveConfiguration();
         }
 

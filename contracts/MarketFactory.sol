@@ -4,7 +4,7 @@ pragma solidity 0.8.28;
 import "@openzeppelin/contracts/proxy/Clones.sol";
 import "./IMarket.sol";
 import "./IMarketFactory.sol";
-
+import "hardhat/console.sol";
 
 contract MarketFactory is IMarketFactory {
     address public immutable implementation;
@@ -19,11 +19,9 @@ contract MarketFactory is IMarketFactory {
         IConfigController.MarketConfig memory _marketConfig
     ) external override returns (address) {
         address market = Clones.clone(implementation);
-        IMarket(market).initialize(_marketConfig);
-        
         markets.push(market);
+        IMarket(market).initialize(_marketConfig, msg.sender);
         lastMarket++;
-
         return market;
     }
 

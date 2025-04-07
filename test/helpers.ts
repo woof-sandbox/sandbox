@@ -145,8 +145,6 @@ export type Protocol = {
   dao: SignerWithAddress;
 };
 
-
-
 export type ConfiguratorAndProtocol = {
   configurator: Configurator;
   configuratorProxy: ConfiguratorProxy;
@@ -399,6 +397,8 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
     guardian.address,
     sandboxControllerMock.address,
     marketFactory.address,
+    1000,
+    "ConfigController"
   );
 
   return {
