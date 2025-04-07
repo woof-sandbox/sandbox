@@ -4,7 +4,7 @@ pragma solidity 0.8.28;
 import {IERC20NonStandard} from "./interfaces/IERC20NonStandard.sol";
 import {IPriceFeed} from "./interfaces/IPriceFeed.sol";
 import {ISandboxController} from "./interfaces/ISandboxController.sol";
-
+import {console} from "hardhat/console.sol";
 /**
  * @title SandboxController
  * @dev Manages base asset configurations and interest rate curves.
@@ -101,7 +101,6 @@ contract SandboxController is ISandboxController {
             revert InvalidFactors();
         }
 
-      
         protocolFactorBorrow = _protocolFactorBorrow;
         reserveFactorBorrow = _reserveFactorBorrow;
         protocolFactorLiquidation = _protocolFactorLiquidation;
@@ -295,8 +294,8 @@ contract SandboxController is ISandboxController {
     function whitelistCollateralAsset(
         address token,
         address priceFeed,
-        uint64 maxBorrowCollateralFactor,
         uint64 minBorrowCollateralFactor,
+        uint64 maxBorrowCollateralFactor,
         uint64 minLiquidateCollateralFactor,
         uint64 maxLiquidateCollateralFactor,
         uint64 minLiquidationFactor,
@@ -311,7 +310,6 @@ contract SandboxController is ISandboxController {
         if (isPriceFeedWhitelisted[priceFeed]) {
             revert PriceFeedAlreadyWhitelisted();
         }
-
         if (
             minBorrowCollateralFactor == 0 ||
             maxBorrowCollateralFactor == 0 ||
@@ -325,7 +323,6 @@ contract SandboxController is ISandboxController {
         ) {
             revert InvalidFactors();
         }
-
         {
             (, int256 answer, , , ) = IPriceFeed(priceFeed).latestRoundData();
             if (answer <= 0) {
@@ -512,7 +509,7 @@ contract SandboxController is ISandboxController {
         if (curve.supplyKink >= 1e18 || curve.borrowKink >= 1e18) {
             return false;
         }
-        if (curve.borrowPerYearInterestRateSlopeBase == 0) {
+        if (curve.borrowPerYearInterestRateBase == 0) {
             return false;
         }
 

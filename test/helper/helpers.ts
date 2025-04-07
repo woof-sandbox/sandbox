@@ -352,7 +352,8 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
   // --- Deploy mock of the SandboxController ---
   opts.dao = dao;
   opts.owner = owner;
-  const sandboxControllerMock = await makeSandboxControllerMock(opts);
+  // const sandboxControllerMock = await makeSandboxControllerMock(opts);
+  const sandboxController = (await makeSandboxController(defaultSandboxControllerOpts())).sandboxController;
   // --- Price feeds ---
   let priceFeeds = {};
   const PriceFeedFactory = (await ethers.getContractFactory('SimplePriceFeed')) as SimplePriceFeed__factory;
@@ -384,10 +385,10 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
   const baseToken = tokens[base];
 
   // --- Whitelist the base token ---
-  await sandboxControllerMock.whitelistBaseAsset(
+  console.log("whitelisting base token");
+  await sandboxController.whitelistBaseAsset(
     tokens[base].address,
     priceFeeds[base].address,
-    baseBorrowMin,
     {
       supplyKink,
       supplyPerYearInterestRateBase,
@@ -397,14 +398,15 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
       borrowPerYearInterestRateBase,
       borrowPerYearInterestRateSlopeLow,
       borrowPerYearInterestRateSlopeHigh
-    }
+    },
+    baseBorrowMin
   )
-  
+  console.log("whitelisted base token");
   // --- Whitelist the collateral tokens ---
   for (const asset in assets) {
     if (asset == base) continue;
     if (opts.assets) {
-      await sandboxControllerMock.whitelistCollateralAsset(
+      await sandboxController.whitelistCollateralAsset(
         tokens[asset].address,
         priceFeeds[asset].address,
         opts.assets[asset].minBorrowCF,
@@ -415,7 +417,8 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
         opts.assets[asset].maxLiquidationFactor
       );
     } else {
-      await sandboxControllerMock.whitelistCollateralAsset(
+      console.log("whitelisting collateral token", asset);
+      await sandboxController.whitelistCollateralAsset(
         tokens[asset].address,
         priceFeeds[asset].address,
         exp(0.5, 18),
@@ -426,7 +429,7 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
         exp(0.9, 18),
       );
     }
-    
+    console.log("whitelisted collateral token");
   }
   
   // Deploy ConfigController.
@@ -435,7 +438,7 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
     owner.address,
     curator.address,
     guardian.address,
-    sandboxControllerMock.address,
+    sandboxController.address,
     marketFactory.address,
     1000,
     "ConfigController"
@@ -450,7 +453,7 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
     unsupportedToken,
     priceFeeds,
     configController,
-    sandboxControllerMock,
+    sandboxController,
     marketImpl,
     marketFactory,
     owner,
@@ -460,154 +463,154 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
   };
 }
 
-export async function makeProtocol(opts: ProtocolOpts = {}): Promise<Protocol> {
-  const signers = await ethers.getSigners();
+// export async function makeProtocol(opts: ProtocolOpts = {}): Promise<Protocol> {
+//   const signers = await ethers.getSigners();
 
-export async function makeMarketFactory(opts: ProtocolOpts = {}, marketImpl: IMarket): Promise<MarketFactory> {
-  const MarketFactory = await ethers.getContractFactory('MarketFactory') as MarketFactory__factory;
-  const marketFactory = await MarketFactory.deploy(marketImpl.address);
-  await marketFactory.deployed();
-  return marketFactory;
-}
+// export async function makeMarketFactory(opts: ProtocolOpts = {}, marketImpl: IMarket): Promise<MarketFactory> {
+//   const MarketFactory = await ethers.getContractFactory('MarketFactory') as MarketFactory__factory;
+//   const marketFactory = await MarketFactory.deploy(marketImpl.address);
+//   await marketFactory.deployed();
+//   return marketFactory;
+// }
 
-export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Protocol> {
+// export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Protocol> {
   
-  const signers = await ethers.getSigners();
+//   const signers = await ethers.getSigners();
   
-  const assets = opts.assets || defaultAssets();
-  const owner = opts.owner || signers[0];
-  const curator = opts.curator || signers[1];
-  const guardian = opts.guardian || signers[2];
-  const dao = opts.guardian || signers[3];
-  const users = signers.slice(4); // guaranteed to not be governor or pause guardian
-  const base = opts.base || 'USDC';
-  // --- Deploy mock of the Market ---
-  const marketImpl = await makeMockMarket();
-  // --- Deploy Market Factory ---
-  const marketFactory = await makeMarketFactory({}, marketImpl);
-  // --- Deploy tokens ---
-  const FaucetFactory = (await ethers.getContractFactory('FaucetToken')) as FaucetToken__factory;
-  const tokens = {};
-  for (const symbol in assets) {
-    const config = assets[symbol];
-    const decimals = config.decimals || 18;
-    const initial = config.initial || 1e6;
-    const name = config.name || symbol;
-    const factory = config.factory || FaucetFactory;
-    let token;
-    token = (tokens[symbol] = await factory.deploy(initial, name, decimals, symbol));
-    await token.deployed();
-  }
+//   const assets = opts.assets || defaultAssets();
+//   const owner = opts.owner || signers[0];
+//   const curator = opts.curator || signers[1];
+//   const guardian = opts.guardian || signers[2];
+//   const dao = opts.guardian || signers[3];
+//   const users = signers.slice(4); // guaranteed to not be governor or pause guardian
+//   const base = opts.base || 'USDC';
+//   // --- Deploy mock of the Market ---
+//   const marketImpl = await makeMockMarket();
+//   // --- Deploy Market Factory ---
+//   const marketFactory = await makeMarketFactory({}, marketImpl);
+//   // --- Deploy tokens ---
+//   const FaucetFactory = (await ethers.getContractFactory('FaucetToken')) as FaucetToken__factory;
+//   const tokens = {};
+//   for (const symbol in assets) {
+//     const config = assets[symbol];
+//     const decimals = config.decimals || 18;
+//     const initial = config.initial || 1e6;
+//     const name = config.name || symbol;
+//     const factory = config.factory || FaucetFactory;
+//     let token;
+//     token = (tokens[symbol] = await factory.deploy(initial, name, decimals, symbol));
+//     await token.deployed();
+//   }
 
-  const unsupportedToken = await FaucetFactory.deploy(1e6, 'Unsupported Token', 6, 'USUP');
-  // --- Deploy mock of the SandboxController ---
-  opts.dao = dao;
-  opts.owner = owner;
-  const sandboxControllerMock = await makeSandboxControllerMock(opts);
-  // --- Price feeds ---
-  let priceFeeds = {};
-  const PriceFeedFactory = (await ethers.getContractFactory('SimplePriceFeed')) as SimplePriceFeed__factory;
-  for (const asset in assets) {
-    const initialPrice = exp(assets[asset].initialPrice || 1, 8);
-    const priceFeedDecimals = assets[asset].priceFeedDecimals || 8;
-    const priceFeed = await PriceFeedFactory.deploy(initialPrice, priceFeedDecimals);
-    await priceFeed.deployed();
-    priceFeeds[asset] = priceFeed;
-  }
-  const priceFeed = await PriceFeedFactory.deploy(1, 6);
-  await priceFeed.deployed();
-  priceFeeds['USUP'] = priceFeed;
-  // --- Parameters ---
-  const supplyKink = dfn(opts.supplyKink, exp(0.8, 18));
-  const supplyPerYearInterestRateBase = dfn(opts.supplyInterestRateBase, exp(0.001, 18));
-  const supplyPerYearInterestRateSlopeLow = dfn(opts.supplyInterestRateSlopeLow, exp(0.05, 18));
-  const supplyPerYearInterestRateSlopeHigh = dfn(opts.supplyInterestRateSlopeHigh, exp(2, 18));
-  const borrowKink = dfn(opts.borrowKink, exp(0.8, 18));
-  const borrowPerYearInterestRateBase = dfn(opts.borrowInterestRateBase, exp(0.005, 18));
-  const borrowPerYearInterestRateSlopeLow = dfn(opts.borrowInterestRateSlopeLow, exp(0.1, 18));
-  const borrowPerYearInterestRateSlopeHigh = dfn(opts.borrowInterestRateSlopeHigh, exp(3, 18));
-  const storeFrontPriceFactor = dfn(opts.storeFrontPriceFactor, ONE);
-  const trackingIndexScale = opts.trackingIndexScale || exp(1, 15);
-  const baseTrackingSupplySpeed = dfn(opts.baseTrackingSupplySpeed, trackingIndexScale);
-  const baseTrackingBorrowSpeed = dfn(opts.baseTrackingBorrowSpeed, trackingIndexScale);
-  const baseMinForRewards = dfn(opts.baseMinForRewards, exp(1, assets[base].decimals));
-  const baseBorrowMin = dfn(opts.baseBorrowMin, exp(1, assets[base].decimals));
-  const baseToken = tokens[base];
+//   const unsupportedToken = await FaucetFactory.deploy(1e6, 'Unsupported Token', 6, 'USUP');
+//   // --- Deploy mock of the SandboxController ---
+//   opts.dao = dao;
+//   opts.owner = owner;
+//   const sandboxControllerMock = await makeSandboxControllerMock(opts);
+//   // --- Price feeds ---
+//   let priceFeeds = {};
+//   const PriceFeedFactory = (await ethers.getContractFactory('SimplePriceFeed')) as SimplePriceFeed__factory;
+//   for (const asset in assets) {
+//     const initialPrice = exp(assets[asset].initialPrice || 1, 8);
+//     const priceFeedDecimals = assets[asset].priceFeedDecimals || 8;
+//     const priceFeed = await PriceFeedFactory.deploy(initialPrice, priceFeedDecimals);
+//     await priceFeed.deployed();
+//     priceFeeds[asset] = priceFeed;
+//   }
+//   const priceFeed = await PriceFeedFactory.deploy(1, 6);
+//   await priceFeed.deployed();
+//   priceFeeds['USUP'] = priceFeed;
+//   // --- Parameters ---
+//   const supplyKink = dfn(opts.supplyKink, exp(0.8, 18));
+//   const supplyPerYearInterestRateBase = dfn(opts.supplyInterestRateBase, exp(0.001, 18));
+//   const supplyPerYearInterestRateSlopeLow = dfn(opts.supplyInterestRateSlopeLow, exp(0.05, 18));
+//   const supplyPerYearInterestRateSlopeHigh = dfn(opts.supplyInterestRateSlopeHigh, exp(2, 18));
+//   const borrowKink = dfn(opts.borrowKink, exp(0.8, 18));
+//   const borrowPerYearInterestRateBase = dfn(opts.borrowInterestRateBase, exp(0.005, 18));
+//   const borrowPerYearInterestRateSlopeLow = dfn(opts.borrowInterestRateSlopeLow, exp(0.1, 18));
+//   const borrowPerYearInterestRateSlopeHigh = dfn(opts.borrowInterestRateSlopeHigh, exp(3, 18));
+//   const storeFrontPriceFactor = dfn(opts.storeFrontPriceFactor, ONE);
+//   const trackingIndexScale = opts.trackingIndexScale || exp(1, 15);
+//   const baseTrackingSupplySpeed = dfn(opts.baseTrackingSupplySpeed, trackingIndexScale);
+//   const baseTrackingBorrowSpeed = dfn(opts.baseTrackingBorrowSpeed, trackingIndexScale);
+//   const baseMinForRewards = dfn(opts.baseMinForRewards, exp(1, assets[base].decimals));
+//   const baseBorrowMin = dfn(opts.baseBorrowMin, exp(1, assets[base].decimals));
+//   const baseToken = tokens[base];
 
-  // --- Whitelist the base token ---
-  await sandboxControllerMock.whitelistBaseAsset(
-    tokens[base].address,
-    priceFeeds[base].address,
-    baseBorrowMin,
-    {
-      supplyKink,
-      supplyPerYearInterestRateBase,
-      supplyPerYearInterestRateSlopeLow,
-      supplyPerYearInterestRateSlopeHigh,
-      borrowKink,
-      borrowPerYearInterestRateBase,
-      borrowPerYearInterestRateSlopeLow,
-      borrowPerYearInterestRateSlopeHigh
-    }
-  )
+//   // --- Whitelist the base token ---
+//   await sandboxControllerMock.whitelistBaseAsset(
+//     tokens[base].address,
+//     priceFeeds[base].address,
+//     baseBorrowMin,
+//     {
+//       supplyKink,
+//       supplyPerYearInterestRateBase,
+//       supplyPerYearInterestRateSlopeLow,
+//       supplyPerYearInterestRateSlopeHigh,
+//       borrowKink,
+//       borrowPerYearInterestRateBase,
+//       borrowPerYearInterestRateSlopeLow,
+//       borrowPerYearInterestRateSlopeHigh
+//     }
+//   )
   
-  // --- Whitelist the collateral tokens ---
-  for (const asset in assets) {
-    if (asset == base) continue;
-    if (opts.assets) {
-      await sandboxControllerMock.whitelistCollateralAsset(
-        tokens[asset].address,
-        priceFeeds[asset].address,
-        opts.assets[asset].minBorrowCF,
-        opts.assets[asset].maxBorrowCF,
-        opts.assets[asset].minLiquidateCF,
-        opts.assets[asset].maxLiquidateCF,
-        opts.assets[asset].minLiquidationFactor,
-        opts.assets[asset].maxLiquidationFactor
-      );
-    } else {
-      await sandboxControllerMock.whitelistCollateralAsset(
-        tokens[asset].address,
-        priceFeeds[asset].address,
-        exp(0.5, 18),
-        exp(1, 18),
-        exp(0.6, 18),
-        exp(0.7, 18),
-        exp(0.8, 18),
-        exp(0.9, 18),
-      );
-    }
+//   // --- Whitelist the collateral tokens ---
+//   for (const asset in assets) {
+//     if (asset == base) continue;
+//     if (opts.assets) {
+//       await sandboxControllerMock.whitelistCollateralAsset(
+//         tokens[asset].address,
+//         priceFeeds[asset].address,
+//         opts.assets[asset].minBorrowCF,
+//         opts.assets[asset].maxBorrowCF,
+//         opts.assets[asset].minLiquidateCF,
+//         opts.assets[asset].maxLiquidateCF,
+//         opts.assets[asset].minLiquidationFactor,
+//         opts.assets[asset].maxLiquidationFactor
+//       );
+//     } else {
+//       await sandboxControllerMock.whitelistCollateralAsset(
+//         tokens[asset].address,
+//         priceFeeds[asset].address,
+//         exp(0.5, 18),
+//         exp(1, 18),
+//         exp(0.6, 18),
+//         exp(0.7, 18),
+//         exp(0.8, 18),
+//         exp(0.9, 18),
+//       );
+//     }
     
-  }
+//   }
   
-  // Deploy ConfigController.
-  const ConfigControllerFactory = (await ethers.getContractFactory('ConfigController')) as ConfigController__factory;
-  const configController  = await ConfigControllerFactory.deploy(
-    owner.address,
-    curator.address,
-    guardian.address,
-    sandboxControllerMock.address,
-    marketFactory.address,
-  );
+//   // Deploy ConfigController.
+//   const ConfigControllerFactory = (await ethers.getContractFactory('ConfigController')) as ConfigController__factory;
+//   const configController  = await ConfigControllerFactory.deploy(
+//     owner.address,
+//     curator.address,
+//     guardian.address,
+//     sandboxControllerMock.address,
+//     marketFactory.address,
+//   );
 
-  return {
-    opts,
-    users,
-    tokens,
-    baseToken,
-    assets,
-    unsupportedToken,
-    priceFeeds,
-    configController,
-    sandboxControllerMock,
-    marketImpl,
-    marketFactory,
-    owner,
-    curator,
-    guardian,
-    dao
-  };
-}
+//   return {
+//     opts,
+//     users,
+//     tokens,
+//     baseToken,
+//     assets,
+//     unsupportedToken,
+//     priceFeeds,
+//     configController,
+//     sandboxControllerMock,
+//     marketImpl,
+//     marketFactory,
+//     owner,
+//     curator,
+//     guardian,
+//     dao
+//   };
+// }
 
 export async function makeProtocol(opts: ProtocolOpts = {}): Promise<Protocol> {
 
@@ -941,7 +944,7 @@ export async function makePriceFeed({amount}: any = {}): Promise<SimplePriceFeed
   return priceFeed;
 }
 
-export function defaultControllerOpts(partial?: Partial<SandboxControllerOpts>): SandboxControllerOpts {
+export function defaultSandboxControllerOpts(partial?: Partial<SandboxControllerOpts>): SandboxControllerOpts { 
   return {
     admin: partial?.admin,
     governor: partial?.governor,
@@ -951,7 +954,7 @@ export function defaultControllerOpts(partial?: Partial<SandboxControllerOpts>):
     reserveFactorBorrow: partial?.reserveFactorBorrow ?? ethers.utils.parseEther("0.2").toString(),
     protocolFactorLiquidation: partial?.protocolFactorLiquidation ?? ethers.utils.parseEther("0.3").toString(),
     reserveFactorLiquidation: partial?.reserveFactorLiquidation ?? ethers.utils.parseEther("0.4").toString(),
-    targetReserves: partial?.targetReserves ?? ethers.utils.parseEther("1000").toString(),
+    targetReserves: partial?.targetReserves ?? ethers.utils.parseEther("0.5").toString(),
     minUpdateTime: partial?.minUpdateTime ?? 300,
     maxCollateralAssets: partial?.maxCollateralAssets ?? 10,
     suggestedAmountOfSeedReserves: partial?.suggestedAmountOfSeedReserves ?? ethers.utils.parseEther("500").toString(),

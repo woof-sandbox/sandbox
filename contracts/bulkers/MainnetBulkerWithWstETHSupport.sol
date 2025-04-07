@@ -2,7 +2,8 @@
 pragma solidity 0.8.28;
 
 import "./BaseBulker.sol";
-import "../IWstETH.sol";
+import "../interfaces/IWstETH.sol";
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 /**
  * @title Compound's Bulker contract for Ethereum mainnet

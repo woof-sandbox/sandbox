@@ -1,7 +1,7 @@
 import { expect } from "chai"
 import { ethers } from "hardhat"
 import {
-  defaultControllerOpts,
+  defaultSandboxControllerOpts,
   makeSandboxController,
   makeMockERC20,
   makePriceFeed,
@@ -13,11 +13,11 @@ function makeValidCurve() {
     supplyKink: ethers.BigNumber.from("500000000000000000"),
     supplyPerYearInterestRateSlopeLow: ethers.BigNumber.from("500"),
     supplyPerYearInterestRateSlopeHigh: ethers.BigNumber.from("1000"),
-    supplyPerYearInterestRateSlopeBase: ethers.BigNumber.from("100"),
+    supplyPerYearInterestRateBase: ethers.BigNumber.from("100"),
     borrowKink: ethers.BigNumber.from("500000000000000000"),
     borrowPerYearInterestRateSlopeLow: ethers.BigNumber.from("1000"),
     borrowPerYearInterestRateSlopeHigh: ethers.BigNumber.from("2000"),
-    borrowPerYearInterestRateSlopeBase: ethers.BigNumber.from("1")
+    borrowPerYearInterestRateBase: ethers.BigNumber.from("1")
   }
 }
 
@@ -26,11 +26,11 @@ function makeInvalidCurveZeroBase() {
     supplyKink: ethers.BigNumber.from("500000000000000000"),
     supplyPerYearInterestRateSlopeLow: ethers.BigNumber.from("500"),
     supplyPerYearInterestRateSlopeHigh: ethers.BigNumber.from("1000"),
-    supplyPerYearInterestRateSlopeBase: ethers.BigNumber.from("100"),
+    supplyPerYearInterestRateBase: ethers.BigNumber.from("100"),
     borrowKink: ethers.BigNumber.from("500000000000000000"),
     borrowPerYearInterestRateSlopeLow: ethers.BigNumber.from("1000"),
     borrowPerYearInterestRateSlopeHigh: ethers.BigNumber.from("2000"),
-    borrowPerYearInterestRateSlopeBase: ethers.BigNumber.from("0")
+    borrowPerYearInterestRateBase: ethers.BigNumber.from("0")
   }
 }
 
@@ -39,11 +39,11 @@ function makeInvalidCurveKinkTooHigh() {
     supplyKink: ethers.BigNumber.from("1000000000000000000"),
     supplyPerYearInterestRateSlopeLow: ethers.BigNumber.from("500"),
     supplyPerYearInterestRateSlopeHigh: ethers.BigNumber.from("1000"),
-    supplyPerYearInterestRateSlopeBase: ethers.BigNumber.from("100"),
+    supplyPerYearInterestRateBase: ethers.BigNumber.from("100"),
     borrowKink: ethers.BigNumber.from("1000000000000000000"),
     borrowPerYearInterestRateSlopeLow: ethers.BigNumber.from("1000"),
     borrowPerYearInterestRateSlopeHigh: ethers.BigNumber.from("2000"),
-    borrowPerYearInterestRateSlopeBase: ethers.BigNumber.from("1")
+    borrowPerYearInterestRateBase: ethers.BigNumber.from("1")
   }
 }
 
@@ -61,7 +61,7 @@ describe("SandboxController", function () {
 
   describe("constructor", function () {
     it("initializes state with correct values", async function () {
-      const opts = defaultControllerOpts({
+      const opts = defaultSandboxControllerOpts({
         admin: owner,
         governor: dao,
         feeEnabled: true,
@@ -373,7 +373,7 @@ describe("SandboxController", function () {
   });
   describe("deployment with typical valid parameters", function () {
     it("verifies initial values after construction", async function () {
-      const opts = defaultControllerOpts({
+      const opts = defaultSandboxControllerOpts({
         admin: owner,
         governor: dao,
         feeEnabled: false,
@@ -413,7 +413,7 @@ describe("SandboxController", function () {
     let sandboxController: any
 
     beforeEach(async function () {
-      const opts = defaultControllerOpts({
+      const opts = defaultSandboxControllerOpts({
         admin: owner,
         governor: dao,
         feeEnabled: false,
@@ -540,11 +540,11 @@ describe("SandboxController", function () {
       expect(firstCurve.supplyKink).to.equal(curve.supplyKink)
       expect(firstCurve.supplyPerYearInterestRateSlopeLow).to.equal(curve.supplyPerYearInterestRateSlopeLow)
       expect(firstCurve.supplyPerYearInterestRateSlopeHigh).to.equal(curve.supplyPerYearInterestRateSlopeHigh)
-      expect(firstCurve.supplyPerYearInterestRateSlopeBase).to.equal(curve.supplyPerYearInterestRateSlopeBase)
+      expect(firstCurve.supplyPerYearInterestRateBase).to.equal(curve.supplyPerYearInterestRateBase)
       expect(firstCurve.borrowKink).to.equal(curve.borrowKink)
       expect(firstCurve.borrowPerYearInterestRateSlopeLow).to.equal(curve.borrowPerYearInterestRateSlopeLow)
       expect(firstCurve.borrowPerYearInterestRateSlopeHigh).to.equal(curve.borrowPerYearInterestRateSlopeHigh)
-      expect(firstCurve.borrowPerYearInterestRateSlopeBase).to.equal(curve.borrowPerYearInterestRateSlopeBase)
+      expect(firstCurve.borrowPerYearInterestRateBase).to.equal(curve.borrowPerYearInterestRateBase)
     })
 
     it("owner can do it, dao can do it", async function () {
@@ -562,7 +562,7 @@ describe("SandboxController", function () {
     let sandboxController
 
     beforeEach(async function () {
-      const opts = defaultControllerOpts({
+      const opts = defaultSandboxControllerOpts({
         admin: owner,
         governor: dao,
         feeEnabled: false,
@@ -638,8 +638,8 @@ describe("SandboxController", function () {
       await sandboxController.whitelistCollateralAsset(
         token.address,
         priceFeed.address,
-        8000,
         5000,
+        8000,
         6000,
         9000,
         7000,
@@ -650,8 +650,8 @@ describe("SandboxController", function () {
         sandboxController.whitelistCollateralAsset(
           token.address,
           newFeed.address,
-          8000,
           5000,
+          8000,
           6000,
           9000,
           7000,
@@ -668,8 +668,8 @@ describe("SandboxController", function () {
       await sandboxController.whitelistCollateralAsset(
         tokenA.address,
         priceFeed.address,
-        8000,
         5000,
+        8000,
         6000,
         9000,
         7000,
@@ -680,8 +680,8 @@ describe("SandboxController", function () {
         sandboxController.whitelistCollateralAsset(
           tokenB.address,
           priceFeed.address,
-          8000,
           5000,
+          8000,
           6000,
           9000,
           7000,
@@ -714,8 +714,8 @@ describe("SandboxController", function () {
         sandboxController.whitelistCollateralAsset(
           token.address,
           badPriceFeed.address,
-          8000,
           5000,
+          8000,
           6000,
           9000,
           7000,
@@ -731,8 +731,8 @@ describe("SandboxController", function () {
         sandboxController.whitelistCollateralAsset(
           token.address,
           feed.address,
-          8000,
           0,
+          8000,
           6000,
           9000,
           7000,
@@ -748,8 +748,8 @@ describe("SandboxController", function () {
         sandboxController.whitelistCollateralAsset(
           token.address,
           feed.address,
-          5000,
           6000,
+          5000,
           6000,
           9000,
           7000,
@@ -765,8 +765,8 @@ describe("SandboxController", function () {
         sandboxController.whitelistCollateralAsset(
           token.address,
           feed.address,
-          8000,
           5000,
+          8000,
           9000,
           6000,
           7000,
@@ -782,8 +782,8 @@ describe("SandboxController", function () {
         sandboxController.whitelistCollateralAsset(
           token.address,
           feed.address,
-          8000,
           5000,
+          8000,
           6000,
           9000,
           9500,
@@ -806,8 +806,8 @@ describe("SandboxController", function () {
       await sandboxController.whitelistCollateralAsset(
         token.address,
         priceFeed.address,
-        maxBorrowCollateralFactor,
         minBorrowCollateralFactor,
+        maxBorrowCollateralFactor,
         minLiquidateCollateralFactor,
         maxLiquidateCollateralFactor,
         minLiquidationFactor,
@@ -839,8 +839,8 @@ describe("SandboxController", function () {
       const tx = await sandboxController.whitelistCollateralAsset(
         token.address,
         priceFeed.address,
-        8000,
         5000,
+        8000,
         6000,
         9000,
         7000,
@@ -864,8 +864,8 @@ describe("SandboxController", function () {
         .whitelistCollateralAsset(
           token1.address,
           feed1.address,
-          9000,
           4000,
+          9000,
           5000,
           9500,
           7000,
@@ -879,8 +879,8 @@ describe("SandboxController", function () {
         .whitelistCollateralAsset(
           token2.address,
           feed2.address,
-          9000,
           4000,
+          9000,
           5000,
           9500,
           7000,
@@ -896,7 +896,7 @@ describe("SandboxController", function () {
     let sandboxController: any
 
     beforeEach(async function () {
-      const opts = defaultControllerOpts({
+      const opts = defaultSandboxControllerOpts({
         admin: owner,
         governor: dao,
         feeEnabled: false,
@@ -1026,7 +1026,7 @@ describe("SandboxController", function () {
     let sandboxController: any
 
     beforeEach(async function () {
-      const opts = defaultControllerOpts({
+      const opts = defaultSandboxControllerOpts({
         admin: owner,
         governor: dao,
         feeEnabled: false,
@@ -1070,7 +1070,7 @@ describe("SandboxController", function () {
     let priceFeed: any
 
     beforeEach(async function () {
-      const opts = defaultControllerOpts({
+      const opts = defaultSandboxControllerOpts({
         admin: owner,
         governor: dao,
         feeEnabled: false,
@@ -1130,22 +1130,22 @@ describe("SandboxController", function () {
       expect(ev.args.baseAssetCurve.supplyKink).to.equal(newCurve.supplyKink)
       expect(ev.args.baseAssetCurve.supplyPerYearInterestRateSlopeLow).to.equal(newCurve.supplyPerYearInterestRateSlopeLow)
       expect(ev.args.baseAssetCurve.supplyPerYearInterestRateSlopeHigh).to.equal(newCurve.supplyPerYearInterestRateSlopeHigh)
-      expect(ev.args.baseAssetCurve.supplyPerYearInterestRateSlopeBase).to.equal(newCurve.supplyPerYearInterestRateSlopeBase)
+      expect(ev.args.baseAssetCurve.supplyPerYearInterestRateBase).to.equal(newCurve.supplyPerYearInterestRateBase)
       expect(ev.args.baseAssetCurve.borrowKink).to.equal(newCurve.borrowKink)
       expect(ev.args.baseAssetCurve.borrowPerYearInterestRateSlopeLow).to.equal(newCurve.borrowPerYearInterestRateSlopeLow)
       expect(ev.args.baseAssetCurve.borrowPerYearInterestRateSlopeHigh).to.equal(newCurve.borrowPerYearInterestRateSlopeHigh)
-      expect(ev.args.baseAssetCurve.borrowPerYearInterestRateSlopeBase).to.equal(newCurve.borrowPerYearInterestRateSlopeBase)
+      expect(ev.args.baseAssetCurve.borrowPerYearInterestRateBase).to.equal(newCurve.borrowPerYearInterestRateBase)
 
       let curves = await sandboxController.getBaseAssetCurves(token.address)
       expect(curves.length).to.equal(2)
       expect(curves[1].supplyKink).to.equal(newCurve.supplyKink)
       expect(curves[1].supplyPerYearInterestRateSlopeLow).to.equal(newCurve.supplyPerYearInterestRateSlopeLow)
       expect(curves[1].supplyPerYearInterestRateSlopeHigh).to.equal(newCurve.supplyPerYearInterestRateSlopeHigh)
-      expect(curves[1].supplyPerYearInterestRateSlopeBase).to.equal(newCurve.supplyPerYearInterestRateSlopeBase)
+      expect(curves[1].supplyPerYearInterestRateBase).to.equal(newCurve.supplyPerYearInterestRateBase)
       expect(curves[1].borrowKink).to.equal(newCurve.borrowKink)
       expect(curves[1].borrowPerYearInterestRateSlopeLow).to.equal(newCurve.borrowPerYearInterestRateSlopeLow)
       expect(curves[1].borrowPerYearInterestRateSlopeHigh).to.equal(newCurve.borrowPerYearInterestRateSlopeHigh)
-      expect(curves[1].borrowPerYearInterestRateSlopeBase).to.equal(newCurve.borrowPerYearInterestRateSlopeBase)
+      expect(curves[1].borrowPerYearInterestRateBase).to.equal(newCurve.borrowPerYearInterestRateBase)
 
       const anotherCurve = makeValidCurve()
       tx = await sandboxController.connect(dao).addBaseAssetCurve(token.address, anotherCurve)
@@ -1156,22 +1156,22 @@ describe("SandboxController", function () {
       expect(ev.args.baseAssetCurve.supplyKink).to.equal(anotherCurve.supplyKink)
       expect(ev.args.baseAssetCurve.supplyPerYearInterestRateSlopeLow).to.equal(anotherCurve.supplyPerYearInterestRateSlopeLow)
       expect(ev.args.baseAssetCurve.supplyPerYearInterestRateSlopeHigh).to.equal(anotherCurve.supplyPerYearInterestRateSlopeHigh)
-      expect(ev.args.baseAssetCurve.supplyPerYearInterestRateSlopeBase).to.equal(anotherCurve.supplyPerYearInterestRateSlopeBase)
+      expect(ev.args.baseAssetCurve.supplyPerYearInterestRateBase).to.equal(anotherCurve.supplyPerYearInterestRateBase)
       expect(ev.args.baseAssetCurve.borrowKink).to.equal(anotherCurve.borrowKink)
       expect(ev.args.baseAssetCurve.borrowPerYearInterestRateSlopeLow).to.equal(anotherCurve.borrowPerYearInterestRateSlopeLow)
       expect(ev.args.baseAssetCurve.borrowPerYearInterestRateSlopeHigh).to.equal(anotherCurve.borrowPerYearInterestRateSlopeHigh)
-      expect(ev.args.baseAssetCurve.borrowPerYearInterestRateSlopeBase).to.equal(anotherCurve.borrowPerYearInterestRateSlopeBase)
+      expect(ev.args.baseAssetCurve.borrowPerYearInterestRateBase).to.equal(anotherCurve.borrowPerYearInterestRateBase)
 
       curves = await sandboxController.getBaseAssetCurves(token.address)
       expect(curves.length).to.equal(3)
       expect(curves[2].supplyKink).to.equal(anotherCurve.supplyKink)
       expect(curves[2].supplyPerYearInterestRateSlopeLow).to.equal(anotherCurve.supplyPerYearInterestRateSlopeLow)
       expect(curves[2].supplyPerYearInterestRateSlopeHigh).to.equal(anotherCurve.supplyPerYearInterestRateSlopeHigh)
-      expect(curves[2].supplyPerYearInterestRateSlopeBase).to.equal(anotherCurve.supplyPerYearInterestRateSlopeBase)
+      expect(curves[2].supplyPerYearInterestRateBase).to.equal(anotherCurve.supplyPerYearInterestRateBase)
       expect(curves[2].borrowKink).to.equal(anotherCurve.borrowKink)
       expect(curves[2].borrowPerYearInterestRateSlopeLow).to.equal(anotherCurve.borrowPerYearInterestRateSlopeLow)
       expect(curves[2].borrowPerYearInterestRateSlopeHigh).to.equal(anotherCurve.borrowPerYearInterestRateSlopeHigh)
-      expect(curves[2].borrowPerYearInterestRateSlopeBase).to.equal(anotherCurve.borrowPerYearInterestRateSlopeBase)
+      expect(curves[2].borrowPerYearInterestRateBase).to.equal(anotherCurve.borrowPerYearInterestRateBase)
     })
   })
 
@@ -1181,7 +1181,7 @@ describe("SandboxController", function () {
     let priceFeed: any
 
     beforeEach(async function () {
-      const opts = defaultControllerOpts({
+      const opts = defaultSandboxControllerOpts({
         admin: owner,
         governor: dao,
         feeEnabled: false,
@@ -1250,11 +1250,11 @@ describe("SandboxController", function () {
         supplyKink: 600,
         supplyPerYearInterestRateSlopeLow: 700,
         supplyPerYearInterestRateSlopeHigh: 1100,
-        supplyPerYearInterestRateSlopeBase: 150,
+        supplyPerYearInterestRateBase: 150,
         borrowKink: 600,
         borrowPerYearInterestRateSlopeLow: 1100,
         borrowPerYearInterestRateSlopeHigh: 2200,
-        borrowPerYearInterestRateSlopeBase: 2
+        borrowPerYearInterestRateBase: 2
       }
 
       const tx = await sandboxController.connect(dao).changeBaseAssetCurve(token.address, 1, newCurve)
@@ -1265,31 +1265,31 @@ describe("SandboxController", function () {
       expect(ev.args.baseAssetCurveOld.supplyKink).to.equal(oldCurve.supplyKink)
       expect(ev.args.baseAssetCurveOld.supplyPerYearInterestRateSlopeLow).to.equal(oldCurve.supplyPerYearInterestRateSlopeLow)
       expect(ev.args.baseAssetCurveOld.supplyPerYearInterestRateSlopeHigh).to.equal(oldCurve.supplyPerYearInterestRateSlopeHigh)
-      expect(ev.args.baseAssetCurveOld.supplyPerYearInterestRateSlopeBase).to.equal(oldCurve.supplyPerYearInterestRateSlopeBase)
+      expect(ev.args.baseAssetCurveOld.supplyPerYearInterestRateBase).to.equal(oldCurve.supplyPerYearInterestRateBase)
       expect(ev.args.baseAssetCurveOld.borrowKink).to.equal(oldCurve.borrowKink)
       expect(ev.args.baseAssetCurveOld.borrowPerYearInterestRateSlopeLow).to.equal(oldCurve.borrowPerYearInterestRateSlopeLow)
       expect(ev.args.baseAssetCurveOld.borrowPerYearInterestRateSlopeHigh).to.equal(oldCurve.borrowPerYearInterestRateSlopeHigh)
-      expect(ev.args.baseAssetCurveOld.borrowPerYearInterestRateSlopeBase).to.equal(oldCurve.borrowPerYearInterestRateSlopeBase)
+      expect(ev.args.baseAssetCurveOld.borrowPerYearInterestRateBase).to.equal(oldCurve.borrowPerYearInterestRateBase)
 
       expect(ev.args.baseAssetCurveNew.supplyKink).to.equal(newCurve.supplyKink)
       expect(ev.args.baseAssetCurveNew.supplyPerYearInterestRateSlopeLow).to.equal(newCurve.supplyPerYearInterestRateSlopeLow)
       expect(ev.args.baseAssetCurveNew.supplyPerYearInterestRateSlopeHigh).to.equal(newCurve.supplyPerYearInterestRateSlopeHigh)
-      expect(ev.args.baseAssetCurveNew.supplyPerYearInterestRateSlopeBase).to.equal(newCurve.supplyPerYearInterestRateSlopeBase)
+      expect(ev.args.baseAssetCurveNew.supplyPerYearInterestRateBase).to.equal(newCurve.supplyPerYearInterestRateBase)
       expect(ev.args.baseAssetCurveNew.borrowKink).to.equal(newCurve.borrowKink)
       expect(ev.args.baseAssetCurveNew.borrowPerYearInterestRateSlopeLow).to.equal(newCurve.borrowPerYearInterestRateSlopeLow)
       expect(ev.args.baseAssetCurveNew.borrowPerYearInterestRateSlopeHigh).to.equal(newCurve.borrowPerYearInterestRateSlopeHigh)
-      expect(ev.args.baseAssetCurveNew.borrowPerYearInterestRateSlopeBase).to.equal(newCurve.borrowPerYearInterestRateSlopeBase)
+      expect(ev.args.baseAssetCurveNew.borrowPerYearInterestRateBase).to.equal(newCurve.borrowPerYearInterestRateBase)
 
       existingCurves = await sandboxController.getBaseAssetCurves(token.address)
       const updatedCurve = existingCurves[1]
       expect(updatedCurve.supplyKink).to.equal(newCurve.supplyKink)
       expect(updatedCurve.supplyPerYearInterestRateSlopeLow).to.equal(newCurve.supplyPerYearInterestRateSlopeLow)
       expect(updatedCurve.supplyPerYearInterestRateSlopeHigh).to.equal(newCurve.supplyPerYearInterestRateSlopeHigh)
-      expect(updatedCurve.supplyPerYearInterestRateSlopeBase).to.equal(newCurve.supplyPerYearInterestRateSlopeBase)
+      expect(updatedCurve.supplyPerYearInterestRateBase).to.equal(newCurve.supplyPerYearInterestRateBase)
       expect(updatedCurve.borrowKink).to.equal(newCurve.borrowKink)
       expect(updatedCurve.borrowPerYearInterestRateSlopeLow).to.equal(newCurve.borrowPerYearInterestRateSlopeLow)
       expect(updatedCurve.borrowPerYearInterestRateSlopeHigh).to.equal(newCurve.borrowPerYearInterestRateSlopeHigh)
-      expect(updatedCurve.borrowPerYearInterestRateSlopeBase).to.equal(newCurve.borrowPerYearInterestRateSlopeBase)
+      expect(updatedCurve.borrowPerYearInterestRateBase).to.equal(newCurve.borrowPerYearInterestRateBase)
     })
   })
 
@@ -1297,7 +1297,7 @@ describe("SandboxController", function () {
     let sandboxController: any
 
     beforeEach(async function () {
-      const opts = defaultControllerOpts({
+      const opts = defaultSandboxControllerOpts({
         admin: owner,
         governor: dao,
         feeEnabled: false,
@@ -1346,7 +1346,7 @@ describe("SandboxController", function () {
     let sandboxController: any
 
     beforeEach(async function () {
-      const opts = defaultControllerOpts({
+      const opts = defaultSandboxControllerOpts({
         admin: owner,
         governor: dao,
         feeEnabled: false,
@@ -1395,7 +1395,7 @@ describe("SandboxController", function () {
     let sandboxController: any
 
     beforeEach(async function () {
-      const opts = defaultControllerOpts({
+      const opts = defaultSandboxControllerOpts({
         admin: owner,
         governor: dao,
         feeEnabled: false,
@@ -1431,7 +1431,7 @@ describe("SandboxController", function () {
     let sandboxController: any
 
     beforeEach(async function () {
-      const opts = defaultControllerOpts({
+      const opts = defaultSandboxControllerOpts({
         admin: owner,
         governor: dao,
         feeEnabled: false,
@@ -1458,7 +1458,16 @@ describe("SandboxController", function () {
     it("returns true if collateral asset whitelisted", async function () {
       const token = await makeMockERC20({ name: "C16", symbol: "C16" })
       const priceFeed = await makePriceFeed({})
-      await sandboxController.whitelistCollateralAsset(token.address, priceFeed.address, 8000, 5000, 6000, 9000, 7000, 9500)
+      await sandboxController.whitelistCollateralAsset(
+        token.address, 
+        priceFeed.address, 
+        5000, 
+        8000, 
+        6000, 
+        9000, 
+        7000, 
+        9500
+      )
       expect(await sandboxController.isCollateralTokenWhitelisted(token.address)).to.equal(true)
     })
 
@@ -1469,7 +1478,7 @@ describe("SandboxController", function () {
     let sandboxController: any
 
     beforeEach(async function () {
-      const opts = defaultControllerOpts({
+      const opts = defaultSandboxControllerOpts({
         admin: owner,
         governor: dao,
         feeEnabled: false,
@@ -1494,11 +1503,11 @@ describe("SandboxController", function () {
         supplyKink: c.supplyKink,
         supplyPerYearInterestRateSlopeLow: c.supplyPerYearInterestRateSlopeLow,
         supplyPerYearInterestRateSlopeHigh: c.supplyPerYearInterestRateSlopeHigh,
-        supplyPerYearInterestRateSlopeBase: c.supplyPerYearInterestRateSlopeBase,
+        supplyPerYearInterestRateBase: c.supplyPerYearInterestRateBase,
         borrowKink: c.borrowKink,
         borrowPerYearInterestRateSlopeLow: c.borrowPerYearInterestRateSlopeLow,
         borrowPerYearInterestRateSlopeHigh: c.borrowPerYearInterestRateSlopeHigh,
-        borrowPerYearInterestRateSlopeBase: c.borrowPerYearInterestRateSlopeBase
+        borrowPerYearInterestRateBase: c.borrowPerYearInterestRateBase
       })
       expect(ok).to.equal(true)
     })
@@ -1510,11 +1519,11 @@ describe("SandboxController", function () {
         supplyKink: c.supplyKink,
         supplyPerYearInterestRateSlopeLow: c.supplyPerYearInterestRateSlopeLow,
         supplyPerYearInterestRateSlopeHigh: c.supplyPerYearInterestRateSlopeHigh,
-        supplyPerYearInterestRateSlopeBase: c.supplyPerYearInterestRateSlopeBase,
+        supplyPerYearInterestRateBase: c.supplyPerYearInterestRateBase,
         borrowKink: c.borrowKink,
         borrowPerYearInterestRateSlopeLow: c.borrowPerYearInterestRateSlopeLow,
         borrowPerYearInterestRateSlopeHigh: c.borrowPerYearInterestRateSlopeHigh,
-        borrowPerYearInterestRateSlopeBase: c.borrowPerYearInterestRateSlopeBase
+        borrowPerYearInterestRateBase: c.borrowPerYearInterestRateBase
       })
       expect(ok).to.equal(false)
     })
@@ -1526,27 +1535,27 @@ describe("SandboxController", function () {
         supplyKink: c.supplyKink,
         supplyPerYearInterestRateSlopeLow: c.supplyPerYearInterestRateSlopeLow,
         supplyPerYearInterestRateSlopeHigh: c.supplyPerYearInterestRateSlopeHigh,
-        supplyPerYearInterestRateSlopeBase: c.supplyPerYearInterestRateSlopeBase,
+        supplyPerYearInterestRateBase: c.supplyPerYearInterestRateBase,
         borrowKink: c.borrowKink,
         borrowPerYearInterestRateSlopeLow: c.borrowPerYearInterestRateSlopeLow,
         borrowPerYearInterestRateSlopeHigh: c.borrowPerYearInterestRateSlopeHigh,
-        borrowPerYearInterestRateSlopeBase: c.borrowPerYearInterestRateSlopeBase
+        borrowPerYearInterestRateBase: c.borrowPerYearInterestRateBase
       })
       expect(ok).to.equal(false)
     })
 
-    it("returns false if borrowPerYearInterestRateSlopeBase=0", async function () {
+    it("returns false if borrowPerYearInterestRateBase=0", async function () {
       const c = makeValidCurve()
-      c.borrowPerYearInterestRateSlopeBase = ethers.BigNumber.from("0")
+      c.borrowPerYearInterestRateBase = ethers.BigNumber.from("0")
       const ok = await sandboxController.isCurveConfigurationValid({
         supplyKink: c.supplyKink,
         supplyPerYearInterestRateSlopeLow: c.supplyPerYearInterestRateSlopeLow,
         supplyPerYearInterestRateSlopeHigh: c.supplyPerYearInterestRateSlopeHigh,
-        supplyPerYearInterestRateSlopeBase: c.supplyPerYearInterestRateSlopeBase,
+        supplyPerYearInterestRateBase: c.supplyPerYearInterestRateBase,
         borrowKink: c.borrowKink,
         borrowPerYearInterestRateSlopeLow: c.borrowPerYearInterestRateSlopeLow,
         borrowPerYearInterestRateSlopeHigh: c.borrowPerYearInterestRateSlopeHigh,
-        borrowPerYearInterestRateSlopeBase: c.borrowPerYearInterestRateSlopeBase
+        borrowPerYearInterestRateBase: c.borrowPerYearInterestRateBase
       })
       expect(ok).to.equal(false)
     })
@@ -1556,7 +1565,7 @@ describe("SandboxController", function () {
     let sandboxController: any
 
     beforeEach(async function () {
-      const opts = defaultControllerOpts({
+      const opts = defaultSandboxControllerOpts({
         admin: owner,
         governor: dao,
         feeEnabled: false,
@@ -1612,7 +1621,7 @@ describe("SandboxController", function () {
     })
 
     beforeEach(async function () {
-      const opts = defaultControllerOpts({
+      const opts = defaultSandboxControllerOpts({
         admin: owner,
         governor: dao,
         feeEnabled: false,
@@ -1786,7 +1795,7 @@ describe("SandboxController", function () {
     });
 
     beforeEach(async function () {
-      const opts = defaultControllerOpts({
+      const opts = defaultSandboxControllerOpts({
         admin: owner,
         governor: dao,
         feeEnabled: false,

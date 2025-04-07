@@ -12,11 +12,11 @@ interface ISandboxController {
         uint64 supplyKink;
         uint64 supplyPerYearInterestRateSlopeLow;
         uint64 supplyPerYearInterestRateSlopeHigh;
-        uint64 supplyPerYearInterestRateSlopeBase;
+        uint64 supplyPerYearInterestRateBase;
         uint64 borrowKink;
         uint64 borrowPerYearInterestRateSlopeLow;
         uint64 borrowPerYearInterestRateSlopeHigh;
-        uint64 borrowPerYearInterestRateSlopeBase;
+        uint64 borrowPerYearInterestRateBase;
     }
 
     struct BaseAssetConfiguration {

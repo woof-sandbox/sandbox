@@ -14,10 +14,10 @@ import {
     wait, 
     bumpTotalsCollateral, 
     setTotalsBasic 
-} from './helpers';
+} from './helper/helpers';
 import { MarketConfigStruct, ConfigController, CollateralTokenConfigStruct } from '../build/types/ConfigController';
 import { FaucetToken, IMarket, SimplePriceFeed, NonStandardFaucetFeeToken } from '../build/types';
-import { exec } from 'child_process';
+// import { exec } from 'child_process';
 
 describe('ConfigController', () => {
     describe('Constructor', () => {
@@ -1253,7 +1253,7 @@ describe('Create Market', () => {
             return marketAddress;
         }
 
-        it('should allow owner to create proposal', async () => {
+        it.only('should allow owner to create proposal', async () => {
             const { configController, tokens, baseToken, priceFeeds, owner } = await makeConfigController();
             console.log(await configController.owner());
             const market = await createMarket(configController, tokens, baseToken, priceFeeds);

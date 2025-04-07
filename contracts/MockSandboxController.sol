@@ -3,8 +3,8 @@ pragma solidity 0.8.28;
 
 import "./ISandboxController.sol";
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
-import {IERC20NonStandard} from  "./IERC20NonStandard.sol";
-import {IPriceFeed} from  "./IPriceFeed.sol";
+import {IERC20NonStandard} from  "./interfaces/IERC20NonStandard.sol";
+import {IPriceFeed} from  "./interfaces/IPriceFeed.sol";
 
 /**
  * @title SandboxController
