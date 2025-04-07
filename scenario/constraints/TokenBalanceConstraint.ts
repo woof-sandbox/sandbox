@@ -3,7 +3,7 @@ import { CometContext } from '../context/CometContext';
 import { expect } from 'chai';
 import { Requirements } from './Requirements';
 import { BigNumber } from 'ethers';
-import { exp } from '../../test/helpers';
+import { exp } from '../../test/helper/helpers';
 import { ComparativeAmount, ComparisonOp, getActorAddressFromName, getAssetFromName, parseAmount, getToTransferAmount } from '../utils';
 
 export class TokenBalanceConstraint<T extends CometContext, R extends Requirements> implements Constraint<T, R> {

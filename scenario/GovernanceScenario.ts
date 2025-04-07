@@ -1,12 +1,13 @@
 import { scenario } from './context/CometContext';
 import { expect } from 'chai';
 import { BigNumberish, constants, utils } from 'ethers';
-import { exp } from '../test/helpers';
+import { exp } from '../test/helper/helpers';
 import { FaucetToken } from '../build/types';
-import { calldata } from '../src/deploy';
+// import { calldata } from '../src/deploy';
 import { expectBase, isBridgedDeployment } from './utils';
 
-scenario('upgrade Comet implementation and initialize', {filter: async (ctx) => !isBridgedDeployment(ctx)}, async ({ comet, configurator, proxyAdmin }, context) => {
+scenario('upgrade Comet implementation and initialize', {filter: async (ctx) => !isBridgedDeployment(ctx)}, async ({ comet, configurator, proxyAdmin, actors }, context) => {
+  const { admin } = actors;
   // For this scenario, we will be using the value of LiquidatorPoints.numAbsorbs for address ZERO to test that initialize has been called
   expect((await comet.liquidatorPoints(constants.AddressZero)).numAbsorbs).to.be.equal(0);
 
@@ -18,15 +19,22 @@ scenario('upgrade Comet implementation and initialize', {filter: async (ctx) => 
   // 1. Set the new factory address in Configurator
   // 2. Deploy and upgrade to the new implementation of Comet
   // 3. Call initialize(address) on the new version of Comet
-  const setFactoryCalldata = utils.defaultAbiCoder.encode(['address', 'address'], [comet.address, cometModifiedFactory.address]);
-  const deployAndUpgradeToCalldata = utils.defaultAbiCoder.encode(['address', 'address'], [configurator.address, comet.address]);
+  // const setFactoryCalldata = utils.defaultAbiCoder.encode(['address', 'address'], [comet.address, cometModifiedFactory.address]);
+  // const deployAndUpgradeToCalldata = utils.defaultAbiCoder.encode(['address', 'address'], [configurator.address, comet.address]);
   const initializeCalldata = utils.defaultAbiCoder.encode(['address'], [constants.AddressZero]);
-  await context.fastGovernanceExecute(
-    [configurator.address, proxyAdmin.address, comet.address],
-    [0, 0, 0],
-    ['setFactory(address,address)', 'deployAndUpgradeTo(address,address)', 'initialize(address)'],
-    [setFactoryCalldata, deployAndUpgradeToCalldata, initializeCalldata]
-  );
+  // await context.fastGovernanceExecute(
+  //   [configurator.address, proxyAdmin.address, comet.address],
+  //   [0, 0, 0],
+  //   ['setFactory(address,address)', 'deployAndUpgradeTo(address,address)', 'initialize(address)'],
+  //   [setFactoryCalldata, deployAndUpgradeToCalldata, initializeCalldata]
+  // );
+  await configurator.connect(admin.signer).setFactory(comet.address, cometModifiedFactory.address);
+  await proxyAdmin.connect(admin.signer).deployAndUpgradeTo(configurator.address, comet.address);
+  const tx = await admin.signer.sendTransaction({
+    to: comet.address,
+    data: '0xc4d66de8' + initializeCalldata.slice(2), // 0xc4d66de8 is the selector for initialize(address)
+  });
+  await tx.wait();
 
   // LiquidatorPoints.numAbsorbs for address ZERO should now be set as UInt32.MAX
   expect((await comet.liquidatorPoints(constants.AddressZero)).numAbsorbs).to.be.equal(2 ** 32 - 1);
@@ -48,17 +56,20 @@ scenario('upgrade Comet implementation and initialize using deployUpgradeToAndCa
   // Execute a governance proposal to:
   // 1. Set the new factory address in Configurator
   // 2. DeployUpgradeToAndCall the new implementation of Comet
-  const setFactoryCalldata = utils.defaultAbiCoder.encode(['address', 'address'], [comet.address, cometModifiedFactory.address]);
+  // const setFactoryCalldata = utils.defaultAbiCoder.encode(['address', 'address'], [comet.address, cometModifiedFactory.address]);
   const modifiedComet = (await dm.hre.ethers.getContractFactory('CometModified')).attach(comet.address);
   const initializeCalldata = (await modifiedComet.populateTransaction.initialize(constants.AddressZero)).data;
-  const deployUpgradeToAndCallCalldata = utils.defaultAbiCoder.encode(['address', 'address', 'bytes'], [configurator.address, comet.address, initializeCalldata]);
+  // const deployUpgradeToAndCallCalldata = utils.defaultAbiCoder.encode(['address', 'address', 'bytes'], [configurator.address, comet.address, initializeCalldata]);
 
-  await context.fastGovernanceExecute(
-    [configurator.address, proxyAdmin.address],
-    [0, 0],
-    ['setFactory(address,address)', 'deployUpgradeToAndCall(address,address,bytes)'],
-    [setFactoryCalldata, deployUpgradeToAndCallCalldata]
-  );
+  // await context.fastGovernanceExecute(
+  //   [configurator.address, proxyAdmin.address],
+  //   [0, 0],
+  //   ['setFactory(address,address)', 'deployUpgradeToAndCall(address,address,bytes)'],
+  //   [setFactoryCalldata, deployUpgradeToAndCallCalldata]
+  // );
+
+  await configurator.setFactory(comet.address, cometModifiedFactory.address);
+  await proxyAdmin.deployUpgradeToAndCall(configurator.address, comet.address, initializeCalldata);
 
   // LiquidatorPoints.numAbsorbs for address ZERO should now be set as UInt32.MAX
   expect((await comet.liquidatorPoints(constants.AddressZero)).numAbsorbs).to.be.equal(2 ** 32 - 1);
@@ -72,14 +83,17 @@ scenario('upgrade Comet implementation and call new function', {filter: async (c
   const cometModifiedFactory = await dm.deploy('cometFactory', 'test/CometModifiedFactory.sol', [], true);
 
   // Upgrade Comet implementation
-  const setFactoryCalldata = utils.defaultAbiCoder.encode(['address', 'address'], [comet.address, cometModifiedFactory.address]);
-  const deployAndUpgradeToCalldata = utils.defaultAbiCoder.encode(['address', 'address'], [configurator.address, comet.address]);
-  await context.fastGovernanceExecute(
-    [configurator.address, proxyAdmin.address],
-    [0, 0],
-    ['setFactory(address,address)', 'deployAndUpgradeTo(address,address)'],
-    [setFactoryCalldata, deployAndUpgradeToCalldata]
-  );
+  // const setFactoryCalldata = utils.defaultAbiCoder.encode(['address', 'address'], [comet.address, cometModifiedFactory.address]);
+  // const deployAndUpgradeToCalldata = utils.defaultAbiCoder.encode(['address', 'address'], [configurator.address, comet.address]);
+  // await context.fastGovernanceExecute(
+  //   [configurator.address, proxyAdmin.address],
+  //   [0, 0],
+  //   ['setFactory(address,address)', 'deployAndUpgradeTo(address,address)'],
+  //   [setFactoryCalldata, deployAndUpgradeToCalldata]
+  // );
+
+  await configurator.setFactory(comet.address, cometModifiedFactory.address);
+  await proxyAdmin.deployAndUpgradeTo(configurator.address, comet.address);
 
   const CometModified = await dm.hre.ethers.getContractFactory('CometModified');
   const modifiedComet = CometModified.attach(comet.address).connect(signer.signer);
@@ -133,14 +147,17 @@ scenario('add new asset',
       supplyCap: exp(1_000, 8),
     };
 
-    const addAssetCalldata = await calldata(configurator.populateTransaction.addAsset(comet.address, newAssetConfig));
-    const deployAndUpgradeToCalldata = utils.defaultAbiCoder.encode(['address', 'address'], [configurator.address, comet.address]);
-    await context.fastGovernanceExecute(
-      [configurator.address, proxyAdmin.address],
-      [0, 0],
-      ['addAsset(address,(address,address,uint8,uint64,uint64,uint64,uint128))', 'deployAndUpgradeTo(address,address)'],
-      [addAssetCalldata, deployAndUpgradeToCalldata]
-    );
+    // const addAssetCalldata = await calldata(configurator.populateTransaction.addAsset(comet.address, newAssetConfig));
+    // const deployAndUpgradeToCalldata = utils.defaultAbiCoder.encode(['address', 'address'], [configurator.address, comet.address]);
+    // await context.fastGovernanceExecute(
+    //   [configurator.address, proxyAdmin.address],
+    //   [0, 0],
+    //   ['addAsset(address,(address,address,uint8,uint64,uint64,uint64,uint128))', 'deployAndUpgradeTo(address,address)'],
+    //   [addAssetCalldata, deployAndUpgradeToCalldata]
+    // );
+
+    await configurator.addAsset(comet.address, newAssetConfig);
+    await proxyAdmin.deployAndUpgradeTo(configurator.address, comet.address);
 
     // Try to supply new token and borrow base
     const baseAssetAddress = await comet.baseToken();

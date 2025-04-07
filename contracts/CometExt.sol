@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
-import "./CometExtInterface.sol";
+import "./CometInterface.sol";
 
 contract CometExt is CometExtInterface {
     /** Public constants **/
@@ -44,7 +44,7 @@ contract CometExt is CometExtInterface {
     function baseIndexScale() override external pure returns (uint64) { return BASE_INDEX_SCALE; }
     function factorScale() override external pure returns (uint64) { return FACTOR_SCALE; }
     function priceScale() override external pure returns (uint64) { return PRICE_SCALE; }
-    function maxAssets() override external pure returns (uint8) { return MAX_ASSETS; }
+    function maxAssets() override virtual external pure returns (uint8) { return MAX_ASSETS; }
 
     /**
      * @notice Aggregate variables tracked for the entire market

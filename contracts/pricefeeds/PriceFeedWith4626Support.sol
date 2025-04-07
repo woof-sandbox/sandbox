@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
-import "../vendor/@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
-import "../IERC4626.sol";
-import "../IPriceFeed.sol";
+import "@openzeppelin/contracts/interfaces/IERC4626.sol";
+import "../interfaces/AggregatorV3Interface.sol";
+import "../interfaces/IPriceFeed.sol";
 
 /**
  * @title Price feed for ERC4626 assets

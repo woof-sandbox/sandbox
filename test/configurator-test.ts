@@ -1,4 +1,4 @@
-import { annualize, defactor, defaultAssets, ethers, event, exp, expect, factor, makeConfigurator, Numeric, truncateDecimals, wait } from './helpers';
+import { annualize, defactor, defaultAssets, ethers, event, exp, expect, factor, makeConfigurator, Numeric, truncateDecimals, wait } from './helper/helpers';
 import { CometModifiedFactory__factory, SimplePriceFeed__factory, SimpleTimelock__factory } from '../build/types';
 import { AssetInfoStructOutput } from '../build/types/CometHarnessInterface';
 import { ConfigurationStructOutput } from '../build/types/Configurator';

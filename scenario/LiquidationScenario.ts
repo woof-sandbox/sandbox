@@ -1,5 +1,5 @@
 import { scenario } from './context/CometContext';
-import { event, expect } from '../test/helpers';
+import { event, expect } from '../test/helper/helpers';
 import { expectRevertCustom, timeUntilUnderwater } from './utils';
 import { matchesDeployment } from './utils';
 
@@ -210,7 +210,7 @@ scenario(
       Math.round(await timeUntilUnderwater({
         comet,
         actor: albert,
-      }) * 1.1) // XXX why is this off? better to use a price constraint?
+      }) * 1.001) // XXX why is this off? better to use a price constraint?
     );
 
     const ab0 = await betty.absorb({ absorber: betty.address, accounts: [albert.address] });

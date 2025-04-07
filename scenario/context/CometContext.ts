@@ -1,4 +1,4 @@
-import { BigNumber, BigNumberish } from 'ethers';
+import { BigNumber, Contract } from 'ethers';
 import { Loader, World, debug } from '../../plugins/scenario';
 import { Migration } from '../../plugins/deployment_manager';
 import {
@@ -9,8 +9,6 @@ import {
   UtilizationConstraint,
   SupplyCapConstraint,
   CometBalanceConstraint,
-  MigrationConstraint,
-  ProposalConstraint,
   FilterConstraint,
   PriceConstraint,
   ReservesConstraint
@@ -23,7 +21,6 @@ import {
   Configurator,
   SimpleTimelock,
   CometProxyAdmin,
-  IGovernorBravo,
   CometRewards,
   Fauceteer,
   BaseBulker,
@@ -34,7 +31,7 @@ import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
 import { sourceTokens } from '../../plugins/scenario/utils/TokenSourcer';
 import { ProtocolConfiguration, deployComet, COMP_WHALES, WHALES } from '../../src/deploy';
 import { AddressLike, getAddressFromNumber, resolveAddress } from './Address';
-import { fastGovernanceExecute, max, mineBlocks, setNextBaseFeeToZero, setNextBlockTimestamp } from '../utils';
+import { max, mineBlocks, setNextBaseFeeToZero, setNextBlockTimestamp } from '../utils';
 import { DynamicConstraint, StaticConstraint } from '../../plugins/scenario/Scenario';
 import { Requirements } from '../constraints/Requirements';
 
@@ -55,7 +52,7 @@ export interface CometProperties {
   configurator: Configurator;
   proxyAdmin: CometProxyAdmin;
   timelock: SimpleTimelock;
-  governor: IGovernorBravo;
+  governor: CometActor;
   rewards: CometRewards;
   bulker: BaseBulker;
   bridgeReceiver: BaseBridgeReceiver;
@@ -74,7 +71,7 @@ export class CometContext {
   }
 
   async getCompWhales(): Promise<string[]> {
-    const useMainnetComp = ['mainnet', 'polygon', 'arbitrum', 'base', 'optimism', 'mantle'].includes(this.world.base.network);
+    const useMainnetComp = ['mainnet', 'polygon'].includes(this.world.base.network);
     return COMP_WHALES[useMainnetComp ? 'mainnet' : 'testnet'];
   }
 
@@ -110,8 +107,10 @@ export class CometContext {
     return this.world.deploymentManager.contract('timelock');
   }
 
-  async getGovernor(): Promise<IGovernorBravo> {
-    return this.world.deploymentManager.contract('governor');
+  async getGovernor(): Promise<CometActor> {
+    const governorAddress = await (await this.getComet()).governor();
+    const governorSigner = await this.world.impersonateAddress(governorAddress);
+    return new CometActor('governor', governorSigner, governorAddress, this);
   }
 
   async getRewards(): Promise<CometRewards> {
@@ -151,11 +150,25 @@ export class CometContext {
   async upgrade(configOverrides: ProtocolConfiguration): Promise<CometContext> {
     const { world } = this;
 
-    const oldComet = await this.getComet();
-    const admin = await world.impersonateAddress(await oldComet.governor(), { value: 20n ** 18n });
+    const currentComet = await this.getComet();
+    const admin = await world.impersonateAddress(await currentComet.governor(), { value: 20n ** 18n });
+    const oldComet = new Contract(currentComet.address, 
+      [
+        'function governor() view returns (address)',
+        'function assetList() view returns (address)',
+        'function assetListFactory() view returns (address)'
+      ], admin);
 
     const deploySpec = { cometMain: true, cometExt: true };
-    const deployed = await deployComet(this.world.deploymentManager, deploySpec, configOverrides, admin);
+    let withAssetList = false;
+    try {
+      await oldComet.assetList();
+      withAssetList = true;
+    }
+    catch (e) {
+      withAssetList = false;
+    }
+    const deployed = await deployComet(this.world.deploymentManager, deploySpec, configOverrides, withAssetList, admin);
 
     await this.world.deploymentManager.spider(deployed);
     await this.setAssets();
@@ -312,17 +325,17 @@ export class CometContext {
   }
 
   // Instantly executes some actions through the governance proposal process
-  async fastGovernanceExecute(targets: string[], values: BigNumberish[], signatures: string[], calldatas: string[]) {
-    const proposer = await this.getProposer();
-    await fastGovernanceExecute(
-      this.world.deploymentManager,
-      proposer,
-      targets,
-      values,
-      signatures,
-      calldatas
-    );
-  }
+  // async fastGovernanceExecute(targets: string[], values: BigNumberish[], signatures: string[], calldatas: string[]) {
+  //   const proposer = await this.getProposer();
+  //   await fastGovernanceExecute(
+  //     this.world.deploymentManager,
+  //     proposer,
+  //     targets,
+  //     values,
+  //     signatures,
+  //     calldatas
+  //   );
+  // }
 }
 
 async function buildActor(name: string, signer: SignerWithAddress, context: CometContext): Promise<CometActor> {
@@ -403,8 +416,6 @@ async function getContextProperties(context: CometContext): Promise<CometPropert
 
 export const staticConstraints: StaticConstraint<CometContext>[] = [
   new NativeTokenConstraint(),
-  new MigrationConstraint(),
-  new ProposalConstraint(),
 ];
 
 export const dynamicConstraints: DynamicConstraint<CometContext, Requirements>[] = [

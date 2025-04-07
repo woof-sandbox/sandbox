@@ -1,4 +1,4 @@
-import { baseBalanceOf, ethers, event, expect, makeProtocol, setTotalsBasic, wait } from './helpers';
+import { baseBalanceOf, ethers, event, expect, makeProtocol, setTotalsBasic, wait } from './helper/helpers';
 
 describe('erc20', function () {
   it('has correct name', async () => {

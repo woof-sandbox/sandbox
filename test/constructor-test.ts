@@ -1,4 +1,4 @@
-import { ethers, exp, expect, makeProtocol, ONE } from './helpers';
+import { ethers, exp, expect, makeProtocol, ONE } from './helper/helpers';
 import {
   CometExt__factory,
   CometHarness__factory,

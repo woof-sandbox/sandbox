@@ -1,4 +1,4 @@
-import { expect, exp, makeProtocol } from './helpers';
+import { expect, exp, makeProtocol } from './helper/helpers';
 
 describe('isBorrowCollateralized', function () {
   it('defaults to true', async () => {

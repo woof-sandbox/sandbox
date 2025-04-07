@@ -1,4 +1,4 @@
-import { ethers, event, expect, exp, makeProtocol, portfolio, ReentryAttack, setTotalsBasic, wait, fastForward, defaultAssets } from './helpers';
+import { ethers, event, expect, exp, makeProtocol, portfolio, ReentryAttack, setTotalsBasic, wait, fastForward, defaultAssets } from './helper/helpers';
 import { EvilToken, EvilToken__factory, NonStandardFaucetFeeToken__factory, NonStandardFaucetFeeToken } from '../build/types';
 
 describe('supplyTo', function () {

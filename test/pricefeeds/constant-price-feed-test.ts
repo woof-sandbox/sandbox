@@ -1,4 +1,4 @@
-import { ethers, exp, expect, getBlock } from '../helpers';
+import { ethers, exp, expect, getBlock } from '../helper/helpers';
 import {
   ConstantPriceFeed__factory
 } from '../../build/types';

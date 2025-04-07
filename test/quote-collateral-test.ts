@@ -1,4 +1,4 @@
-import { expect, exp, makeProtocol } from './helpers';
+import { expect, exp, makeProtocol } from './helper/helpers';
 
 describe('quoteCollateral', function () {
   it('quotes the collateral correctly for a positive base amount', async () => {

@@ -3,7 +3,7 @@ import { expect } from 'chai';
 import { expectApproximately, expectBase, expectRevertCustom, expectRevertMatches, getExpectedBaseBalance, getInterest, isTriviallySourceable, isValidAssetIndex, MAX_ASSETS, UINT256_MAX } from './utils';
 import { ContractReceipt } from 'ethers';
 import { matchesDeployment } from './utils';
-import { exp } from '../test/helpers';
+import { exp } from '../test/helper/helpers';
 import { ethers } from 'hardhat';
 
 // XXX introduce a SupplyCapConstraint to separately test the happy path and revert path instead
@@ -509,6 +509,9 @@ scenario(
         symbol === 'WETH' ? /Transaction reverted without a reason string/ : /.^/,
         symbol === 'wstETH' ? /0xc2139725/ : /.^/,
         symbol === 'WMATIC' ? /Transaction reverted without a reason string/ : /.^/,
+        symbol === 'WPOL' ? /Transaction reverted without a reason string/ : /.^/,
+        symbol === 'sUSDS' ? /SUsds\/insufficient-allowance/ : /.^/,
+        symbol === 'COMP' ? /Transaction reverted and Hardhat couldn't infer the reason./ : /.^/,
       ]
     );
   }
@@ -595,6 +598,8 @@ scenario(
         symbol === 'WETH' ? /Transaction reverted without a reason string/ : /.^/,
         symbol === 'wstETH' ? /0x00b284f2/ : /.^/,
         symbol === 'WMATIC' ? /Transaction reverted without a reason string/ : /.^/,
+        symbol === 'WPOL' ? /Transaction reverted without a reason string/ : /.^/,
+        symbol === 'sUSDS' ? /SUsds\/insufficient-balance/ : /.^/,
       ]
     );
   }

@@ -1,4 +1,4 @@
-import { expect, exp, makeProtocol } from './helpers';
+import { expect, exp, makeProtocol } from './helper/helpers';
 
 /*
 Prices are set in terms of the base token (USDC with 6 decimals, by default):
