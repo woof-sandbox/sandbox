@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
-import "./IMarket.sol";
+import "./interfaces/IMarket.sol";
 import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
-import "./IConfigController.sol";
-import "./ISandboxController.sol";
+import "./interfaces/IConfigController.sol";
+import "./interfaces/ISandboxController.sol";
 import "hardhat/console.sol";
 
 contract MarketMock is IMarket, Initializable {
@@ -40,7 +40,7 @@ contract MarketMock is IMarket, Initializable {
         collateralTokens = _marketConfig.collateraTokens;
         collateralTokensCount = _marketConfig.collateraTokens.length;
         IConfigController _configController = IConfigController(_configControllerAddress);
-        ISandboxController.BaseAssetConfiguration memory baseAssetConfig = ISandboxController(_configController.sandboxController()).getBaseAssetByAddress(_marketConfig.baseToken);
+        ISandboxController.BaseAssetConfiguration memory baseAssetConfig = ISandboxController(_configController.sandboxController()).baseAssets(_marketConfig.baseToken);
 
         ISandboxController.BaseAssetCurve memory curve = baseAssetConfig.baseAssetCurves[_marketConfig.baseTokenCurveId];
         baseCurveParams = BaseCurveParams({

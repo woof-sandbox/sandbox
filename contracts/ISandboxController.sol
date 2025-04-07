@@ -73,7 +73,7 @@ interface ISandboxController {
 
     function isPriceFeedWhitelisted(address priceFeed) external view returns (bool);
 
-    function getBaseAssetByAddress(address _baseToken) external view returns (BaseAssetConfiguration memory);
+    function baseAssets(address _baseToken) external view returns (BaseAssetConfiguration memory);
     
-    function getCollateralAssetByAddress(address _collateralToken) external view returns (CollateralTokenConfig memory);
+    function collateralAssets(address _collateralToken) external view returns (CollateralTokenConfig memory);
 }

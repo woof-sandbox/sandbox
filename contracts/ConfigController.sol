@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
-import "./IConfigController.sol";
-import "./ISandboxController.sol";
-import "./IMarket.sol";
+import "./interfaces/IConfigController.sol";
+import "./interfaces/ISandboxController.sol";
+import "./interfaces/IMarket.sol";
 import "hardhat/console.sol";
-import "./IMarketFactory.sol";
+import "./interfaces/IMarketFactory.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract ConfigController is IConfigController {
@@ -14,7 +14,7 @@ contract ConfigController is IConfigController {
     address public override curator;
     address public override guardian;
     address public override sandboxController;
-    IMarketFactory public override marketFactory;
+    address public override marketFactory;
     address[] public override markets;
     uint public override marketsLength;
     uint public override curatorFee;
@@ -103,7 +103,7 @@ contract ConfigController is IConfigController {
         owner = owner_;
         guardian = guardian_;
         sandboxController = _sandboxController;
-        marketFactory = IMarketFactory(_marketFactory);
+        marketFactory = _marketFactory;
         curatorFee = _curatorFee;
         name = _name;
     }
@@ -115,12 +115,12 @@ contract ConfigController is IConfigController {
     /// @param addedCollateralTokens Array of already added collateral tokens
     function _validateCollateralTokenConfig(
         IConfigController.CollateralTokenConfig memory collateralTokenConfig,
-        ISandboxController.CollateralTokenConfig memory collateralAssetLimitations,
+        ISandboxController.CollateralAssetConfiguration memory collateralAssetLimitations,
         address[] memory addedCollateralTokens
     ) internal view {
         // Default checks
         if (collateralTokenConfig.collateralToken == ZERO_ADDRESS) revert ZeroAddress();
-        if (ISandboxController(sandboxController).getCollateralAssetByAddress(collateralTokenConfig.collateralToken).priceFeed == ZERO_ADDRESS) revert CollateralTokenNotWhitelisted();
+        if (ISandboxController(sandboxController).collateralAssets(collateralTokenConfig.collateralToken).priceFeed == ZERO_ADDRESS) revert CollateralTokenNotWhitelisted();
         if (!ISandboxController(sandboxController).isPriceFeedWhitelisted(collateralTokenConfig.priceFeed)) revert WrongPriceFeed();
         
         for (uint j; j < addedCollateralTokens.length; j++) {
@@ -215,7 +215,7 @@ contract ConfigController is IConfigController {
         MarketConfig memory _marketConfig
     ) override external onlyOwner returns(address) {
         if (_marketConfig.baseToken == ZERO_ADDRESS) revert ZeroAddress();
-        ISandboxController.BaseAssetConfiguration memory baseAssetConfig = ISandboxController(sandboxController).getBaseAssetByAddress(_marketConfig.baseToken);
+        ISandboxController.BaseAssetConfiguration memory baseAssetConfig = ISandboxController(sandboxController).baseAssets(_marketConfig.baseToken);
         if (baseAssetConfig.priceFeed == ZERO_ADDRESS) revert BaseTokenNotWhitelisted();
 
         if (!ISandboxController(sandboxController).isPriceFeedWhitelisted(_marketConfig.priceFeed)) revert WrongPriceFeed();
@@ -227,13 +227,13 @@ contract ConfigController is IConfigController {
         // Gas saving
         uint length = _marketConfig.collateraTokens.length;
         CollateralTokenConfig memory collateralTokenConfig;
-        ISandboxController.CollateralTokenConfig memory collateralAssetLimitations;
+        ISandboxController.CollateralAssetConfiguration memory collateralAssetLimitations;
         address[] memory addedCollateralTokens = new address[](length);
         
         for (uint i; i < length;) {
             unchecked {
                 collateralTokenConfig = _marketConfig.collateraTokens[i]; 
-                collateralAssetLimitations = ISandboxController(sandboxController).getCollateralAssetByAddress(collateralTokenConfig.collateralToken);
+                collateralAssetLimitations = ISandboxController(sandboxController).collateralAssets(collateralTokenConfig.collateralToken);
                 
                 // Default checks
                 if (collateralTokenConfig.collateralToken == _marketConfig.baseToken) revert WrongCollateralTokenSettings(); 
@@ -250,7 +250,7 @@ contract ConfigController is IConfigController {
         unchecked {
             marketsLength++;
         }
-        markets.push(marketFactory.createMarket(_marketConfig));
+        markets.push(IMarketFactory(marketFactory).createMarket(_marketConfig));
         emit MarketConfigurationCreated(
             markets[marketsLength - 1],
             _marketConfig.baseToken,
@@ -341,12 +341,12 @@ contract ConfigController is IConfigController {
         // Gas saving
         uint length = _collateralTokens.length;
         IConfigController.CollateralTokenConfig memory collateralTokenConfig;
-        ISandboxController.CollateralTokenConfig memory collateralAssetLimitations;
+        ISandboxController.CollateralAssetConfiguration memory collateralAssetLimitations;
         address[] memory addedCollateralTokens = new address[](length);
         for (uint i; i < length;) {
             unchecked {
                 collateralTokenConfig = _collateralTokens[i];
-                collateralAssetLimitations = ISandboxController(sandboxController).getCollateralAssetByAddress(collateralTokenConfig.collateralToken);
+                collateralAssetLimitations = ISandboxController(sandboxController).collateralAssets(collateralTokenConfig.collateralToken);
                 
                 _validateCollateralTokenConfig(
                     collateralTokenConfig, 

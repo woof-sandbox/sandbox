@@ -251,11 +251,9 @@ contract SandboxController is ISandboxController {
             revert InvalidCurveConfiguration();
         }
 
-        {
-            (, int256 answer, , , ) = IPriceFeed(priceFeed).latestRoundData();
-            if (answer <= 0) {
-                revert InvalidPriceFeed();
-            }
+        (, int256 answer, , , ) = IPriceFeed(priceFeed).latestRoundData();
+        if (answer <= 0) {
+            revert InvalidPriceFeed();
         }
 
         uint8 decimals = IERC20NonStandard(token).decimals();
@@ -323,13 +321,12 @@ contract SandboxController is ISandboxController {
         ) {
             revert InvalidFactors();
         }
-        {
-            (, int256 answer, , , ) = IPriceFeed(priceFeed).latestRoundData();
-            if (answer <= 0) {
-                revert InvalidPriceFeed();
-            }
+        
+        (, int256 answer, , , ) = IPriceFeed(priceFeed).latestRoundData();
+        if (answer <= 0) {
+            revert InvalidPriceFeed();
         }
-
+    
         uint256 decimals = IERC20NonStandard(token).decimals();
 
         _collateralAssets[token].collateralToken = token;

@@ -27,14 +27,14 @@ describe('ConfigController', () => {
                 owner,
                 curator,
                 guardian,
-                sandboxControllerMock,
+                sandboxController,
                 marketFactory
             } = await makeConfigController();
 
             expect(await configController.owner()).to.equal(owner.address);
             expect(await configController.curator()).to.equal(curator.address);
             expect(await configController.guardian()).to.equal(guardian.address);
-            expect(await configController.sandboxController()).to.equal(sandboxControllerMock.address);
+            expect(await configController.sandboxController()).to.equal(sandboxController.address);
             expect(await configController.marketFactory()).to.equal(marketFactory.address);
             expect(await configController.curatorFee()).to.equal(1000); // 10%
             expect(await configController.name()).to.equal("ConfigController");
@@ -81,7 +81,7 @@ describe('Create Market', () => {
             unsupportedToken,
             priceFeeds,
             owner,
-            sandboxControllerMock
+            sandboxController
         } = await makeConfigController();
         
         let marketConfig: MarketConfigStruct = {
@@ -115,7 +115,7 @@ describe('Create Market', () => {
         expect(await marketContract.baseToken()).to.eq(tokens[await baseToken.symbol()].address);
         expect(await marketContract.priceFeed()).to.eq(priceFeeds[await baseToken.symbol()].address);
         // Get base asset configuration from sandbox controller
-        const baseAssetConfig = await sandboxControllerMock.getBaseAssetByAddress(baseToken.address);
+        const baseAssetConfig = await sandboxController.baseAssets(baseToken.address);
         const curve = baseAssetConfig.baseAssetCurves[0];
 
         // Verify curve parameters
@@ -1216,7 +1216,7 @@ describe('Create Market', () => {
         });
     });
 
-    describe.only('Market Configuration Proposals', () => {
+    describe('Market Configuration Proposals', () => {
         async function createMarket(
             configController: ConfigController,
             tokens: Record<string, FaucetToken | NonStandardFaucetFeeToken>,
@@ -1253,11 +1253,10 @@ describe('Create Market', () => {
             return marketAddress;
         }
 
-        it.only('should allow owner to create proposal', async () => {
+        it('should allow owner to create proposal', async () => {
             const { configController, tokens, baseToken, priceFeeds, owner } = await makeConfigController();
-            console.log(await configController.owner());
             const market = await createMarket(configController, tokens, baseToken, priceFeeds);
-            console.log(market);
+
             const collateralTokens = [{
                 collateralToken: tokens["COMP"].address,
                 priceFeed: priceFeeds["COMP"].address,

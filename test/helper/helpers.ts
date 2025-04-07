@@ -147,7 +147,7 @@ export type Protocol = {
     [symbol: string]: SimplePriceFeed;
   };
   configController: ConfigController;
-  sandboxControllerMock: ISandboxController;
+  sandboxController: ISandboxController;
   marketImpl: IMarket;
   marketFactory: MarketFactory;
   owner: SignerWithAddress;
@@ -385,7 +385,6 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
   const baseToken = tokens[base];
 
   // --- Whitelist the base token ---
-  console.log("whitelisting base token");
   await sandboxController.whitelistBaseAsset(
     tokens[base].address,
     priceFeeds[base].address,
@@ -401,7 +400,6 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
     },
     baseBorrowMin
   )
-  console.log("whitelisted base token");
   // --- Whitelist the collateral tokens ---
   for (const asset in assets) {
     if (asset == base) continue;
@@ -417,7 +415,6 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
         opts.assets[asset].maxLiquidationFactor
       );
     } else {
-      console.log("whitelisting collateral token", asset);
       await sandboxController.whitelistCollateralAsset(
         tokens[asset].address,
         priceFeeds[asset].address,
@@ -429,7 +426,6 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
         exp(0.9, 18),
       );
     }
-    console.log("whitelisted collateral token");
   }
   
   // Deploy ConfigController.

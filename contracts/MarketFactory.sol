@@ -2,8 +2,8 @@
 pragma solidity 0.8.28;
 
 import "@openzeppelin/contracts/proxy/Clones.sol";
-import "./IMarket.sol";
-import "./IMarketFactory.sol";
+import "./interfaces/IMarket.sol";
+import "./interfaces/IMarketFactory.sol";
 
 contract MarketFactory is IMarketFactory {
     address public immutable implementation;
