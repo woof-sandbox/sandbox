@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
-interface ISandboxController2 {
+interface ISandboxController {
     
     /// @notice Structure to store base asset configuration.
     struct BaseAssetConfiguration {
@@ -73,7 +73,7 @@ interface ISandboxController2 {
 
     function isPriceFeedWhitelisted(address priceFeed) external view returns (bool);
 
-    function getBaseAssetByAddress(address _baseToken) external view returns (BaseAssetConfiguration memory);
+    function baseAssets(address _baseToken) external view returns (BaseAssetConfiguration memory);
     
-    function getCollateralAssetByAddress(address _collateralToken) external view returns (CollateralTokenConfig memory);
+    function collateralAssets(address _collateralToken) external view returns (CollateralTokenConfig memory);
 }

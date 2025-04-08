@@ -5,7 +5,6 @@ import "@openzeppelin/contracts/proxy/Clones.sol";
 import "./interfaces/IMarket.sol";
 import "./interfaces/IMarketFactory.sol";
 
-
 contract MarketFactory is IMarketFactory {
     address public immutable implementation;
     address[] public markets;
@@ -19,11 +18,9 @@ contract MarketFactory is IMarketFactory {
         IConfigController.MarketConfig memory _marketConfig
     ) external override returns (address) {
         address market = Clones.clone(implementation);
-        IMarket(market).initialize(_marketConfig);
-        
         markets.push(market);
+        IMarket(market).initialize(_marketConfig, msg.sender);
         lastMarket++;
-
         return market;
     }
 

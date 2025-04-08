@@ -10,111 +10,35 @@ import {ISandboxController} from "./interfaces/ISandboxController.sol";
  * @dev Manages base asset configurations and interest rate curves.
  */
 contract SandboxController is ISandboxController {
-    address public owner;
-    address public dao;
-
     uint256 public protocolFactorBorrow;
     uint256 public reserveFactorBorrow;
     uint256 public protocolFactorLiquidation;
     uint256 public reserveFactorLiquidation;
     uint256 public maxCollateralAssets;
 
-    uint256 public storeFrontPriceFactor;
-    uint256 public minUpdateTime;
-    uint256 public suggestedAmountOfSeedReserves;
-    uint256 public suggestedLockTimeOfSeedReserves;
+    uint256 public targetReserves;
 
     uint256 public baseAssetCount;
     uint256 public collateralAssetCount;
 
+    address public treasury;
+    address public owner;
+    address public dao;
+    
     bool public feeEnabled;
+
+    SandboxControllerConfiguration public controllerConfiguration;
 
     address[] public baseAssetTokens;
     address[] public collateralAssetTokens;
 
-    mapping(address => ISandboxController.BaseAssetConfiguration)  private _baseAssets;
-    mapping(address => ISandboxController.CollateralAssetConfiguration) private _collateralAssets;
-    
     mapping(address => bool) public isPriceFeedWhitelisted;
+    mapping(MarketState => uint256) public reserveCommission;
+    mapping(MarketState => uint256) public protocolCommission;
+    mapping(MarketState => uint256) public threshold;
 
-    /**
-     * @dev Set all global parameters (including owner and DAO) at deployment.
-     *
-     * @param _owner  The address of the protocol owner.
-     * @param _dao    The address of the DAO (governance).
-     * @param _feeEnabled Global fee flag for the entire protocol.
-     * @param _storeFrontPriceFactor Must be < 1e18.
-     * @param _protocolFactorBorrow  Nonzero. Will combine with reserveFactorBorrow.
-     * @param _reserveFactorBorrow   Nonzero. Sum with _protocolFactorBorrow <= 1e18.
-     * @param _protocolFactorLiquidation Nonzero. Sum with _reserveFactorLiquidation <= 1e18.
-     * @param _reserveFactorLiquidation  Nonzero.
-     * @param _minUpdateTime             Nonzero.
-     * @param _maxCollateralAssets       > 0
-     * @param _suggestedAmountOfSeedReserves  > 0
-     * @param _suggestedLockTimeOfSeedReserves > 0
-     */
-    constructor(
-        address _owner,
-        address _dao,
-        bool _feeEnabled,
-        uint256 _storeFrontPriceFactor,
-        uint256 _protocolFactorBorrow,
-        uint256 _reserveFactorBorrow,
-        uint256 _protocolFactorLiquidation,
-        uint256 _reserveFactorLiquidation,
-        uint256 _minUpdateTime,
-        uint256 _maxCollateralAssets,
-        uint256 _suggestedAmountOfSeedReserves,
-        uint256 _suggestedLockTimeOfSeedReserves
-    ) {
-        if (_owner == address(0) || _dao == address(0)) {
-            revert ZeroAddress();
-        }
-        if (_owner == _dao) {
-            revert InvalidFactors();
-        }
-        owner = _owner;
-        dao = _dao;
-
-        feeEnabled = _feeEnabled;
-        if (_storeFrontPriceFactor >= 1e18) {
-            revert InvalidFactors();
-        }
-        storeFrontPriceFactor = _storeFrontPriceFactor;
-
-        if (
-            _protocolFactorBorrow == 0 ||
-            _reserveFactorBorrow == 0 ||
-            (_protocolFactorBorrow + _reserveFactorBorrow) > 1e18
-        ) {
-            revert InvalidFactors();
-        }
-        protocolFactorBorrow = _protocolFactorBorrow;
-        reserveFactorBorrow = _reserveFactorBorrow;
-
-        if (
-            _protocolFactorLiquidation == 0 ||
-            _reserveFactorLiquidation == 0 ||
-            (_protocolFactorLiquidation + _reserveFactorLiquidation) > 1e18
-        ) {
-            revert InvalidFactors();
-        }
-        protocolFactorLiquidation = _protocolFactorLiquidation;
-        reserveFactorLiquidation = _reserveFactorLiquidation;
-
-        if (
-            _minUpdateTime == 0 ||
-            _maxCollateralAssets == 0 ||
-            _suggestedAmountOfSeedReserves == 0 ||
-            _suggestedLockTimeOfSeedReserves == 0
-        ) {
-            revert InvalidFactors();
-        }
-        minUpdateTime = _minUpdateTime;
-        maxCollateralAssets = _maxCollateralAssets;
-        suggestedAmountOfSeedReserves = _suggestedAmountOfSeedReserves;
-        suggestedLockTimeOfSeedReserves = _suggestedLockTimeOfSeedReserves;
-    }
+    mapping(address => BaseAssetConfiguration) private _baseAssets;
+    mapping(address => CollateralAssetConfiguration) private _collateralAssets;
 
     modifier onlyOwner() {
         if (msg.sender != owner) revert NotOwner(msg.sender);
@@ -136,6 +60,167 @@ contract SandboxController is ISandboxController {
             revert NotAuthorized(msg.sender);
         }
         _;
+    }
+
+    /**
+     * @dev Set all global parameters (including owner and DAO) at deployment.
+     *
+     * @param _owner  The address of the protocol owner.
+     * @param _dao    The address of the DAO (governance).
+     * @param _feeEnabled Global fee flag for the entire protocol.
+     * @param _protocolFactorBorrow  Nonzero. Will combine with reserveFactorBorrow.
+     * @param _reserveFactorBorrow   Nonzero. Sum with _protocolFactorBorrow <= 1e18.
+     * @param _protocolFactorLiquidation Nonzero. Sum with _reserveFactorLiquidation <= 1e18.
+     * @param _reserveFactorLiquidation  Nonzero.
+     * @param _maxCollateralAssets       > 0
+     * @param _targetReserves            < 0.5 (50%)
+     * @param _storeFrontPriceFactor     < 1e18
+     * @param _minUpdateTime             > 0
+     * @param _suggestedAmountOfSeedReserves > 0
+     * @param _suggestedLockTimeOfSeedReserves > 0
+     */
+    constructor(
+        address _owner,
+        address _dao,
+        bool _feeEnabled,
+        uint256 _protocolFactorBorrow,
+        uint256 _reserveFactorBorrow,
+        uint256 _protocolFactorLiquidation,
+        uint256 _reserveFactorLiquidation,
+        uint256 _maxCollateralAssets,
+        uint256 _targetReserves,
+        uint256 _storeFrontPriceFactor,
+        uint256 _minUpdateTime,
+        uint256 _suggestedAmountOfSeedReserves,
+        uint256 _suggestedLockTimeOfSeedReserves
+    ) {
+        if (_owner == address(0) || _dao == address(0)) {
+            revert ZeroAddress();
+        }
+        if (_owner == _dao) {
+            revert InvalidFactors();
+        }
+        owner = _owner;
+        dao = _dao;
+
+        feeEnabled = _feeEnabled;
+
+        if (
+            _protocolFactorBorrow == 0 ||
+            _reserveFactorBorrow == 0 ||
+            (_protocolFactorBorrow + _reserveFactorBorrow) > 1e18 ||
+            _protocolFactorLiquidation == 0 ||
+            _reserveFactorLiquidation == 0 ||
+            (_protocolFactorLiquidation + _reserveFactorLiquidation) > 1e18 ||
+            _maxCollateralAssets == 0 ||
+            _targetReserves > 5e17 ||
+            _storeFrontPriceFactor >= 1e18 ||
+            _minUpdateTime == 0 ||
+            _suggestedAmountOfSeedReserves == 0 ||
+            _suggestedLockTimeOfSeedReserves == 0
+        ) {
+            revert InvalidFactors();
+        }
+
+        protocolFactorBorrow = _protocolFactorBorrow;
+        reserveFactorBorrow = _reserveFactorBorrow;
+        protocolFactorLiquidation = _protocolFactorLiquidation;
+        reserveFactorLiquidation = _reserveFactorLiquidation;
+        maxCollateralAssets = _maxCollateralAssets;
+        targetReserves = _targetReserves;
+        controllerConfiguration = SandboxControllerConfiguration(
+            _storeFrontPriceFactor,
+            _minUpdateTime,
+            _suggestedAmountOfSeedReserves,
+            _suggestedLockTimeOfSeedReserves
+        );
+    }
+
+    /**
+     * @notice Sets the target reserves factor.
+     * @param _targetReserves The target reserves factor, scaled by 1e18.
+     * @dev Must be less than 0.5 (50%).
+     */
+    function setTargetReserves(uint256 _targetReserves) external onlyOwner {
+        if (_targetReserves > 5e17) {
+            revert InvalidFactors();
+        }
+        uint256 oldTargetReserves = targetReserves;
+        targetReserves = _targetReserves;
+        emit TargetReservesChanged(oldTargetReserves, _targetReserves);
+    }
+
+    /**
+     * @notice Sets the threshold factors for each market state.
+     * @param thresholds The new threshold factors, scaled by 1e18.
+     */
+    function setThresholds(uint256[3] calldata thresholds) external onlyOwner {
+        for (uint256 i = 0; i < 3; i++) {
+            if (thresholds[i] >= 1e18) {
+                revert InvalidFactors();
+            }
+            MarketState state = MarketState(i);
+            uint256 oldValue = threshold[state];
+            threshold[state] = thresholds[i];
+            emit ThresholdChanged(state, oldValue, thresholds[i]);
+        }
+    }
+
+    /**
+     * @notice Sets the reserve commission factors for each market state.
+     * @param reserveCommissions The new reserve commission factors, scaled by 1e18.
+     */
+    function setReserveCommissions(
+        uint256[3] calldata reserveCommissions
+    ) external onlyOwner {
+        for (uint256 i = 0; i < 3; i++) {
+            MarketState state = MarketState(i);
+            if (reserveCommissions[i] + protocolCommission[state] > 8e17) {
+                revert InvalidFactors();
+            }
+            uint256 oldValue = reserveCommission[state];
+            reserveCommission[state] = reserveCommissions[i];
+            emit ReserveCommissionChanged(
+                state,
+                oldValue,
+                reserveCommissions[i]
+            );
+        }
+    }
+
+    /**
+     * @notice Sets the protocol commission factors for each market state.
+     * @param protocolCommissions The new protocol commission factors, scaled by 1e18.
+     */
+    function setProtocolCommissions(
+        uint256[3] calldata protocolCommissions
+    ) external onlyOwner {
+        for (uint256 i = 0; i < 3; i++) {
+            MarketState state = MarketState(i);
+            if (protocolCommissions[i] + reserveCommission[state] > 8e17) {
+                revert InvalidFactors();
+            }
+            uint256 oldValue = protocolCommission[state];
+            protocolCommission[state] = protocolCommissions[i];
+            emit ProtocolCommissionChanged(
+                state,
+                oldValue,
+                protocolCommissions[i]
+            );
+        }
+    }
+
+    /**
+     * @notice Sets the treasury address.
+     * @param _treasury The address of the treasury.
+     */
+    function setTreasury(address _treasury) external onlyOwner {
+        if (_treasury == address(0)) {
+            revert ZeroAddress();
+        }
+        address oldTreasury = treasury;
+        treasury = _treasury;
+        emit TreasuryChanged(oldTreasury, _treasury);
     }
 
     /**
@@ -165,11 +250,9 @@ contract SandboxController is ISandboxController {
             revert InvalidCurveConfiguration();
         }
 
-        {
-            (, int256 answer, , , ) = IPriceFeed(priceFeed).latestRoundData();
-            if (answer <= 0) {
-                revert InvalidPriceFeed();
-            }
+        (, int256 answer, , , ) = IPriceFeed(priceFeed).latestRoundData();
+        if (answer <= 0) {
+            revert InvalidPriceFeed();
         }
 
         uint8 decimals = IERC20NonStandard(token).decimals();
@@ -193,12 +276,11 @@ contract SandboxController is ISandboxController {
         );
     }
 
-      /**
+    /**
      * @notice Whitelists a new collateral asset with its full configuration and price feed.
      * @dev Includes additional validation on the factors.
      * @param token The address of the collateral token.
      * @param priceFeed The price feed contract address for the collateral.
-     * @param decimals The decimals for this token (for front-end calculations).
      * @param maxBorrowCollateralFactor The maximum borrow collateral factor, scaled by 1e4, e.g., 8000 = 80%.
      * @param minBorrowCollateralFactor The minimum borrow collateral factor, scaled by 1e4.
      * @param minLiquidateCollateralFactor The minimum collateral factor at which liquidation can start.
@@ -209,9 +291,8 @@ contract SandboxController is ISandboxController {
     function whitelistCollateralAsset(
         address token,
         address priceFeed,
-        uint256 decimals,
-        uint64 maxBorrowCollateralFactor,
         uint64 minBorrowCollateralFactor,
+        uint64 maxBorrowCollateralFactor,
         uint64 minLiquidateCollateralFactor,
         uint64 maxLiquidateCollateralFactor,
         uint64 minLiquidationFactor,
@@ -226,46 +307,38 @@ contract SandboxController is ISandboxController {
         if (isPriceFeedWhitelisted[priceFeed]) {
             revert PriceFeedAlreadyWhitelisted();
         }
-
         if (
             minBorrowCollateralFactor == 0 ||
             maxBorrowCollateralFactor == 0 ||
             minLiquidateCollateralFactor == 0 ||
             maxLiquidateCollateralFactor == 0 ||
             minLiquidationFactor == 0 ||
-            maxLiquidationFactor == 0
-        ) {
-            revert InvalidFactors(); // All must be nonzero
-        }
-        if (
+            maxLiquidationFactor == 0 ||
             minBorrowCollateralFactor > maxBorrowCollateralFactor ||
             minLiquidateCollateralFactor > maxLiquidateCollateralFactor ||
             minLiquidationFactor > maxLiquidationFactor
         ) {
             revert InvalidFactors();
         }
-        {
-            (, int256 answer, , , ) = IPriceFeed(priceFeed).latestRoundData();
-            if (answer <= 0) {
-                revert InvalidPriceFeed();
-            }
+        
+        (, int256 answer, , , ) = IPriceFeed(priceFeed).latestRoundData();
+        if (answer <= 0) {
+            revert InvalidPriceFeed();
         }
+    
+        uint256 decimals = IERC20NonStandard(token).decimals();
 
-        // OPTIONAL: cross-check token decimals
-        // uint8 decimalsFromToken = IERC20NonStandard(token).decimals();
-        // if (decimalsFromToken != decimals) {
-        //     // revert or decide how strictly you want to handle this
-        //     revert InvalidFactors();
-        // }
-
-        // Store in `_collateralAssets` mapping
         _collateralAssets[token].collateralToken = token;
         _collateralAssets[token].priceFeed = priceFeed;
-        _collateralAssets[token].decimals = decimals;
-        _collateralAssets[token].maxBorrowCollateralFactor = maxBorrowCollateralFactor;
-        _collateralAssets[token].minBorrowCollateralFactor = minBorrowCollateralFactor;
-        _collateralAssets[token].minLiquidateCollateralFactor = minLiquidateCollateralFactor;
-        _collateralAssets[token].maxLiquidateCollateralFactor = maxLiquidateCollateralFactor;
+        _collateralAssets[token].decimals = IERC20NonStandard(token).decimals();
+        _collateralAssets[token]
+            .maxBorrowCollateralFactor = maxBorrowCollateralFactor;
+        _collateralAssets[token]
+            .minBorrowCollateralFactor = minBorrowCollateralFactor;
+        _collateralAssets[token]
+            .minLiquidateCollateralFactor = minLiquidateCollateralFactor;
+        _collateralAssets[token]
+            .maxLiquidateCollateralFactor = maxLiquidateCollateralFactor;
         _collateralAssets[token].minLiquidationFactor = minLiquidationFactor;
         _collateralAssets[token].maxLiquidationFactor = maxLiquidationFactor;
 
@@ -287,40 +360,27 @@ contract SandboxController is ISandboxController {
         );
     }
 
-
     /**
      * @dev Emitted when a base asset is whitelisted.
-     * @param _storeFrontPriceFactor  The store front price factor.
-     * @param _minUpdateTime  The minimum update time.
-     * @param _suggestedAmountOfSeedReserves  The suggested amount of seed reserves.
-     * @param _suggestedLockTimeOfSeedReserves  The suggested lock time of seed reserves.
+     * @param _config Configuration of the sandbox controller.
      */
     function setConfiguration(
-        uint256 _storeFrontPriceFactor,
-        uint256 _minUpdateTime,
-        uint256 _suggestedAmountOfSeedReserves,
-        uint256 _suggestedLockTimeOfSeedReserves
+        SandboxControllerConfiguration memory _config
     ) external onlyOwner {
         if (
-            _storeFrontPriceFactor >= 1e18 ||
-            _minUpdateTime == 0 ||
-            _suggestedAmountOfSeedReserves == 0 ||
-            _suggestedLockTimeOfSeedReserves == 0
+            _config.storeFrontPriceFactor >= 1e18 ||
+            _config.minUpdateTime == 0 ||
+            _config.suggestedAmountOfSeedReserves == 0 ||
+            _config.suggestedLockTimeOfSeedReserves == 0
         ) {
             revert InvalidFactors();
         }
 
-        storeFrontPriceFactor = _storeFrontPriceFactor;
-        minUpdateTime = _minUpdateTime;
-        suggestedAmountOfSeedReserves = _suggestedAmountOfSeedReserves;
-        suggestedLockTimeOfSeedReserves = _suggestedLockTimeOfSeedReserves;
+        SandboxControllerConfiguration
+            memory oldConfig = controllerConfiguration;
+        controllerConfiguration = _config;
 
-        emit ConfigChanged(
-            _storeFrontPriceFactor,
-            _minUpdateTime,
-            _suggestedAmountOfSeedReserves,
-            _suggestedLockTimeOfSeedReserves
-        );
+        emit ConfigurationChanged(oldConfig, _config);
     }
 
     /**
@@ -385,12 +445,41 @@ contract SandboxController is ISandboxController {
         emit BaseAssetCurveChanged(token, oldCurve, newCurve);
     }
 
+
+        /**
+     * @notice Transfers the owner privileges to a new address.
+     * @param newOwner The address of the new owner.
+     */
+    function transferOwner(address newOwner) external onlyOwner {
+        if (newOwner == address(0)) {
+            revert ZeroAddress();
+        }
+        address oldOwner = owner;
+        owner = newOwner;
+        emit OwnerTransferred(oldOwner, newOwner);
+    }
+
+        /**
+     * @notice Transfers the DAO privileges to a new address.
+     * @param newDao The address of the new DAO.
+     */
+    function transferDao(address newDao) external onlyDao {
+        if (newDao == address(0)) {
+            revert ZeroAddress();
+        }
+        address oldDao = dao;
+        dao = newDao;
+        emit DaoTransferred(oldDao, newDao);
+    }
+
     /**
      * @notice Checks if a token is whitelisted as a base asset.
      * @param token The address of the token.
      * @return True if the token is whitelisted, otherwise false.
      */
-    function isBaseTokenWhitelisted(address token) public override view returns (bool) {
+    function isBaseTokenWhitelisted(
+        address token
+    ) public view override returns (bool) {
         return _baseAssets[token].priceFeed != address(0);
     }
 
@@ -401,7 +490,7 @@ contract SandboxController is ISandboxController {
      */
     function isCollateralTokenWhitelisted(
         address token
-    ) public override view returns (bool) {
+    ) public view override returns (bool) {
         return _collateralAssets[token].priceFeed != address(0);
     }
 
@@ -416,7 +505,7 @@ contract SandboxController is ISandboxController {
         if (curve.supplyKink >= 1e18 || curve.borrowKink >= 1e18) {
             return false;
         }
-        if (curve.borrowPerYearInterestRateSlopeBase == 0) {
+        if (curve.borrowPerYearInterestRateBase == 0) {
             return false;
         }
 
@@ -424,34 +513,24 @@ contract SandboxController is ISandboxController {
     }
 
     /**
-     * @notice Transfers the owner privileges to a new address.
-     * @param newOwner The address of the new owner.
-     */
-    function transferOwner(address newOwner) external onlyOwner {
-        if (newOwner == address(0)) {
-            revert ZeroAddress();
-        }
-        address oldOwner = owner;
-        owner = newOwner;
-        emit OwnerTransferred(oldOwner, newOwner);
-    }
-
-
-    /**
      * @notice Returns base asset configuration for a given token.
      * @param token The address of the base asset token.
      *  @return The base asset configuration.
      */
-    function baseAssets(address token) external view returns (ISandboxController.BaseAssetConfiguration memory) {
+    function baseAssets(
+        address token
+    ) external view returns (BaseAssetConfiguration memory) {
         return _baseAssets[token];
     }
-    
+
     /**
      * @notice Returns collateral asset configuration for a given token.
      * @param token The address of the collateral asset token.
      *  @return The collateral asset configuration.
      */
-    function collateralAssets(address token) external view returns (ISandboxController.CollateralAssetConfiguration memory) {
+    function collateralAssets(
+        address token
+    ) external view returns (CollateralAssetConfiguration memory) {
         return _collateralAssets[token];
     }
 
@@ -460,20 +539,11 @@ contract SandboxController is ISandboxController {
      * @param token The address of the base asset token.
      * @return The base asset curves.
      */
-    function getBaseAssetCurves(address token) external view returns (BaseAssetCurve[] memory) {
+    function getBaseAssetCurves(
+        address token
+    ) external view returns (BaseAssetCurve[] memory) {
         return _baseAssets[token].baseAssetCurves;
     }
 
-    /**
-     * @notice Transfers the DAO privileges to a new address.
-     * @param newDao The address of the new DAO.
-     */
-    function transferDao(address newDao) external onlyDao {
-        if (newDao == address(0)) {
-            revert ZeroAddress();
-        }
-        address oldDao = dao;
-        dao = newDao;
-        emit DaoTransferred(oldDao, newDao);
-    }
+
 }
