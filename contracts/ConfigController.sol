@@ -4,7 +4,6 @@ pragma solidity 0.8.28;
 import "./interfaces/IConfigController.sol";
 import "./interfaces/ISandboxController.sol";
 import "./interfaces/IMarket.sol";
-import "hardhat/console.sol";
 import "./interfaces/IMarketFactory.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
@@ -366,7 +365,6 @@ contract ConfigController is IConfigController {
             proposer: msg.sender,
             isActive: true
         });
-        console.log(_marketProposals[market].expiration);
         emit MarketConfigProposed(
             market, 
             msg.sender, 

@@ -5,7 +5,6 @@ import "./interfaces/IMarket.sol";
 import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 import "./interfaces/IConfigController.sol";
 import "./interfaces/ISandboxController.sol";
-import "hardhat/console.sol";
 
 contract MarketMock is IMarket, Initializable {
     // Individual market config variables
