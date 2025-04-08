@@ -10,7 +10,6 @@ import {ISandboxController} from "./interfaces/ISandboxController.sol";
  * @dev Manages base asset configurations and interest rate curves.
  */
 contract SandboxController is ISandboxController {
-
     uint256 public protocolFactorBorrow;
     uint256 public reserveFactorBorrow;
     uint256 public protocolFactorLiquidation;
@@ -40,6 +39,28 @@ contract SandboxController is ISandboxController {
 
     mapping(address => BaseAssetConfiguration) private _baseAssets;
     mapping(address => CollateralAssetConfiguration) private _collateralAssets;
+
+    modifier onlyOwner() {
+        if (msg.sender != owner) revert NotOwner(msg.sender);
+        _;
+    }
+
+    modifier onlyDao() {
+        if (msg.sender != dao) revert NotDao(msg.sender);
+        _;
+    }
+
+    /**
+     * @dev Both owner and dao are considered "authorized."
+     *      If you want them to have separate powers, use onlyOwner or onlyDao
+     *      in the relevant functions. For shared powers, use onlyAuthorized.
+     */
+    modifier onlyAuthorized() {
+        if (msg.sender != owner && msg.sender != dao) {
+            revert NotAuthorized(msg.sender);
+        }
+        _;
+    }
 
     /**
      * @dev Set all global parameters (including owner and DAO) at deployment.
@@ -113,28 +134,6 @@ contract SandboxController is ISandboxController {
             _suggestedAmountOfSeedReserves,
             _suggestedLockTimeOfSeedReserves
         );
-    }
-
-    modifier onlyOwner() {
-        if (msg.sender != owner) revert NotOwner(msg.sender);
-        _;
-    }
-
-    modifier onlyDao() {
-        if (msg.sender != dao) revert NotDao(msg.sender);
-        _;
-    }
-
-    /**
-     * @dev Both owner and dao are considered "authorized."
-     *      If you want them to have separate powers, use onlyOwner or onlyDao
-     *      in the relevant functions. For shared powers, use onlyAuthorized.
-     */
-    modifier onlyAuthorized() {
-        if (msg.sender != owner && msg.sender != dao) {
-            revert NotAuthorized(msg.sender);
-        }
-        _;
     }
 
     /**
