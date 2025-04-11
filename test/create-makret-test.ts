@@ -12,25 +12,34 @@ import {
     totalsAndReserves,
     wait,
     bumpTotalsCollateral,
-    setTotalsBasic
+    setTotalsBasic,
 } from './helper/helpers';
-import { MarketConfigStruct } from '../build/types/ConfigController';
-import { ISandboxMarket } from '../build/types';
+import { ISandboxMarket, IConfigController, SandboxMarket } from '../build/types';
+import { BaseAssetCurveStruct, MarketConfigStruct } from '../build/types/ConfigController';
 
 describe('Create Market', () => {
+
+
     it('should create a market', async () => {
         const {
             configController,
             tokens,
             baseToken,
             unsupportedToken,
-            
             priceFeeds,
+            curve,
+            seedReserves
         } = await makeConfigController();
+
+
 
         let marketConfig: MarketConfigStruct = {
             baseToken: baseToken.address,
-            priceFeed: priceFeeds[await baseToken.symbol()].address,
+            config: {
+                priceFeed: priceFeeds[await baseToken.symbol()].address,
+                decimals: 18,
+                curve
+            },
             collateralTokens: []
         };
 
@@ -40,6 +49,7 @@ describe('Create Market', () => {
                     collateralToken: tokens[token].address,
                     config: {
                         priceFeed: priceFeeds[token].address,
+                        decimals: 18,
                         borrowCollateralFactor: factor(0.6),
                         liquidateCollateralFactor: factor(0.7),
                         liquidationFactor: factor(0.8),
@@ -48,6 +58,9 @@ describe('Create Market', () => {
                 });
             }
         }
+
+        await baseToken.approve(configController.address, seedReserves);
+
         const createMarketTx = await configController.createMarket(marketConfig);
         const createMarketReceipt = await createMarketTx.wait();
         const [createMarketEvents] = createMarketReceipt.events?.filter((event) => event.event === 'MarketConfigurationCreated');
@@ -55,7 +68,8 @@ describe('Create Market', () => {
         const marketContract: ISandboxMarket = <ISandboxMarket>await ethers.getContractAt('ISandboxMarket', marketAddress);
 
         expect(await marketContract.baseToken()).to.eq(tokens[await baseToken.symbol()].address);
-        expect(await marketContract.priceFeed()).to.eq(priceFeeds[await baseToken.symbol()].address);
+        const colTokens = await marketContract.getCollateralTokens();
+
         for (let token in tokens) {
             if (token != await baseToken.symbol()) {
                 const collateralTokenConfig = await marketContract.getCollateralTokenConfig(tokens[token].address);
@@ -67,14 +81,12 @@ describe('Create Market', () => {
             }
         }
 
-        const collateralTokens = await marketContract.getCollateralTokens();
-
-        const unsupportedTokenConfig = collateralTokens.find(
+        const unsupportedTokenConfig = colTokens.find(
             (collateralToken) => collateralToken === unsupportedToken.address
         );
         expect(unsupportedTokenConfig).to.be.undefined;
 
-        const baseTokenConfig = collateralTokens.find(
+        const baseTokenConfig = colTokens.find(
             (collateralToken) => collateralToken === baseToken.address
         );
         expect(baseTokenConfig).to.be.undefined;
@@ -89,10 +101,18 @@ describe('Create Market', () => {
             tokens,
             baseToken,
             priceFeeds,
+            curve,
+            seedReserves
         } = await makeConfigController();
+
+
         let marketConfig: MarketConfigStruct = {
             baseToken: baseToken.address,
-            priceFeed: priceFeeds[await baseToken.symbol()].address,
+            config: {
+                priceFeed: priceFeeds[await baseToken.symbol()].address,
+                decimals: 18,
+                curve
+            },
             collateralTokens: []
         };
 
@@ -102,6 +122,7 @@ describe('Create Market', () => {
                     collateralToken: tokens[token].address,
                     config: {
                         priceFeed: priceFeeds[token].address,
+                        decimals: 18,
                         borrowCollateralFactor: factor(0.6),
                         liquidateCollateralFactor: factor(0.7),
                         liquidationFactor: factor(0.8),
@@ -111,6 +132,8 @@ describe('Create Market', () => {
             }
         }
 
+        await baseToken.approve(configController.address, seedReserves);
+        
         await expect(configController.createMarket(marketConfig))
             .to.emit(configController, 'MarketConfigurationCreated')
             .withArgs(
@@ -127,11 +150,18 @@ describe('Create Market', () => {
             tokens,
             baseToken,
             priceFeeds,
+            curve,
+            seedReserves
         } = await makeConfigController();
+
 
         let marketConfig: MarketConfigStruct = {
             baseToken: baseToken.address,
-            priceFeed: priceFeeds[await baseToken.symbol()].address,
+            config: {
+                priceFeed: priceFeeds[await baseToken.symbol()].address,
+                decimals: 18,
+                curve
+            },
             collateralTokens: []
         };
 
@@ -141,6 +171,7 @@ describe('Create Market', () => {
                     collateralToken: tokens[token].address,
                     config: {
                         priceFeed: priceFeeds[token].address,
+                        decimals: 18,
                         borrowCollateralFactor: factor(0.6),
                         liquidateCollateralFactor: factor(0.7),
                         liquidationFactor: factor(0.8),
@@ -149,6 +180,8 @@ describe('Create Market', () => {
                 });
             }
         }
+
+        await baseToken.approve(configController.address, seedReserves);
 
         await expect(
             configController.connect(ethers.provider.getSigner(2)).createMarket(marketConfig)
@@ -161,11 +194,18 @@ describe('Create Market', () => {
             tokens,
             baseToken,
             priceFeeds,
+            curve,
+            seedReserves
         } = await makeConfigController();
+
 
         let marketConfig: MarketConfigStruct = {
             baseToken: ethers.constants.AddressZero,
-            priceFeed: priceFeeds[await baseToken.symbol()].address,
+            config: {
+                priceFeed: priceFeeds[await baseToken.symbol()].address,
+                decimals: 18,
+                curve
+            },
             collateralTokens: []
         };
 
@@ -175,6 +215,7 @@ describe('Create Market', () => {
                     collateralToken: tokens[token].address,
                     config: {
                         priceFeed: priceFeeds[token].address,
+                        decimals: 18,
                         borrowCollateralFactor: factor(0.6),
                         liquidateCollateralFactor: factor(0.7),
                         liquidationFactor: factor(0.8),
@@ -183,6 +224,7 @@ describe('Create Market', () => {
                 });
             }
         }
+        await baseToken.approve(configController.address, seedReserves);
 
         await expect(configController.createMarket(marketConfig)).to.be.revertedWithCustomError(
             configController,
@@ -195,11 +237,18 @@ describe('Create Market', () => {
             configController,
             tokens,
             baseToken,
+            curve,
+            seedReserves
         } = await makeConfigController();
+
 
         let marketConfig: MarketConfigStruct = {
             baseToken: baseToken.address,
-            priceFeed: ethers.constants.AddressZero,
+            config: {
+                priceFeed: ethers.constants.AddressZero,
+                decimals: 18,
+                curve
+            },
             collateralTokens: []
         };
 
@@ -209,6 +258,7 @@ describe('Create Market', () => {
                     collateralToken: tokens[token].address,
                     config: {
                         priceFeed: ethers.constants.AddressZero,
+                        decimals: 18,
                         borrowCollateralFactor: factor(0.6),
                         liquidateCollateralFactor: factor(0.7),
                         liquidationFactor: factor(0.8),
@@ -217,7 +267,7 @@ describe('Create Market', () => {
                 });
             }
         }
-
+        await baseToken.approve(configController.address, seedReserves);
         await expect(configController.createMarket(marketConfig)).to.be.revertedWithCustomError(
             configController,
             'ZeroAddress'
@@ -230,11 +280,17 @@ describe('Create Market', () => {
             tokens,
             baseToken,
             priceFeeds,
+            curve
         } = await makeConfigController();
+
 
         let marketConfig: MarketConfigStruct = {
             baseToken: baseToken.address,
-            priceFeed: priceFeeds[await baseToken.symbol()].address,
+            config: {
+                priceFeed: priceFeeds[await baseToken.symbol()].address,
+                decimals: 18,
+                curve
+            },
             collateralTokens: []
         };
 
@@ -244,6 +300,7 @@ describe('Create Market', () => {
                     collateralToken: ethers.constants.AddressZero,
                     config: {
                         priceFeed: priceFeeds[token].address,
+                        decimals: 18,
                         borrowCollateralFactor: factor(0.6),
                         liquidateCollateralFactor: factor(0.7),
                         liquidationFactor: factor(0.8),
@@ -265,29 +322,37 @@ describe('Create Market', () => {
             tokens,
             baseToken,
             priceFeeds,
+            curve,
+            seedReserves
         } = await makeConfigController();
+
 
         let marketConfig: MarketConfigStruct = {
             baseToken: baseToken.address,
-            priceFeed: priceFeeds[await baseToken.symbol()].address,
+            config: {
+                priceFeed: priceFeeds[await baseToken.symbol()].address,
+                decimals: 18,
+                curve
+            },
             collateralTokens: []
         };
 
-                marketConfig.collateralTokens.push({
-                    collateralToken: baseToken.address,
-                    config: {
-                        priceFeed: priceFeeds[await baseToken.symbol()].address,
-                        borrowCollateralFactor: factor(0.6),
-                        liquidateCollateralFactor: factor(0.7),
-                        liquidationFactor: factor(0.8),
-                        supplyCap: exp(1_000_000, 6)
-                    }
-                });
+        marketConfig.collateralTokens.push({
+            collateralToken: baseToken.address,
+            config: {
+                priceFeed: priceFeeds[await baseToken.symbol()].address,
+                decimals: 18,
+                borrowCollateralFactor: factor(0.6),
+                liquidateCollateralFactor: factor(0.7),
+                liquidationFactor: factor(0.8),
+                supplyCap: exp(1_000_000, 6)
+            }
+        });
 
-
+        await baseToken.approve(configController.address, seedReserves);
         await expect(configController.createMarket(marketConfig)).to.be.revertedWithCustomError(
             configController,
-            'WrongCollateralTokenSettings'
+            'InvalidFactors'
         );
     });
 
@@ -297,11 +362,18 @@ describe('Create Market', () => {
             tokens,
             baseToken,
             priceFeeds,
+            sandboxController,
+            curve,
+            seedReserves
         } = await makeConfigController();
 
         let marketConfig: MarketConfigStruct = {
             baseToken: baseToken.address,
-            priceFeed: priceFeeds[await baseToken.symbol()].address,
+            config: {
+                priceFeed: priceFeeds[await baseToken.symbol()].address,
+                decimals: 18,
+                curve
+            },
             collateralTokens: []
         };
 
@@ -311,6 +383,7 @@ describe('Create Market', () => {
                     collateralToken: tokens[token].address,
                     config: {
                         priceFeed: ethers.constants.AddressZero,
+                        decimals: 18,
                         borrowCollateralFactor: factor(0.6),
                         liquidateCollateralFactor: factor(0.7),
                         liquidationFactor: factor(0.8),
@@ -319,6 +392,8 @@ describe('Create Market', () => {
                 });
             }
         }
+
+        await baseToken.approve(configController.address, seedReserves);
 
         await expect(configController.createMarket(marketConfig)).to.be.revertedWithCustomError(
             configController,
@@ -332,11 +407,17 @@ describe('Create Market', () => {
             tokens,
             baseToken,
             priceFeeds,
+            curve,
+            seedReserves
         } = await makeConfigController();
 
         let marketConfig: MarketConfigStruct = {
             baseToken: baseToken.address,
-            priceFeed: priceFeeds[await baseToken.symbol()].address,
+            config: {
+                priceFeed: priceFeeds[await baseToken.symbol()].address,
+                decimals: 18,
+                curve
+            },
             collateralTokens: []
         };
 
@@ -344,6 +425,7 @@ describe('Create Market', () => {
             collateralToken: tokens['COMP'].address,
             config: {
                 priceFeed: priceFeeds['COMP'].address,
+                decimals: 18,
                 borrowCollateralFactor: factor(0.6),
                 liquidateCollateralFactor: factor(0.7),
                 liquidationFactor: factor(0.8),
@@ -354,12 +436,15 @@ describe('Create Market', () => {
             collateralToken: tokens['COMP'].address,
             config: {
                 priceFeed: priceFeeds['COMP'].address,
+                decimals: 18,
                 borrowCollateralFactor: factor(0.6),
                 liquidateCollateralFactor: factor(0.7),
                 liquidationFactor: factor(0.8),
                 supplyCap: exp(1_000_000, 6)
             }
         });
+
+        await baseToken.approve(configController.address, seedReserves);
 
         await expect(configController.createMarket(marketConfig)).to.be.revertedWithCustomError(
             configController,
@@ -367,18 +452,25 @@ describe('Create Market', () => {
         );
     });
 
-    it.skip('should revert if the collateral token is not whitelisted', async () => {
+    it('should revert if the collateral token is not whitelisted', async () => {
         const {
             configController,
             tokens,
             baseToken,
             priceFeeds,
             unsupportedToken,
+            curve,
+            seedReserves
         } = await makeConfigController();
+
 
         let marketConfig: MarketConfigStruct = {
             baseToken: baseToken.address,
-            priceFeed: priceFeeds[await baseToken.symbol()].address,
+            config: {
+                priceFeed: priceFeeds[await baseToken.symbol()].address,
+                decimals: 18,
+                curve
+            },
             collateralTokens: []
         };
 
@@ -386,12 +478,15 @@ describe('Create Market', () => {
             collateralToken: unsupportedToken.address,
             config: {
                 priceFeed: priceFeeds[await unsupportedToken.symbol()].address,
+                decimals: 18,
                 borrowCollateralFactor: factor(0.6),
                 liquidateCollateralFactor: factor(0.7),
                 liquidationFactor: factor(0.8),
                 supplyCap: exp(1_000_000, 6)
             }
         });
+
+        await baseToken.approve(configController.address, seedReserves);
 
         await expect(configController.createMarket(marketConfig)).to.be.revertedWithCustomError(
             configController,
@@ -405,12 +500,19 @@ describe('Create Market', () => {
             tokens,
             baseToken,
             priceFeeds,
-            unsupportedToken,
+            curve,
+            seedReserves
         } = await makeConfigController();
+
+
 
         let marketConfig: MarketConfigStruct = {
             baseToken: baseToken.address,
-            priceFeed: priceFeeds[await baseToken.symbol()].address,
+            config: {
+                priceFeed: priceFeeds[await baseToken.symbol()].address,
+                decimals: 18,
+                curve
+            },
             collateralTokens: []
         };
 
@@ -418,6 +520,7 @@ describe('Create Market', () => {
             collateralToken: tokens['COMP'].address,
             config: {
                 priceFeed: priceFeeds['COMP'].address,
+                decimals: 18,
                 borrowCollateralFactor: factor(0.6),
                 liquidateCollateralFactor: factor(0.7),
                 liquidationFactor: factor(0.8),
@@ -425,9 +528,11 @@ describe('Create Market', () => {
             }
         });
 
+        await baseToken.approve(configController.address, seedReserves);
+
         await expect(configController.createMarket(marketConfig)).to.be.revertedWithCustomError(
             configController,
-            'WrongCollateralTokenSettings'
+            'InvalidFactors'
         );
     });
 
@@ -437,11 +542,19 @@ describe('Create Market', () => {
             tokens,
             baseToken,
             priceFeeds,
+            curve,
+            seedReserves
         } = await makeConfigController();
+
+
 
         let marketConfig: MarketConfigStruct = {
             baseToken: baseToken.address,
-            priceFeed: priceFeeds[await baseToken.symbol()].address,
+            config: {
+                priceFeed: priceFeeds[await baseToken.symbol()].address,
+                decimals: 18,
+                curve
+            },
             collateralTokens: []
         };
 
@@ -449,6 +562,7 @@ describe('Create Market', () => {
             collateralToken: tokens['COMP'].address,
             config: {
                 priceFeed: priceFeeds['COMP'].address,
+                decimals: 18,
                 borrowCollateralFactor: 0,
                 liquidateCollateralFactor: factor(0.7),
                 liquidationFactor: factor(0.8),
@@ -456,9 +570,11 @@ describe('Create Market', () => {
             }
         });
 
+        await baseToken.approve(configController.address, seedReserves);
+
         await expect(configController.createMarket(marketConfig)).to.be.revertedWithCustomError(
             configController,
-            'WrongCollateralTokenSettings'
+            'InvalidFactors'
         );
     });
 
@@ -468,11 +584,19 @@ describe('Create Market', () => {
             tokens,
             baseToken,
             priceFeeds,
+            curve,
+            seedReserves
         } = await makeConfigController();
+
+
 
         let marketConfig: MarketConfigStruct = {
             baseToken: baseToken.address,
-            priceFeed: priceFeeds[await baseToken.symbol()].address,
+            config: {
+                priceFeed: priceFeeds[await baseToken.symbol()].address,
+                decimals: 18,
+                curve
+            },
             collateralTokens: []
         };
 
@@ -480,6 +604,7 @@ describe('Create Market', () => {
             collateralToken: tokens['COMP'].address,
             config: {
                 priceFeed: priceFeeds['COMP'].address,
+                decimals: 18,
                 borrowCollateralFactor: factor(0.6),
                 liquidateCollateralFactor: 0,
                 liquidationFactor: factor(0.8),
@@ -487,9 +612,12 @@ describe('Create Market', () => {
             }
         });
 
+
+        await baseToken.approve(configController.address, seedReserves);
+
         await expect(configController.createMarket(marketConfig)).to.be.revertedWithCustomError(
             configController,
-            'WrongCollateralTokenSettings'
+            'InvalidFactors'
         );
     });
 
@@ -499,11 +627,19 @@ describe('Create Market', () => {
             tokens,
             baseToken,
             priceFeeds,
+            curve,
+            seedReserves
         } = await makeConfigController();
+
+
 
         let marketConfig: MarketConfigStruct = {
             baseToken: baseToken.address,
-            priceFeed: priceFeeds[await baseToken.symbol()].address,
+            config: {
+                priceFeed: priceFeeds[await baseToken.symbol()].address,
+                decimals: 18,
+                curve
+            },
             collateralTokens: []
         };
 
@@ -511,6 +647,7 @@ describe('Create Market', () => {
             collateralToken: tokens['COMP'].address,
             config: {
                 priceFeed: priceFeeds['COMP'].address,
+                decimals: 18,
                 borrowCollateralFactor: factor(0.6),
                 liquidateCollateralFactor: factor(0.7),
                 liquidationFactor: 0,
@@ -518,9 +655,10 @@ describe('Create Market', () => {
             }
         });
 
+        await baseToken.approve(configController.address, seedReserves);
         await expect(configController.createMarket(marketConfig)).to.be.revertedWithCustomError(
             configController,
-            'WrongCollateralTokenSettings'
+            'InvalidFactors'
         );
     });
 
@@ -530,11 +668,19 @@ describe('Create Market', () => {
             tokens,
             baseToken,
             priceFeeds,
+            curve,
+            seedReserves
         } = await makeConfigController();
+
+
 
         let marketConfig: MarketConfigStruct = {
             baseToken: baseToken.address,
-            priceFeed: priceFeeds[await baseToken.symbol()].address,
+            config: {
+                priceFeed: priceFeeds[await baseToken.symbol()].address,
+                decimals: 18,
+                curve
+            },
             collateralTokens: []
         };
 
@@ -542,6 +688,7 @@ describe('Create Market', () => {
             collateralToken: tokens['COMP'].address,
             config: {
                 priceFeed: priceFeeds['COMP'].address,
+                decimals: 18,
                 borrowCollateralFactor: factor(0.8),
                 liquidateCollateralFactor: factor(0.7),
                 liquidationFactor: factor(0.8),
@@ -549,9 +696,11 @@ describe('Create Market', () => {
             }
         });
 
+        await baseToken.approve(configController.address, seedReserves);
+
         await expect(configController.createMarket(marketConfig)).to.be.revertedWithCustomError(
             configController,
-            'WrongCollateralTokenSettings'
+            'InvalidFactors'
         );
     });
 
@@ -561,11 +710,19 @@ describe('Create Market', () => {
             tokens,
             baseToken,
             priceFeeds,
+            curve,
+            seedReserves
         } = await makeConfigController();
+
+
 
         let marketConfig: MarketConfigStruct = {
             baseToken: baseToken.address,
-            priceFeed: priceFeeds[await baseToken.symbol()].address,
+            config: {
+                priceFeed: priceFeeds[await baseToken.symbol()].address,
+                decimals: 18,
+                curve
+            },
             collateralTokens: []
         };
 
@@ -573,6 +730,7 @@ describe('Create Market', () => {
             collateralToken: tokens['COMP'].address,
             config: {
                 priceFeed: priceFeeds['COMP'].address,
+                decimals: 18,
                 borrowCollateralFactor: factor(0.8),
                 liquidateCollateralFactor: factor(0.7),
                 liquidationFactor: factor(0.8),
@@ -580,9 +738,11 @@ describe('Create Market', () => {
             }
         });
 
+        await baseToken.approve(configController.address, seedReserves);
+
         await expect(configController.createMarket(marketConfig)).to.be.revertedWithCustomError(
             configController,
-            'WrongCollateralTokenSettings'
+            'InvalidFactors'
         );
     });
 
@@ -592,11 +752,17 @@ describe('Create Market', () => {
             tokens,
             baseToken,
             priceFeeds,
+            curve,
+            seedReserves
         } = await makeConfigController();
 
         let marketConfig: MarketConfigStruct = {
             baseToken: baseToken.address,
-            priceFeed: priceFeeds[await baseToken.symbol()].address,
+            config: {
+                priceFeed: priceFeeds[await baseToken.symbol()].address,
+                decimals: 18,
+                curve
+            },
             collateralTokens: []
         };
 
@@ -604,6 +770,7 @@ describe('Create Market', () => {
             collateralToken: tokens['COMP'].address,
             config: {
                 priceFeed: priceFeeds['COMP'].address,
+                decimals: 18,
                 borrowCollateralFactor: factor(1.1),
                 liquidateCollateralFactor: factor(0.7),
                 liquidationFactor: factor(0.8),
@@ -611,9 +778,11 @@ describe('Create Market', () => {
             }
         });
 
+        await baseToken.approve(configController.address, seedReserves);
+
         await expect(configController.createMarket(marketConfig)).to.be.revertedWithCustomError(
             configController,
-            'WrongCollateralTokenSettings'
+            'InvalidFactors'
         );
     });
 
@@ -623,11 +792,19 @@ describe('Create Market', () => {
             tokens,
             baseToken,
             priceFeeds,
+            curve,
+            seedReserves
         } = await makeConfigController();
+
+
 
         let marketConfig: MarketConfigStruct = {
             baseToken: baseToken.address,
-            priceFeed: priceFeeds[await baseToken.symbol()].address,
+            config: {
+                priceFeed: priceFeeds[await baseToken.symbol()].address,
+                decimals: 18,
+                curve
+            },
             collateralTokens: []
         };
 
@@ -635,6 +812,7 @@ describe('Create Market', () => {
             collateralToken: tokens['COMP'].address,
             config: {
                 priceFeed: priceFeeds['COMP'].address,
+                decimals: 18,
                 borrowCollateralFactor: factor(0.4),
                 liquidateCollateralFactor: factor(0.7),
                 liquidationFactor: factor(0.8),
@@ -642,9 +820,11 @@ describe('Create Market', () => {
             }
         });
 
+        await baseToken.approve(configController.address, seedReserves);
+
         await expect(configController.createMarket(marketConfig)).to.be.revertedWithCustomError(
             configController,
-            'WrongCollateralTokenSettings'
+            'InvalidFactors'
         );
     });
 
@@ -654,11 +834,18 @@ describe('Create Market', () => {
             tokens,
             baseToken,
             priceFeeds,
+            curve
         } = await makeConfigController();
+
+
 
         let marketConfig: MarketConfigStruct = {
             baseToken: baseToken.address,
-            priceFeed: priceFeeds[await baseToken.symbol()].address,
+            config: {
+                priceFeed: priceFeeds[await baseToken.symbol()].address,
+                decimals: 18,
+                curve
+            },
             collateralTokens: []
         };
 
@@ -666,6 +853,7 @@ describe('Create Market', () => {
             collateralToken: tokens['COMP'].address,
             config: {
                 priceFeed: priceFeeds['COMP'].address,
+                decimals: 18,
                 borrowCollateralFactor: factor(0.6),
                 liquidateCollateralFactor: factor(0.8),
                 liquidationFactor: factor(0.8),
@@ -675,7 +863,7 @@ describe('Create Market', () => {
 
         await expect(configController.createMarket(marketConfig)).to.be.revertedWithCustomError(
             configController,
-            'WrongCollateralTokenSettings'
+            'InvalidFactors'
         );
     });
 
@@ -685,11 +873,19 @@ describe('Create Market', () => {
             tokens,
             baseToken,
             priceFeeds,
+            curve,
+            seedReserves
         } = await makeConfigController();
+
+
 
         let marketConfig: MarketConfigStruct = {
             baseToken: baseToken.address,
-            priceFeed: priceFeeds[await baseToken.symbol()].address,
+            config: {
+                priceFeed: priceFeeds[await baseToken.symbol()].address,
+                decimals: 18,
+                curve
+            },
             collateralTokens: []
         };
 
@@ -697,6 +893,7 @@ describe('Create Market', () => {
             collateralToken: tokens['COMP'].address,
             config: {
                 priceFeed: priceFeeds['COMP'].address,
+                decimals: 18,
                 borrowCollateralFactor: factor(0.6),
                 liquidateCollateralFactor: factor(0.59),
                 liquidationFactor: factor(0.8),
@@ -704,9 +901,11 @@ describe('Create Market', () => {
             }
         });
 
+        await baseToken.approve(configController.address, seedReserves);
+
         await expect(configController.createMarket(marketConfig)).to.be.revertedWithCustomError(
             configController,
-            'WrongCollateralTokenSettings'
+            'InvalidFactors'
         );
     });
 
@@ -716,11 +915,19 @@ describe('Create Market', () => {
             tokens,
             baseToken,
             priceFeeds,
+            curve,
+            seedReserves
         } = await makeConfigController();
+
+
 
         let marketConfig: MarketConfigStruct = {
             baseToken: baseToken.address,
-            priceFeed: priceFeeds[await baseToken.symbol()].address,
+            config: {
+                priceFeed: priceFeeds[await baseToken.symbol()].address,
+                decimals: 18,
+                curve
+            },
             collateralTokens: []
         };
 
@@ -728,6 +935,7 @@ describe('Create Market', () => {
             collateralToken: tokens['COMP'].address,
             config: {
                 priceFeed: priceFeeds['COMP'].address,
+                decimals: 18,
                 borrowCollateralFactor: factor(0.6),
                 liquidateCollateralFactor: factor(0.7),
                 liquidationFactor: factor(0.79),
@@ -735,9 +943,11 @@ describe('Create Market', () => {
             }
         });
 
+        await baseToken.approve(configController.address, seedReserves);
+
         await expect(configController.createMarket(marketConfig)).to.be.revertedWithCustomError(
             configController,
-            'WrongCollateralTokenSettings'
+            'InvalidFactors'
         );
     });
 
@@ -747,11 +957,19 @@ describe('Create Market', () => {
             tokens,
             baseToken,
             priceFeeds,
+            curve,
+            seedReserves
         } = await makeConfigController();
+
+
 
         let marketConfig: MarketConfigStruct = {
             baseToken: baseToken.address,
-            priceFeed: priceFeeds[await baseToken.symbol()].address,
+            config: {
+                priceFeed: priceFeeds[await baseToken.symbol()].address,
+                decimals: 18,
+                curve
+            },
             collateralTokens: []
         };
 
@@ -759,6 +977,7 @@ describe('Create Market', () => {
             collateralToken: tokens['COMP'].address,
             config: {
                 priceFeed: priceFeeds['COMP'].address,
+                decimals: 18,
                 borrowCollateralFactor: factor(0.6),
                 liquidateCollateralFactor: factor(0.7),
                 liquidationFactor: factor(0.91),
@@ -766,9 +985,11 @@ describe('Create Market', () => {
             }
         });
 
+        await baseToken.approve(configController.address, seedReserves);
+
         await expect(configController.createMarket(marketConfig)).to.be.revertedWithCustomError(
             configController,
-            'WrongCollateralTokenSettings'
+            'InvalidFactors'
         );
     });
 
@@ -778,11 +999,19 @@ describe('Create Market', () => {
             tokens,
             baseToken,
             priceFeeds,
+            curve,
+            seedReserves
         } = await makeConfigController();
+
+
 
         let marketConfig: MarketConfigStruct = {
             baseToken: baseToken.address,
-            priceFeed: priceFeeds[await baseToken.symbol()].address,
+            config: {
+                priceFeed: priceFeeds[await baseToken.symbol()].address,
+                decimals: 18,
+                curve
+            },
             collateralTokens: []
         };
 
@@ -792,6 +1021,7 @@ describe('Create Market', () => {
                     collateralToken: tokens[token].address,
                     config: {
                         priceFeed: priceFeeds[token].address,
+                        decimals: 18,
                         borrowCollateralFactor: factor(0.6),
                         liquidateCollateralFactor: factor(0.7),
                         liquidationFactor: factor(0.8),
@@ -800,11 +1030,15 @@ describe('Create Market', () => {
                 });
             }
         }
+
+        await baseToken.approve(configController.address, seedReserves);
         let createMarketTx = await configController.createMarket(marketConfig);
         let createMarketReceipt = await createMarketTx.wait();
         let [createMarketEvents] = createMarketReceipt.events?.filter((event) => event.event === 'MarketConfigurationCreated');
         let marketAddress = createMarketEvents.args.market;
+            
 
+        await baseToken.approve(configController.address, seedReserves);
         createMarketTx = await configController.createMarket(marketConfig);
         createMarketReceipt = await createMarketTx.wait();
         [createMarketEvents] = createMarketReceipt.events?.filter((event) => event.event === 'MarketConfigurationCreated');
@@ -814,4 +1048,117 @@ describe('Create Market', () => {
         expect(await configController.marketsLength()).to.eq(2);
     });
 
+    describe('Setters', () => {
+        it('should allow updating the base token config', async () => {
+            const { configController, tokens, baseToken, priceFeeds } = await makeConfigController();
+            const curve: BaseAssetCurveStruct = {
+                supplyKink: 1,
+                supplyPerYearInterestRateSlopeLow: 2,
+                supplyPerYearInterestRateSlopeHigh: 3,
+                supplyPerYearInterestRateBase: 4,
+                borrowKink: 5,
+                borrowPerYearInterestRateSlopeLow: 6,
+                borrowPerYearInterestRateSlopeHigh: 7,
+                borrowPerYearInterestRateBase: 8
+            };
+            let marketConfig: MarketConfigStruct = {
+                baseToken: baseToken.address,
+                config: {
+                    priceFeed: priceFeeds[await baseToken.symbol()].address,
+                    decimals: 18,
+                    curve
+                },
+                collateralTokens: []
+            };
+            const createMarketTx = await configController.createMarket(marketConfig);
+            await createMarketTx.wait();
+
+            const newCurve: BaseAssetCurveStruct = {
+                supplyKink: 99,
+                supplyPerYearInterestRateSlopeLow: 199,
+                supplyPerYearInterestRateSlopeHigh: 299,
+                supplyPerYearInterestRateBase: 399,
+                borrowKink: 499,
+                borrowPerYearInterestRateSlopeLow: 599,
+                borrowPerYearInterestRateSlopeHigh: 699,
+                borrowPerYearInterestRateBase: 799
+            };
+            let market = await configController.markets(0);
+            await configController.setBaseAssetConfig(market, {
+                priceFeed: priceFeeds[await baseToken.symbol()].address,
+                decimals: 18,
+                curve: newCurve
+            });
+
+            const marketContract = await ethers.getContractAt('SandboxMarket', market) as SandboxMarket;
+            const info = await marketContract.baseTokenConfig();
+            expect(info.priceFeed).to.eq(priceFeeds[await baseToken.symbol()].address);
+            expect(info.decimals).to.eq(18);
+            expect(info.curve.supplyKink).to.eq(99);
+            expect(info.curve.supplyPerYearInterestRateSlopeLow).to.eq(199);
+            expect(info.curve.supplyPerYearInterestRateSlopeHigh).to.eq(299);
+            expect(info.curve.supplyPerYearInterestRateBase).to.eq(399);
+            expect(info.curve.borrowKink).to.eq(499);
+            expect(info.curve.borrowPerYearInterestRateSlopeLow).to.eq(599);
+            expect(info.curve.borrowPerYearInterestRateSlopeHigh).to.eq(699);
+            expect(info.curve.borrowPerYearInterestRateBase).to.eq(799);
+        });
+
+        it('should allow updating the collateral token config', async () => {
+            const { configController, tokens, baseToken, priceFeeds } = await makeConfigController();
+            const curve: BaseAssetCurveStruct = {
+                supplyKink: 1,
+                supplyPerYearInterestRateSlopeLow: 2,
+                supplyPerYearInterestRateSlopeHigh: 3,
+                supplyPerYearInterestRateBase: 4,
+                borrowKink: 5,
+                borrowPerYearInterestRateSlopeLow: 6,
+                borrowPerYearInterestRateSlopeHigh: 7,
+                borrowPerYearInterestRateBase: 8
+            };
+            let marketConfig: MarketConfigStruct = {
+                baseToken: baseToken.address,
+                config: {
+                    priceFeed: priceFeeds[await baseToken.symbol()].address,
+                    decimals: 18,
+                    curve
+                },
+                collateralTokens: [
+                    {
+                        collateralToken: tokens['COMP'].address,
+                        config: {
+                            priceFeed: priceFeeds['COMP'].address,
+                            decimals: 18,
+                            borrowCollateralFactor: factor(0.5),
+                            liquidateCollateralFactor: factor(0.6),
+                            liquidationFactor: factor(0.7),
+                            supplyCap: exp(500000, 6)
+                        }
+                    }
+                ]
+            };
+            const createMarketTx = await configController.createMarket(marketConfig);
+            await createMarketTx.wait();
+
+            let market = await configController.markets(0);
+
+            await configController.setCollateralTokenConfig(market, tokens['COMP'].address, {
+                priceFeed: priceFeeds['COMP'].address,
+                decimals: 18,
+                borrowCollateralFactor: factor(0.8),
+                liquidateCollateralFactor: factor(0.85),
+                liquidationFactor: factor(0.9),
+                supplyCap: exp(2_000_000, 6)
+            });
+
+            const marketContract = await ethers.getContractAt('SandboxMarket', market) as SandboxMarket;
+
+            const updated = await marketContract.collateralConfigs(tokens['COMP'].address);
+            expect(updated.decimals).to.eq(18);
+            expect(updated.borrowCollateralFactor).to.eq(factor(0.8));
+            expect(updated.liquidateCollateralFactor).to.eq(factor(0.85));
+            expect(updated.liquidationFactor).to.eq(factor(0.9));
+            expect(updated.supplyCap).to.eq(exp(2_000_000, 6));
+        });
+    });
 });

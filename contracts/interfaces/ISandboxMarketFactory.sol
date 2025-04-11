@@ -2,10 +2,15 @@
 pragma solidity 0.8.28;
 
 import "./IConfigController.sol";
-
-interface ISandboxMarketFactory {
+import "./ISandboxErrors.sol";
+interface ISandboxMarketFactory is ISandboxErrors {
+    
+    function initialize() external;
+    
     function createMarket(
-        IConfigController.MarketConfig memory _marketConfig
+        IConfigController.MarketConfig memory _marketConfig,
+        uint256 requiredAmount,
+        uint256 lockDuration
     ) external returns (address);
 
     function getMarket(uint _mareketId) external view returns (address);

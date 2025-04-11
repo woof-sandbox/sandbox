@@ -2,48 +2,92 @@
 pragma solidity 0.8.28;
 
 import "./interfaces/ISandboxMarket.sol";
+import "./interfaces/ISandboxController.sol";
+import "./interfaces/IERC20NonStandard.sol";
 import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 
-
 contract SandboxMarket is ISandboxMarket, Initializable {
-
     address public owner;
+    uint256 public seedReserves;
+    uint256 public unlockTimestamp;
+
     address public baseToken;
-    address public priceFeed;
-
+    IConfigController.BaseTokenConfig public baseTokenConfig;
     address[] public collateralTokens;
-
-    mapping(address => IConfigController.CollateralTokenConfig) public collateralConfigs;
-
-    constructor() {}
+    mapping(address => IConfigController.CollateralTokenConfig)
+        public collateralConfigs;
 
     modifier onlyOwner() {
         if (msg.sender != owner) revert NotOwner(msg.sender);
         _;
     }
 
-    function initialize(IConfigController.MarketConfig memory _marketConfig) initializer external override {
-        owner = msg.sender;
+    function initialize(
+        address configController,
+        uint256 requiredAmount,
+        uint256 lockDuration,
+        IConfigController.MarketConfig memory _marketConfig
+    ) external initializer {
+        owner = configController;
         baseToken = _marketConfig.baseToken;
-        priceFeed = _marketConfig.priceFeed;
+        baseTokenConfig = _marketConfig.config;
+
         for (uint i = 0; i < _marketConfig.collateralTokens.length; i++) {
-            address collateralToken = _marketConfig.collateralTokens[i].collateralToken;
-            collateralTokens.push(collateralToken);
-            collateralConfigs[collateralToken] = _marketConfig.collateralTokens[i].config;
+            address token = _marketConfig.collateralTokens[i].collateralToken;
+            collateralTokens.push(token);
+            collateralConfigs[token] = _marketConfig.collateralTokens[i].config;
         }
+
+        seedReserves = requiredAmount;
+        unlockTimestamp = block.timestamp + lockDuration;
+
         emit MarketCreated(_marketConfig);
     }
 
-    function setCollateralConfig(address _collateralToken, IConfigController.CollateralTokenConfig memory _collateralTokenConfig) external onlyOwner {
-        collateralConfigs[_collateralToken] = _collateralTokenConfig;
-        emit CollateralConfigChanged(_collateralToken, _collateralTokenConfig);
+    function setBaseTokenConfig(
+        IConfigController.BaseTokenConfig memory _config
+    ) external onlyOwner {
+        baseTokenConfig = _config;
     }
 
-    function getCollateralTokens() external view override returns (address[] memory) {
+    function setCollateralTokens(
+        IConfigController.CollateralToken[] memory _collateralTokens
+    ) external onlyOwner {
+        for (uint i = 0; i < _collateralTokens.length; i++) {
+            address token = _collateralTokens[i].collateralToken;
+            collateralTokens.push(token);
+            collateralConfigs[token] = _collateralTokens[i].config;
+        }
+    }
+
+    function withdraw() external onlyOwner {
+        require(
+            block.timestamp >= unlockTimestamp,
+            Locked(block.timestamp, unlockTimestamp)
+        );
+        uint256 amount = seedReserves;
+        seedReserves = 0;
+        IERC20NonStandard(baseToken).transfer(owner, amount);
+        emit Withdrawn(owner, amount);
+    }
+
+    function getCollateralTokens()
+        external
+        view
+        override
+        returns (address[] memory)
+    {
         return collateralTokens;
     }
 
-    function getCollateralTokenConfig(address _collateralToken) external view override returns (IConfigController.CollateralTokenConfig memory) {
-        return collateralConfigs[_collateralToken];
+    function getCollateralTokenConfig(
+        address token
+    )
+        external
+        view
+        override
+        returns (IConfigController.CollateralTokenConfig memory)
+    {
+        return collateralConfigs[token];
     }
-} 
+}
