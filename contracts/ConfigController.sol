@@ -406,43 +406,6 @@ contract ConfigController is IConfigController {
         emit GuardianUpdated(oldGuardian, _newGuardian);
     }
 
-    /// @notice Proposes new base asset configuration for a market
-    /// @dev Only callable by owner or curator
-    /// @param market The address of the market
-    /// @param baseConfig The new base asset configuration
-    /// @param baseConfig.priceFeed The price feed address for the base asset
-    function proposeMarketBaseAssetConfig(
-        address market,
-        BaseTokenConfig memory baseConfig
-    ) external {
-        if (msg.sender != owner && msg.sender != curator) revert Unauthorized();
-
-        _validateBaseTokenConfig(
-            baseConfig,
-            ISandboxMarket(market).baseToken()
-        );
-
-        bytes memory callData = abi.encodeWithSelector(
-            ISandboxMarket.setBaseTokenConfig.selector,
-            baseConfig
-        );
-
-        _marketProposals[market] = MarketConfigProposal({
-            market: market,
-            proposer: msg.sender,
-            proposalType: ProposalType.BaseAsset,
-            callData: callData,
-            expiration: block.timestamp + PROPOSAL_DURATION,
-            isActive: true
-        });
-
-        emit MarketConfigProposed(
-            market,
-            msg.sender,
-            block.timestamp + PROPOSAL_DURATION
-        );
-    }
-
     /// @notice Proposes new collateral tokens configuration for a market
     /// @dev Only callable by owner or curator
     /// @param market The address of the market

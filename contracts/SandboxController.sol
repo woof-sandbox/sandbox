@@ -141,79 +141,79 @@ contract SandboxController is ISandboxController {
         _;
     }
 
-    // /**
-    //  * @notice Sets the target reserves factor.
-    //  * @param _targetReserves The target reserves factor, scaled by 1e18.
-    //  * @dev Must be less than 0.5 (50%).
-    //  */
-    // function setTargetReserves(uint256 _targetReserves) external onlyOwner {
-    //     if (_targetReserves > 5e17) {
-    //         revert InvalidFactors();
-    //     }
-    //     uint256 oldTargetReserves = targetReserves;
-    //     targetReserves = _targetReserves;
-    //     emit TargetReservesChanged(oldTargetReserves, _targetReserves);
-    // }
+    /**
+     * @notice Sets the target reserves factor.
+     * @param _targetReserves The target reserves factor, scaled by 1e18.
+     * @dev Must be less than 0.5 (50%).
+     */
+    function setTargetReserves(uint256 _targetReserves) external onlyOwner {
+        if (_targetReserves > 5e17) {
+            revert InvalidFactors();
+        }
+        uint256 oldTargetReserves = targetReserves;
+        targetReserves = _targetReserves;
+        emit TargetReservesChanged(oldTargetReserves, _targetReserves);
+    }
 
-    // /**
-    //  * @notice Sets the threshold factors for each market state.
-    //  * @param thresholds The new threshold factors, scaled by 1e18.
-    //  */
-    // function setThresholds(uint256[3] calldata thresholds) external onlyOwner {
-    //     for (uint256 i = 0; i < 3; i++) {
-    //         if (thresholds[i] >= 1e18) {
-    //             revert InvalidFactors();
-    //         }
-    //         MarketState state = MarketState(i);
-    //         uint256 oldValue = threshold[state];
-    //         threshold[state] = thresholds[i];
-    //         emit ThresholdChanged(state, oldValue, thresholds[i]);
-    //     }
-    // }
+    /**
+     * @notice Sets the threshold factors for each market state.
+     * @param thresholds The new threshold factors, scaled by 1e18.
+     */
+    function setThresholds(uint256[3] calldata thresholds) external onlyOwner {
+        for (uint256 i = 0; i < 3; i++) {
+            if (thresholds[i] >= 1e18) {
+                revert InvalidFactors();
+            }
+            MarketState state = MarketState(i);
+            uint256 oldValue = threshold[state];
+            threshold[state] = thresholds[i];
+            emit ThresholdChanged(state, oldValue, thresholds[i]);
+        }
+    }
 
-    // /**
-    //  * @notice Sets the reserve commission factors for each market state.
-    //  * @param reserveCommissions The new reserve commission factors, scaled by 1e18.
-    //  */
-    // function setReserveCommissions(
-    //     uint256[3] calldata reserveCommissions
-    // ) external onlyOwner {
-    //     for (uint256 i = 0; i < 3; i++) {
-    //         MarketState state = MarketState(i);
-    //         if (reserveCommissions[i] + protocolCommission[state] > 8e17) {
-    //             revert InvalidFactors();
-    //         }
-    //         uint256 oldValue = reserveCommission[state];
-    //         reserveCommission[state] = reserveCommissions[i];
-    //         emit ReserveCommissionChanged(
-    //             state,
-    //             oldValue,
-    //             reserveCommissions[i]
-    //         );
-    //     }
-    // }
+    /**
+     * @notice Sets the reserve commission factors for each market state.
+     * @param reserveCommissions The new reserve commission factors, scaled by 1e18.
+     */
+    function setReserveCommissions(
+        uint256[3] calldata reserveCommissions
+    ) external onlyOwner {
+        for (uint256 i = 0; i < 3; i++) {
+            MarketState state = MarketState(i);
+            if (reserveCommissions[i] + protocolCommission[state] > 8e17) {
+                revert InvalidFactors();
+            }
+            uint256 oldValue = reserveCommission[state];
+            reserveCommission[state] = reserveCommissions[i];
+            emit ReserveCommissionChanged(
+                state,
+                oldValue,
+                reserveCommissions[i]
+            );
+        }
+    }
 
-    // /**
-    //  * @notice Sets the protocol commission factors for each market state.
-    //  * @param protocolCommissions The new protocol commission factors, scaled by 1e18.
-    //  */
-    // function setProtocolCommissions(
-    //     uint256[3] calldata protocolCommissions
-    // ) external onlyOwner {
-    //     for (uint256 i = 0; i < 3; i++) {
-    //         MarketState state = MarketState(i);
-    //         if (protocolCommissions[i] + reserveCommission[state] > 8e17) {
-    //             revert InvalidFactors();
-    //         }
-    //         uint256 oldValue = protocolCommission[state];
-    //         protocolCommission[state] = protocolCommissions[i];
-    //         emit ProtocolCommissionChanged(
-    //             state,
-    //             oldValue,
-    //             protocolCommissions[i]
-    //         );
-    //     }
-    // }
+    /**
+     * @notice Sets the protocol commission factors for each market state.
+     * @param protocolCommissions The new protocol commission factors, scaled by 1e18.
+     */
+    function setProtocolCommissions(
+        uint256[3] calldata protocolCommissions
+    ) external onlyOwner {
+        for (uint256 i = 0; i < 3; i++) {
+            MarketState state = MarketState(i);
+            if (protocolCommissions[i] + reserveCommission[state] > 8e17) {
+                revert InvalidFactors();
+            }
+            uint256 oldValue = protocolCommission[state];
+            protocolCommission[state] = protocolCommissions[i];
+            emit ProtocolCommissionChanged(
+                state,
+                oldValue,
+                protocolCommissions[i]
+            );
+        }
+    }
 
     /**
      * @notice Sets the treasury address.

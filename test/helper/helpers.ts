@@ -51,6 +51,8 @@ import {
   SandboxMarketFactory,
   ISandboxController,
   ISandboxMarketFactory,
+  ConfigControllerFactory,
+  ConfigControllerFactory__factory,
 } from '../../build/types';
 import { CometSandboxFactory } from '../../build/types/CometSandboxFactory';
 import { CometSandboxFactory__factory } from '../../build/types/factories/CometSandboxFactory__factory';
@@ -152,6 +154,7 @@ export type Protocol = {
   priceFeeds: {
     [symbol: string]: SimplePriceFeed;
   };
+  configControllerFactory: ConfigControllerFactory;
   configController: ConfigController;
   sandboxController: ISandboxController
   marketImpl: ISandboxMarket
@@ -335,9 +338,9 @@ export async function makeMarketFactory(opts: ProtocolOpts = {}, marketImpl: ISa
 }
 
 export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Protocol> {
-  
+
   const signers = await ethers.getSigners();
-  
+
   const assets = opts.assets || defaultAssets();
   const owner = opts.owner || signers[0];
   const curator = opts.curator || signers[1];
@@ -457,15 +460,16 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
         exp(0.8, 18), // minLiquidationFactor
         exp(0.9, 18), // maxLiquidationFactor
       );
-      
-      
+
+
     }
   }
-  
-  // Deploy ConfigController.
-  const ConfigControllerFactory = (await ethers.getContractFactory('ConfigController')) as ConfigController__factory;
-  const configController  = await ConfigControllerFactory.deploy(
-    owner.address,
+
+  const ConfigControllerFactoryFactory = (await ethers.getContractFactory('ConfigControllerFactory')) as ConfigControllerFactory__factory;
+  const configControllerFactory = await ConfigControllerFactoryFactory.deploy(owner.address);
+
+
+  await configControllerFactory.create(
     curator.address,
     guardian.address,
     sandboxController.address,
@@ -473,6 +477,12 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
     1000,
     "ConfigController"
   );
+
+  const ConfigControllerFactory = (await ethers.getContractFactory('ConfigController')) as ConfigController__factory;
+  const configController = await ConfigControllerFactory.attach(
+    await configControllerFactory.controllers(0)
+  ) as ConfigController;
+
 
   const curve = {
     supplyKink,
@@ -493,6 +503,7 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
     assets,
     unsupportedToken,
     priceFeeds,
+    configControllerFactory,
     configController,
     sandboxController,
     marketImpl,
@@ -517,9 +528,9 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
 // }
 
 // export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Protocol> {
-  
+
 //   const signers = await ethers.getSigners();
-  
+
 //   const assets = opts.assets || defaultAssets();
 //   const owner = opts.owner || signers[0];
 //   const curator = opts.curator || signers[1];
@@ -596,7 +607,7 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
 //       borrowPerYearInterestRateSlopeHigh
 //     }
 //   )
-  
+
 //   // --- Whitelist the collateral tokens ---
 //   for (const asset in assets) {
 //     if (asset == base) continue;
@@ -623,9 +634,9 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
 //         exp(0.9, 18),
 //       );
 //     }
-    
+
 //   }
-  
+
 //   // Deploy ConfigController.
 //   const ConfigControllerFactory = (await ethers.getContractFactory('ConfigController')) as ConfigController__factory;
 //   const configController  = await ConfigControllerFactory.deploy(
@@ -980,14 +991,14 @@ export async function makeMockERC20({ name, symbol }: MockERC20Params): Promise<
   return token;
 }
 
-export async function makePriceFeed({amount}: any = {}): Promise<SimplePriceFeed> {
+export async function makePriceFeed({ amount }: any = {}): Promise<SimplePriceFeed> {
   const PriceFeedFactory = (await ethers.getContractFactory('SimplePriceFeed')) as SimplePriceFeed__factory;
   const priceFeed = await PriceFeedFactory.deploy(amount ?? '100000000', 8);
   await priceFeed.deployed();
   return priceFeed;
 }
 
-export function defaultSandboxControllerOpts(partial?: Partial<SandboxControllerOpts>): SandboxControllerOpts { 
+export function defaultSandboxControllerOpts(partial?: Partial<SandboxControllerOpts>): SandboxControllerOpts {
   return {
     admin: partial?.admin,
     governor: partial?.governor,

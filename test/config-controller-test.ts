@@ -1685,5 +1685,11 @@ describe('ConfigController', () => {
         });
     });
 
+    describe('ConfigControllerFactory', () => { 
 
+        it('should deploy with correct args', async () => {
+            const { configControllerFactory, owner} = await makeConfigController();
+            expect(await configControllerFactory.owner()).to.equal(owner.address);
+        });
+    });
 });
