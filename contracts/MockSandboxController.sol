@@ -1,9 +1,9 @@
 // // SPDX-License-Identifier: BUSL-1.1
 // pragma solidity 0.8.28;
 
-// import "./ISandboxController.sol";
+// import "./interfaces/ISandboxController.sol";
 // import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
-// import {IERC20NonStandard} from  ".interfaces/IERC20NonStandard.sol";
+// import {IERC20NonStandard} from  "./interfaces/IERC20NonStandard.sol";
 // import {IPriceFeed} from  "./interfaces/IPriceFeed.sol";
 
 // /**
@@ -12,12 +12,12 @@
 //  */
 // contract MockSandboxController is AccessControl, ISandboxController {
 //     /// @notice Mapping of base assets to their configurations.
-//     mapping(address => BaseAssetConfiguration) public baseAssets;
+//     mapping(address => BaseAssetConfiguration) public _baseAssets;
 //     /// @notice Mapping of collateral assets to their configurations.
-//     mapping(address => CollateralTokenConfig) public collateralAssets;
+//     mapping(address => CollateralAssetConfiguration) override public collateralAssets;
 
 //     /// @notice Tracks whitelisted price feeds.
-//     mapping(address => bool) public isPriceFeedWhitelisted;
+//     mapping(address => bool) override public isPriceFeedWhitelisted;
 //     /// @notice Role identifier for owner.
 //     bytes32 public constant OWNER_ROLE = keccak256("OWNER_ROLE");
 
@@ -30,8 +30,8 @@
 //     /// @notice Total count of base assets.
 //     uint256 override public baseAssetCount;
 
-//     address[] public collateralAssetTokens;
-//     uint256 public collateralAssetCount;
+//     address[] override public collateralAssetTokens;
+//     uint256 override public collateralAssetCount;
     
 //     /// @dev Modifier to restrict function access to authorized roles.
 //     modifier onlyAuthorized() {
@@ -82,11 +82,11 @@
 //         uint64 maxLiquidateCollateralFactor,
 //         uint64 minLiquidationFactor,
 //         uint64 maxLiquidationFactor
-//     ) external onlyAuthorized {
+//     ) override external onlyAuthorized {
 //         if (token == address(0) || priceFeed == address(0)) revert ZeroAddress();
 //         uint8 decimals = IERC20NonStandard(token).decimals();
 
-//         collateralAssets[token] = CollateralTokenConfig({
+//         collateralAssets[token] = CollateralAssetConfiguration({
 //             collateralToken: token,
 //             priceFeed: priceFeed,
 //             decimals: decimals,
@@ -103,12 +103,12 @@
 //         collateralAssetCount++;
 //     }
 
-//     function getCollateralAssetByAddress(address _collateralToken) external view returns (CollateralTokenConfig memory) {
+//     function getCollateralAssetByAddress(address _collateralToken) external view returns (CollateralAssetConfiguration memory) {
 //         return collateralAssets[_collateralToken];
 //     }
 
-//     function baseAssets(address _baseToken) external view returns (BaseAssetConfiguration memory) {
-//         return baseAssets[_baseToken];
+//     function baseAssets(address _baseToken) external override view returns (BaseAssetConfiguration memory) {
+//         return _baseAssets[_baseToken];
 //     }
 
 //     /**
@@ -139,10 +139,10 @@
 //         uint8 decimals = IERC20NonStandard(token).decimals();
 
 //         try IPriceFeed(priceFeed).latestRoundData() returns (uint80, int256, uint256, uint256, uint80) {
-//             baseAssets[token].priceFeed = priceFeed;
-//             baseAssets[token].decimals = decimals;
-//             baseAssets[token].minBorrow = minBorrow;
-//             baseAssets[token].baseAssetCurves.push(baseAssetCurve);
+//             _baseAssets[token].priceFeed = priceFeed;
+//             _baseAssets[token].decimals = decimals;
+//             _baseAssets[token].minBorrow = minBorrow;
+//             _baseAssets[token].baseAssetCurves.push(baseAssetCurve);
 //         } catch {
 //             revert InvalidPriceFeed();
 //         }
@@ -162,7 +162,7 @@
 //     function addBaseAssetCurve(
 //         address token,
 //         BaseAssetCurve memory baseAssetCurve
-//     ) external onlyAuthorized {
+//     ) override external onlyAuthorized {
 //         if (token == address(0)) {
 //             revert ZeroAddress();
 //         }
@@ -173,7 +173,7 @@
 //             revert InvalidCurveConfiguration();
 //         }
 
-//         baseAssets[token].baseAssetCurves.push(baseAssetCurve);
+//         _baseAssets[token].baseAssetCurves.push(baseAssetCurve);
 //         emit BaseAssetCurveAdded(token, baseAssetCurve);
 //     }
 
@@ -187,7 +187,7 @@
 //         address token,
 //         uint256 curveIndex,
 //         BaseAssetCurve memory baseAssetCurve
-//     ) external onlyDAO {
+//     ) override external onlyDAO {
 //         if (token == address(0)) {
 //             revert ZeroAddress();
 //         }
@@ -198,7 +198,7 @@
 //             revert InvalidCurveConfiguration();
 //         }
 
-//         BaseAssetCurve memory baseAssetCurveBefore = baseAssets[token].baseAssetCurves[curveIndex];
+//         BaseAssetCurve memory baseAssetCurveBefore = _baseAssets[token].baseAssetCurves[curveIndex];
 
 //         if (
 //             baseAssetCurveBefore.supplyKink == baseAssetCurve.supplyKink &&
@@ -213,7 +213,7 @@
 //             revert InvalidCurveConfiguration();
 //         }
 
-//         baseAssets[token].baseAssetCurves[curveIndex] = baseAssetCurve;
+//         _baseAssets[token].baseAssetCurves[curveIndex] = baseAssetCurve;
 //         emit BaseAssetCurveChanged(token, baseAssetCurveBefore, baseAssetCurve);
 //     }
 
@@ -223,7 +223,7 @@
 //      * @return True if the token is whitelisted, otherwise false.
 //      */
 //     function isTokenWhitelisted(address token) public view returns (bool) {
-//         return baseAssets[token].priceFeed != address(0);
+//         return _baseAssets[token].priceFeed != address(0);
 //     }
 
 //     /**
@@ -231,7 +231,7 @@
 //      * @param baseAssetCurve The interest rate curve configuration to validate.
 //      * @return True if the curve configuration is valid, otherwise false.
 //      */
-//     function isCurveConfigurationValid(BaseAssetCurve memory baseAssetCurve) public pure returns (bool) {
+//     function isCurveConfigurationValid(BaseAssetCurve memory baseAssetCurve) override public pure returns (bool) {
 //         return (
 //             baseAssetCurve.supplyKink != 0 &&
 //             baseAssetCurve.supplyPerYearInterestRateSlopeLow != 0 &&

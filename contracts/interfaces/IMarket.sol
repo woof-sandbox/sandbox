@@ -26,6 +26,7 @@ interface IMarket {
     function setBaseCurveParams(BaseCurveParams memory _params) external;
 
     // Collateral token configuration
+    function transferOwnership(address _newConfigController) external;
     function getCollateralTokenConfig(uint _collateralTokenId) external view returns (IConfigController.CollateralTokenConfig memory);
     function getAllCollateralTokenConfigs() external view returns (IConfigController.CollateralTokenConfig[] memory);
     function setCollateralTokens(IConfigController.CollateralTokenConfig[] memory _collateralTokens) external;

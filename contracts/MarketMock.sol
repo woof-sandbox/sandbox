@@ -25,13 +25,11 @@ contract MarketMock is IMarket, Initializable {
         _;
     }
     
-    // constructor() {}
-
     function initialize(
         IConfigController.MarketConfig memory _marketConfig,
         address _configControllerAddress
     ) initializer external override {
-        
+        configControllerAddress = _configControllerAddress;
         // Set individual variables from market config
         baseToken = _marketConfig.baseToken;
         priceFeed = _marketConfig.priceFeed;
@@ -52,6 +50,10 @@ contract MarketMock is IMarket, Initializable {
             borrowPerYearInterestRateSlopeHigh: curve.borrowPerYearInterestRateSlopeHigh,
             borrowPerYearInterestRateBase: curve.borrowPerYearInterestRateBase
         });
+    }
+
+    function transferOwnership(address _newConfigController) external override onlyConfigController {
+        configControllerAddress = _newConfigController;
     }
 
     function getCollateralTokenConfig(uint _collateralTokenId) external view override returns (IConfigController.CollateralTokenConfig memory) {

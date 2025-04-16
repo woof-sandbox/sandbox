@@ -45,7 +45,9 @@ import {
   AssetListFactory__factory,
   CometHarnessExtendedAssetList__factory,
   CometHarnessInterfaceExtendedAssetList as CometSandbox,
+  ConfigControllerFactory
 } from '../../build/types';
+import { ConfigControllerFactory__factory } from '../../build/types/factories/ConfigControllerFactory__factory';
 import { CometSandboxFactory } from '../../build/types/CometSandboxFactory';
 import { CometSandboxFactory__factory } from '../../build/types/factories/CometSandboxFactory__factory';
 import { SandboxController } from '../../build/types/SandboxController';
@@ -87,6 +89,8 @@ export type ProtocolOpts = {
       factory?: FaucetToken__factory | EvilToken__factory | FaucetWETH__factory | NonStandardFaucetFeeToken__factory;
     };
   };
+  sandboxController?: string;
+  marketFactory?: string;
   name?: string;
   symbol?: string;
   owner?: SignerWithAddress;
@@ -109,6 +113,7 @@ export type ProtocolOpts = {
   baseMinForRewards?: Numeric;
   baseBorrowMin?: Numeric;
   baseTokenBalance?: Numeric;
+  configControllerFactory?: string;
 };
 
 export type Protocol = {
@@ -154,6 +159,7 @@ export type Protocol = {
   curator: SignerWithAddress;
   guardian: SignerWithAddress;
   dao: SignerWithAddress;
+  configControllerFactory: ConfigControllerFactory;
 };
 
 
@@ -305,6 +311,7 @@ export async function makeSandboxControllerMock(opts: ProtocolOpts = {}): Promis
   await mockSandboxController.deployed();
   return mockSandboxController;
 }
+
 export async function makeMockMarket(opts: ProtocolOpts = {}): Promise<MarketMock> {
   const MarketMock = await ethers.getContractFactory('MarketMock') as MarketMock__factory;
   const marketMock = await MarketMock.deploy();
@@ -312,11 +319,33 @@ export async function makeMockMarket(opts: ProtocolOpts = {}): Promise<MarketMoc
   return marketMock;
 }
 
-export async function makeMarketFactory(opts: ProtocolOpts = {}, marketImpl: IMarket): Promise<MarketFactory> {
+export async function makeMarketFactory(opts: ProtocolOpts = {}, marketImpl: IMarket, configControllerFactory: ConfigControllerFactory): Promise<MarketFactory> {
   const MarketFactory = await ethers.getContractFactory('MarketFactory') as MarketFactory__factory;
-  const marketFactory = await MarketFactory.deploy(marketImpl.address);
+  const marketFactory = await MarketFactory.deploy(marketImpl.address, configControllerFactory.address);
   await marketFactory.deployed();
   return marketFactory;
+}
+
+export async function makeOnlyConfigController(opts: ProtocolOpts = {}): Promise<string> {
+  // Deploy ConfigController.
+  const ConfigControllerFactory = (await ethers.getContractFactory('ConfigController')) as ConfigController__factory;
+  const configController  = await ConfigControllerFactory.deploy();
+
+    await configController.initialize(opts.owner.address,
+    opts.guardian.address,
+    opts.sandboxController,
+    opts.marketFactory,
+    1000,
+    "ConfigController",
+    7 * 24 * 60 * 60, // 7 days for curator proposal duration
+    7 * 24 * 60 * 60,  // 7 days for market proposal duration
+    opts.configControllerFactory || ethers.constants.AddressZero
+  )
+  // Propose and accept curator role
+  await configController.connect(opts.owner).proposeCurator(opts.curator.address);
+  await configController.connect(opts.curator).acceptCuratorRole();
+
+  return configController.address;
 }
 
 export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Protocol> {
@@ -332,8 +361,7 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
   const base = opts.base || 'USDC';
   // --- Deploy mock of the Market ---
   const marketImpl = await makeMockMarket();
-  // --- Deploy Market Factory ---
-  const marketFactory = await makeMarketFactory({}, marketImpl);
+  
   // --- Deploy tokens ---
   const FaucetFactory = (await ethers.getContractFactory('FaucetToken')) as FaucetToken__factory;
   const tokens = {};
@@ -430,15 +458,28 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
   
   // Deploy ConfigController.
   const ConfigControllerFactory = (await ethers.getContractFactory('ConfigController')) as ConfigController__factory;
-  const configController  = await ConfigControllerFactory.deploy(
+  const configControllerImpl  = await ConfigControllerFactory.deploy();
+  
+  const ConfigControllerFactoryFactory = (await ethers.getContractFactory('ConfigControllerFactory')) as ConfigControllerFactory__factory;
+  const configControllerFactory: ConfigControllerFactory = await ConfigControllerFactoryFactory.deploy(configControllerImpl.address);
+  // --- Deploy Market Factory ---
+  const marketFactory = await makeMarketFactory({}, marketImpl, configControllerFactory);
+  const configControllerTx = await configControllerFactory.createConfigController(
     owner.address,
-    curator.address,
     guardian.address,
     sandboxController.address,
     marketFactory.address,
     1000,
-    "ConfigController"
+    "ConfigController",
+    7 * 24 * 60 * 60, // 7 days for curator proposal duration
+    7 * 24 * 60 * 60,  // 7 days for market proposal duration
   );
+  const configControllerReceipt = await configControllerTx.wait();
+  const configControllerAddress = configControllerReceipt.events?.find(e => e.event === 'ConfigControllerCreated')?.args?.[0];
+  // Propose and accept curator role
+  const configController: ConfigController = <ConfigController>await ethers.getContractAt('ConfigController', configControllerAddress);
+  await configController.connect(owner).proposeCurator(curator.address);
+  await configController.connect(curator).acceptCuratorRole();
 
   return {
     opts,
@@ -449,7 +490,8 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
     unsupportedToken,
     priceFeeds,
     configController,
-    sandboxController,
+    configControllerFactory,
+    sandboxController,  
     marketImpl,
     marketFactory,
     owner,

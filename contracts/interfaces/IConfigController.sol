@@ -4,6 +4,13 @@ pragma solidity 0.8.28;
 import "./ISandboxController.sol";
 
 abstract contract IConfigController {
+    /// @notice Market transfer proposal
+    struct MarketTransferProposal {
+        address market;
+        address newController;
+        uint256 expiration;
+        bool isActive;
+    }
     /// @notice Market configuration proposal
     struct MarketConfigProposal {
         address market;
@@ -53,6 +60,8 @@ abstract contract IConfigController {
     error NoActiveProposal();
     error ProposalExists();
     error ProposalNotExpired();
+    error ProposalDurationTooShort();
+    error TokenNotRevenue();
     
     event MarketConfigurationCreated(
         address market,
@@ -117,9 +126,36 @@ abstract contract IConfigController {
         address indexed market,
         address indexed executedBy
     );
+    event ProposalDurationsUpdated(
+        uint oldCuratorDuration,
+        uint newCuratorDuration,
+        uint oldProposalDuration,
+        uint newProposalDuration
+    );
+    
+    /// @notice Events for market transfer proposal system
+    event MarketTransferProposed(
+        address indexed market,
+        address indexed newController,
+        uint256 expiration
+    );
+    event MarketTransferProposalCancelled(
+        address indexed market,
+        address indexed cancelledBy
+    );
+    event MarketTransferProposalAccepted(
+        address indexed market,
+        address indexed oldController,
+        address indexed newController
+    );
     
     address constant ZERO_ADDRESS = 0x0000000000000000000000000000000000000000;
-    
+
+    /// @notice Returns the address of a revenue token by its index
+    function revenueTokens(uint) virtual external view returns (address);
+    /// @notice Returns the number of revenue tokens
+    function revenueTokensLength() virtual external view returns (uint);
+
     /// @notice Returns the current curator fee in basis points (1% = 100)
     /// @return The curator fee value
     function curatorFee() virtual external view returns (uint);
@@ -138,6 +174,15 @@ abstract contract IConfigController {
     /// @dev Can be called by owner or curator to claim their share
     /// @param token The ERC20 token address to claim
     function claimRevenue(address token) virtual external;
+
+    /// @notice Claims accumulated revenue for all tokens for the caller
+    /// @dev Can be called by anyone to claim their share of all revenue tokens
+    function claimAllRevenue() virtual external;
+
+    /// @notice Removes a revenue token from the list of revenue tokens
+    /// @dev Only callable by the owner
+    /// @param token The ERC20 token address to remove
+    function removeClaimRevenueToken(address token) virtual external;
 
     /// @notice Returns the unclaimed revenue balance for a specific token and address
     /// @param token The ERC20 token address
@@ -175,4 +220,30 @@ abstract contract IConfigController {
     /// @param _marketConfig The configuration parameters for the new market
     /// @return The address of the newly created market
     function createMarket(MarketConfig memory _marketConfig) virtual external returns(address);
+
+    /// @notice Initializes the ConfigController contract
+    /// @param owner_ The address of the protocol owner
+    /// @param guardian_ The address of the protocol guardian
+    /// @param _sandboxController The address of the SandboxController contract
+    /// @param _marketFactory The address of the MarketFactory contract
+    /// @param _curatorFee Initial curator fee in basis points (1% = 100)
+    /// @param _name Name of the controller
+    /// @param _curatorProposalDuration Duration of curator proposals in seconds
+    /// @param _proposalDuration Duration of market proposals in seconds
+    /// @param _configControllerFactory The address of the ConfigControllerFactory contract
+    function initialize(
+        address owner_,
+        address guardian_,
+        address _sandboxController,
+        address _marketFactory,
+        uint _curatorFee,
+        string memory _name,
+        uint _curatorProposalDuration,
+        uint _proposalDuration,
+        address _configControllerFactory
+    ) external virtual;
+
+    /// @notice Returns the address of the ConfigControllerFactory
+    /// @return The address of the ConfigControllerFactory
+    function configControllerFactory() external view virtual returns (address);
 }
