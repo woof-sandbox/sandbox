@@ -38,7 +38,7 @@ abstract contract IConfigController is ISandboxErrors {
 
     struct CollateralTokenConfig {
         address priceFeed;
-        uint256 decimals;
+        uint8 decimals;
         uint64 borrowCollateralFactor;
         uint64 liquidateCollateralFactor;
         uint64 liquidationFactor;

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
-import "../CometCore.sol";
+import "./IConfigController.sol";
 
 /**
  * @title Compound's Asset List Factory
@@ -12,5 +12,5 @@ interface IAssetListFactory {
      * @param assetConfigs The asset configurations
      * @return assetList The address of the new asset list
      */
-    function createAssetList(CometCore.AssetConfig[] memory assetConfigs) external returns (address assetList);
+    function createAssetList(IConfigController.CollateralToken[] memory assetConfigs) external returns (address assetList);
 }

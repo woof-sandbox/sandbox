@@ -110,8 +110,8 @@ contract SandboxController is ISandboxController {
         protocolFactorLiquidation = _protocolFactorLiquidation;
         reserveFactorLiquidation = _reserveFactorLiquidation;
         maxCollateralAssets = _maxCollateralAssets;
-        targetReserves = _targetReserves;
         controllerConfiguration = SandboxControllerConfiguration(
+            _targetReserves,
             _storeFrontPriceFactor,
             _minUpdateTime,
             _suggestedAmountOfSeedReserves,
@@ -546,26 +546,29 @@ contract SandboxController is ISandboxController {
      * @param token The address of the base asset token.
      * @return The base asset baseAssetCurves.
      */
-    function getBaseAssetCurves(
+    function curves(
         address token
     ) external view returns (BaseAssetCurve[] memory) {
         return _baseAssets[token].baseAssetCurves;
     }
 
+
     /**
-     * @notice Returns the suggested parameters for seed reserves.
-     * @return The suggested amount of seed reserves and lock time.
+     * @notice Returns the minimum borrow amount for a given base asset token.
+     * @param token The address of the base asset token.
+     * @return The minimum borrow amount.
      */
-    function getSuggestedParams()
-        external
-        view
-        returns (uint256, uint256)
-    {
-        return (
-            controllerConfiguration.suggestedAmountOfSeedReserves,
-            controllerConfiguration.suggestedLockTimeOfSeedReserves
-        );
+    function borrowMin(
+        address token
+    ) external view returns (uint256) {
+        return _baseAssets[token].minBorrow;
     }
 
-
+    /**
+     * @notice Returns the configuration of the sandbox controller.
+     * @return The sandbox controller configuration.
+     */
+    function config() external view returns (SandboxControllerConfiguration memory) {
+        return controllerConfiguration;
+    }
 }

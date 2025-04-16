@@ -56,21 +56,21 @@ An example deployment command looks like:
 
 ## Comet protocol contracts
 
-**[Comet.sol](https://github.com/compound-finance/comet/blob/main/contracts/Comet.sol)** - Contract that inherits `CometMainInterface.sol` and is the implementation for most of Comet's core functionalities. A small set of functions that do not fit within this contract are implemented in `CometSandbox.sol` instead, which Comet `DELEGATECALL`s to for unrecognized function signatures.
+**[Comet.sol](https://github.com/compound-finance/comet/blob/main/contracts/Comet.sol)** - Contract that inherits `CometMainInterface.sol` and is the implementation for most of Comet's core functionalities. A small set of functions that do not fit within this contract are implemented in `SandboxComet.sol` instead, which Comet `DELEGATECALL`s to for unrecognized function signatures.
 
-**[CometSandbox.sol](https://github.com/compound-finance/comet/blob/main/contracts/CometSandbox.sol)** - Contract that inherits `CometInterface.sol` and is the implementation for extra functions that do not fit within `Comet.sol`, such as `approve`.
+**[SandboxComet.sol](https://github.com/compound-finance/comet/blob/main/contracts/SandboxComet.sol)** - Contract that inherits `CometInterface.sol` and is the implementation for extra functions that do not fit within `Comet.sol`, such as `approve`.
 
-**[CometInterface.sol](https://github.com/compound-finance/comet/blob/main/contracts/CometInterface.sol)** - Abstract contract that inherits `CometMainInterface.sol` and `CometInterface.sol`. This interface contains all the functions and events for `Comet.sol` and `CometSandbox.sol` and is ERC-20 compatible.
+**[CometInterface.sol](https://github.com/compound-finance/comet/blob/main/contracts/CometInterface.sol)** - Abstract contract that inherits `CometMainInterface.sol` and `CometInterface.sol`. This interface contains all the functions and events for `Comet.sol` and `SandboxComet.sol` and is ERC-20 compatible.
 
 **[CometMainInterface.sol](https://github.com/compound-finance/comet/blob/main/contracts/CometMainInterface.sol)** - Abstract contract that inherits `CometCore.sol` and contains all the functions and events for `Comet.sol`.
 
-**[CometInterface.sol](https://github.com/compound-finance/comet/blob/main/contracts/CometInterface.sol)** - Abstract contract that inherits `CometCore.sol` and contains all the functions and events for `CometSandbox.sol`.
+**[CometInterface.sol](https://github.com/compound-finance/comet/blob/main/contracts/CometInterface.sol)** - Abstract contract that inherits `CometCore.sol` and contains all the functions and events for `SandboxComet.sol`.
 
-**[CometCore.sol](https://github.com/compound-finance/comet/blob/main/contracts/CometCore.sol)** - Abstract contract that inherits `CometStorage.sol`, `CometConfiguration.sol`, and `CometMath.sol`. This contracts contains functions and constants that are shared between `Comet.sol` and `CometSandbox.sol`.
+**[CometCore.sol](https://github.com/compound-finance/comet/blob/main/contracts/CometCore.sol)** - Abstract contract that inherits `CometStorage.sol`, `CometConfiguration.sol`, and `CometMath.sol`. This contracts contains functions and constants that are shared between `Comet.sol` and `SandboxComet.sol`.
 
 **[CometStorage.sol](https://github.com/compound-finance/comet/blob/main/contracts/CometStorage.sol)** - Contract that defines the storage variables used for the Comet protocol.
 
-**[CometConfiguration.sol](https://github.com/compound-finance/comet/blob/main/contracts/CometConfiguration.sol)** - Contract that defines the configuration structs passed into the constructors for `Comet.sol` and `CometSandbox.sol`.
+**[CometConfiguration.sol](https://github.com/compound-finance/comet/blob/main/contracts/CometConfiguration.sol)** - Contract that defines the configuration structs passed into the constructors for `Comet.sol` and `SandboxComet.sol`.
 
 **[CometMath.sol](https://github.com/compound-finance/comet/blob/main/contracts/CometMath.sol)** - Contract that defines math functions that are used throughout the Comet codebase.
 

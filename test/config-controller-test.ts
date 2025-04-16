@@ -16,7 +16,7 @@ import {
     setTotalsBasic
 } from './helper/helpers';
 import { MarketConfigStruct, ConfigController, CollateralTokenConfigStruct } from '../build/types/ConfigController';
-import { FaucetToken, ISandboxMarket, SimplePriceFeed, NonStandardFaucetFeeToken, ISandboxController } from '../build/types';
+import { FaucetToken, ISandboxMarket, SimplePriceFeed, NonStandardFaucetFeeToken, ISandboxController, SandboxComet } from '../build/types';
 import { BigNumber } from 'ethers';
 // import { exec } from 'child_process';
 
@@ -123,7 +123,7 @@ describe('ConfigController', () => {
             const receipt = await tx.wait();
             const event = receipt.events?.find((e) => e.event === 'MarketConfigurationCreated');
             const marketAddress = event?.args?.market;
-            const market = await ethers.getContractAt("SandboxMarket", marketAddress) as ISandboxMarket;
+            const market = await ethers.getContractAt("SandboxCommet", marketAddress) as SandboxComet;
 
             expect(await market.baseToken()).to.eq(tokens[baseTokenSymbol].address);
 

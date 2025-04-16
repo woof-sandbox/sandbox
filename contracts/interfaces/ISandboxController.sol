@@ -41,6 +41,7 @@ interface ISandboxController is ISandboxErrors {
     }
 
     struct SandboxControllerConfiguration {
+        uint256 targetReserves;
         uint256 storeFrontPriceFactor;
         uint256 minUpdateTime;
         uint256 suggestedAmountOfSeedReserves;
@@ -108,17 +109,17 @@ interface ISandboxController is ISandboxErrors {
     event OwnerTransferred(address oldOwner, address newOwner);
     event DaoTransferred(address oldDao, address newDao);
 
-    // function setTargetReserves(uint256 _targetReserves) external;
+    function setTargetReserves(uint256 _targetReserves) external;
 
-    // function setThresholds(uint256[3] calldata thresholds) external;
+    function setThresholds(uint256[3] calldata thresholds) external;
 
-    // function setReserveCommissions(
-    //     uint256[3] calldata reserveCommissions
-    // ) external;
+    function setReserveCommissions(
+        uint256[3] calldata reserveCommissions
+    ) external;
 
-    // function setProtocolCommissions(
-    //     uint256[3] calldata protocolCommissions
-    // ) external;
+    function setProtocolCommissions(
+        uint256[3] calldata protocolCommissions
+    ) external;
 
     function setTreasury(address _treasury) external;
 
@@ -180,11 +181,6 @@ interface ISandboxController is ISandboxErrors {
         bytes32 curveHash
     ) external view returns (bool);
 
-    function getSuggestedParams()
-        external
-        view
-        returns (uint256, uint256);
-
     function baseAssets(
         address token
     ) external view returns (BaseAssetConfiguration memory);
@@ -192,4 +188,11 @@ interface ISandboxController is ISandboxErrors {
     function collateralAssets(
         address token
     ) external view returns (CollateralAssetConfiguration memory);
+
+    function borrowMin(
+        address token
+    ) external view returns (uint256);
+
+    function config() external view returns (SandboxControllerConfiguration memory);
+
 }

@@ -44,18 +44,18 @@ import {
   AssetListFactory,
   AssetListFactory__factory,
   CometHarnessExtendedAssetList__factory,
-  CometHarnessInterfaceExtendedAssetList as CometSandbox,
+  CometHarnessInterfaceExtendedAssetList as SandboxComet,
   ISandboxMarket,
   SandboxMarket__factory,
-  SandboxMarketFactory__factory,
-  SandboxMarketFactory,
+  SandboxCometFactory__factory,
+  SandboxCometFactory,
   ISandboxController,
-  ISandboxMarketFactory,
+  ISandboxCometFactory,
   ConfigControllerFactory,
   ConfigControllerFactory__factory,
 } from '../../build/types';
-import { CometSandboxFactory } from '../../build/types/CometSandboxFactory';
-import { CometSandboxFactory__factory } from '../../build/types/factories/CometSandboxFactory__factory';
+import { SandboxCometFactory } from '../../build/types/SandboxCometFactory';
+import { SandboxCometFactory__factory } from '../../build/types/factories/SandboxCometFactory__factory';
 import { SandboxController } from '../../build/types/SandboxController';
 import { SandboxController__factory } from '../../build/types/factories/SandboxController__factory';
 import { BigNumber } from 'ethers';
@@ -124,7 +124,7 @@ export type Protocol = {
   users: SignerWithAddress[];
   base: string;
   reward: string;
-  comet: CometSandbox;
+  comet: SandboxComet;
   assetListFactory: AssetListFactory;
   tokens: {
     [symbol: string]: FaucetToken | NonStandardFaucetFeeToken;
@@ -158,7 +158,7 @@ export type Protocol = {
   configController: ConfigController;
   sandboxController: ISandboxController
   marketImpl: ISandboxMarket
-  marketFactory: ISandboxMarketFactory;
+  marketFactory: ISandboxCometFactory;
   owner: SignerWithAddress;
   curator: SignerWithAddress;
   guardian: SignerWithAddress;
@@ -173,7 +173,7 @@ export type ConfiguratorAndProtocol = {
   configurator: Configurator;
   configuratorProxy: ConfiguratorProxy;
   proxyAdmin: CometProxyAdmin;
-  cometFactory: CometSandboxFactory;
+  cometFactory: SandboxCometFactory;
   cometProxy: TransparentUpgradeableProxy;
 } & Protocol;
 
@@ -330,9 +330,9 @@ export async function makeMarket(opts: ProtocolOpts = {}): Promise<ISandboxMarke
   return market;
 }
 
-export async function makeMarketFactory(opts: ProtocolOpts = {}, marketImpl: ISandboxMarket): Promise<SandboxMarketFactory> {
-  const MarketFactory = await ethers.getContractFactory('SandboxMarketFactory') as SandboxMarketFactory__factory
-  const marketFactory = await MarketFactory.deploy(marketImpl.address);
+export async function makeMarketFactory(opts: ProtocolOpts = {}): Promise<SandboxCometFactory> {
+  const MarketFactory = await ethers.getContractFactory('SandboxCometFactory') as SandboxCometFactory__factory
+  const marketFactory = await MarketFactory.deploy();
   await marketFactory.deployed();
   return marketFactory;
 }
@@ -351,7 +351,7 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
   // --- Deploy mock of the Market ---
   const marketImpl = await makeMarket();
   // --- Deploy Market Factory ---
-  const marketFactory = await makeMarketFactory({}, marketImpl);
+  const marketFactory = await makeMarketFactory({});
   // --- Deploy tokens ---
   const FaucetFactory = (await ethers.getContractFactory('FaucetToken')) as FaucetToken__factory;
   const tokens = {};
@@ -400,6 +400,8 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
   const priceFeed = await PriceFeedFactory.deploy(1, 6);
   await priceFeed.deployed();
   priceFeeds['USUP'] = priceFeed;
+
+  
   // --- Parameters ---
   const supplyKink = dfn(opts.supplyKink, exp(0.8, 18));
   const supplyPerYearInterestRateBase = dfn(opts.supplyInterestRateBase, exp(0.001, 18));
@@ -437,6 +439,11 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
   )
   // --- Whitelist the collateral tokens ---
   for (const asset in assets) {
+    const priceFeed = priceFeeds[asset];
+    console.log('priceFeed', priceFeed.address);
+    if (!priceFeed) {
+      priceFeeds[asset] = await PriceFeedFactory.deploy(1, 6);
+    }
     if (asset == base) continue;
     if (opts.assets) {
       await sandboxController.whitelistCollateralAsset(
@@ -784,9 +791,9 @@ export async function makeProtocol(opts: ProtocolOpts = {}): Promise<Protocol> {
   }, []);
 
   config.extensionDelegate = extensionDelegateAssetList.address;
-  const CometSandboxFactory = (await ethers.getContractFactory('CometHarness')) as CometHarnessExtendedAssetList__factory;
+  const SandboxCometFactory = (await ethers.getContractFactory('CometHarness')) as CometHarnessExtendedAssetList__factory;
 
-  const cometSandbox = await CometSandboxFactory.deploy(config);
+  const cometSandbox = await SandboxCometFactory.deploy(config);
   await cometSandbox.deployed();
 
   if (opts.start) await ethers.provider.send('evm_setNextBlockTimestamp', [opts.start]);
@@ -807,7 +814,7 @@ export async function makeProtocol(opts: ProtocolOpts = {}): Promise<Protocol> {
     users,
     base,
     reward,
-    comet: await ethers.getContractAt('CometHarnessInterfaceExtendedAssetList', cometSandbox.address) as CometSandbox,
+    comet: await ethers.getContractAt('CometHarnessInterfaceExtendedAssetList', cometSandbox.address) as SandboxComet,
     assetListFactory: assetListFactory,
     tokens,
     unsupportedToken,
@@ -865,7 +872,7 @@ export async function makeConfigurator(opts: ProtocolOpts = {}): Promise<Configu
   const targetReserves = await comet.targetReserves();
 
   // Deploy CometFactory
-  const CometFactoryFactory = (await ethers.getContractFactory('CometSandboxFactory')) as CometSandboxFactory__factory;
+  const CometFactoryFactory = (await ethers.getContractFactory('SandboxCometFactory')) as SandboxCometFactory__factory;
   const cometFactory = await CometFactoryFactory.deploy();
   await cometFactory.deployed();
 

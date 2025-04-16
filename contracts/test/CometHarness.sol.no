@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
-import "../CometSandbox.sol";
+import "../SandboxComet.sol";
 
-contract CometHarness is CometSandbox {
+contract CometHarness is SandboxComet {
     uint public nowOverride;
 
-    constructor(Configuration memory config) CometSandbox(config) {}
+    constructor(Configuration memory config) SandboxComet(config) {}
 
     function getNowInternal() override internal view returns (uint40) {
         return nowOverride > 0 ? uint40(nowOverride) : super.getNowInternal();

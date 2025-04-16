@@ -33,6 +33,7 @@ abstract contract CometMainInterface is CometCore {
     error TransferInFailed();
     error TransferOutFailed();
     error Unauthorized();
+    error Locked(uint256 currrentTimestamp, uint256 unlockTimestamp);
 
     event Supply(address indexed from, address indexed dst, uint amount);
     event Transfer(address indexed from, address indexed to, uint amount);
@@ -108,7 +109,6 @@ abstract contract CometMainInterface is CometCore {
     function pauseGuardian() virtual external view returns (address);
     function baseToken() virtual external view returns (address);
     function baseTokenPriceFeed() virtual external view returns (address);
-    function extensionDelegate() virtual external view returns (address);
 
     /// @dev uint64
     function supplyKink() virtual external view returns (uint);

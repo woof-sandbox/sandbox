@@ -4,10 +4,12 @@ pragma solidity 0.8.28;
 import "./interfaces/IConfigController.sol";
 import "./interfaces/ISandboxController.sol";
 import "./interfaces/ISandboxMarket.sol";
-import "./interfaces/ISandboxMarketFactory.sol";
+import "./interfaces/ISandboxCometFactory.sol";
 import "./interfaces/IERC20NonStandard.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./lib/SandboxUtils.sol";
+
+import "hardhat/console.sol";
 
 contract ConfigController is IConfigController {
     using SandboxUtils for address;
@@ -107,7 +109,7 @@ contract ConfigController is IConfigController {
             if (owner_ == ZERO_ADDRESS) revert ZeroAddress();
             if (_curatorFee > 10000) revert InvalidFeePercentage();
         }
-        ISandboxMarketFactory(_marketFactory).initialize(); 
+        ISandboxCometFactory(_marketFactory).initialize();
         curator = curator_;
         owner = owner_;
         guardian = guardian_;
@@ -310,27 +312,41 @@ contract ConfigController is IConfigController {
         unchecked {
             marketsLength++;
         }
-        (uint256 requiredAmount, uint256 lockTime) = ISandboxController(
-            sandboxController
-        ).getSuggestedParams();
+
+        ISandboxController.SandboxControllerConfiguration
+            memory config = ISandboxController(sandboxController).config();
 
         IERC20NonStandard(_marketConfig.baseToken).transferFrom(
             msg.sender,
             address(this),
-            requiredAmount
+            config.suggestedAmountOfSeedReserves
         );
 
-        address market = ISandboxMarketFactory(marketFactory).createMarket(
+        console.log(sandboxController);
+
+        
+        address market = ISandboxCometFactory(marketFactory).createMarket(
             _marketConfig,
-            requiredAmount,
-            lockTime
+            config,
+            msg.sender,
+            guardian,
+            ISandboxController(sandboxController).borrowMin(
+                _marketConfig.baseToken
+            )
+        );
+
+        console.log(
+            "createMarket: market created",
+            market,
+            _marketConfig.baseToken,
+            _marketConfig.config.priceFeed
         );
 
         markets.push(market);
 
         IERC20NonStandard(_marketConfig.baseToken).transfer(
             market,
-            requiredAmount
+            config.suggestedAmountOfSeedReserves
         );
 
         emit MarketConfigurationCreated(

@@ -536,7 +536,7 @@ describe("SandboxController", function () {
       expect(data.priceFeed).to.equal(priceFeed.address)
       expect(data.decimals).to.equal(18)
       expect(data.minBorrow).to.equal(777)
-      const [firstCurve] = await sandboxController.getBaseAssetCurves(token.address)
+      const [firstCurve] = await sandboxController.curves(token.address)
       expect(firstCurve.supplyKink).to.equal(curve.supplyKink)
       expect(firstCurve.supplyPerYearInterestRateSlopeLow).to.equal(curve.supplyPerYearInterestRateSlopeLow)
       expect(firstCurve.supplyPerYearInterestRateSlopeHigh).to.equal(curve.supplyPerYearInterestRateSlopeHigh)
@@ -1136,7 +1136,7 @@ describe("SandboxController", function () {
       expect(ev.args.baseAssetCurve.borrowPerYearInterestRateSlopeHigh).to.equal(newCurve.borrowPerYearInterestRateSlopeHigh)
       expect(ev.args.baseAssetCurve.borrowPerYearInterestRateBase).to.equal(newCurve.borrowPerYearInterestRateBase)
 
-      let curves = await sandboxController.getBaseAssetCurves(token.address)
+      let curves = await sandboxController.curves(token.address)
       expect(curves.length).to.equal(2)
       expect(curves[1].supplyKink).to.equal(newCurve.supplyKink)
       expect(curves[1].supplyPerYearInterestRateSlopeLow).to.equal(newCurve.supplyPerYearInterestRateSlopeLow)
@@ -1162,7 +1162,7 @@ describe("SandboxController", function () {
       expect(ev.args.baseAssetCurve.borrowPerYearInterestRateSlopeHigh).to.equal(anotherCurve.borrowPerYearInterestRateSlopeHigh)
       expect(ev.args.baseAssetCurve.borrowPerYearInterestRateBase).to.equal(anotherCurve.borrowPerYearInterestRateBase)
 
-      curves = await sandboxController.getBaseAssetCurves(token.address)
+      curves = await sandboxController.curves(token.address)
       expect(curves.length).to.equal(3)
       expect(curves[2].supplyKink).to.equal(anotherCurve.supplyKink)
       expect(curves[2].supplyPerYearInterestRateSlopeLow).to.equal(anotherCurve.supplyPerYearInterestRateSlopeLow)
@@ -1243,7 +1243,7 @@ describe("SandboxController", function () {
     it("works if dao calls it, checks old vs new curves and emits BaseAssetCurveChanged", async function () {
       const secondCurve = makeValidCurve()
       await sandboxController.connect(owner).addBaseAssetCurve(token.address, secondCurve)
-      let existingCurves = await sandboxController.getBaseAssetCurves(token.address)
+      let existingCurves = await sandboxController.curves(token.address)
       const oldCurve = existingCurves[1]
 
       const newCurve = {
@@ -1280,7 +1280,7 @@ describe("SandboxController", function () {
       expect(ev.args.baseAssetCurveNew.borrowPerYearInterestRateSlopeHigh).to.equal(newCurve.borrowPerYearInterestRateSlopeHigh)
       expect(ev.args.baseAssetCurveNew.borrowPerYearInterestRateBase).to.equal(newCurve.borrowPerYearInterestRateBase)
 
-      existingCurves = await sandboxController.getBaseAssetCurves(token.address)
+      existingCurves = await sandboxController.curves(token.address)
       const updatedCurve = existingCurves[1]
       expect(updatedCurve.supplyKink).to.equal(newCurve.supplyKink)
       expect(updatedCurve.supplyPerYearInterestRateSlopeLow).to.equal(newCurve.supplyPerYearInterestRateSlopeLow)
