@@ -1,125 +1,149 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
-import "./CometMainInterface.sol";
+import "./CometInterface.sol";
 import "./interfaces/IERC20NonStandard.sol";
 import "./interfaces/IPriceFeed.sol";
 import "./interfaces/IAssetListFactory.sol";
 import "./interfaces/IAssetListFactoryHolder.sol";
 import "./interfaces/IAssetList.sol";
 import "./interfaces/IConfigController.sol";
-import "hardhat/console.sol";
+
 /**
  * @title Compound's Comet Contract
  * @notice An efficient monolithic money market protocol
  * @author Compound
  */
-contract SandboxComet is CometMainInterface {
+contract SandboxComet is CometInterface {
     /** General configuration constants **/
 
     /// @notice The admin of the protocol
-    address public immutable override governor;
+    address public override governor;
+
+    /// @notice The address of the DAO
+    address public override dao;
 
     /// @notice The account which may trigger pauses
-    address public immutable override pauseGuardian;
+    address public override pauseGuardian;
 
     /// @notice The address of the base token contract
-    address public immutable override baseToken;
+    address public override baseToken;
 
     /// @notice The address of the price feed for the base token
-    address public immutable override baseTokenPriceFeed;
+    address public override baseTokenPriceFeed;
 
     /// @notice The point in the supply rates separating the low interest rate slope and the high interest rate slope (factor)
     /// @dev uint64
-    uint public immutable override supplyKink;
+    uint public override supplyKink;
 
     /// @notice Per second supply interest rate slope applied when utilization is below kink (factor)
     /// @dev uint64
-    uint public immutable override supplyPerSecondInterestRateSlopeLow;
+    uint public override supplyPerSecondInterestRateSlopeLow;
 
     /// @notice Per second supply interest rate slope applied when utilization is above kink (factor)
     /// @dev uint64
-    uint public immutable override supplyPerSecondInterestRateSlopeHigh;
+    uint public override supplyPerSecondInterestRateSlopeHigh;
 
     /// @notice Per second supply base interest rate (factor)
     /// @dev uint64
-    uint public immutable override supplyPerSecondInterestRateBase;
+    uint public override supplyPerSecondInterestRateBase;
 
     /// @notice The point in the borrow rate separating the low interest rate slope and the high interest rate slope (factor)
     /// @dev uint64
-    uint public immutable override borrowKink;
+    uint public override borrowKink;
 
     /// @notice Per second borrow interest rate slope applied when utilization is below kink (factor)
     /// @dev uint64
-    uint public immutable override borrowPerSecondInterestRateSlopeLow;
+    uint public override borrowPerSecondInterestRateSlopeLow;
 
     /// @notice Per second borrow interest rate slope applied when utilization is above kink (factor)
     /// @dev uint64
-    uint public immutable override borrowPerSecondInterestRateSlopeHigh;
+    uint public override borrowPerSecondInterestRateSlopeHigh;
 
     /// @notice Per second borrow base interest rate (factor)
     /// @dev uint64
-    uint public immutable override borrowPerSecondInterestRateBase;
+    uint public override borrowPerSecondInterestRateBase;
 
     /// @notice The fraction of the liquidation penalty that goes to buyers of collateral instead of the protocol
     /// @dev uint64
-    uint public immutable override storeFrontPriceFactor;
+    uint public override storeFrontPriceFactor;
 
     /// @notice The scale for base token (must be less than 18 decimals)
     /// @dev uint64
-    uint public immutable override baseScale;
+    uint public override baseScale;
 
     /// @notice The scale for reward tracking
     /// @dev uint64
-    uint public immutable override trackingIndexScale;
+    uint public override trackingIndexScale;
 
     /// @notice The speed at which supply rewards are tracked (in trackingIndexScale)
     /// @dev uint64
-    uint public immutable override baseTrackingSupplySpeed;
+    uint public override baseTrackingSupplySpeed;
 
     /// @notice The speed at which borrow rewards are tracked (in trackingIndexScale)
     /// @dev uint64
-    uint public immutable override baseTrackingBorrowSpeed;
+    uint public override baseTrackingBorrowSpeed;
+
+    /// @notice The speed at which supply rewards are tracked (in trackingIndexScale)
+    /// @dev uint64
+    uint public override daoBaseTrackingSupplySpeed;
+
+    /// @notice The speed at which borrow rewards are tracked (in trackingIndexScale)
+    /// @dev uint64
+    uint public override daoBaseTrackingBorrowSpeed;
 
     /// @notice The minimum amount of base principal wei for rewards to accrue
     /// @dev This must be large enough so as to prevent division by base wei from overflowing the 64 bit indices
     /// @dev uint104
-    uint public immutable override baseMinForRewards;
+    uint public override baseMinForRewards;
 
     /// @notice The minimum base amount required to initiate a borrow
-    uint public immutable override baseBorrowMin;
+    uint public override baseBorrowMin;
 
     /// @notice The minimum base token reserves which must be held before collateral is hodled
-    uint public immutable override targetReserves;
+    uint public override targetReserves;
 
-    uint seedReserves;
+    uint public seedReserves;
 
-    uint unlockTimestamp;
+    uint public unlockTimestamp;
 
     /// @notice The number of decimals for wrapped base token
-    uint8 public immutable override decimals;
+    uint8 public override decimals;
 
     /// @notice The number of assets this contract actually supports
-    uint8 public immutable override numAssets;
+    uint8 public override numAssets;
 
     /// @notice Factor to divide by when accruing rewards in order to preserve 6 decimals (i.e. baseScale / 1e6)
-    uint internal immutable accrualDescaleFactor;
+    uint internal accrualDescaleFactor;
 
     /// @notice The address of the asset list
-    address public immutable assetList;
+    address public assetList;
 
     uint8 internal constant MAX_ASSETS_FOR_ASSET_LIST = 24;
 
-    constructor(
+    bool private _initialized;
+
+    constructor() {
+        _initialized = true;
+    }
+
+    /// @dev only runs once per clone
+    modifier initializer() {
+        require(!_initialized, "SandboxComet: already initialized");
+        _initialized = true;
+        _;
+    }
+
+    /// @notice replaces your old constructor
+    function initialize(
         IConfigController.MarketConfig memory market,
         ISandboxController.SandboxControllerConfiguration memory config,
         address assetListFactory_,
         address governor_,
+        address dao_,
         address pauseGuardian_,
         uint256 baseBorrowMin_
-    ) {
-
-        console.log("SandboxComet constructor called");
+    ) external override initializer {
         uint8 decimals_ = IERC20NonStandard(market.baseToken).decimals();
         if (decimals_ > MAX_BASE_DECIMALS) revert BadDecimals();
         if (
@@ -128,10 +152,18 @@ contract SandboxComet is CometMainInterface {
         ) revert BadDecimals();
 
         governor = governor_;
+        dao = dao_;
         pauseGuardian = pauseGuardian_;
         baseToken = market.baseToken;
         baseTokenPriceFeed = market.config.priceFeed;
         storeFrontPriceFactor = config.storeFrontPriceFactor;
+
+        trackingIndexScale = market.options.trackingIndexScale;
+
+        baseTrackingSupplySpeed = market.options.baseTrackingSupplySpeed;
+        baseTrackingBorrowSpeed = market.options.baseTrackingBorrowSpeed;
+
+        baseMinForRewards = market.options.baseMinForRewards;
 
         decimals = decimals_;
         baseScale = uint64(10 ** decimals_);
@@ -141,7 +173,9 @@ contract SandboxComet is CometMainInterface {
         baseBorrowMin = baseBorrowMin_;
         targetReserves = config.targetReserves;
         seedReserves = config.suggestedAmountOfSeedReserves;
-        unlockTimestamp = block.timestamp + config.suggestedLockTimeOfSeedReserves;
+        unlockTimestamp =
+            block.timestamp +
+            config.suggestedLockTimeOfSeedReserves;
 
         ISandboxController.BaseAssetCurve memory curve = market.config.curve;
 
@@ -170,7 +204,6 @@ contract SandboxComet is CometMainInterface {
         }
         numAssets = uint8(market.collateralTokens.length);
 
-        console.log("numAssets: ", numAssets);
         assetList = IAssetListFactory(assetListFactory_).createAssetList(
             market.collateralTokens
         );
@@ -559,6 +592,24 @@ contract SandboxComet is CometMainInterface {
         }
 
         return liquidity < 0;
+    }
+
+    function setMainSpeeds(
+        uint64 baseTrackingSupplySpeed_,
+        uint64 baseTrackingBorrowSpeed_
+    ) external {
+        if (msg.sender != governor) revert Unauthorized();
+        baseTrackingSupplySpeed = baseTrackingSupplySpeed_;
+        baseTrackingBorrowSpeed = baseTrackingBorrowSpeed_;
+    }
+
+    function setDaoSpeeds(
+        uint64 baseTrackingSupplySpeed_,
+        uint64 baseTrackingBorrowSpeed_
+    ) external {
+        if (msg.sender != dao) revert Unauthorized();
+        daoBaseTrackingSupplySpeed = baseTrackingSupplySpeed_;
+        daoBaseTrackingBorrowSpeed = baseTrackingBorrowSpeed_;
     }
 
     /**

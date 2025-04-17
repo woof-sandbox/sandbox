@@ -4,16 +4,20 @@ pragma solidity 0.8.28;
 import "@openzeppelin/contracts/proxy/Clones.sol";
 import "./interfaces/ISandboxCometFactory.sol";
 import "./CometConfiguration.sol";
+import "./CometInterface.sol";
 import "./AssetListFactory.sol";
-import "./SandboxComet.sol";
-import "hardhat/console.sol";
+
 contract SandboxCometFactory is ISandboxCometFactory, CometConfiguration {
     address public configController;
     address public assetListFactory;
+    address public cometImplementation;
+
     address[] public markets;
     uint public lastMarket;
 
-    function initialize() external {
+    function initialize(address _cometImplementation) external {
+        require(cometImplementation == address(0), ZeroAddress());
+        cometImplementation = _cometImplementation;
         configController = msg.sender;
         assetListFactory = address(new AssetListFactory());
     }
@@ -22,22 +26,25 @@ contract SandboxCometFactory is ISandboxCometFactory, CometConfiguration {
         IConfigController.MarketConfig memory _marketConfig,
         ISandboxController.SandboxControllerConfiguration memory config,
         address governor,
+        address dao,
         address pauseGuardian,
         uint256 baseBorrowMin
     ) external returns (address) {
         require(configController != address(0), MarketFactoryNotInitialized());
         require(msg.sender == configController, Unauthorized());
-            console.log("Creating market with config: ", _marketConfig.baseToken);
-        address market = address(new SandboxComet(
+        address market = Clones.clone(cometImplementation);
+
+        CometInterface(market).initialize(
             _marketConfig,
             config,
             assetListFactory,
             governor,
+            dao,
             pauseGuardian,
             baseBorrowMin
-        ));
+        );
 
-        console.log("Created market at: ", market);
+        CometInterface(market).initializeStorage();
 
         markets.push(market);
 

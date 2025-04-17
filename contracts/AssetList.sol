@@ -4,7 +4,7 @@ pragma solidity 0.8.28;
 import "./interfaces/IPriceFeed.sol";
 import "./interfaces/IERC20NonStandard.sol";
 import "./interfaces/IConfigController.sol";
-import "./CometMainInterface.sol";
+import "./CometInterface.sol";
 import "./CometCore.sol";
 import "hardhat/console.sol";
 
@@ -139,13 +139,13 @@ contract AssetList {
         if (asset == address(0)) return (0, 0);
 
         if (IPriceFeed(priceFeed).decimals() != PRICE_FEED_DECIMALS)
-            revert CometMainInterface.BadDecimals();
+            revert CometInterface.BadDecimals();
         if (IERC20NonStandard(asset).decimals() != decimals_)
-            revert CometMainInterface.BadDecimals();
+            revert CometInterface.BadDecimals();
         if (borrowCF >= liquidateCF)
-            revert CometMainInterface.BorrowCFTooLarge();
+            revert CometInterface.BorrowCFTooLarge();
         if (liquidateCF > MAX_COLLATERAL_FACTOR)
-            revert CometMainInterface.LiquidateCFTooLarge();
+            revert CometInterface.LiquidateCFTooLarge();
 
         unchecked {
             uint64 descale = FACTOR_SCALE / 1e4;
@@ -154,7 +154,7 @@ contract AssetList {
             uint16 liquidationFactor = uint16(liquidationF / descale);
 
             if (borrowCollateralFactor >= liquidateCollateralFactor)
-                revert CometMainInterface.BorrowCFTooLarge();
+                revert CometInterface.BorrowCFTooLarge();
 
             uint64 scaledSupplyCap = uint64(supplyCap / (10 ** decimals_));
 
@@ -179,7 +179,7 @@ contract AssetList {
     function getAssetInfo(
         uint8 i
     ) public view returns (CometCore.AssetInfo memory) {
-        if (i >= numAssets) revert CometMainInterface.BadAsset();
+        if (i >= numAssets) revert CometInterface.BadAsset();
         uint256 word_a;
         uint256 word_b;
         if (i == 0) {

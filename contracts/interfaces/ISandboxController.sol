@@ -181,6 +181,10 @@ interface ISandboxController is ISandboxErrors {
         bytes32 curveHash
     ) external view returns (bool);
 
+    function dao() external view returns (address);
+    
+    function owner() external view returns (address);
+
     function baseAssets(
         address token
     ) external view returns (BaseAssetConfiguration memory);

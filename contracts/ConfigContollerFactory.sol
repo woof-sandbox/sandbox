@@ -9,13 +9,28 @@ contract ConfigControllerFactory is IConfigControllerFactory {
     address public owner;
     address[] public controllers;
 
-    constructor(address _owner) {
+    address public cometImplementation;
+
+    constructor(address _owner, address _cometImplementation) {
         owner = _owner;
+        cometImplementation = _cometImplementation;
     }
 
     modifier onlyOwner() {
         if (msg.sender != owner) revert Unauthorized();
         _;
+    }
+
+    function setImplementation(address cometImplementation_) external onlyOwner {
+        cometImplementation = cometImplementation_;
+        emit ImplementationSet(cometImplementation_);
+    }
+
+    function transferOwnership(address newOwner) external onlyOwner {
+        if (newOwner == address(0)) revert ZeroAddress();
+        address oldOwner = owner;
+        owner = newOwner;
+        emit OwnerTransferred(oldOwner, newOwner);
     }
 
     /**
@@ -41,11 +56,11 @@ contract ConfigControllerFactory is IConfigControllerFactory {
             curator_,
             guardian_,
             sandboxController_,
+            cometImplementation,
             marketFactory_,
             curatorFee_,
             name_
         );
-
 
         controllers.push(address(controller));
         emit ConfigControllerCreated(address(controller), name_);

@@ -101,6 +101,7 @@ contract ConfigController is IConfigController {
         address curator_,
         address guardian_,
         address _sandboxController,
+        address _cometImplementation,
         address _marketFactory,
         uint _curatorFee,
         string memory _name
@@ -109,7 +110,7 @@ contract ConfigController is IConfigController {
             if (owner_ == ZERO_ADDRESS) revert ZeroAddress();
             if (_curatorFee > 10000) revert InvalidFeePercentage();
         }
-        ISandboxCometFactory(_marketFactory).initialize();
+        ISandboxCometFactory(_marketFactory).initialize(_cometImplementation);
         curator = curator_;
         owner = owner_;
         guardian = guardian_;
@@ -117,82 +118,6 @@ contract ConfigController is IConfigController {
         marketFactory = _marketFactory;
         curatorFee = _curatorFee;
         name = _name;
-    }
-
-    /// @notice Validates base token configuration
-    /// @dev Internal function to validate base token parameters
-    /// @param baseTokenConfig The base token configuration to validate
-    /// @param baseToken The address of the base token
-    function _validateBaseTokenConfig(
-        IConfigController.BaseTokenConfig memory baseTokenConfig,
-        address baseToken
-    ) internal view {
-        if (baseToken == ZERO_ADDRESS) revert ZeroAddress();
-        if (
-            !ISandboxController(sandboxController)
-                .isCurveConfigurationWhitelisted(
-                    baseToken.encodeCurve(baseTokenConfig.curve)
-                )
-        ) revert BaseTokenNotWhitelisted();
-        if (
-            !ISandboxController(sandboxController).isPriceFeedWhitelisted(
-                baseTokenConfig.priceFeed
-            )
-        ) revert InvalidPriceFeed();
-    }
-
-    /// @notice Validates market collateral token configuration
-    /// @dev Internal function to validate collateral token parameters
-    /// @param collateralToken The collateral token configuration to validate
-    /// @param collateralAssetLimitations The limitations from sandbox controller
-    /// @param addedCollateralTokens Array of already added collateral tokens
-    function _validateCollateralTokenConfig(
-        IConfigController.CollateralToken memory collateralToken,
-        ISandboxController.CollateralAssetConfiguration
-            memory collateralAssetLimitations,
-        address[] memory addedCollateralTokens
-    ) internal view {
-        // Default checks
-        if (collateralToken.collateralToken == ZERO_ADDRESS)
-            revert ZeroAddress();
-        if (
-            !ISandboxController(sandboxController).isCollateralTokenWhitelisted(
-                collateralToken.collateralToken
-            )
-        ) revert CollateralTokenNotWhitelisted();
-
-        CollateralTokenConfig memory config = collateralToken.config;
-
-        if (
-            !ISandboxController(sandboxController).isPriceFeedWhitelisted(
-                config.priceFeed
-            )
-        ) revert InvalidPriceFeed();
-
-        for (uint j; j < addedCollateralTokens.length; j++) {
-            if (addedCollateralTokens[j] == collateralToken.collateralToken)
-                revert CollateralTokenAlreadyAdded();
-        }
-
-        if (
-            config.supplyCap == 0 ||
-            config.borrowCollateralFactor == 0 ||
-            config.liquidateCollateralFactor == 0 ||
-            config.liquidationFactor == 0 ||
-            config.borrowCollateralFactor <
-            collateralAssetLimitations.minBorrowCollateralFactor ||
-            config.borrowCollateralFactor >
-            collateralAssetLimitations.maxBorrowCollateralFactor ||
-            config.liquidateCollateralFactor < config.borrowCollateralFactor ||
-            config.liquidateCollateralFactor >
-            collateralAssetLimitations.maxLiquidateCollateralFactor ||
-            config.liquidateCollateralFactor <
-            collateralAssetLimitations.minLiquidateCollateralFactor ||
-            config.liquidationFactor >
-            collateralAssetLimitations.maxLiquidationFactor ||
-            config.liquidationFactor <
-            collateralAssetLimitations.minLiquidationFactor
-        ) revert InvalidFactors();
     }
 
     // External/Public functions
@@ -278,7 +203,6 @@ contract ConfigController is IConfigController {
         if (_marketConfig.collateralTokens.length == 0)
             revert ZeroCollateralAssets();
 
-        // Gas saving
         uint length = _marketConfig.collateralTokens.length;
         CollateralTokenConfig memory collateralTokenConfig;
         ISandboxController.CollateralAssetConfiguration
@@ -322,24 +246,15 @@ contract ConfigController is IConfigController {
             config.suggestedAmountOfSeedReserves
         );
 
-        console.log(sandboxController);
-
-        
         address market = ISandboxCometFactory(marketFactory).createMarket(
             _marketConfig,
             config,
-            msg.sender,
+            owner,
             guardian,
+            ISandboxController(sandboxController).dao(),
             ISandboxController(sandboxController).borrowMin(
                 _marketConfig.baseToken
             )
-        );
-
-        console.log(
-            "createMarket: market created",
-            market,
-            _marketConfig.baseToken,
-            _marketConfig.config.priceFeed
         );
 
         markets.push(market);
@@ -488,6 +403,9 @@ contract ConfigController is IConfigController {
         emit MarketConfigProposalCancelled(market, msg.sender);
     }
 
+    /// @notice Executes a market configuration proposal
+    /// @dev Can be called by anyone after the proposal expiration
+    /// @param market The address of the market
     function executeMarketConfigProposal(
         address market
     ) external proposalExists(market) {
@@ -507,5 +425,80 @@ contract ConfigController is IConfigController {
     ) external {
         _validateBaseTokenConfig(baseConfig, baseConfig.priceFeed);
         ISandboxMarket(market).setBaseTokenConfig(baseConfig);
+    }
+
+    /// @notice Validates base token configuration
+    /// @dev Internal function to validate base token parameters
+    /// @param baseTokenConfig The base token configuration to validate
+    /// @param baseToken The address of the base token
+    function _validateBaseTokenConfig(
+        IConfigController.BaseTokenConfig memory baseTokenConfig,
+        address baseToken
+    ) internal view {
+        if (baseToken == ZERO_ADDRESS) revert ZeroAddress();
+        if (
+            !ISandboxController(sandboxController)
+                .isCurveConfigurationWhitelisted(
+                    baseToken.encodeCurve(baseTokenConfig.curve)
+                )
+        ) revert BaseTokenNotWhitelisted();
+        if (
+            !ISandboxController(sandboxController).isPriceFeedWhitelisted(
+                baseTokenConfig.priceFeed
+            )
+        ) revert InvalidPriceFeed();
+    }
+
+    /// @notice Validates market collateral token configuration
+    /// @dev Internal function to validate collateral token parameters
+    /// @param collateralToken The collateral token configuration to validate
+    /// @param collateralAssetLimitations The limitations from sandbox controller
+    /// @param addedCollateralTokens Array of already added collateral tokens
+    function _validateCollateralTokenConfig(
+        IConfigController.CollateralToken memory collateralToken,
+        ISandboxController.CollateralAssetConfiguration
+            memory collateralAssetLimitations,
+        address[] memory addedCollateralTokens
+    ) internal view {
+        if (collateralToken.collateralToken == ZERO_ADDRESS)
+            revert ZeroAddress();
+        if (
+            !ISandboxController(sandboxController).isCollateralTokenWhitelisted(
+                collateralToken.collateralToken
+            )
+        ) revert CollateralTokenNotWhitelisted();
+
+        CollateralTokenConfig memory config = collateralToken.config;
+
+        if (
+            !ISandboxController(sandboxController).isPriceFeedWhitelisted(
+                config.priceFeed
+            )
+        ) revert InvalidPriceFeed();
+
+        for (uint j; j < addedCollateralTokens.length; j++) {
+            if (addedCollateralTokens[j] == collateralToken.collateralToken)
+                revert CollateralTokenAlreadyAdded();
+        }
+
+        if (
+            config.supplyCap == 0 ||
+            config.borrowCollateralFactor == 0 ||
+            config.liquidateCollateralFactor == 0 ||
+            config.liquidationFactor == 0 ||
+            config.borrowCollateralFactor <
+            collateralAssetLimitations.minBorrowCollateralFactor ||
+            config.borrowCollateralFactor >
+            collateralAssetLimitations.maxBorrowCollateralFactor ||
+            config.liquidateCollateralFactor < config.borrowCollateralFactor ||
+            config.liquidateCollateralFactor >
+            collateralAssetLimitations.maxLiquidateCollateralFactor ||
+            config.liquidateCollateralFactor <
+            collateralAssetLimitations.minLiquidateCollateralFactor ||
+            config.liquidationFactor >
+            collateralAssetLimitations.maxLiquidationFactor ||
+            config.liquidationFactor <
+            collateralAssetLimitations.minLiquidationFactor
+        ) revert InvalidFactors();
     }
 }
