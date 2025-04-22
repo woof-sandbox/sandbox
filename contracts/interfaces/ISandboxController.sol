@@ -41,7 +41,7 @@ interface ISandboxController is ISandboxErrors {
     }
 
     struct SandboxControllerConfiguration {
-        uint256 targetReserves;
+        uint256 targetPercent;
         uint256 storeFrontPriceFactor;
         uint256 minUpdateTime;
         uint256 suggestedAmountOfSeedReserves;

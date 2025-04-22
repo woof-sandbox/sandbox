@@ -6,7 +6,6 @@ import "./interfaces/IERC20NonStandard.sol";
 import "./interfaces/IConfigController.sol";
 import "./CometInterface.sol";
 import "./CometCore.sol";
-import "hardhat/console.sol";
 
 /**
  * @title Compound's Asset List
@@ -121,7 +120,6 @@ contract AssetList {
         IConfigController.CollateralToken[] memory assetConfigs,
         uint i
     ) internal view returns (uint256, uint256) {
-        console.log("getPackedAssetInternal");
 
         if (i >= assetConfigs.length) return (0, 0);
 

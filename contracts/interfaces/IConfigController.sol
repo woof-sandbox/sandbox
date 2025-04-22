@@ -19,12 +19,6 @@ abstract contract IConfigController is ISandboxErrors {
         bool isActive;
     }
 
-    struct MarketOptions {
-        uint256 baseTrackingSupplySpeed;
-        uint256 baseTrackingBorrowSpeed;
-        uint256 trackingIndexScale;
-        uint256 baseMinForRewards;
-    }
 
     struct MarketConfig {
         address baseToken;
@@ -44,6 +38,14 @@ abstract contract IConfigController is ISandboxErrors {
         CollateralTokenConfig config;
     }
 
+
+    struct MarketOptions {
+        uint256 baseTrackingSupplySpeed;
+        uint256 baseTrackingBorrowSpeed;
+        uint256 trackingIndexScale;
+        uint256 baseMinForRewards;
+    }
+
     struct CollateralTokenConfig {
         address priceFeed;
         uint8 decimals;
@@ -59,6 +61,7 @@ abstract contract IConfigController is ISandboxErrors {
         address priceFeed,
         uint baseTokenId
     );
+    
     event AddedCollateralTokenConfig(
         address asset,
         address priceFeed,

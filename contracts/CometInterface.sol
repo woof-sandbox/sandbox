@@ -60,6 +60,9 @@ abstract contract CometInterface is CometCore {
     /// @notice Event emitted when reserves are withdrawn by the governor
     event WithdrawReserves(address indexed to, uint amount);
 
+    event SpeedsChanged(uint  baseTrackingSupplySpeed, uint baseTrackingBorrowSpeed, bool dao_);
+            
+
     function supply(address asset, uint amount) virtual external;
     function supplyTo(address dst, address asset, uint amount) virtual external;
     function supplyFrom(address from, address dst, address asset, uint amount) virtual external;
@@ -163,6 +166,8 @@ abstract contract CometInterface is CometCore {
     /// @dev uint104
     function targetReserves() virtual external view returns (uint);
 
+    function targetPercent() virtual external view returns (uint);
+    
     function numAssets() virtual external view returns (uint8);
     function decimals() virtual external view returns (uint8);
 

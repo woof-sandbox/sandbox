@@ -8,7 +8,6 @@ import "./interfaces/ISandboxCometFactory.sol";
 import "./interfaces/IERC20NonStandard.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./lib/SandboxUtils.sol";
-
 import "hardhat/console.sol";
 
 contract ConfigController is IConfigController {
@@ -56,23 +55,9 @@ contract ConfigController is IConfigController {
         _;
     }
 
-    /// @notice Modifier to restrict access to owner or curator
-    modifier onlyOwnerOrCurator() {
-        if (msg.sender != owner && msg.sender != curator) revert Unauthorized();
-        _;
-    }
-
-    /// @notice Modifier to restrict access to guardian only
-    modifier onlyGuardian() {
-        if (msg.sender != guardian) revert Unauthorized();
-        _;
-    }
-
     /// @notice Modifier to check if proposal exists and is active
     modifier proposalExists(address market) {
         if (!_marketProposals[market].isActive) revert NoActiveProposal();
-        if (block.timestamp > _marketProposals[market].expiration)
-            revert ProposalExpired();
         _;
     }
 
@@ -250,8 +235,8 @@ contract ConfigController is IConfigController {
             _marketConfig,
             config,
             owner,
-            guardian,
             ISandboxController(sandboxController).dao(),
+            guardian,
             ISandboxController(sandboxController).borrowMin(
                 _marketConfig.baseToken
             )
@@ -399,6 +384,8 @@ contract ConfigController is IConfigController {
     function cancelMarketConfigProposal(
         address market
     ) external proposalExists(market) canCancelProposal(market) {
+        if (block.timestamp > _marketProposals[market].expiration)
+            revert ProposalExpired();
         delete _marketProposals[market];
         emit MarketConfigProposalCancelled(market, msg.sender);
     }
@@ -412,7 +399,15 @@ contract ConfigController is IConfigController {
         MarketConfigProposal memory proposal = _marketProposals[market];
         if (block.timestamp <= proposal.expiration) revert ProposalNotExpired();
 
-        (bool success, ) = proposal.market.call(proposal.callData);
+        (bool success, bytes memory data) = proposal.market.call(proposal.callData);
+
+        if (data.length > 0) {
+            assembly {
+                let err := mload(add(data, 0x20))
+                revert(err, 0)
+            }
+        }
+        
         if (!success) revert ExecutionFailed();
 
         delete _marketProposals[market];

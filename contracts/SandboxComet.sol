@@ -101,7 +101,7 @@ contract SandboxComet is CometInterface {
     uint public override baseBorrowMin;
 
     /// @notice The minimum base token reserves which must be held before collateral is hodled
-    uint public override targetReserves;
+    uint public override targetPercent;
 
     uint public seedReserves;
 
@@ -171,7 +171,7 @@ contract SandboxComet is CometInterface {
         accrualDescaleFactor = baseScale / BASE_ACCRUAL_SCALE;
 
         baseBorrowMin = baseBorrowMin_;
-        targetReserves = config.targetReserves;
+        targetPercent = config.targetPercent;
         seedReserves = config.suggestedAmountOfSeedReserves;
         unlockTimestamp =
             block.timestamp +
@@ -594,22 +594,26 @@ contract SandboxComet is CometInterface {
         return liquidity < 0;
     }
 
-    function setMainSpeeds(
+    function setSpeeds(
         uint64 baseTrackingSupplySpeed_,
-        uint64 baseTrackingBorrowSpeed_
+        uint64 baseTrackingBorrowSpeed_,
+        bool _dao
     ) external {
-        if (msg.sender != governor) revert Unauthorized();
-        baseTrackingSupplySpeed = baseTrackingSupplySpeed_;
-        baseTrackingBorrowSpeed = baseTrackingBorrowSpeed_;
-    }
+        if (_dao) {
+            if (msg.sender != dao) revert Unauthorized();
+            daoBaseTrackingSupplySpeed = baseTrackingSupplySpeed_;
+            daoBaseTrackingBorrowSpeed = baseTrackingBorrowSpeed_;
+        } else {
+            if (msg.sender != governor) revert Unauthorized();
+            baseTrackingSupplySpeed = baseTrackingSupplySpeed_;
+            baseTrackingBorrowSpeed = baseTrackingBorrowSpeed_;
+        }
 
-    function setDaoSpeeds(
-        uint64 baseTrackingSupplySpeed_,
-        uint64 baseTrackingBorrowSpeed_
-    ) external {
-        if (msg.sender != dao) revert Unauthorized();
-        daoBaseTrackingSupplySpeed = baseTrackingSupplySpeed_;
-        daoBaseTrackingBorrowSpeed = baseTrackingBorrowSpeed_;
+        emit SpeedsChanged(
+            baseTrackingSupplySpeed_,
+            baseTrackingBorrowSpeed_,
+            _dao
+        );
     }
 
     /**
@@ -1001,6 +1005,15 @@ contract SandboxComet is CometInterface {
             dstPrincipal,
             dstPrincipalNew
         );
+
+        uint currentReserves = uint(getReserves());
+        uint maxReserves = targetReserves();
+
+        if (currentReserves >= maxReserves) {
+            repayAmount = 0;
+        } else if (currentReserves + repayAmount > maxReserves) {
+            repayAmount = uint104(maxReserves - currentReserves);
+        }
 
         totalSupplyBase += supplyAmount;
         totalBorrowBase -= repayAmount;
@@ -1445,6 +1458,16 @@ contract SandboxComet is CometInterface {
         totalBorrowBase -= repayAmount;
 
         uint256 basePaidOut = unsigned256(newBalance - oldBalance);
+
+        uint maxReserves = targetReserves();
+        int currentReserves = getReserves();
+
+        if (currentReserves >= int(maxReserves)) {
+            basePaidOut = 0;
+        } else if (uint(currentReserves) + basePaidOut > maxReserves) {
+            basePaidOut = maxReserves - uint(currentReserves);
+        }
+
         uint256 valueOfBasePaidOut = mulPrice(
             basePaidOut,
             basePrice,
@@ -1478,7 +1501,7 @@ contract SandboxComet is CometInterface {
         if (isBuyPaused()) revert Paused();
 
         int reserves = getReserves();
-        if (reserves >= 0 && uint(reserves) >= targetReserves)
+        if (reserves >= 0 && uint(reserves) >= targetReserves())
             revert NotForSale();
 
         // Note: Re-entrancy can skip the reserves check above on a second buyCollateral call.
@@ -1593,6 +1616,10 @@ contract SandboxComet is CometInterface {
             getNowInternal() - lastAccrualTime
         );
         return presentValueBorrow(baseBorrowIndex_, totalBorrowBase);
+    }
+
+    function targetReserves() public view override returns (uint) {
+        return (totalBorrowBase * targetPercent) / FACTOR_SCALE;
     }
 
     /**

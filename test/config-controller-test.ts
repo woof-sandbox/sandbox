@@ -50,6 +50,7 @@ describe('ConfigController', () => {
                     ethers.constants.AddressZero,
                     ethers.constants.AddressZero,
                     ethers.constants.AddressZero,
+                    ethers.constants.AddressZero,
                     1000,
                     "ConfigController"
                 )
@@ -61,6 +62,7 @@ describe('ConfigController', () => {
             const [owner] = await ethers.getSigners();
             await expect(
                 ConfigController.deploy(
+                    owner.address,
                     owner.address,
                     owner.address,
                     owner.address,
@@ -97,7 +99,13 @@ describe('ConfigController', () => {
                     decimals: baseTokenDecimals,
                     curve: baseCurve
                 },
-                collateralTokens: []
+                collateralTokens: [],
+                options: {
+                    baseTrackingSupplySpeed: 0,
+                    baseTrackingBorrowSpeed: 0,
+                    trackingIndexScale: 0,
+                    baseMinForRewards: 0,
+                }
             };
 
             for (const token of Object.keys(tokens)) {
@@ -111,7 +119,7 @@ describe('ConfigController', () => {
                             borrowCollateralFactor: factor(0.6),
                             liquidateCollateralFactor: factor(0.7),
                             liquidationFactor: factor(0.8),
-                            supplyCap: exp(1_000_000, 6)
+                            supplyCap: exp(1_000_000, 18)
                         }
                     });
                 }
@@ -123,18 +131,24 @@ describe('ConfigController', () => {
             const receipt = await tx.wait();
             const event = receipt.events?.find((e) => e.event === 'MarketConfigurationCreated');
             const marketAddress = event?.args?.market;
-            const market = await ethers.getContractAt("SandboxCommet", marketAddress) as SandboxComet;
+            const market = await ethers.getContractAt("SandboxComet", marketAddress) as SandboxComet;
 
             expect(await market.baseToken()).to.eq(tokens[baseTokenSymbol].address);
 
-            const deployedCollateralTokens = await market.getCollateralTokens();
+            const numAssets = await market.numAssets();
+            const deployedCollateralTokens: string[] = [];
+
+            for (let i = 0; i < numAssets; i++) {
+                const assetInfo = await market.getAssetInfo(i);
+                deployedCollateralTokens.push(assetInfo.asset);
+            }
+
             const unsupportedTokenSymbol = await unsupportedToken.symbol();
             const expectedCollateralCount = Object.keys(tokens).filter(t => t !== baseTokenSymbol && t !== unsupportedTokenSymbol).length;
 
             expect(deployedCollateralTokens.length).to.eq(expectedCollateralCount);
-
             for (const token of deployedCollateralTokens) {
-                const config = await market.getCollateralTokenConfig(token);
+                const config = await market.getAssetInfoByAddress(token);
                 const expected = marketConfig.collateralTokens.find(c => c.collateralToken === token);
                 expect(expected).to.not.be.undefined;
                 expect(config.priceFeed).to.eq(expected!.config.priceFeed);
@@ -142,7 +156,6 @@ describe('ConfigController', () => {
                 expect(config.liquidateCollateralFactor).to.eq(expected!.config.liquidateCollateralFactor);
                 expect(config.liquidationFactor).to.eq(expected!.config.liquidationFactor);
                 expect(config.supplyCap).to.eq(expected!.config.supplyCap);
-                expect(config.decimals).to.eq(expected!.config.decimals);
             }
 
             expect(deployedCollateralTokens).to.not.include(baseToken.address);
@@ -175,7 +188,13 @@ describe('ConfigController', () => {
                     decimals: baseTokenDecimals,
                     curve: baseCurve
                 },
-                collateralTokens: []
+                collateralTokens: [],
+                options: {
+                    baseTrackingSupplySpeed: 0,
+                    baseTrackingBorrowSpeed: 0,
+                    trackingIndexScale: 0,
+                    baseMinForRewards: 0,
+                }
             };
 
             for (const token of Object.keys(tokens)) {
@@ -227,7 +246,13 @@ describe('ConfigController', () => {
                     decimals: baseTokenDecimals,
                     curve: baseCurve
                 },
-                collateralTokens: []
+                collateralTokens: [],
+                options: {
+                    baseTrackingSupplySpeed: 0,
+                    baseTrackingBorrowSpeed: 0,
+                    trackingIndexScale: 0,
+                    baseMinForRewards: 0,
+                }
             };
 
             for (const token of Object.keys(tokens)) {
@@ -275,7 +300,13 @@ describe('ConfigController', () => {
                     decimals: baseTokenDecimals,
                     curve: baseCurve
                 },
-                collateralTokens: []
+                collateralTokens: [],
+                options: {
+                    baseTrackingSupplySpeed: 0,
+                    baseTrackingBorrowSpeed: 0,
+                    trackingIndexScale: 0,
+                    baseMinForRewards: 0,
+                }
             };
 
             for (const token of Object.keys(tokens)) {
@@ -321,7 +352,13 @@ describe('ConfigController', () => {
                     decimals: baseTokenDecimals,
                     curve: baseCurve
                 },
-                collateralTokens: []
+                collateralTokens: [],
+                options: {
+                    baseTrackingSupplySpeed: 0,
+                    baseTrackingBorrowSpeed: 0,
+                    trackingIndexScale: 0,
+                    baseMinForRewards: 0,
+                }
             };
 
             for (const token of Object.keys(tokens)) {
@@ -369,7 +406,13 @@ describe('ConfigController', () => {
                     decimals: baseTokenDecimals,
                     curve: baseCurve
                 },
-                collateralTokens: []
+                collateralTokens: [],
+                options: {
+                    baseTrackingSupplySpeed: 0,
+                    baseTrackingBorrowSpeed: 0,
+                    trackingIndexScale: 0,
+                    baseMinForRewards: 0,
+                }
             };
 
             for (const token of Object.keys(tokens)) {
@@ -417,6 +460,12 @@ describe('ConfigController', () => {
                     curve: baseCurve,
                 },
                 collateralTokens: [],
+                options: {
+                    baseTrackingSupplySpeed: 0,
+                    baseTrackingBorrowSpeed: 0,
+                    trackingIndexScale: 0,
+                    baseMinForRewards: 0,
+                }
             };
 
             for (const token of Object.keys(tokens)) {
@@ -464,6 +513,12 @@ describe('ConfigController', () => {
                     curve: baseCurve,
                 },
                 collateralTokens: [],
+                options: {
+                    baseTrackingSupplySpeed: 0,
+                    baseTrackingBorrowSpeed: 0,
+                    trackingIndexScale: 0,
+                    baseMinForRewards: 0,
+                }
             };
 
             for (const token of Object.keys(tokens)) {
@@ -537,6 +592,12 @@ describe('ConfigController', () => {
                         },
                     },
                 ],
+                options: {
+                    baseTrackingSupplySpeed: 0,
+                    baseTrackingBorrowSpeed: 0,
+                    trackingIndexScale: 0,
+                    baseMinForRewards: 0,
+                }
             };
 
             await baseToken.approve(configController.address, seedReserves);
@@ -578,7 +639,13 @@ describe('ConfigController', () => {
                             supplyCap: exp(1_000_000, 6)
                         }
                     }
-                ]
+                ],
+                options: {
+                    baseTrackingSupplySpeed: 0,
+                    baseTrackingBorrowSpeed: 0,
+                    trackingIndexScale: 0,
+                    baseMinForRewards: 0,
+                }
             };
 
             await baseToken.approve(configController.address, seedReserves);
@@ -622,7 +689,13 @@ describe('ConfigController', () => {
                             supplyCap: 0
                         }
                     }
-                ]
+                ],
+                options: {
+                    baseTrackingSupplySpeed: 0,
+                    baseTrackingBorrowSpeed: 0,
+                    trackingIndexScale: 0,
+                    baseMinForRewards: 0,
+                }
             };
 
 
@@ -668,7 +741,13 @@ describe('ConfigController', () => {
                             supplyCap: exp(1_000_000, 6)
                         }
                     }
-                ]
+                ],
+                options: {
+                    baseTrackingSupplySpeed: 0,
+                    baseTrackingBorrowSpeed: 0,
+                    trackingIndexScale: 0,
+                    baseMinForRewards: 0,
+                }
             };
 
             await baseToken.approve(configController.address, seedReserves);
@@ -711,7 +790,13 @@ describe('ConfigController', () => {
                             supplyCap: exp(1_000_000, 6)
                         }
                     }
-                ]
+                ],
+                options: {
+                    baseTrackingSupplySpeed: 0,
+                    baseTrackingBorrowSpeed: 0,
+                    trackingIndexScale: 0,
+                    baseMinForRewards: 0,
+                }
             };
 
             await baseToken.approve(configController.address, seedReserves);
@@ -754,7 +839,13 @@ describe('ConfigController', () => {
                             supplyCap: exp(1_000_000, 6)
                         }
                     }
-                ]
+                ],
+                options: {
+                    baseTrackingSupplySpeed: 0,
+                    baseTrackingBorrowSpeed: 0,
+                    trackingIndexScale: 0,
+                    baseMinForRewards: 0,
+                }
             };
 
             await baseToken.approve(configController.address, seedReserves);
@@ -797,7 +888,13 @@ describe('ConfigController', () => {
                             supplyCap: exp(1_000_000, 6)
                         }
                     }
-                ]
+                ],
+                options: {
+                    baseTrackingSupplySpeed: 0,
+                    baseTrackingBorrowSpeed: 0,
+                    trackingIndexScale: 0,
+                    baseMinForRewards: 0,
+                }
             };
 
             await baseToken.approve(configController.address, seedReserves);
@@ -841,7 +938,13 @@ describe('ConfigController', () => {
                             supplyCap: exp(1_000_000, 6)
                         }
                     }
-                ]
+                ],
+                options: {
+                    baseTrackingSupplySpeed: 0,
+                    baseTrackingBorrowSpeed: 0,
+                    trackingIndexScale: 0,
+                    baseMinForRewards: 0,
+                }
             };
 
             await baseToken.approve(configController.address, seedReserves);
@@ -885,7 +988,13 @@ describe('ConfigController', () => {
                             supplyCap: exp(1_000_000, 6)
                         }
                     }
-                ]
+                ],
+                options: {
+                    baseTrackingSupplySpeed: 0,
+                    baseTrackingBorrowSpeed: 0,
+                    trackingIndexScale: 0,
+                    baseMinForRewards: 0,
+                }
             };
 
             await baseToken.approve(configController.address, seedReserves);
@@ -930,7 +1039,13 @@ describe('ConfigController', () => {
                             supplyCap: exp(1_000_000, 6)
                         }
                     }
-                ]
+                ],
+                options: {
+                    baseTrackingSupplySpeed: 0,
+                    baseTrackingBorrowSpeed: 0,
+                    trackingIndexScale: 0,
+                    baseMinForRewards: 0,
+                }
             };
 
             await baseToken.approve(configController.address, seedReserves);
@@ -974,6 +1089,12 @@ describe('ConfigController', () => {
                         },
                     },
                 ],
+                options: {
+                    baseTrackingSupplySpeed: 0,
+                    baseTrackingBorrowSpeed: 0,
+                    trackingIndexScale: 0,
+                    baseMinForRewards: 0,
+                }
             };
 
             await baseToken.approve(configController.address, seedReserves);
@@ -1017,6 +1138,12 @@ describe('ConfigController', () => {
                         },
                     },
                 ],
+                options: {
+                    baseTrackingSupplySpeed: 0,
+                    baseTrackingBorrowSpeed: 0,
+                    trackingIndexScale: 0,
+                    baseMinForRewards: 0,
+                }
             };
 
             await baseToken.approve(configController.address, seedReserves);
@@ -1061,6 +1188,12 @@ describe('ConfigController', () => {
                         },
                     },
                 ],
+                options: {
+                    baseTrackingSupplySpeed: 0,
+                    baseTrackingBorrowSpeed: 0,
+                    trackingIndexScale: 0,
+                    baseMinForRewards: 0,
+                }
             };
 
             await baseToken.approve(configController.address, seedReserves);
@@ -1104,7 +1237,13 @@ describe('ConfigController', () => {
                             supplyCap: exp(1_000_000, 6)
                         }
                     }
-                ]
+                ],
+                options: {
+                    baseTrackingSupplySpeed: 0,
+                    baseTrackingBorrowSpeed: 0,
+                    trackingIndexScale: 0,
+                    baseMinForRewards: 0,
+                }
             };
 
             await baseToken.approve(configController.address, seedReserves);
@@ -1153,7 +1292,13 @@ describe('ConfigController', () => {
                     decimals: baseDecimals,
                     curve: baseCurve
                 },
-                collateralTokens
+                collateralTokens,
+                options: {
+                    baseTrackingSupplySpeed: 0,
+                    baseTrackingBorrowSpeed: 0,
+                    trackingIndexScale: 0,
+                    baseMinForRewards: 0,
+                }
             };
 
             await baseToken.approve(configController.address, seedReserves);
@@ -1547,6 +1692,12 @@ describe('ConfigController', () => {
                     curve: baseCurve,
                 },
                 collateralTokens,
+                options: {
+                    baseTrackingSupplySpeed: 0,
+                    baseTrackingBorrowSpeed: 0,
+                    trackingIndexScale: 0,
+                    baseMinForRewards: 0,
+                }
             };
 
             const createMarketTx = await configController.createMarket(marketConfig);
@@ -1622,21 +1773,21 @@ describe('ConfigController', () => {
             expect(proposal.market).to.equal(market);
             const decoded = ethers.utils.defaultAbiCoder.decode(
                 [
-                  'tuple(address collateralToken, tuple(address priceFeed, uint256 decimals, uint64 borrowCollateralFactor, uint64 liquidateCollateralFactor, uint64 liquidationFactor, uint128 supplyCap))[]'
+                    'tuple(address collateralToken, tuple(address priceFeed, uint256 decimals, uint64 borrowCollateralFactor, uint64 liquidateCollateralFactor, uint64 liquidationFactor, uint128 supplyCap))[]'
                 ],
                 ethers.utils.arrayify(proposal.callData).slice(4)
-              );
-              
-              const firstDecoded = decoded[0][0];
-              const decodedToken = firstDecoded.collateralToken;
-              const decodedConfig = firstDecoded[1];
-              expect(decodedToken).to.eq(collateralTokens[0].collateralToken);
-              expect(decodedConfig.priceFeed).to.eq(collateralTokens[0].config.priceFeed);
-              expect(decodedConfig.decimals).to.eq(collateralTokens[0].config.decimals);
-              expect(decodedConfig.borrowCollateralFactor).to.eq(collateralTokens[0].config.borrowCollateralFactor);
-              expect(decodedConfig.liquidateCollateralFactor).to.eq(collateralTokens[0].config.liquidateCollateralFactor);
-              expect(decodedConfig.liquidationFactor).to.eq(collateralTokens[0].config.liquidationFactor);
-              expect(decodedConfig.supplyCap).to.eq(collateralTokens[0].config.supplyCap);
+            );
+
+            const firstDecoded = decoded[0][0];
+            const decodedToken = firstDecoded.collateralToken;
+            const decodedConfig = firstDecoded[1];
+            expect(decodedToken).to.eq(collateralTokens[0].collateralToken);
+            expect(decodedConfig.priceFeed).to.eq(collateralTokens[0].config.priceFeed);
+            expect(decodedConfig.decimals).to.eq(collateralTokens[0].config.decimals);
+            expect(decodedConfig.borrowCollateralFactor).to.eq(collateralTokens[0].config.borrowCollateralFactor);
+            expect(decodedConfig.liquidateCollateralFactor).to.eq(collateralTokens[0].config.liquidateCollateralFactor);
+            expect(decodedConfig.liquidationFactor).to.eq(collateralTokens[0].config.liquidationFactor);
+            expect(decodedConfig.supplyCap).to.eq(collateralTokens[0].config.supplyCap);
         });
 
         it('should not allow guardian to create proposal', async () => {
@@ -1661,6 +1812,76 @@ describe('ConfigController', () => {
                 .to.be.revertedWithCustomError(configController, 'Unauthorized');
         });
 
+        it.skip("should execute proposal", async () => {
+            const { configController, tokens, baseToken, priceFeeds, curator, sandboxController, seedReserves } = await makeConfigController();
+
+            await baseToken.approve(configController.address, seedReserves);
+            const market = await createMarket(configController, tokens, baseToken, priceFeeds, sandboxController);
+
+            const compDecimals = await tokens["COMP"].decimals?.() ?? 6;
+            const collateralTokens = [{
+                collateralToken: tokens["COMP"].address,
+                config: {
+                    priceFeed: priceFeeds["COMP"].address,
+                    decimals: compDecimals,
+                    borrowCollateralFactor: factor(0.6),
+                    liquidateCollateralFactor: factor(0.7),
+                    liquidationFactor: factor(0.8),
+                    supplyCap: exp(1_000_000, 6),
+                },
+            }];
+
+            const tx = await configController.connect(curator).proposeMarketCollateralTokens(market, collateralTokens);
+            const receipt = await tx.wait();
+            const event = receipt.events?.find((e) => e.event === 'MarketConfigProposed');
+            expect(event?.args.market).to.equal(market);
+            expect(event?.args.proposer).to.equal(curator.address);
+            expect(event?.args.expiration).to.equal(event?.args.expiration);
+
+            await ethers.provider.send('evm_increaseTime', [86400 * 7]);
+            await ethers.provider.send('evm_mine', []);
+
+            await expect(configController.executeMarketConfigProposal(market))
+                .to.emit(configController, 'MarketConfigExecuted')
+                .withArgs(market);
+
+        });
+
+        it("should cancel proposal", async () => {
+            const { configController, tokens, baseToken, priceFeeds, curator, sandboxController, seedReserves } = await makeConfigController();
+
+            await baseToken.approve(configController.address, seedReserves);
+            const market = await createMarket(configController, tokens, baseToken, priceFeeds, sandboxController);
+
+            const compDecimals = await tokens["COMP"].decimals?.() ?? 6;
+            const collateralTokens = [{
+                collateralToken: tokens["COMP"].address,
+                config: {
+                    priceFeed: priceFeeds["COMP"].address,
+                    decimals: compDecimals,
+                    borrowCollateralFactor: factor(0.6),
+                    liquidateCollateralFactor: factor(0.7),
+                    liquidationFactor: factor(0.8),
+                    supplyCap: exp(1_000_000, 6),
+                },
+            }];
+
+            const tx = await configController.connect(curator).proposeMarketCollateralTokens(market, collateralTokens);
+            const receipt = await tx.wait();
+            const event = receipt.events?.find((e) => e.event === 'MarketConfigProposed');
+            expect(event?.args.market).to.equal(market);
+            expect(event?.args.proposer).to.equal(curator.address);
+            expect(event?.args.expiration).to.equal(event?.args.expiration);
+
+            await ethers.provider.send('evm_increaseTime', [86400]);
+            await ethers.provider.send('evm_mine', []);
+
+            await expect(configController.connect(curator).cancelMarketConfigProposal(market))
+                .to.emit(configController, 'MarketConfigProposalCancelled')
+                .withArgs(market, curator.address);
+
+        });
+
         it('should not allow non-owner/curator to create proposal', async () => {
             const { configController, tokens, baseToken, priceFeeds, users, sandboxController, seedReserves } = await makeConfigController();
 
@@ -1683,12 +1904,54 @@ describe('ConfigController', () => {
             await expect(configController.connect(users[4]).proposeMarketCollateralTokens(market, collateralTokens))
                 .to.be.revertedWithCustomError(configController, 'Unauthorized');
         });
+
+
+        it("Should noy set speeds on market contract by not owner", async () => {
+            const { configController, tokens, baseToken, priceFeeds, curator, sandboxController, seedReserves } = await makeConfigController();
+
+            await baseToken.approve(configController.address, seedReserves);
+            const market = await createMarket(configController, tokens, baseToken, priceFeeds, sandboxController);
+            const comet = await ethers.getContractAt("SandboxComet", market) as SandboxComet;
+
+            await expect(comet.connect(curator).setSpeeds(0, 0, false)).to.be.revertedWithCustomError(comet, "Unauthorized");
+        });
+
+        it("Should set speeds on market contract by owner", async () => {
+
+            const { configController, tokens, baseToken, priceFeeds, owner, sandboxController, seedReserves } = await makeConfigController();
+
+            await baseToken.approve(configController.address, seedReserves);
+            const market = await createMarket(configController, tokens, baseToken, priceFeeds, sandboxController);
+            const comet = await ethers.getContractAt("SandboxComet", market) as SandboxComet;
+
+            await expect(comet.connect(owner).setSpeeds(0, 0, false)).to.be.not.reverted;
+        })
+
+        it("Should noy set dao speeds on market contract by not dao", async () => {
+            const { configController, tokens, baseToken, priceFeeds, curator, sandboxController, seedReserves } = await makeConfigController();
+
+            await baseToken.approve(configController.address, seedReserves);
+            const market = await createMarket(configController, tokens, baseToken, priceFeeds, sandboxController);
+            const comet = await ethers.getContractAt("SandboxComet", market) as SandboxComet;
+
+            await expect(comet.connect(curator).setSpeeds(0, 0, true)).to.be.revertedWithCustomError(comet, "Unauthorized");
+        });
+
+        it("Should set dao speeds on market contract by dao", async () => {
+
+            const { configController, tokens, baseToken, priceFeeds, dao, sandboxController, seedReserves } = await makeConfigController();
+
+            await baseToken.approve(configController.address, seedReserves);
+            const market = await createMarket(configController, tokens, baseToken, priceFeeds, sandboxController);
+            const comet = await ethers.getContractAt("SandboxComet", market) as SandboxComet;
+            await expect(comet.connect(dao).setSpeeds(0, 0, true)).to.be.not.reverted;
+        })
     });
 
-    describe('ConfigControllerFactory', () => { 
+    describe('ConfigControllerFactory', () => {
 
         it('should deploy with correct args', async () => {
-            const { configControllerFactory, owner} = await makeConfigController();
+            const { configControllerFactory, owner } = await makeConfigController();
             expect(await configControllerFactory.owner()).to.equal(owner.address);
         });
     });
