@@ -108,7 +108,11 @@ abstract contract CometInterface is CometCore {
     function totalBorrow() virtual external view returns (uint256);
     function balanceOf(address owner) virtual public view returns (uint256);
     function borrowBalanceOf(address account) virtual public view returns (uint256);
-
+     function setSpeeds(
+        uint64 baseTrackingSupplySpeed_,
+        uint64 baseTrackingBorrowSpeed_,
+        bool _dao
+    ) virtual external;
     function pause(bool supplyPaused, bool transferPaused, bool withdrawPaused, bool absorbPaused, bool buyPaused) virtual external;
     function isSupplyPaused() virtual public view returns (bool);
     function isTransferPaused() virtual public view returns (bool);

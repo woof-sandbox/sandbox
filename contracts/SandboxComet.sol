@@ -594,11 +594,17 @@ contract SandboxComet is CometInterface {
         return liquidity < 0;
     }
 
+    /**
+     * @notice Set the base tracking supply and borrow speeds
+     * @param baseTrackingSupplySpeed_ The new base tracking supply speed
+     * @param baseTrackingBorrowSpeed_ The new base tracking borrow speed
+     * @param _dao Whether or not set dao speeds
+     */
     function setSpeeds(
         uint64 baseTrackingSupplySpeed_,
         uint64 baseTrackingBorrowSpeed_,
         bool _dao
-    ) external {
+    ) override external {
         if (_dao) {
             if (msg.sender != dao) revert Unauthorized();
             daoBaseTrackingSupplySpeed = baseTrackingSupplySpeed_;

@@ -7,14 +7,15 @@ import {
   makePriceFeed,
   exp
 } from "./helper/helpers"
+import { parseEther } from "ethers/lib/utils"
 
 function makeValidCurve() {
   return {
-    supplyKink: ethers.BigNumber.from("500000000000000000"),
+    supplyKink: parseEther("0.5").toString(),
     supplyPerYearInterestRateSlopeLow: ethers.BigNumber.from("500"),
     supplyPerYearInterestRateSlopeHigh: ethers.BigNumber.from("1000"),
     supplyPerYearInterestRateBase: ethers.BigNumber.from("100"),
-    borrowKink: ethers.BigNumber.from("500000000000000000"),
+    borrowKink: parseEther("0.5").toString(),
     borrowPerYearInterestRateSlopeLow: ethers.BigNumber.from("1000"),
     borrowPerYearInterestRateSlopeHigh: ethers.BigNumber.from("2000"),
     borrowPerYearInterestRateBase: ethers.BigNumber.from("1")
@@ -23,11 +24,11 @@ function makeValidCurve() {
 
 function makeInvalidCurveZeroBase() {
   return {
-    supplyKink: ethers.BigNumber.from("500000000000000000"),
+    supplyKink: parseEther("0.5").toString(),
     supplyPerYearInterestRateSlopeLow: ethers.BigNumber.from("500"),
     supplyPerYearInterestRateSlopeHigh: ethers.BigNumber.from("1000"),
     supplyPerYearInterestRateBase: ethers.BigNumber.from("100"),
-    borrowKink: ethers.BigNumber.from("500000000000000000"),
+    borrowKink: parseEther("0.5").toString(),
     borrowPerYearInterestRateSlopeLow: ethers.BigNumber.from("1000"),
     borrowPerYearInterestRateSlopeHigh: ethers.BigNumber.from("2000"),
     borrowPerYearInterestRateBase: ethers.BigNumber.from("0")
@@ -36,11 +37,11 @@ function makeInvalidCurveZeroBase() {
 
 function makeInvalidCurveKinkTooHigh() {
   return {
-    supplyKink: ethers.BigNumber.from("1000000000000000000"),
+    supplyKink: parseEther("1").toString(),
     supplyPerYearInterestRateSlopeLow: ethers.BigNumber.from("500"),
     supplyPerYearInterestRateSlopeHigh: ethers.BigNumber.from("1000"),
     supplyPerYearInterestRateBase: ethers.BigNumber.from("100"),
-    borrowKink: ethers.BigNumber.from("1000000000000000000"),
+    borrowKink: parseEther("1").toString(),
     borrowPerYearInterestRateSlopeLow: ethers.BigNumber.from("1000"),
     borrowPerYearInterestRateSlopeHigh: ethers.BigNumber.from("2000"),
     borrowPerYearInterestRateBase: ethers.BigNumber.from("1")
@@ -65,11 +66,11 @@ describe("SandboxController", function () {
         admin: owner,
         dao: dao,
         feeEnabled: true,
-        storeFrontPriceFactor: "999999999999999999",
-        protocolFactorBorrow: "100000000000000000",
-        reserveFactorBorrow: "200000000000000000",
-        protocolFactorLiquidation: "100000000000000000",
-        reserveFactorLiquidation: "200000000000000000",
+        storeFrontPriceFactor: parseEther("0.999999999999999999").toString(),
+        protocolFactorBorrow: parseEther("0.1").toString(),
+        reserveFactorBorrow: parseEther("0.2").toString(),
+        protocolFactorLiquidation: parseEther("0.1").toString(),
+        reserveFactorLiquidation: parseEther("0.2").toString(),
         minUpdateTime: 300,
         maxCollateralAssets: 5,
         suggestedAmountOfSeedReserves: "1000",
@@ -80,12 +81,12 @@ describe("SandboxController", function () {
       expect(await sandboxController.owner()).to.equal(owner.address)
       expect(await sandboxController.dao()).to.equal(dao.address)
       expect(await sandboxController.feeEnabled()).to.equal(true)
-      expect(await sandboxController.protocolFactorBorrow()).to.equal("100000000000000000")
-      expect(await sandboxController.reserveFactorBorrow()).to.equal("200000000000000000")
-      expect(await sandboxController.protocolFactorLiquidation()).to.equal("100000000000000000")
-      expect(await sandboxController.reserveFactorLiquidation()).to.equal("200000000000000000")
+      expect(await sandboxController.protocolFactorBorrow()).to.equal(parseEther("0.1").toString())
+      expect(await sandboxController.reserveFactorBorrow()).to.equal(parseEther("0.2").toString())
+      expect(await sandboxController.protocolFactorLiquidation()).to.equal(parseEther("0.1").toString())
+      expect(await sandboxController.reserveFactorLiquidation()).to.equal(parseEther("0.2").toString())
       expect(await sandboxController.maxCollateralAssets()).to.equal(5)
-      expect((await sandboxController.controllerConfiguration()).storeFrontPriceFactor).to.equal("999999999999999999")
+      expect((await sandboxController.controllerConfiguration()).storeFrontPriceFactor).to.equal(parseEther("0.999999999999999999").toString())
       expect((await sandboxController.controllerConfiguration()).minUpdateTime).to.equal(300)
       expect((await sandboxController.controllerConfiguration()).suggestedAmountOfSeedReserves).to.equal("1000")
       expect((await sandboxController.controllerConfiguration()).suggestedLockTimeOfSeedReserves).to.equal(500)
@@ -97,13 +98,13 @@ describe("SandboxController", function () {
           ethers.constants.AddressZero,
           dao.address,
           true,
-          "100000000000000000",
-          "200000000000000000",
-          "100000000000000000",
-          "200000000000000000",
+          parseEther("0.1").toString(),
+          parseEther("0.2").toString(),
+          parseEther("0.1").toString(),
+          parseEther("0.2").toString(),
           5,
-          "100000000000000000",
-          "999999999999999999",
+          parseEther("0.1").toString(),
+          parseEther("0.999999999999999999").toString(),
           300,
           1000,
           500
@@ -117,13 +118,13 @@ describe("SandboxController", function () {
           owner.address,
           ethers.constants.AddressZero,
           true,
-          "100000000000000000",
-          "200000000000000000",
-          "100000000000000000",
-          "200000000000000000",
+          parseEther("0.1").toString(),
+          parseEther("0.2").toString(),
+          parseEther("0.1").toString(),
+          parseEther("0.2").toString(),
           5,
-          "100000000000000000",
-          "999999999999999999",
+          parseEther("0.1").toString(),
+          parseEther("0.999999999999999999").toString(),
           300,
           1000,
           500
@@ -137,13 +138,13 @@ describe("SandboxController", function () {
           owner.address,
           dao.address,
           true,
-          "100000000000000000",
-          "200000000000000000",
-          "100000000000000000",
-          "200000000000000000",
+          parseEther("0.1").toString(),
+          parseEther("0.2").toString(),
+          parseEther("0.1").toString(),
+          parseEther("0.2").toString(),
           5,
-          "100000000000000000",
-          "1000000000000000000",
+          parseEther("0.1").toString(),
+          parseEther("1").toString(),
           300,
           1000,
           500
@@ -158,12 +159,12 @@ describe("SandboxController", function () {
           dao.address,
           false,
           "0",
-          "200000000000000000",
-          "100000000000000000",
-          "200000000000000000",
+          parseEther("0.2").toString(),
+          parseEther("0.1").toString(),
+          parseEther("0.2").toString(),
           5,
-          "100000000000000000",
-          "500000000000000000",
+          parseEther("0.1").toString(),
+          parseEther("0.5").toString(),
           300,
           1000,
           500
@@ -177,13 +178,13 @@ describe("SandboxController", function () {
           owner.address,
           dao.address,
           true,
-          "500000000000000000",
+          parseEther("0.5").toString(),
           "0",
-          "100000000000000000",
-          "200000000000000000",
+          parseEther("0.1").toString(),
+          parseEther("0.2").toString(),
           5,
-          "100000000000000000",
-          "500000000000000000",
+          parseEther("0.1").toString(),
+          parseEther("0.5").toString(),
           300,
           1000,
           500
@@ -199,11 +200,11 @@ describe("SandboxController", function () {
           true,
           ethers.utils.parseEther("0.6").toString(),
           ethers.utils.parseEther("0.5").toString(),
-          "100000000000000000",
-          "200000000000000000",
+          parseEther("0.1").toString(),
+          parseEther("0.2").toString(),
           5,
-          "100000000000000000",
-          "500000000000000000",
+          parseEther("0.1").toString(),
+          parseEther("0.5").toString(),
           300,
           1000,
           500
@@ -217,13 +218,13 @@ describe("SandboxController", function () {
           owner.address,
           dao.address,
           false,
-          "500000000000000000",
-          "200000000000000000",
+          parseEther("0.5").toString(),
+          parseEther("0.2").toString(),
           "0",
-          "200000000000000000",
+          parseEther("0.2").toString(),
           5,
-          "100000000000000000",
-          "500000000000000000",
+          parseEther("0.1").toString(),
+          parseEther("0.5").toString(),
           300,
           1000,
           500
@@ -237,13 +238,13 @@ describe("SandboxController", function () {
           owner.address,
           dao.address,
           true,
-          "500000000000000000",
-          "200000000000000000",
-          "100000000000000000",
+          parseEther("0.5").toString(),
+          parseEther("0.2").toString(),
+          parseEther("0.1").toString(),
           "0",
           5,
-          "100000000000000000",
-          "500000000000000000",
+          parseEther("0.1").toString(),
+          parseEther("0.5").toString(),
           300,
           1000,
           500
@@ -257,13 +258,13 @@ describe("SandboxController", function () {
           owner.address,
           dao.address,
           true,
-          "500000000000000000",
-          "200000000000000000",
+          parseEther("0.5").toString(),
+          parseEther("0.2").toString(),
           ethers.utils.parseEther("0.8").toString(),
           ethers.utils.parseEther("0.3").toString(),
           5,
-          "100000000000000000",
-          "500000000000000000",
+          parseEther("0.1").toString(),
+          parseEther("0.5").toString(),
           300,
           1000,
           500
@@ -277,13 +278,13 @@ describe("SandboxController", function () {
           owner.address,
           dao.address,
           false,
-          "500000000000000000",
-          "200000000000000000",
-          "100000000000000000",
-          "200000000000000000",
+          parseEther("0.5").toString(),
+          parseEther("0.2").toString(),
+          parseEther("0.1").toString(),
+          parseEther("0.2").toString(),
           5,
-          "100000000000000000",
-          "500000000000000000",
+          parseEther("0.1").toString(),
+          parseEther("0.5").toString(),
           0,
           1000,
           500
@@ -297,13 +298,13 @@ describe("SandboxController", function () {
           owner.address,
           dao.address,
           false,
-          "500000000000000000",
-          "200000000000000000",
-          "100000000000000000",
-          "200000000000000000",
+          parseEther("0.5").toString(),
+          parseEther("0.2").toString(),
+          parseEther("0.1").toString(),
+          parseEther("0.2").toString(),
           0,
-          "100000000000000000",
-          "500000000000000000",
+          parseEther("0.1").toString(),
+          parseEther("0.5").toString(),
           300,
           1000,
           500
@@ -317,13 +318,13 @@ describe("SandboxController", function () {
           owner.address,
           dao.address,
           false,
-          "500000000000000000",
-          "200000000000000000",
-          "100000000000000000",
-          "200000000000000000",
+          parseEther("0.5").toString(),
+          parseEther("0.2").toString(),
+          parseEther("0.1").toString(),
+          parseEther("0.2").toString(),
           5,
-          "100000000000000000",
-          "500000000000000000",
+          parseEther("0.1").toString(),
+          parseEther("0.5").toString(),
           300,
           "0",
           500
@@ -337,13 +338,13 @@ describe("SandboxController", function () {
           owner.address,
           dao.address,
           false,
-          "500000000000000000",
-          "200000000000000000",
-          "100000000000000000",
-          "200000000000000000",
+          parseEther("0.5").toString(),
+          parseEther("0.2").toString(),
+          parseEther("0.1").toString(),
+          parseEther("0.2").toString(),
           5,
-          "100000000000000000",
-          "500000000000000000",
+          parseEther("0.1").toString(),
+          parseEther("0.5").toString(),
           300,
           1000,
           0
@@ -357,13 +358,13 @@ describe("SandboxController", function () {
           owner.address,
           dao.address,
           false,
-          "500000000000000000",
-          "200000000000000000",
-          "100000000000000000",
-          "200000000000000000",
+          parseEther("0.5").toString(),
+          parseEther("0.2").toString(),
+          parseEther("0.1").toString(),
+          parseEther("0.2").toString(),
           5,
           "500000000000000001",
-          "500000000000000000",
+          parseEther("0.5").toString(),
           300,
           1000,
           500
@@ -377,11 +378,11 @@ describe("SandboxController", function () {
         admin: owner,
         dao: dao,
         feeEnabled: false,
-        storeFrontPriceFactor: "100000000000000000",
-        protocolFactorBorrow: "100000000000000000",
-        reserveFactorBorrow: "100000000000000000",
-        protocolFactorLiquidation: "100000000000000000",
-        reserveFactorLiquidation: "100000000000000000",
+        storeFrontPriceFactor: parseEther("0.1").toString(),
+        protocolFactorBorrow: parseEther("0.1").toString(),
+        reserveFactorBorrow: parseEther("0.1").toString(),
+        protocolFactorLiquidation: parseEther("0.1").toString(),
+        reserveFactorLiquidation: parseEther("0.1").toString(),
         minUpdateTime: 300,
         maxCollateralAssets: 10,
         suggestedAmountOfSeedReserves: "1000",
@@ -393,15 +394,15 @@ describe("SandboxController", function () {
       expect(await sandboxController.dao()).to.equal(dao.address)
       expect(await sandboxController.feeEnabled()).to.equal(false)
 
-      expect(await sandboxController.protocolFactorBorrow()).to.equal("100000000000000000")
-      expect(await sandboxController.reserveFactorBorrow()).to.equal("100000000000000000")
-      expect(await sandboxController.protocolFactorLiquidation()).to.equal("100000000000000000")
-      expect(await sandboxController.reserveFactorLiquidation()).to.equal("100000000000000000")
+      expect(await sandboxController.protocolFactorBorrow()).to.equal(parseEther("0.1").toString())
+      expect(await sandboxController.reserveFactorBorrow()).to.equal(parseEther("0.1").toString())
+      expect(await sandboxController.protocolFactorLiquidation()).to.equal(parseEther("0.1").toString())
+      expect(await sandboxController.reserveFactorLiquidation()).to.equal(parseEther("0.1").toString())
 
       expect(await sandboxController.maxCollateralAssets()).to.equal(10)
       expect(await sandboxController.baseAssetCount()).to.equal(0)
       expect(await sandboxController.collateralAssetCount()).to.equal(0)
-      expect((await sandboxController.controllerConfiguration()).storeFrontPriceFactor).to.equal("100000000000000000")
+      expect((await sandboxController.controllerConfiguration()).storeFrontPriceFactor).to.equal(parseEther("0.1").toString())
       expect((await sandboxController.controllerConfiguration()).minUpdateTime).to.equal(300)
       expect((await sandboxController.controllerConfiguration()).suggestedAmountOfSeedReserves).to.equal("1000")
       expect((await sandboxController.controllerConfiguration()).suggestedLockTimeOfSeedReserves).to.equal(3600)
@@ -417,11 +418,11 @@ describe("SandboxController", function () {
         admin: owner,
         dao: dao,
         feeEnabled: false,
-        storeFrontPriceFactor: "500000000000000000",
-        protocolFactorBorrow: "100000000000000000",
-        reserveFactorBorrow: "100000000000000000",
-        protocolFactorLiquidation: "100000000000000000",
-        reserveFactorLiquidation: "100000000000000000",
+        storeFrontPriceFactor: parseEther("0.5").toString(),
+        protocolFactorBorrow: parseEther("0.1").toString(),
+        reserveFactorBorrow: parseEther("0.1").toString(),
+        protocolFactorLiquidation: parseEther("0.1").toString(),
+        reserveFactorLiquidation: parseEther("0.1").toString(),
         minUpdateTime: 500,
         maxCollateralAssets: 5,
         suggestedAmountOfSeedReserves: "1000",
@@ -566,11 +567,11 @@ describe("SandboxController", function () {
         admin: owner,
         dao: dao,
         feeEnabled: false,
-        storeFrontPriceFactor: "400000000000000000",
-        protocolFactorBorrow: "100000000000000000",
-        reserveFactorBorrow: "100000000000000000",
-        protocolFactorLiquidation: "100000000000000000",
-        reserveFactorLiquidation: "100000000000000000",
+        storeFrontPriceFactor: parseEther("0.4").toString(),
+        protocolFactorBorrow: parseEther("0.1").toString(),
+        reserveFactorBorrow: parseEther("0.1").toString(),
+        protocolFactorLiquidation: parseEther("0.1").toString(),
+        reserveFactorLiquidation: parseEther("0.1").toString(),
         minUpdateTime: 500,
         maxCollateralAssets: 5,
         suggestedAmountOfSeedReserves: "1000",
@@ -900,11 +901,11 @@ describe("SandboxController", function () {
         admin: owner,
         dao: dao,
         feeEnabled: false,
-        storeFrontPriceFactor: "300000000000000000",
-        protocolFactorBorrow: "100000000000000000",
-        reserveFactorBorrow: "100000000000000000",
-        protocolFactorLiquidation: "100000000000000000",
-        reserveFactorLiquidation: "100000000000000000",
+        storeFrontPriceFactor: parseEther("0.3").toString(),
+        protocolFactorBorrow: parseEther("0.1").toString(),
+        reserveFactorBorrow: parseEther("0.1").toString(),
+        protocolFactorLiquidation: parseEther("0.1").toString(),
+        reserveFactorLiquidation: parseEther("0.1").toString(),
         minUpdateTime: 400,
         maxCollateralAssets: 5,
         suggestedAmountOfSeedReserves: "1000",
@@ -919,7 +920,7 @@ describe("SandboxController", function () {
       await expect(
         sandboxController.connect(dao).setConfiguration(
           {
-            storeFrontPriceFactor: "300000000000000000",
+            storeFrontPriceFactor: parseEther("0.3").toString(),
             minUpdateTime: 400,
             suggestedAmountOfSeedReserves: "1000",
             suggestedLockTimeOfSeedReserves: 1000
@@ -929,7 +930,7 @@ describe("SandboxController", function () {
       await expect(
         sandboxController.connect(attacker).setConfiguration(
           {
-            storeFrontPriceFactor: "300000000000000000",
+            storeFrontPriceFactor: parseEther("0.3").toString(),
             minUpdateTime: 400,
             suggestedAmountOfSeedReserves: "1000",
             suggestedLockTimeOfSeedReserves: 1000
@@ -943,7 +944,7 @@ describe("SandboxController", function () {
       await expect(
         sandboxController.setConfiguration(
           {
-            storeFrontPriceFactor: "1000000000000000000",
+            storeFrontPriceFactor: parseEther("1").toString(),
             minUpdateTime: 400,
             suggestedAmountOfSeedReserves: "1000",
             suggestedLockTimeOfSeedReserves: 1000
@@ -957,7 +958,7 @@ describe("SandboxController", function () {
       await expect(
         sandboxController.setConfiguration(
           {
-            storeFrontPriceFactor: "300000000000000000",
+            storeFrontPriceFactor: parseEther("0.3").toString(),
             minUpdateTime: 0,
             suggestedAmountOfSeedReserves: "1000",
             suggestedLockTimeOfSeedReserves: 1000
@@ -971,7 +972,7 @@ describe("SandboxController", function () {
       await expect(
         sandboxController.setConfiguration(
           {
-            storeFrontPriceFactor: "300000000000000000",
+            storeFrontPriceFactor: parseEther("0.3").toString(),
             minUpdateTime: 400,
             suggestedAmountOfSeedReserves: "0",
             suggestedLockTimeOfSeedReserves: 1000
@@ -985,7 +986,7 @@ describe("SandboxController", function () {
       await expect(
         sandboxController.setConfiguration(
           {
-            storeFrontPriceFactor: "300000000000000000",
+            storeFrontPriceFactor: parseEther("0.3").toString(),
             minUpdateTime: 400,
             suggestedAmountOfSeedReserves: "1000",
             suggestedLockTimeOfSeedReserves: 0
@@ -998,24 +999,24 @@ describe("SandboxController", function () {
     it("updates configuration with valid values and emits event", async function () {
       const tx = await sandboxController.setConfiguration(
         {
-          storeFrontPriceFactor: "400000000000000000",
+          storeFrontPriceFactor: parseEther("0.4").toString(),
           minUpdateTime: 500,
           suggestedAmountOfSeedReserves: "2000",
           suggestedLockTimeOfSeedReserves: 2000
         }
       )
-      expect((await sandboxController.controllerConfiguration()).storeFrontPriceFactor).to.equal("400000000000000000")
+      expect((await sandboxController.controllerConfiguration()).storeFrontPriceFactor).to.equal(parseEther("0.4").toString())
       expect((await sandboxController.controllerConfiguration()).minUpdateTime).to.equal(500)
       expect((await sandboxController.controllerConfiguration()).suggestedAmountOfSeedReserves).to.equal("2000")
       expect((await sandboxController.controllerConfiguration()).suggestedLockTimeOfSeedReserves).to.equal(2000)
 
       const rcpt = await tx.wait()
       const ev = rcpt.events?.find((e: any) => e.event === "ConfigurationChanged")
-      expect(ev.args.oldConfig.storeFrontPriceFactor).to.equal("300000000000000000")
+      expect(ev.args.oldConfig.storeFrontPriceFactor).to.equal(parseEther("0.3").toString())
       expect(ev.args.oldConfig.minUpdateTime).to.equal(400)
       expect(ev.args.oldConfig.suggestedAmountOfSeedReserves).to.equal("1000")
       expect(ev.args.oldConfig.suggestedLockTimeOfSeedReserves).to.equal(1000)
-      expect(ev.args.newConfig.storeFrontPriceFactor).to.equal("400000000000000000")
+      expect(ev.args.newConfig.storeFrontPriceFactor).to.equal(parseEther("0.4").toString())
       expect(ev.args.newConfig.minUpdateTime).to.equal(500)
       expect(ev.args.newConfig.suggestedAmountOfSeedReserves).to.equal("2000")
       expect(ev.args.newConfig.suggestedLockTimeOfSeedReserves).to.equal(2000)
@@ -1030,11 +1031,11 @@ describe("SandboxController", function () {
         admin: owner,
         dao: dao,
         feeEnabled: false,
-        storeFrontPriceFactor: "300000000000000000",
-        protocolFactorBorrow: "100000000000000000",
-        reserveFactorBorrow: "100000000000000000",
-        protocolFactorLiquidation: "100000000000000000",
-        reserveFactorLiquidation: "100000000000000000",
+        storeFrontPriceFactor: parseEther("0.3").toString(),
+        protocolFactorBorrow: parseEther("0.1").toString(),
+        reserveFactorBorrow: parseEther("0.1").toString(),
+        protocolFactorLiquidation: parseEther("0.1").toString(),
+        reserveFactorLiquidation: parseEther("0.1").toString(),
         minUpdateTime: 400,
         maxCollateralAssets: 5,
         suggestedAmountOfSeedReserves: "1000",
@@ -1074,11 +1075,11 @@ describe("SandboxController", function () {
         admin: owner,
         dao: dao,
         feeEnabled: false,
-        storeFrontPriceFactor: "300000000000000000",
-        protocolFactorBorrow: "100000000000000000",
-        reserveFactorBorrow: "100000000000000000",
-        protocolFactorLiquidation: "100000000000000000",
-        reserveFactorLiquidation: "100000000000000000",
+        storeFrontPriceFactor: parseEther("0.3").toString(),
+        protocolFactorBorrow: parseEther("0.1").toString(),
+        reserveFactorBorrow: parseEther("0.1").toString(),
+        protocolFactorLiquidation: parseEther("0.1").toString(),
+        reserveFactorLiquidation: parseEther("0.1").toString(),
         minUpdateTime: 400,
         maxCollateralAssets: 5,
         suggestedAmountOfSeedReserves: "1000",
@@ -1185,11 +1186,11 @@ describe("SandboxController", function () {
         admin: owner,
         dao: dao,
         feeEnabled: false,
-        storeFrontPriceFactor: "300000000000000000",
-        protocolFactorBorrow: "100000000000000000",
-        reserveFactorBorrow: "100000000000000000",
-        protocolFactorLiquidation: "100000000000000000",
-        reserveFactorLiquidation: "100000000000000000",
+        storeFrontPriceFactor: parseEther("0.3").toString(),
+        protocolFactorBorrow: parseEther("0.1").toString(),
+        reserveFactorBorrow: parseEther("0.1").toString(),
+        protocolFactorLiquidation: parseEther("0.1").toString(),
+        reserveFactorLiquidation: parseEther("0.1").toString(),
         minUpdateTime: 400,
         maxCollateralAssets: 5,
         suggestedAmountOfSeedReserves: "1000",
@@ -1301,11 +1302,11 @@ describe("SandboxController", function () {
         admin: owner,
         dao: dao,
         feeEnabled: false,
-        storeFrontPriceFactor: "300000000000000000",
-        protocolFactorBorrow: "100000000000000000",
-        reserveFactorBorrow: "100000000000000000",
-        protocolFactorLiquidation: "100000000000000000",
-        reserveFactorLiquidation: "100000000000000000",
+        storeFrontPriceFactor: parseEther("0.3").toString(),
+        protocolFactorBorrow: parseEther("0.1").toString(),
+        reserveFactorBorrow: parseEther("0.1").toString(),
+        protocolFactorLiquidation: parseEther("0.1").toString(),
+        reserveFactorLiquidation: parseEther("0.1").toString(),
         minUpdateTime: 400,
         maxCollateralAssets: 5,
         suggestedAmountOfSeedReserves: "1000",
@@ -1350,11 +1351,11 @@ describe("SandboxController", function () {
         admin: owner,
         dao: dao,
         feeEnabled: false,
-        storeFrontPriceFactor: "300000000000000000",
-        protocolFactorBorrow: "100000000000000000",
-        reserveFactorBorrow: "100000000000000000",
-        protocolFactorLiquidation: "100000000000000000",
-        reserveFactorLiquidation: "100000000000000000",
+        storeFrontPriceFactor: parseEther("0.3").toString(),
+        protocolFactorBorrow: parseEther("0.1").toString(),
+        reserveFactorBorrow: parseEther("0.1").toString(),
+        protocolFactorLiquidation: parseEther("0.1").toString(),
+        reserveFactorLiquidation: parseEther("0.1").toString(),
         minUpdateTime: 400,
         maxCollateralAssets: 5,
         suggestedAmountOfSeedReserves: "1000",
@@ -1399,11 +1400,11 @@ describe("SandboxController", function () {
         admin: owner,
         dao: dao,
         feeEnabled: false,
-        storeFrontPriceFactor: "300000000000000000",
-        protocolFactorBorrow: "100000000000000000",
-        reserveFactorBorrow: "100000000000000000",
-        protocolFactorLiquidation: "100000000000000000",
-        reserveFactorLiquidation: "100000000000000000",
+        storeFrontPriceFactor: parseEther("0.3").toString(),
+        protocolFactorBorrow: parseEther("0.1").toString(),
+        reserveFactorBorrow: parseEther("0.1").toString(),
+        protocolFactorLiquidation: parseEther("0.1").toString(),
+        reserveFactorLiquidation: parseEther("0.1").toString(),
         minUpdateTime: 400,
         maxCollateralAssets: 5,
         suggestedAmountOfSeedReserves: "1000",
@@ -1435,11 +1436,11 @@ describe("SandboxController", function () {
         admin: owner,
         dao: dao,
         feeEnabled: false,
-        storeFrontPriceFactor: "300000000000000000",
-        protocolFactorBorrow: "100000000000000000",
-        reserveFactorBorrow: "100000000000000000",
-        protocolFactorLiquidation: "100000000000000000",
-        reserveFactorLiquidation: "100000000000000000",
+        storeFrontPriceFactor: parseEther("0.3").toString(),
+        protocolFactorBorrow: parseEther("0.1").toString(),
+        reserveFactorBorrow: parseEther("0.1").toString(),
+        protocolFactorLiquidation: parseEther("0.1").toString(),
+        reserveFactorLiquidation: parseEther("0.1").toString(),
         minUpdateTime: 400,
         maxCollateralAssets: 5,
         suggestedAmountOfSeedReserves: "1000",
@@ -1482,11 +1483,11 @@ describe("SandboxController", function () {
         admin: owner,
         dao: dao,
         feeEnabled: false,
-        storeFrontPriceFactor: "300000000000000000",
-        protocolFactorBorrow: "100000000000000000",
-        reserveFactorBorrow: "100000000000000000",
-        protocolFactorLiquidation: "100000000000000000",
-        reserveFactorLiquidation: "100000000000000000",
+        storeFrontPriceFactor: parseEther("0.3").toString(),
+        protocolFactorBorrow: parseEther("0.1").toString(),
+        reserveFactorBorrow: parseEther("0.1").toString(),
+        protocolFactorLiquidation: parseEther("0.1").toString(),
+        reserveFactorLiquidation: parseEther("0.1").toString(),
         minUpdateTime: 400,
         maxCollateralAssets: 5,
         suggestedAmountOfSeedReserves: "1000",
@@ -1514,7 +1515,7 @@ describe("SandboxController", function () {
 
     it("returns false if supplyKink >= 1e18", async function () {
       const c = makeValidCurve()
-      c.supplyKink = ethers.BigNumber.from("1000000000000000000")
+      c.supplyKink = parseEther("1").toString()
       const ok = await sandboxController.isCurveConfigurationValid({
         supplyKink: c.supplyKink,
         supplyPerYearInterestRateSlopeLow: c.supplyPerYearInterestRateSlopeLow,
@@ -1530,7 +1531,7 @@ describe("SandboxController", function () {
 
     it("returns false if borrowKink >= 1e18", async function () {
       const c = makeValidCurve()
-      c.borrowKink = ethers.BigNumber.from("1000000000000000000")
+      c.borrowKink = parseEther("1").toString()
       const ok = await sandboxController.isCurveConfigurationValid({
         supplyKink: c.supplyKink,
         supplyPerYearInterestRateSlopeLow: c.supplyPerYearInterestRateSlopeLow,
@@ -1569,16 +1570,16 @@ describe("SandboxController", function () {
         admin: owner,
         dao: dao,
         feeEnabled: false,
-        storeFrontPriceFactor: "300000000000000000",
-        protocolFactorBorrow: "100000000000000000",
-        reserveFactorBorrow: "200000000000000000",
-        protocolFactorLiquidation: "100000000000000000",
-        reserveFactorLiquidation: "200000000000000000",
+        storeFrontPriceFactor: parseEther("0.3").toString(),
+        protocolFactorBorrow: parseEther("0.1").toString(),
+        reserveFactorBorrow: parseEther("0.2").toString(),
+        protocolFactorLiquidation: parseEther("0.1").toString(),
+        reserveFactorLiquidation: parseEther("0.2").toString(),
         minUpdateTime: 400,
         maxCollateralAssets: 5,
         suggestedAmountOfSeedReserves: "1000",
         suggestedLockTimeOfSeedReserves: 1000,
-        targetReserves: "300000000000000000"
+        targetReserves: parseEther("0.3").toString()
       })
       const c = await makeSandboxController(opts)
       sandboxController = c.sandboxController
@@ -1586,10 +1587,10 @@ describe("SandboxController", function () {
 
     it("reverts if caller is not owner", async function () {
       await expect(
-        sandboxController.connect(dao).setTargetReserves("200000000000000000")
+        sandboxController.connect(dao).setTargetReserves(parseEther("0.2").toString())
       ).to.be.revertedWithCustomError(sandboxController, "NotOwner")
       await expect(
-        sandboxController.connect(attacker).setTargetReserves("200000000000000000")
+        sandboxController.connect(attacker).setTargetReserves(parseEther("0.2").toString())
       ).to.be.revertedWithCustomError(sandboxController, "NotOwner")
     })
 
@@ -1601,7 +1602,7 @@ describe("SandboxController", function () {
 
     it("updates target reserves and emits event", async function () {
       const oldTarget = await sandboxController.targetReserves()
-      const newTarget = "400000000000000000"
+      const newTarget = parseEther("0.4").toString()
       const tx = await sandboxController.connect(owner).setTargetReserves(newTarget)
       const rcpt = await tx.wait()
       const ev = rcpt.events?.find((e: any) => e.event === "TargetReservesChanged")
@@ -1625,16 +1626,16 @@ describe("SandboxController", function () {
         admin: owner,
         dao: dao,
         feeEnabled: false,
-        storeFrontPriceFactor: "300000000000000000",
-        protocolFactorBorrow: "100000000000000000",
-        reserveFactorBorrow: "200000000000000000",
-        protocolFactorLiquidation: "100000000000000000",
-        reserveFactorLiquidation: "200000000000000000",
+        storeFrontPriceFactor: parseEther("0.3").toString(),
+        protocolFactorBorrow: parseEther("0.1").toString(),
+        reserveFactorBorrow: parseEther("0.2").toString(),
+        protocolFactorLiquidation: parseEther("0.1").toString(),
+        reserveFactorLiquidation: parseEther("0.2").toString(),
         minUpdateTime: 400,
         maxCollateralAssets: 5,
         suggestedAmountOfSeedReserves: "1000",
         suggestedLockTimeOfSeedReserves: 1000,
-        targetReserves: "300000000000000000"
+        targetReserves: parseEther("0.3").toString()
       })
       const c = await makeSandboxController(opts)
       sandboxController = c.sandboxController
@@ -1643,9 +1644,9 @@ describe("SandboxController", function () {
     describe("setReserveCommissions", function () {
       it("reverts if caller is not owner", async function () {
         const newReserveCommissions = [
-          "500000000000000000",
-          "300000000000000000",
-          "200000000000000000"
+          parseEther("0.5").toString(),
+          parseEther("0.3").toString(),
+          parseEther("0.2").toString()
         ]
         await expect(
           sandboxController.connect(dao).setReserveCommissions(newReserveCommissions)
@@ -1657,9 +1658,9 @@ describe("SandboxController", function () {
 
       it("reverts if any new reserve commission causes sum with protocol commission to exceed 80%", async function () {
         const newReserveCommissions = [
-          "800000000000000001",
-          "300000000000000000",
-          "200000000000000000"
+          parseEther("0.800000000000000001").toString(),
+          parseEther("0.3").toString(),
+          parseEther("0.2").toString()
         ]
         await expect(
           sandboxController.connect(owner).setReserveCommissions(newReserveCommissions)
@@ -1668,9 +1669,9 @@ describe("SandboxController", function () {
 
       it("updates reserve commissions and emits events", async function () {
         const newReserveCommissions = [
-          "500000000000000000",
-          "300000000000000000",
-          "200000000000000000"
+          parseEther("0.5").toString(),
+          parseEther("0.3").toString(),
+          parseEther("0.2").toString()
         ]
         const tx = await sandboxController.connect(owner).setReserveCommissions(newReserveCommissions)
         const rcpt = await tx.wait()
@@ -1689,9 +1690,9 @@ describe("SandboxController", function () {
     describe("setProtocolCommissions", function () {
       it("reverts if caller is not owner", async function () {
         const protocolCommissions = [
-          "400000000000000000",
-          "200000000000000000",
-          "100000000000000000"
+          parseEther("0.4").toString(),
+          parseEther("0.2").toString(),
+          parseEther("0.1").toString()
         ]
         await expect(
           sandboxController.connect(dao).setProtocolCommissions(protocolCommissions)
@@ -1703,15 +1704,15 @@ describe("SandboxController", function () {
 
       it("reverts if any new protocol commission causes sum with reserve commission to exceed 80%", async function () {
         await sandboxController.connect(owner).setReserveCommissions([
-          "100000000000000000",
-          "300000000000000000",
-          "100000000000000000"
+          parseEther("0.1").toString(),
+          parseEther("0.3").toString(),
+          parseEther("0.1").toString()
         ])
 
         const protocolCommissions = [
-          "100000000000000000",
-          "600000000000000001",
-          "100000000000000000"
+          parseEther("0.1").toString(),
+          parseEther("0.600000000000000001"),
+          parseEther("0.1").toString()
         ]
         await expect(
           sandboxController.connect(owner).setProtocolCommissions(protocolCommissions)
@@ -1720,9 +1721,9 @@ describe("SandboxController", function () {
 
       it("updates protocol commissions and emits events", async function () {
         const newProtocolCommissions = [
-          "400000000000000000",
-          "200000000000000000",
-          "100000000000000000"
+          parseEther("0.4").toString(),
+          parseEther("0.2").toString(),
+          parseEther("0.1").toString()
         ]
         const tx = await sandboxController.connect(owner).setProtocolCommissions(newProtocolCommissions)
         const rcpt = await tx.wait()
@@ -1741,9 +1742,9 @@ describe("SandboxController", function () {
     describe("setThresholds", function () {
       it("reverts if caller is not owner", async function () {
         const thresholds = [
-          "500000000000000000",
-          "400000000000000000",
-          "300000000000000000"
+          parseEther("0.5").toString(),
+          parseEther("0.4").toString(),
+          parseEther("0.3").toString()
         ]
         await expect(
           sandboxController.connect(dao).setThresholds(thresholds)
@@ -1755,9 +1756,9 @@ describe("SandboxController", function () {
 
       it("reverts if any threshold is >= 1e18", async function () {
         const thresholds = [
-          "500000000000000000",
-          "1000000000000000000",
-          "300000000000000000"
+          parseEther("0.5").toString(),
+          parseEther("1").toString(),
+          parseEther("0.3").toString()
         ]
         await expect(
           sandboxController.connect(owner).setThresholds(thresholds)
@@ -1766,9 +1767,9 @@ describe("SandboxController", function () {
 
       it("updates thresholds and emits events", async function () {
         const thresholds = [
-          "100000000000000000",
-          "200000000000000000",
-          "300000000000000000"
+          parseEther("0.1").toString(),
+          parseEther("0.2").toString(),
+          parseEther("0.3").toString()
         ]
         const tx = await sandboxController.connect(owner).setThresholds(thresholds)
         const rcpt = await tx.wait()
@@ -1799,16 +1800,16 @@ describe("SandboxController", function () {
         admin: owner,
         dao: dao,
         feeEnabled: false,
-        storeFrontPriceFactor: "300000000000000000",
-        protocolFactorBorrow: "100000000000000000",
-        reserveFactorBorrow: "200000000000000000",
-        protocolFactorLiquidation: "100000000000000000",
-        reserveFactorLiquidation: "200000000000000000",
+        storeFrontPriceFactor: parseEther("0.3").toString(),
+        protocolFactorBorrow: parseEther("0.1").toString(),
+        reserveFactorBorrow: parseEther("0.2").toString(),
+        protocolFactorLiquidation: parseEther("0.1").toString(),
+        reserveFactorLiquidation: parseEther("0.2").toString(),
         minUpdateTime: 400,
         maxCollateralAssets: 5,
         suggestedAmountOfSeedReserves: "1000",
         suggestedLockTimeOfSeedReserves: 1000,
-        targetReserves: "300000000000000000"
+        targetReserves: parseEther("0.3").toString()
       });
       const c = await makeSandboxController(opts);
       sandboxController = c.sandboxController;
