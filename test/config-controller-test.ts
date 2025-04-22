@@ -1448,7 +1448,7 @@ describe('ConfigController', () => {
         });
     });
 
-    describe.only('Market Transfer Proposals', () => {
+    describe('Market Transfer Proposals', () => {
         it('should allow owner to propose market transfer', async () => {
             const { configController, owner, tokens, baseToken, priceFeeds } = await makeConfigController();
 
@@ -1626,7 +1626,7 @@ describe('ConfigController', () => {
                 .to.be.revertedWithCustomError(configController, 'NoActiveProposal');
         });
 
-        it.only('should allow owner to accept market transfer proposal', async () => {
+        it('should allow owner to accept market transfer proposal', async () => {
             const { configController, owner, curator, guardian, dao, sandboxController, marketFactory, tokens, baseToken, priceFeeds } = await makeConfigController();
 
             // Create a market
@@ -1665,7 +1665,7 @@ describe('ConfigController', () => {
             expect(await newConfigController.markets(0)).to.equal(marketAdress);
         });
 
-        it.only('should not allow non-owner to accept market transfer proposal', async () => {
+        it('should not allow non-owner to accept market transfer proposal', async () => {
             const { configController, owner, users, tokens, baseToken, priceFeeds } = await makeConfigController();
             const nonOwner = users[0];
 
@@ -1686,7 +1686,7 @@ describe('ConfigController', () => {
                 .to.be.revertedWithCustomError(configController, 'Unauthorized');
         });
 
-        it.only('should not allow accepting non-existent proposal', async () => {
+        it('should not allow accepting non-existent proposal', async () => {
             const { configController, owner, users, tokens, baseToken, priceFeeds } = await makeConfigController();
             const nonOwner = users[0];
 
@@ -1702,7 +1702,7 @@ describe('ConfigController', () => {
                 .to.be.revertedWithCustomError(configController, 'NoActiveProposal');
         });
 
-        it.only('should not allow accepting expired proposal', async () => {
+        it('should not allow accepting expired proposal', async () => {
             const { configController, owner, users, tokens, baseToken, priceFeeds } = await makeConfigController();
             const nonOwner = users[0];
 
