@@ -63,7 +63,7 @@ describe("SandboxController", function () {
     it("initializes state with correct values", async function () {
       const opts = defaultSandboxControllerOpts({
         admin: owner,
-        governor: dao,
+        dao: dao,
         feeEnabled: true,
         storeFrontPriceFactor: "999999999999999999",
         protocolFactorBorrow: "100000000000000000",
@@ -111,7 +111,7 @@ describe("SandboxController", function () {
       ).to.be.revertedWithCustomError(SandboxControllerFactory, "ZeroAddress");
     });
 
-    it("reverts if governor=0", async function () {
+    it("reverts if dao=0", async function () {
       await expect(
         SandboxControllerFactory.deploy(
           owner.address,
@@ -375,7 +375,7 @@ describe("SandboxController", function () {
     it("verifies initial values after construction", async function () {
       const opts = defaultSandboxControllerOpts({
         admin: owner,
-        governor: dao,
+        dao: dao,
         feeEnabled: false,
         storeFrontPriceFactor: "100000000000000000",
         protocolFactorBorrow: "100000000000000000",
@@ -415,7 +415,7 @@ describe("SandboxController", function () {
     beforeEach(async function () {
       const opts = defaultSandboxControllerOpts({
         admin: owner,
-        governor: dao,
+        dao: dao,
         feeEnabled: false,
         storeFrontPriceFactor: "500000000000000000",
         protocolFactorBorrow: "100000000000000000",
@@ -564,7 +564,7 @@ describe("SandboxController", function () {
     beforeEach(async function () {
       const opts = defaultSandboxControllerOpts({
         admin: owner,
-        governor: dao,
+        dao: dao,
         feeEnabled: false,
         storeFrontPriceFactor: "400000000000000000",
         protocolFactorBorrow: "100000000000000000",
@@ -898,7 +898,7 @@ describe("SandboxController", function () {
     beforeEach(async function () {
       const opts = defaultSandboxControllerOpts({
         admin: owner,
-        governor: dao,
+        dao: dao,
         feeEnabled: false,
         storeFrontPriceFactor: "300000000000000000",
         protocolFactorBorrow: "100000000000000000",
@@ -1028,7 +1028,7 @@ describe("SandboxController", function () {
     beforeEach(async function () {
       const opts = defaultSandboxControllerOpts({
         admin: owner,
-        governor: dao,
+        dao: dao,
         feeEnabled: false,
         storeFrontPriceFactor: "300000000000000000",
         protocolFactorBorrow: "100000000000000000",
@@ -1072,7 +1072,7 @@ describe("SandboxController", function () {
     beforeEach(async function () {
       const opts = defaultSandboxControllerOpts({
         admin: owner,
-        governor: dao,
+        dao: dao,
         feeEnabled: false,
         storeFrontPriceFactor: "300000000000000000",
         protocolFactorBorrow: "100000000000000000",
@@ -1183,7 +1183,7 @@ describe("SandboxController", function () {
     beforeEach(async function () {
       const opts = defaultSandboxControllerOpts({
         admin: owner,
-        governor: dao,
+        dao: dao,
         feeEnabled: false,
         storeFrontPriceFactor: "300000000000000000",
         protocolFactorBorrow: "100000000000000000",
@@ -1299,7 +1299,7 @@ describe("SandboxController", function () {
     beforeEach(async function () {
       const opts = defaultSandboxControllerOpts({
         admin: owner,
-        governor: dao,
+        dao: dao,
         feeEnabled: false,
         storeFrontPriceFactor: "300000000000000000",
         protocolFactorBorrow: "100000000000000000",
@@ -1348,7 +1348,7 @@ describe("SandboxController", function () {
     beforeEach(async function () {
       const opts = defaultSandboxControllerOpts({
         admin: owner,
-        governor: dao,
+        dao: dao,
         feeEnabled: false,
         storeFrontPriceFactor: "300000000000000000",
         protocolFactorBorrow: "100000000000000000",
@@ -1397,7 +1397,7 @@ describe("SandboxController", function () {
     beforeEach(async function () {
       const opts = defaultSandboxControllerOpts({
         admin: owner,
-        governor: dao,
+        dao: dao,
         feeEnabled: false,
         storeFrontPriceFactor: "300000000000000000",
         protocolFactorBorrow: "100000000000000000",
@@ -1433,7 +1433,7 @@ describe("SandboxController", function () {
     beforeEach(async function () {
       const opts = defaultSandboxControllerOpts({
         admin: owner,
-        governor: dao,
+        dao: dao,
         feeEnabled: false,
         storeFrontPriceFactor: "300000000000000000",
         protocolFactorBorrow: "100000000000000000",
@@ -1480,7 +1480,7 @@ describe("SandboxController", function () {
     beforeEach(async function () {
       const opts = defaultSandboxControllerOpts({
         admin: owner,
-        governor: dao,
+        dao: dao,
         feeEnabled: false,
         storeFrontPriceFactor: "300000000000000000",
         protocolFactorBorrow: "100000000000000000",
@@ -1567,7 +1567,7 @@ describe("SandboxController", function () {
     beforeEach(async function () {
       const opts = defaultSandboxControllerOpts({
         admin: owner,
-        governor: dao,
+        dao: dao,
         feeEnabled: false,
         storeFrontPriceFactor: "300000000000000000",
         protocolFactorBorrow: "100000000000000000",
@@ -1623,7 +1623,7 @@ describe("SandboxController", function () {
     beforeEach(async function () {
       const opts = defaultSandboxControllerOpts({
         admin: owner,
-        governor: dao,
+        dao: dao,
         feeEnabled: false,
         storeFrontPriceFactor: "300000000000000000",
         protocolFactorBorrow: "100000000000000000",
@@ -1797,7 +1797,7 @@ describe("SandboxController", function () {
     beforeEach(async function () {
       const opts = defaultSandboxControllerOpts({
         admin: owner,
-        governor: dao,
+        dao: dao,
         feeEnabled: false,
         storeFrontPriceFactor: "300000000000000000",
         protocolFactorBorrow: "100000000000000000",

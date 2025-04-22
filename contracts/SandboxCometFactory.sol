@@ -12,11 +12,9 @@ contract SandboxCometFactory is ISandboxCometFactory, CometConfiguration {
     address public assetListFactory;
     address public cometImplementation;
 
-    address[] public markets;
-    uint public lastMarket;
 
     function initialize(address _cometImplementation) external {
-        require(cometImplementation == address(0), ZeroAddress());
+        require(_cometImplementation != address(0), ZeroAddress());
         cometImplementation = _cometImplementation;
         configController = msg.sender;
         assetListFactory = address(new AssetListFactory());
@@ -46,15 +44,6 @@ contract SandboxCometFactory is ISandboxCometFactory, CometConfiguration {
 
         CometInterface(market).initializeStorage();
 
-        markets.push(market);
-
-        lastMarket++;
         return market;
-    }
-
-    function getMarket(
-        uint _marketId
-    ) external view override returns (address) {
-        return markets[_marketId];
     }
 }

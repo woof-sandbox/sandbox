@@ -15,6 +15,4 @@ interface ISandboxCometFactory is ISandboxErrors {
         address pauseGuardian_,
         uint256 baseBorrowMin
     ) external returns (address);
-
-    function getMarket(uint _mareketId) external view returns (address);
 }

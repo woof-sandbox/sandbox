@@ -16,7 +16,7 @@ import {
     setTotalsBasic
 } from './helper/helpers';
 import { MarketConfigStruct, ConfigController, CollateralTokenConfigStruct } from '../build/types/ConfigController';
-import { FaucetToken, ISandboxMarket, SimplePriceFeed, NonStandardFaucetFeeToken, ISandboxController, SandboxComet } from '../build/types';
+import { FaucetToken, ISandboxMarket, SimplePriceFeed, NonStandardFaucetFeeToken, ISandboxController, SandboxComet, ConfigControllerFactory, ConfigControllerFactory__factory, SandboxComet__factory } from '../build/types';
 import { BigNumber } from 'ethers';
 // import { exec } from 'child_process';
 
@@ -1953,6 +1953,63 @@ describe('ConfigController', () => {
         it('should deploy with correct args', async () => {
             const { configControllerFactory, owner } = await makeConfigController();
             expect(await configControllerFactory.owner()).to.equal(owner.address);
+
+            const controllers = await configControllerFactory.getAllControllers();
+            expect(controllers.length).to.equal(1);
+
+            const controller = await ethers.getContractAt("ConfigController", controllers[0]);
+            expect(await controller.owner()).to.equal(owner.address);
+
+            const count = await configControllerFactory.controllersCount();
+
+            expect(count).to.equal(1);
+        });
+
+        it('should set comet implementation address', async () => {
+            const { configControllerFactory, configController } = await makeConfigController();
+            const SandboxCometFactory = await ethers.getContractFactory("SandboxComet") as SandboxComet__factory;
+
+            const impl = await SandboxCometFactory.deploy();
+            const previousAddress = await configControllerFactory.cometImplementation();
+            await configControllerFactory.setImplementation(impl.address);
+            const newAddress = await configControllerFactory.cometImplementation();
+
+            expect(previousAddress).to.not.equal(newAddress);
+            expect(newAddress).to.equal(impl.address);
+        });
+
+        it("only owner can set implementation address", async () => {
+            const { configControllerFactory, users } = await makeConfigController();
+
+            const SandboxCometFactory = await ethers.getContractFactory("SandboxComet") as SandboxComet__factory;
+
+            const impl = await SandboxCometFactory.deploy();
+            await expect(configControllerFactory.connect(users[4]).setImplementation(impl.address))
+                .to.be.revertedWithCustomError(configControllerFactory, "Unauthorized");
+        });
+
+        it("should transfer ownership", async () => {
+            const { configControllerFactory, users } = await makeConfigController();
+
+            await expect(configControllerFactory.transferOwnership(users[4].address))
+                .to.emit(configControllerFactory, 'OwnershipTransferred')
+                .withArgs(users[4].address);
+
+            expect(await configControllerFactory.owner()).to.equal(users[4].address);
+        });
+
+        it("only owner can transfer ownership", async () => {
+            const { configControllerFactory, users } = await makeConfigController();
+
+            await expect(configControllerFactory.connect(users[4]).transferOwnership(users[5].address))
+                .to.be.revertedWithCustomError(configControllerFactory, "Unauthorized");
+        });
+
+        it("should revert if transfer ownership to zero address", async () => {
+            const { configControllerFactory } = await makeConfigController();
+
+            await expect(configControllerFactory.transferOwnership(ethers.constants.AddressZero))
+                .to.be.revertedWithCustomError(configControllerFactory, "ZeroAddress");
         });
     });
 });

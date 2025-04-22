@@ -414,14 +414,7 @@ contract ConfigController is IConfigController {
         emit MarketConfigProposalExecuted(market, msg.sender);
     }
 
-    function setBaseAssetConfig(
-        address market,
-        BaseTokenConfig memory baseConfig
-    ) external {
-        _validateBaseTokenConfig(baseConfig, baseConfig.priceFeed);
-        ISandboxMarket(market).setBaseTokenConfig(baseConfig);
-    }
-
+    
     /// @notice Validates base token configuration
     /// @dev Internal function to validate base token parameters
     /// @param baseTokenConfig The base token configuration to validate
