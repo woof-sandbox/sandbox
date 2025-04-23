@@ -6,9 +6,6 @@ import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 import "./interfaces/ISandboxComet.sol";
 import "./interfaces/IERC20NonStandard.sol";
 import "./interfaces/IPriceFeed.sol";
-import "./interfaces/IAssetListFactory.sol";
-import "./interfaces/IAssetListFactoryHolder.sol";
-import "./interfaces/IAssetList.sol";
 import "./interfaces/IConfigController.sol";
 
 /**
@@ -19,6 +16,9 @@ import "./interfaces/IConfigController.sol";
 contract SandboxComet is ISandboxComet, Initializable {
     /** General configuration constants **/
 
+    /// @notice Config Controller address
+    address public override configController;
+    
     /// @notice The admin of the protocol
     address public override governor;
 
@@ -118,9 +118,6 @@ contract SandboxComet is ISandboxComet, Initializable {
     /// @notice Factor to divide by when accruing rewards in order to preserve 6 decimals (i.e. baseScale / 1e6)
     uint internal accrualDescaleFactor;
 
-    /// @notice The address of the asset list
-    address public assetList;
-
     bool private _initialized;
 
     constructor() {
@@ -131,6 +128,7 @@ contract SandboxComet is ISandboxComet, Initializable {
     function initialize(
         IConfigController.MarketConfig memory market,
         ISandboxController.SandboxControllerConfiguration memory config,
+        address configController_,
         address governor_,
         address dao_,
         address pauseGuardian_,
@@ -143,6 +141,7 @@ contract SandboxComet is ISandboxComet, Initializable {
             PRICE_FEED_DECIMALS
         ) revert BadDecimals();
 
+        configController = configController_;
         governor = governor_;
         dao = dao_;
         pauseGuardian = pauseGuardian_;
@@ -259,8 +258,8 @@ contract SandboxComet is ISandboxComet, Initializable {
      */
     function getAssetInfo(
         uint8 i
-    ) public view override returns (AssetInfo memory) {
-        return IAssetList(assetList).getAssetInfo(i);
+    ) public view returns (IConfigController.CollateralToken memory) {
+        return IConfigController(configController).getAssetConfig(address(this), i);
     }
 
     /**
@@ -268,17 +267,8 @@ contract SandboxComet is ISandboxComet, Initializable {
      */
     function getAssetInfoByAddress(
         address asset
-    ) public view override returns (AssetInfo memory) {
-        for (uint8 i = 0; i < numAssets; ) {
-            AssetInfo memory assetInfo = getAssetInfo(i);
-            if (assetInfo.asset == asset) {
-                return assetInfo;
-            }
-            unchecked {
-                i++;
-            }
-        }
-        revert BadAsset();
+    ) public view returns (IConfigController.CollateralToken memory) {
+        return IConfigController(configController).getAssetConfigByAddress(address(this), asset);
     }
 
     /**
@@ -517,14 +507,15 @@ contract SandboxComet is ISandboxComet, Initializable {
                     return true;
                 }
 
-                AssetInfo memory asset = getAssetInfo(i);
+                IConfigController.CollateralToken memory asset = getAssetInfo(i);
                 uint newAmount = mulPrice(
-                    userCollateral[account][asset.asset].balance,
-                    getPrice(asset.priceFeed),
-                    asset.scale
+                    userCollateral[account][asset.collateralToken].balance,
+                    getPrice(asset.config.priceFeed),
+                    //asset.scale
+                    1e18 // TODO
                 );
                 liquidity += signed256(
-                    mulFactor(newAmount, asset.borrowCollateralFactor)
+                    mulFactor(newAmount, asset.config.borrowCollateralFactor)
                 );
             }
             unchecked {
@@ -563,14 +554,15 @@ contract SandboxComet is ISandboxComet, Initializable {
                     return false;
                 }
 
-                AssetInfo memory asset = getAssetInfo(i);
+                IConfigController.CollateralToken memory asset = getAssetInfo(i);
                 uint newAmount = mulPrice(
-                    userCollateral[account][asset.asset].balance,
-                    getPrice(asset.priceFeed),
-                    asset.scale
+                    userCollateral[account][asset.collateralToken].balance,
+                    getPrice(asset.config.priceFeed),
+                    // asset.scale hardcoded to 1e18
+                    1e18 // TODO
                 );
                 liquidity += signed256(
-                    mulFactor(newAmount, asset.liquidateCollateralFactor)
+                    mulFactor(newAmount, asset.config.liquidateCollateralFactor)
                 );
             }
             unchecked {
@@ -597,7 +589,7 @@ contract SandboxComet is ISandboxComet, Initializable {
             daoBaseTrackingSupplySpeed = baseTrackingSupplySpeed_;
             daoBaseTrackingBorrowSpeed = baseTrackingBorrowSpeed_;
         } else {
-            if (msg.sender != governor) revert Unauthorized();
+            if (msg.sender != configController) revert Unauthorized();
             baseTrackingSupplySpeed = baseTrackingSupplySpeed_;
             baseTrackingBorrowSpeed = baseTrackingBorrowSpeed_;
         }
@@ -788,30 +780,30 @@ contract SandboxComet is ISandboxComet, Initializable {
      */
     function updateAssetsIn(
         address account,
-        AssetInfo memory assetInfo,
+        IConfigController.CollateralTokenConfig memory assetInfo,
         uint128 initialUserBalance,
         uint128 finalUserBalance
     ) internal {
         if (initialUserBalance == 0 && finalUserBalance != 0) {
             // set bit for asset
-            if (assetInfo.offset < 16) {
-                // set bit in assetsIn for bits 0-15
-                userBasic[account].assetsIn |= (uint16(1) << assetInfo.offset);
-            } else if (assetInfo.offset < 24) {
-                // set bit in _reserved for bits 16-23
-                userBasic[account]._reserved |= (uint8(1) <<
-                    (assetInfo.offset - 16));
-            }
+            // if (assetInfo.offset < 16) {
+            //     // set bit in assetsIn for bits 0-15
+            //     userBasic[account].assetsIn |= (uint16(1) << assetInfo.offset);
+            // } else if (assetInfo.offset < 24) {
+            //     // set bit in _reserved for bits 16-23
+            //     userBasic[account]._reserved |= (uint8(1) <<
+            //         (assetInfo.offset - 16));
+            // }
         } else if (initialUserBalance != 0 && finalUserBalance == 0) {
             // clear bit for asset
-            if (assetInfo.offset < 16) {
-                // clear bit in assetsIn for bits 0-15
-                userBasic[account].assetsIn &= ~(uint16(1) << assetInfo.offset);
-            } else if (assetInfo.offset < 24) {
-                // clear bit in _reserved for bits 16-23
-                userBasic[account]._reserved &= ~(uint8(1) <<
-                    (assetInfo.offset - 16));
-            }
+            // if (assetInfo.offset < 16) {
+            //     // clear bit in assetsIn for bits 0-15
+            //     userBasic[account].assetsIn &= ~(uint16(1) << assetInfo.offset);
+            // } else if (assetInfo.offset < 24) {
+            //     // clear bit in _reserved for bits 16-23
+            //     userBasic[account]._reserved &= ~(uint8(1) <<
+            //         (assetInfo.offset - 16));
+            // }
         }
     }
 
@@ -1035,10 +1027,10 @@ contract SandboxComet is ISandboxComet, Initializable {
     ) internal {
         amount = safe128(doTransferIn(asset, from, amount));
 
-        AssetInfo memory assetInfo = getAssetInfoByAddress(asset);
+        IConfigController.CollateralToken memory assetInfo = getAssetInfoByAddress(asset);
         TotalsCollateral memory totals = totalsCollateral[asset];
         totals.totalSupplyAsset += amount;
-        if (totals.totalSupplyAsset > assetInfo.supplyCap)
+        if (totals.totalSupplyAsset > assetInfo.config.supplyCap)
             revert SupplyCapExceeded();
 
         uint128 dstCollateral = userCollateral[dst][asset].balance;
@@ -1047,7 +1039,7 @@ contract SandboxComet is ISandboxComet, Initializable {
         totalsCollateral[asset] = totals;
         userCollateral[dst][asset].balance = dstCollateralNew;
 
-        updateAssetsIn(dst, assetInfo, dstCollateral, dstCollateralNew);
+        updateAssetsIn(dst, assetInfo.config, dstCollateral, dstCollateralNew);
 
         emit SupplyCollateral(from, dst, asset, amount);
     }
@@ -1208,9 +1200,9 @@ contract SandboxComet is ISandboxComet, Initializable {
         userCollateral[src][asset].balance = srcCollateralNew;
         userCollateral[dst][asset].balance = dstCollateralNew;
 
-        AssetInfo memory assetInfo = getAssetInfoByAddress(asset);
-        updateAssetsIn(src, assetInfo, srcCollateral, srcCollateralNew);
-        updateAssetsIn(dst, assetInfo, dstCollateral, dstCollateralNew);
+        IConfigController.CollateralToken memory assetInfo = getAssetInfoByAddress(asset);
+        updateAssetsIn(src, assetInfo.config, srcCollateral, srcCollateralNew);
+        updateAssetsIn(dst, assetInfo.config, dstCollateral, dstCollateralNew);
 
         // Note: no accrue interest, BorrowCF < LiquidationCF covers small changes
         if (!isBorrowCollateralized(src)) revert NotCollateralized();
@@ -1336,8 +1328,8 @@ contract SandboxComet is ISandboxComet, Initializable {
         totalsCollateral[asset].totalSupplyAsset -= amount;
         userCollateral[src][asset].balance = srcCollateralNew;
 
-        AssetInfo memory assetInfo = getAssetInfoByAddress(asset);
-        updateAssetsIn(src, assetInfo, srcCollateral, srcCollateralNew);
+        IConfigController.CollateralToken memory assetInfo = getAssetInfoByAddress(asset);
+        updateAssetsIn(src, assetInfo.config, srcCollateral, srcCollateralNew);
 
         // Note: no accrue interest, BorrowCF < LiquidationCF covers small changes
         if (!isBorrowCollateralized(src)) revert NotCollateralized();
@@ -1396,18 +1388,19 @@ contract SandboxComet is ISandboxComet, Initializable {
 
         for (uint8 i = 0; i < numAssets; ) {
             if (isInAsset(assetsIn, i, _reserved)) {
-                AssetInfo memory assetInfo = getAssetInfo(i);
-                address asset = assetInfo.asset;
+                IConfigController.CollateralToken memory assetInfo = getAssetInfo(i);
+                address asset = assetInfo.collateralToken;
                 uint128 seizeAmount = userCollateral[account][asset].balance;
                 userCollateral[account][asset].balance = 0;
                 totalsCollateral[asset].totalSupplyAsset -= seizeAmount;
 
                 uint256 value = mulPrice(
                     seizeAmount,
-                    getPrice(assetInfo.priceFeed),
-                    assetInfo.scale
+                    getPrice(assetInfo.config.priceFeed),
+                    // assetInfo.scale hardcoded to 1e18
+                    1e18 // TODO
                 );
-                deltaValue += mulFactor(value, assetInfo.liquidationFactor);
+                deltaValue += mulFactor(value, assetInfo.config.liquidationFactor);
 
                 emit AbsorbCollateral(
                     absorber,
@@ -1523,13 +1516,13 @@ contract SandboxComet is ISandboxComet, Initializable {
         address asset,
         uint baseAmount
     ) public view override returns (uint) {
-        AssetInfo memory assetInfo = getAssetInfoByAddress(asset);
-        uint256 assetPrice = getPrice(assetInfo.priceFeed);
+        IConfigController.CollateralToken memory assetInfo = getAssetInfoByAddress(asset);
+        uint256 assetPrice = getPrice(assetInfo.config.priceFeed);
         // Store front discount is derived from the collateral asset's liquidationFactor and storeFrontPriceFactor
         // discount = storeFrontPriceFactor * (1e18 - liquidationFactor)
         uint256 discountFactor = mulFactor(
             storeFrontPriceFactor,
-            FACTOR_SCALE - assetInfo.liquidationFactor
+            FACTOR_SCALE - assetInfo.config.liquidationFactor
         );
         uint256 assetPriceDiscounted = mulFactor(
             assetPrice,
@@ -1540,7 +1533,8 @@ contract SandboxComet is ISandboxComet, Initializable {
         // = (TotalValueOfBaseAmount / DiscountedPriceOfCollateralAsset) * assetScale
         // = ((basePrice * baseAmount / baseScale) / assetPriceDiscounted) * assetScale
         return
-            (basePrice * baseAmount * assetInfo.scale) /
+            // (basePrice * baseAmount * assetInfo.scale) / hardcoded to 1e18
+            (basePrice * baseAmount * 1e18) /
             assetPriceDiscounted /
             baseScale;
     }

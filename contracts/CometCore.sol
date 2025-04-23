@@ -1,21 +1,10 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
-import "./interfaces/ICometConfiguration.sol";
 import "./CometStorage.sol";
 import "./CometMath.sol";
 
-abstract contract CometCore is ICometConfiguration, CometStorage, CometMath {
-    struct AssetInfo {
-        uint8 offset;
-        address asset;
-        address priceFeed;
-        uint64 scale;
-        uint64 borrowCollateralFactor;
-        uint64 liquidateCollateralFactor;
-        uint64 liquidationFactor;
-        uint128 supplyCap;
-    }
+abstract contract CometCore is CometStorage, CometMath {
 
     /** Internal constants **/
 

@@ -325,7 +325,7 @@ export async function makeMockMarket(opts: ProtocolOpts = {}): Promise<MarketMoc
 }
 
 export async function makeMarket(opts: ProtocolOpts = {}): Promise<ISandboxMarket> {
-  const Market = await ethers.getContractFactory('SandboxMarket') as SandboxMarket__factory
+  const Market = await ethers.getContractFactory('SandboxComet') as SandboxMarket__factory
   const market = await Market.deploy();
   await market.deployed();
   return market;

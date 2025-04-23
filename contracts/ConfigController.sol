@@ -6,9 +6,9 @@ import "./interfaces/ISandboxController.sol";
 import "./interfaces/ISandboxMarket.sol";
 import "./interfaces/ISandboxCometFactory.sol";
 import "./interfaces/IERC20NonStandard.sol";
+import "./interfaces/ISandboxComet.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./lib/SandboxUtils.sol";
-import "hardhat/console.sol";
 
 contract ConfigController is IConfigController {
     using SandboxUtils for address;
@@ -39,6 +39,7 @@ contract ConfigController is IConfigController {
 
     /// @notice Mapping of market => active proposal
     mapping(address => MarketConfigProposal) public _marketProposals;
+    mapping(address => MarketConfig) public _marketConfigs;
 
     /// @notice Returns the market configuration proposal for a given market
     /// @param market The address of the market
@@ -103,6 +104,18 @@ contract ConfigController is IConfigController {
         marketFactory = _marketFactory;
         curatorFee = _curatorFee;
         name = _name;
+    }
+
+    function setSpeeds(
+        address market_,
+        uint64 baseTrackingSupplySpeed_,
+        uint64 baseTrackingBorrowSpeed_
+    ) external onlyOwner {
+        ISandboxComet(market_).setSpeeds(
+            baseTrackingSupplySpeed_,
+            baseTrackingBorrowSpeed_,
+            false
+        );
     }
 
     // External/Public functions
@@ -241,6 +254,8 @@ contract ConfigController is IConfigController {
                 _marketConfig.baseToken
             )
         );
+
+        _marketConfigs[market] = _marketConfig;
 
         markets.push(market);
 
@@ -399,7 +414,9 @@ contract ConfigController is IConfigController {
         MarketConfigProposal memory proposal = _marketProposals[market];
         if (block.timestamp <= proposal.expiration) revert ProposalNotExpired();
 
-        (bool success, bytes memory data) = proposal.market.call(proposal.callData);
+        (bool success, bytes memory data) = proposal.market.call(
+            proposal.callData
+        );
 
         if (data.length > 0) {
             assembly {
@@ -407,14 +424,40 @@ contract ConfigController is IConfigController {
                 revert(err, 0)
             }
         }
-        
+
         if (!success) revert ExecutionFailed();
 
         delete _marketProposals[market];
         emit MarketConfigProposalExecuted(market, msg.sender);
     }
 
-    
+    function getAssetConfig(
+        address market,
+        uint256 index
+    ) external view override returns (CollateralToken memory) {
+        return _marketConfigs[market].collateralTokens[index];
+    }
+
+    function getAssetConfigByAddress(
+        address market,
+        address asset
+    ) external view override returns (CollateralToken memory) {
+        CollateralToken memory config;
+        for (uint i; i < _marketConfigs[market].collateralTokens.length; ) {
+            if (
+                _marketConfigs[market].collateralTokens[i].collateralToken ==
+                asset
+            ) {
+                config = _marketConfigs[market].collateralTokens[i];
+                break;
+            }
+            unchecked {
+                i++;
+            }
+        }
+        return config;
+    }
+
     /// @notice Validates base token configuration
     /// @dev Internal function to validate base token parameters
     /// @param baseTokenConfig The base token configuration to validate

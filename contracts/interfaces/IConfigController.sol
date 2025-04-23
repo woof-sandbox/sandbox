@@ -174,9 +174,13 @@ abstract contract IConfigController is ISandboxErrors {
 
     function name() external view virtual returns (string memory);
 
-    /// @notice Returns the market configuration proposal for a given market
-    /// @param market The address of the market
-    /// @return The market configuration proposal
+    function getAssetConfig(address market, uint256 index) external view virtual returns (CollateralToken memory);
+
+    function getAssetConfigByAddress(
+        address market,
+        address asset
+    ) external view virtual returns (CollateralToken memory);
+
     function marketProposals(
         address market
     ) external view virtual returns (MarketConfigProposal memory);

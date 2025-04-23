@@ -83,6 +83,7 @@ abstract contract ISandboxComet is CometCore {
     function initialize(
           IConfigController.MarketConfig memory market,
         ISandboxController.SandboxControllerConfiguration memory config,
+        address configController_,
         address governor_,
         address dao_,
         address pauseGuardian_,
@@ -93,9 +94,6 @@ abstract contract ISandboxComet is CometCore {
     function absorb(address absorber, address[] calldata accounts) virtual external;
     function buyCollateral(address asset, uint minAmount, uint baseAmount, address recipient) virtual external;
     function quoteCollateral(address asset, uint baseAmount) virtual public view returns (uint);
-
-    function getAssetInfo(uint8 i) virtual public view returns (AssetInfo memory);
-    function getAssetInfoByAddress(address asset) virtual public view returns (AssetInfo memory);
     function getCollateralReserves(address asset) virtual public view returns (uint);
     function getReserves() virtual public view returns (int);
     function getPrice(address priceFeed) virtual public view returns (uint);
@@ -124,6 +122,7 @@ abstract contract ISandboxComet is CometCore {
     function getBorrowRate(uint utilization) virtual public view returns (uint64);
     function getUtilization() virtual public view returns (uint);
 
+    function configController() virtual external view returns (address);
     function governor() virtual external view returns (address);
     function dao() virtual external view returns (address);
     function pauseGuardian() virtual external view returns (address);

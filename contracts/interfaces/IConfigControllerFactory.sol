@@ -8,7 +8,6 @@ interface IConfigControllerFactory is ISandboxErrors {
     event OwnerTransferred(address oldOwner, address newOwner);
 
     event ImplementationSet(address indexed implementation);
-
     
     function create(
         address curator_,

@@ -140,7 +140,7 @@ describe('ConfigController', () => {
 
             for (let i = 0; i < numAssets; i++) {
                 const assetInfo = await market.getAssetInfo(i);
-                deployedCollateralTokens.push(assetInfo.asset);
+                deployedCollateralTokens.push(assetInfo.collateralToken);
             }
 
             const unsupportedTokenSymbol = await unsupportedToken.symbol();
@@ -151,11 +151,11 @@ describe('ConfigController', () => {
                 const config = await market.getAssetInfoByAddress(token);
                 const expected = marketConfig.collateralTokens.find(c => c.collateralToken === token);
                 expect(expected).to.not.be.undefined;
-                expect(config.priceFeed).to.eq(expected!.config.priceFeed);
-                expect(config.borrowCollateralFactor).to.eq(expected!.config.borrowCollateralFactor);
-                expect(config.liquidateCollateralFactor).to.eq(expected!.config.liquidateCollateralFactor);
-                expect(config.liquidationFactor).to.eq(expected!.config.liquidationFactor);
-                expect(config.supplyCap).to.eq(expected!.config.supplyCap);
+                expect(config.config.priceFeed).to.eq(expected!.config.priceFeed);
+                expect(config.config.borrowCollateralFactor).to.eq(expected!.config.borrowCollateralFactor);
+                expect(config.config.liquidateCollateralFactor).to.eq(expected!.config.liquidateCollateralFactor);
+                expect(config.config.liquidationFactor).to.eq(expected!.config.liquidationFactor);
+                expect(config.config.supplyCap).to.eq(expected!.config.supplyCap);
             }
 
             expect(deployedCollateralTokens).to.not.include(baseToken.address);
@@ -1992,7 +1992,7 @@ describe('ConfigController', () => {
             const { configControllerFactory, users } = await makeConfigController();
 
             await expect(configControllerFactory.transferOwnership(users[4].address))
-                .to.emit(configControllerFactory, 'OwnershipTransferred')
+                .to.emit(configControllerFactory, 'OwnerTransferred')
                 .withArgs(users[4].address);
 
             expect(await configControllerFactory.owner()).to.equal(users[4].address);

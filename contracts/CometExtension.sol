@@ -31,11 +31,11 @@ contract CometExtension is ICometExtension {
     
     /**
      * @notice Construct a new protocol instance
-     * @param config The mapping of initial/constant parameters
+     * @param _name32 The ERC20 name for wrapped base token
      **/
-    constructor(ExtConfiguration memory config) {
-        name32 = config.name32;
-        symbol32 = config.symbol32;
+    constructor(bytes32 _name32, bytes32 _symbol32) {
+        name32 = _name32;
+        symbol32 = _symbol32;
     }
 
     /** External getters for internal constants **/

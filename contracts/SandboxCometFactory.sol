@@ -5,17 +5,12 @@ import "@openzeppelin/contracts/proxy/Clones.sol";
 import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 
 import "./interfaces/ISandboxCometFactory.sol";
-import "./interfaces/ICometConfiguration.sol";
 import "./interfaces/ISandboxComet.sol";
 
-contract SandboxCometFactory is ISandboxCometFactory, ICometConfiguration, Initializable {
+contract SandboxCometFactory is ISandboxCometFactory, Initializable {
     address public configController;
     address public cometImplementation;
 
-    constructor () {
-        _disableInitializers();
-    }
-    
     function initialize(address _cometImplementation) external initializer {
         require(_cometImplementation != address(0), ZeroAddress());
         cometImplementation = _cometImplementation;
@@ -37,6 +32,7 @@ contract SandboxCometFactory is ISandboxCometFactory, ICometConfiguration, Initi
         ISandboxComet(market).initialize(
             _marketConfig,
             config,
+            configController,
             governor,
             dao,
             pauseGuardian,
