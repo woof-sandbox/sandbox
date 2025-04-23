@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
-import "./CometCore.sol";
-import "./interfaces/IConfigController.sol";
-import "./interfaces/ISandboxController.sol";
+import "../CometCore.sol";
+import "./IConfigController.sol";
+import "./ISandboxController.sol";
 
 /**
  * @title Compound's Comet Main Interface (without Ext)
  * @notice An efficient monolithic money market protocol
  * @author Compound
  */
-abstract contract CometInterface is CometCore {
+abstract contract ISandboxComet is CometCore {
     error Absurd();
     error AlreadyInitialized();
     error BadAsset();
@@ -83,7 +83,6 @@ abstract contract CometInterface is CometCore {
     function initialize(
           IConfigController.MarketConfig memory market,
         ISandboxController.SandboxControllerConfiguration memory config,
-        address assetListFactory_,
         address governor_,
         address dao_,
         address pauseGuardian_,

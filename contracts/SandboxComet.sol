@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
-import "./CometInterface.sol";
+import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
+
+import "./interfaces/ISandboxComet.sol";
 import "./interfaces/IERC20NonStandard.sol";
 import "./interfaces/IPriceFeed.sol";
 import "./interfaces/IAssetListFactory.sol";
@@ -14,7 +16,7 @@ import "./interfaces/IConfigController.sol";
  * @notice An efficient monolithic money market protocol
  * @author Compound
  */
-contract SandboxComet is CometInterface {
+contract SandboxComet is ISandboxComet, Initializable {
     /** General configuration constants **/
 
     /// @notice The admin of the protocol
@@ -119,26 +121,16 @@ contract SandboxComet is CometInterface {
     /// @notice The address of the asset list
     address public assetList;
 
-    uint8 internal constant MAX_ASSETS_FOR_ASSET_LIST = 24;
-
     bool private _initialized;
 
     constructor() {
-        _initialized = true;
-    }
-
-    /// @dev only runs once per clone
-    modifier initializer() {
-        require(!_initialized, "SandboxComet: already initialized");
-        _initialized = true;
-        _;
+       _disableInitializers();
     }
 
     /// @notice replaces your old constructor
     function initialize(
         IConfigController.MarketConfig memory market,
         ISandboxController.SandboxControllerConfiguration memory config,
-        address assetListFactory_,
         address governor_,
         address dao_,
         address pauseGuardian_,
@@ -203,10 +195,6 @@ contract SandboxComet is CometInterface {
                 SECONDS_PER_YEAR;
         }
         numAssets = uint8(market.collateralTokens.length);
-
-        assetList = IAssetListFactory(assetListFactory_).createAssetList(
-            market.collateralTokens
-        );
     }
 
     /**
@@ -297,7 +285,6 @@ contract SandboxComet is CometInterface {
      * @return The current timestamp
      **/
     function getNowInternal() internal view virtual returns (uint40) {
-        if (block.timestamp >= 2 ** 40) revert TimestampTooLarge();
         return uint40(block.timestamp);
     }
 

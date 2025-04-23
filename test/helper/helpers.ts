@@ -6,7 +6,7 @@ import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
 import {
   BaseBulker,
   BaseBulker__factory,
-  CometExt,
+  CometExtension,
   CometExt__factory,
   CometExtAssetList__factory,
   CometHarness__factory,

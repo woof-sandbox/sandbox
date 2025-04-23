@@ -70,7 +70,7 @@ An example deployment command looks like:
 
 **[CometStorage.sol](https://github.com/compound-finance/comet/blob/main/contracts/CometStorage.sol)** - Contract that defines the storage variables used for the Comet protocol.
 
-**[CometConfiguration.sol](https://github.com/compound-finance/comet/blob/main/contracts/CometConfiguration.sol)** - Contract that defines the configuration structs passed into the constructors for `Comet.sol` and `SandboxComet.sol`.
+**[CometConfiguration.sol](https://github.com/compound-finance/comet/blob/main/contracts/interfaces/ICometConfiguration.sol)** - Contract that defines the configuration structs passed into the constructors for `Comet.sol` and `SandboxComet.sol`.
 
 **[CometMath.sol](https://github.com/compound-finance/comet/blob/main/contracts/CometMath.sol)** - Contract that defines math functions that are used throughout the Comet codebase.
 

@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
-import "../CometInterface.sol";
+import "../interfaces/ISandboxComet.sol";
 
-abstract contract CometHarnessInterface is CometInterface {
+abstract contract CometHarnessInterface is ISandboxComet {
     function accrue() virtual external;
     function getNow() virtual external view returns (uint40);
     function setNow(uint now_) virtual external;
