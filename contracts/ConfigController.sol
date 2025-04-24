@@ -259,10 +259,12 @@ contract ConfigController is IConfigController {
 
         markets.push(market);
 
-        IERC20NonStandard(_marketConfig.baseToken).transfer(
+        IERC20NonStandard(_marketConfig.baseToken).approve(
             market,
             config.suggestedAmountOfSeedReserves
         );
+
+        ISandboxComet(market).supply(_marketConfig.baseToken, config.suggestedAmountOfSeedReserves);
 
         emit MarketConfigurationCreated(
             markets[marketsLength - 1],
@@ -441,9 +443,10 @@ contract ConfigController is IConfigController {
     function getAssetConfigByAddress(
         address market,
         address asset
-    ) external view override returns (CollateralToken memory) {
+    ) external view override returns (CollateralToken memory, uint8 index) {
         CollateralToken memory config;
-        for (uint i; i < _marketConfigs[market].collateralTokens.length; ) {
+        uint8 i;
+        for (; i < _marketConfigs[market].collateralTokens.length; ) {
             if (
                 _marketConfigs[market].collateralTokens[i].collateralToken ==
                 asset
@@ -455,7 +458,7 @@ contract ConfigController is IConfigController {
                 i++;
             }
         }
-        return config;
+        return (config, i);
     }
 
     /// @notice Validates base token configuration

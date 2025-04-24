@@ -56,7 +56,7 @@ contract SandboxController is ISandboxController {
      * @param _protocolFactorLiquidation Nonzero. Sum with _reserveFactorLiquidation <= 1e18.
      * @param _reserveFactorLiquidation  Nonzero.
      * @param _maxCollateralAssets       > 0
-     * @param _targetReserves            < 0.5 (50%)
+     * @param _targetPercent            < 0.5 (50%)
      * @param _storeFrontPriceFactor     < 1e18
      * @param _minUpdateTime             > 0
      * @param _suggestedAmountOfSeedReserves > 0
@@ -71,7 +71,7 @@ contract SandboxController is ISandboxController {
         uint256 _protocolFactorLiquidation,
         uint256 _reserveFactorLiquidation,
         uint256 _maxCollateralAssets,
-        uint256 _targetReserves,
+        uint256 _targetPercent,
         uint256 _storeFrontPriceFactor,
         uint256 _minUpdateTime,
         uint256 _suggestedAmountOfSeedReserves,
@@ -96,7 +96,7 @@ contract SandboxController is ISandboxController {
             _reserveFactorLiquidation == 0 ||
             (_protocolFactorLiquidation + _reserveFactorLiquidation) > 1e18 ||
             _maxCollateralAssets == 0 ||
-            _targetReserves > 5e17 ||
+            _targetPercent > 5e17 ||
             _storeFrontPriceFactor >= 1e18 ||
             _minUpdateTime == 0 ||
             _suggestedAmountOfSeedReserves == 0 ||
@@ -111,7 +111,7 @@ contract SandboxController is ISandboxController {
         reserveFactorLiquidation = _reserveFactorLiquidation;
         maxCollateralAssets = _maxCollateralAssets;
         controllerConfiguration = SandboxControllerConfiguration(
-            _targetReserves,
+            _targetPercent,
             _storeFrontPriceFactor,
             _minUpdateTime,
             _suggestedAmountOfSeedReserves,

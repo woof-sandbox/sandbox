@@ -18,7 +18,7 @@ contract SandboxComet is ISandboxComet, Initializable {
 
     /// @notice Config Controller address
     address public override configController;
-    
+
     /// @notice The admin of the protocol
     address public override governor;
 
@@ -105,6 +105,7 @@ contract SandboxComet is ISandboxComet, Initializable {
     /// @notice The minimum base token reserves which must be held before collateral is hodled
     uint public override targetPercent;
 
+    /// @notice Seed reserves
     uint public seedReserves;
 
     uint public unlockTimestamp;
@@ -121,7 +122,7 @@ contract SandboxComet is ISandboxComet, Initializable {
     bool private _initialized;
 
     constructor() {
-       _disableInitializers();
+        _disableInitializers();
     }
 
     /// @notice replaces your old constructor
@@ -164,6 +165,7 @@ contract SandboxComet is ISandboxComet, Initializable {
         baseBorrowMin = baseBorrowMin_;
         targetPercent = config.targetPercent;
         seedReserves = config.suggestedAmountOfSeedReserves;
+        totalSupplyBase = uint104(seedReserves);
         unlockTimestamp =
             block.timestamp +
             config.suggestedLockTimeOfSeedReserves;
@@ -259,7 +261,11 @@ contract SandboxComet is ISandboxComet, Initializable {
     function getAssetInfo(
         uint8 i
     ) public view returns (IConfigController.CollateralToken memory) {
-        return IConfigController(configController).getAssetConfig(address(this), i);
+        return
+            IConfigController(configController).getAssetConfig(
+                address(this),
+                i
+            );
     }
 
     /**
@@ -267,8 +273,16 @@ contract SandboxComet is ISandboxComet, Initializable {
      */
     function getAssetInfoByAddress(
         address asset
-    ) public view returns (IConfigController.CollateralToken memory) {
-        return IConfigController(configController).getAssetConfigByAddress(address(this), asset);
+    )
+        public
+        view
+        returns (IConfigController.CollateralToken memory, uint8 index)
+    {
+        return
+            IConfigController(configController).getAssetConfigByAddress(
+                address(this),
+                asset
+            );
     }
 
     /**
@@ -507,12 +521,16 @@ contract SandboxComet is ISandboxComet, Initializable {
                     return true;
                 }
 
-                IConfigController.CollateralToken memory asset = getAssetInfo(i);
+                IConfigController.CollateralToken memory asset = getAssetInfo(
+                    i
+                );
+
+                uint64 scale = uint64(10 ** uint256(IPriceFeed(asset.config.priceFeed).decimals()));
+
                 uint newAmount = mulPrice(
                     userCollateral[account][asset.collateralToken].balance,
                     getPrice(asset.config.priceFeed),
-                    //asset.scale
-                    1e18 // TODO
+                    scale
                 );
                 liquidity += signed256(
                     mulFactor(newAmount, asset.config.borrowCollateralFactor)
@@ -554,12 +572,16 @@ contract SandboxComet is ISandboxComet, Initializable {
                     return false;
                 }
 
-                IConfigController.CollateralToken memory asset = getAssetInfo(i);
+                IConfigController.CollateralToken memory asset = getAssetInfo(
+                    i
+                );
+
+                uint64 scale = uint64(10 ** uint256(IPriceFeed(asset.config.priceFeed).decimals()));
+
                 uint newAmount = mulPrice(
                     userCollateral[account][asset.collateralToken].balance,
                     getPrice(asset.config.priceFeed),
-                    // asset.scale hardcoded to 1e18
-                    1e18 // TODO
+                    scale
                 );
                 liquidity += signed256(
                     mulFactor(newAmount, asset.config.liquidateCollateralFactor)
@@ -583,7 +605,7 @@ contract SandboxComet is ISandboxComet, Initializable {
         uint64 baseTrackingSupplySpeed_,
         uint64 baseTrackingBorrowSpeed_,
         bool _dao
-    ) override external {
+    ) external override {
         if (_dao) {
             if (msg.sender != dao) revert Unauthorized();
             daoBaseTrackingSupplySpeed = baseTrackingSupplySpeed_;
@@ -781,29 +803,27 @@ contract SandboxComet is ISandboxComet, Initializable {
     function updateAssetsIn(
         address account,
         IConfigController.CollateralTokenConfig memory assetInfo,
+        uint256 index,
         uint128 initialUserBalance,
         uint128 finalUserBalance
     ) internal {
         if (initialUserBalance == 0 && finalUserBalance != 0) {
-            // set bit for asset
-            // if (assetInfo.offset < 16) {
-            //     // set bit in assetsIn for bits 0-15
-            //     userBasic[account].assetsIn |= (uint16(1) << assetInfo.offset);
-            // } else if (assetInfo.offset < 24) {
-            //     // set bit in _reserved for bits 16-23
-            //     userBasic[account]._reserved |= (uint8(1) <<
-            //         (assetInfo.offset - 16));
-            // }
+            if (index < 16) {
+                // set bit in assetsIn for bits 0-15
+                userBasic[account].assetsIn |= (uint16(1) << index);
+            } else if (index < 24) {
+                // set bit in _reserved for bits 16-23
+                userBasic[account]._reserved |= (uint8(1) << (index - 16));
+            }
         } else if (initialUserBalance != 0 && finalUserBalance == 0) {
             // clear bit for asset
-            // if (assetInfo.offset < 16) {
-            //     // clear bit in assetsIn for bits 0-15
-            //     userBasic[account].assetsIn &= ~(uint16(1) << assetInfo.offset);
-            // } else if (assetInfo.offset < 24) {
-            //     // clear bit in _reserved for bits 16-23
-            //     userBasic[account]._reserved &= ~(uint8(1) <<
-            //         (assetInfo.offset - 16));
-            // }
+            if (index < 16) {
+                // clear bit in assetsIn for bits 0-15
+                userBasic[account].assetsIn &= ~(uint16(1) << index);
+            } else if (index < 24) {
+                // clear bit in _reserved for bits 16-23
+                userBasic[account]._reserved &= ~(uint8(1) << (index - 16));
+            }
         }
     }
 
@@ -1027,7 +1047,10 @@ contract SandboxComet is ISandboxComet, Initializable {
     ) internal {
         amount = safe128(doTransferIn(asset, from, amount));
 
-        IConfigController.CollateralToken memory assetInfo = getAssetInfoByAddress(asset);
+        (
+            IConfigController.CollateralToken memory assetInfo,
+            uint8 index
+        ) = getAssetInfoByAddress(asset);
         TotalsCollateral memory totals = totalsCollateral[asset];
         totals.totalSupplyAsset += amount;
         if (totals.totalSupplyAsset > assetInfo.config.supplyCap)
@@ -1039,7 +1062,13 @@ contract SandboxComet is ISandboxComet, Initializable {
         totalsCollateral[asset] = totals;
         userCollateral[dst][asset].balance = dstCollateralNew;
 
-        updateAssetsIn(dst, assetInfo.config, dstCollateral, dstCollateralNew);
+        updateAssetsIn(
+            dst,
+            assetInfo.config,
+            index,
+            dstCollateral,
+            dstCollateralNew
+        );
 
         emit SupplyCollateral(from, dst, asset, amount);
     }
@@ -1200,9 +1229,24 @@ contract SandboxComet is ISandboxComet, Initializable {
         userCollateral[src][asset].balance = srcCollateralNew;
         userCollateral[dst][asset].balance = dstCollateralNew;
 
-        IConfigController.CollateralToken memory assetInfo = getAssetInfoByAddress(asset);
-        updateAssetsIn(src, assetInfo.config, srcCollateral, srcCollateralNew);
-        updateAssetsIn(dst, assetInfo.config, dstCollateral, dstCollateralNew);
+        (
+            IConfigController.CollateralToken memory assetInfo,
+            uint8 index
+        ) = getAssetInfoByAddress(asset);
+        updateAssetsIn(
+            src,
+            assetInfo.config,
+            index,
+            srcCollateral,
+            srcCollateralNew
+        );
+        updateAssetsIn(
+            dst,
+            assetInfo.config,
+            index,
+            dstCollateral,
+            dstCollateralNew
+        );
 
         // Note: no accrue interest, BorrowCF < LiquidationCF covers small changes
         if (!isBorrowCollateralized(src)) revert NotCollateralized();
@@ -1280,6 +1324,15 @@ contract SandboxComet is ISandboxComet, Initializable {
     function withdrawBase(address src, address to, uint256 amount) internal {
         accrueInternal();
 
+        if (msg.sender == governor) {
+            require(
+                block.timestamp >= unlockTimestamp,
+                Locked(block.timestamp, unlockTimestamp)
+            );
+            seedReserves -= amount;
+            emit WithdrawReserves(to, amount);
+        }
+
         UserBasic memory srcUser = userBasic[src];
         int104 srcPrincipal = srcUser.principal;
         int256 srcBalance = presentValue(srcPrincipal) - signed256(amount);
@@ -1328,8 +1381,17 @@ contract SandboxComet is ISandboxComet, Initializable {
         totalsCollateral[asset].totalSupplyAsset -= amount;
         userCollateral[src][asset].balance = srcCollateralNew;
 
-        IConfigController.CollateralToken memory assetInfo = getAssetInfoByAddress(asset);
-        updateAssetsIn(src, assetInfo.config, srcCollateral, srcCollateralNew);
+        (
+            IConfigController.CollateralToken memory assetInfo,
+            uint8 index
+        ) = getAssetInfoByAddress(asset);
+        updateAssetsIn(
+            src,
+            assetInfo.config,
+            index,
+            srcCollateral,
+            srcCollateralNew
+        );
 
         // Note: no accrue interest, BorrowCF < LiquidationCF covers small changes
         if (!isBorrowCollateralized(src)) revert NotCollateralized();
@@ -1388,7 +1450,8 @@ contract SandboxComet is ISandboxComet, Initializable {
 
         for (uint8 i = 0; i < numAssets; ) {
             if (isInAsset(assetsIn, i, _reserved)) {
-                IConfigController.CollateralToken memory assetInfo = getAssetInfo(i);
+                IConfigController.CollateralToken
+                    memory assetInfo = getAssetInfo(i);
                 address asset = assetInfo.collateralToken;
                 uint128 seizeAmount = userCollateral[account][asset].balance;
                 userCollateral[account][asset].balance = 0;
@@ -1400,7 +1463,10 @@ contract SandboxComet is ISandboxComet, Initializable {
                     // assetInfo.scale hardcoded to 1e18
                     1e18 // TODO
                 );
-                deltaValue += mulFactor(value, assetInfo.config.liquidationFactor);
+                deltaValue += mulFactor(
+                    value,
+                    assetInfo.config.liquidationFactor
+                );
 
                 emit AbsorbCollateral(
                     absorber,
@@ -1516,7 +1582,10 @@ contract SandboxComet is ISandboxComet, Initializable {
         address asset,
         uint baseAmount
     ) public view override returns (uint) {
-        IConfigController.CollateralToken memory assetInfo = getAssetInfoByAddress(asset);
+        (
+            IConfigController.CollateralToken memory assetInfo,
+
+        ) = getAssetInfoByAddress(asset);
         uint256 assetPrice = getPrice(assetInfo.config.priceFeed);
         // Store front discount is derived from the collateral asset's liquidationFactor and storeFrontPriceFactor
         // discount = storeFrontPriceFactor * (1e18 - liquidationFactor)
@@ -1534,31 +1603,7 @@ contract SandboxComet is ISandboxComet, Initializable {
         // = ((basePrice * baseAmount / baseScale) / assetPriceDiscounted) * assetScale
         return
             // (basePrice * baseAmount * assetInfo.scale) / hardcoded to 1e18
-            (basePrice * baseAmount * 1e18) /
-            assetPriceDiscounted /
-            baseScale;
-    }
-
-    /**
-     * @notice Withdraws base token reserves if called by the governor
-     * @param to An address of the receiver of withdrawn reserves
-     * @param amount The amount of reserves to be withdrawn from the protocol
-     */
-    function withdrawReserves(address to, uint amount) external override {
-        if (msg.sender != governor) revert Unauthorized();
-        require(
-            block.timestamp >= unlockTimestamp,
-            Locked(block.timestamp, unlockTimestamp)
-        );
-
-        if (seedReserves < 0 || amount > seedReserves)
-            revert InsufficientReserves();
-
-        doTransferOut(baseToken, to, amount);
-
-        seedReserves -= amount;
-
-        emit WithdrawReserves(to, amount);
+            (basePrice * baseAmount * 1e18) / assetPriceDiscounted / baseScale;
     }
 
     /**

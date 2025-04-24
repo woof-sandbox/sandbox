@@ -62,6 +62,7 @@ import { SandboxController__factory } from '../../build/types/factories/SandboxC
 import { BigNumber } from 'ethers';
 import { TransactionReceipt, TransactionResponse } from '@ethersproject/abstract-provider';
 import { TotalsBasicStructOutput, TotalsCollateralStructOutput } from '../../build/types/CometHarness';
+import { MarketConfigStruct } from '../../build/types/ConfigController';
 
 export { Comet, ethers, expect, hre };
 
@@ -117,6 +118,7 @@ export type ProtocolOpts = {
   baseTrackingBorrowSpeed?: Numeric;
   baseMinForRewards?: Numeric;
   baseBorrowMin?: Numeric;
+  targetPercent?: Numeric;
   baseTokenBalance?: Numeric;
 };
 
@@ -203,7 +205,7 @@ export interface SandboxControllerOpts {
   reserveFactorBorrow?: string
   protocolFactorLiquidation?: string
   reserveFactorLiquidation?: string
-  targetReserves: string
+  targetPercent: string
   minUpdateTime?: number
   maxCollateralAssets?: number
   suggestedAmountOfSeedReserves?: string
@@ -367,27 +369,13 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
     await token.deployed();
   }
 
+  console.log("111111")
+
   const unsupportedToken = await FaucetFactory.deploy(1e6, 'Unsupported Token', 6, 'USUP');
   // --- Deploy mock of the SandboxController ---
   opts.dao = dao;
   opts.owner = owner;
-  const sandboxControllerOpts = defaultSandboxControllerOpts({
-    admin: owner,
-    dao: dao,
-    feeEnabled: false,
-    storeFrontPriceFactor: "100000000000000000",
-    protocolFactorBorrow: "100000000000000000",
-    reserveFactorBorrow: "100000000000000000",
-    protocolFactorLiquidation: "100000000000000000",
-    reserveFactorLiquidation: "100000000000000000",
-    minUpdateTime: 300,
-    maxCollateralAssets: 10,
-    suggestedAmountOfSeedReserves: "1000",
-    suggestedLockTimeOfSeedReserves: 3600,
-    targetReserves: ethers.utils.parseEther("0.4").toString()
-  })
 
-  const sandboxController = (await makeSandboxController(sandboxControllerOpts)).sandboxController;
   // --- Price feeds ---
   let priceFeeds = {};
   const PriceFeedFactory = (await ethers.getContractFactory('SimplePriceFeed')) as SimplePriceFeed__factory;
@@ -401,8 +389,8 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
   const priceFeed = await PriceFeedFactory.deploy(1, 6);
   await priceFeed.deployed();
   priceFeeds['USUP'] = priceFeed;
+  console.log("222222")
 
-  
   // --- Parameters ---
   const supplyKink = dfn(opts.supplyKink, exp(0.8, 18));
   const supplyPerYearInterestRateBase = dfn(opts.supplyInterestRateBase, exp(0.001, 18));
@@ -419,9 +407,30 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
   const baseMinForRewards = dfn(opts.baseMinForRewards, exp(1, assets[base].decimals));
   const baseBorrowMin = dfn(opts.baseBorrowMin, exp(1, assets[base].decimals));
   const baseToken = tokens[base];
+  
+  const sandboxControllerOpts = defaultSandboxControllerOpts({
+    admin: owner,
+    dao: dao,
+    feeEnabled: false,
+    storeFrontPriceFactor: "100000000000000000",
+    protocolFactorBorrow: "100000000000000000",
+    reserveFactorBorrow: "100000000000000000",
+    protocolFactorLiquidation: "100000000000000000",
+    reserveFactorLiquidation: "100000000000000000",
+    minUpdateTime: 300,
+    maxCollateralAssets: 10,
+    suggestedAmountOfSeedReserves: "100000000",
+    suggestedLockTimeOfSeedReserves: 3600,
+    targetPercent: opts.targetPercent ? ethers.utils.parseEther(opts.targetPercent.toString()).toString() : ethers.utils.parseEther("0.4").toString()
+  })
+  console.log("333333")
 
+  console.log(sandboxControllerOpts)
+
+  const sandboxController = (await makeSandboxController(sandboxControllerOpts)).sandboxController;
+  
   await baseToken.allocateTo(owner.address, sandboxControllerOpts.suggestedAmountOfSeedReserves);
-
+  console.log("444444")
   // --- Whitelist the base token ---
   await sandboxController.whitelistBaseAsset(
     tokens[base].address,
@@ -438,6 +447,7 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
     },
     baseBorrowMin
   )
+  console.log("5555555")
   // --- Whitelist the collateral tokens ---
   for (const asset in assets) {
     const priceFeed = priceFeeds[asset];
@@ -445,7 +455,7 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
       priceFeeds[asset] = await PriceFeedFactory.deploy(1, 6);
     }
     if (asset == base) continue;
-    if (opts.assets) {
+    if (opts.assets.minBorrowCF) {
       await sandboxController.whitelistCollateralAsset(
         tokens[asset].address,
         priceFeeds[asset].address,
@@ -470,6 +480,7 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
 
 
     }
+    console.log("6666666")
   }
 
   const ConfigControllerFactoryFactory = (await ethers.getContractFactory('ConfigControllerFactory')) as ConfigControllerFactory__factory;
@@ -524,6 +535,80 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
     dao,
     curve,
     seedReserves: sandboxControllerOpts.suggestedAmountOfSeedReserves
+  };
+}
+
+async function createMarket(
+  configController: ConfigController,
+  tokens: Record<string, FaucetToken | NonStandardFaucetFeeToken>,
+  baseToken: FaucetToken | NonStandardFaucetFeeToken,
+  priceFeeds: Record<string, SimplePriceFeed>,
+  sandboxController: ISandboxController
+) {
+  const baseSymbol = await baseToken.symbol();
+  const baseDecimals = await baseToken.decimals?.() ?? 6;
+  const baseCurve = (await sandboxController.baseAssets(baseToken.address)).baseAssetCurves[0];
+
+  const collateralTokens: MarketConfigStruct["collateralTokens"] = [];
+
+  for (let token of Object.keys(tokens)) {
+    if (token !== baseSymbol) {
+      const decimals = await tokens[token].decimals?.() ?? 6;
+
+      collateralTokens.push({
+        collateralToken: tokens[token].address,
+        config: {
+          priceFeed: priceFeeds[token].address,
+          decimals,
+          borrowCollateralFactor: factor(0.6),
+          liquidateCollateralFactor: factor(0.7),
+          liquidationFactor: factor(0.8),
+          supplyCap: exp(1_000_000, 6),
+        },
+      });
+    }
+  }
+
+  const marketConfig: MarketConfigStruct = {
+    baseToken: baseToken.address,
+    config: {
+      priceFeed: priceFeeds[baseSymbol].address,
+      decimals: baseDecimals,
+      curve: baseCurve,
+    },
+    collateralTokens,
+    options: {
+      baseTrackingSupplySpeed: 100,
+      baseTrackingBorrowSpeed: 100,
+      trackingIndexScale: 100,
+      baseMinForRewards: 100,
+    }
+  };
+
+  const createMarketTx = await configController.createMarket(marketConfig);
+  const receipt = await createMarketTx.wait();
+  const event = receipt.events?.find((e) => e.event === 'MarketConfigurationCreated');
+  return event?.args.market;
+}
+
+export const makeProtocol = async (opts: ProtocolOpts = {}) => {
+  const { configController, tokens, baseToken, priceFeeds, dao, sandboxController, seedReserves, users, guardian, owner} = await makeConfigController(opts);
+
+  await baseToken.approve(configController.address, seedReserves);
+  const market = await createMarket(configController, tokens, baseToken, priceFeeds, sandboxController);
+  const comet = await ethers.getContractAt("SandboxComet", market) as SandboxComet;
+  return {
+    comet,
+    configController,
+    tokens,
+    baseToken,
+    base: opts.base,
+    priceFeeds,
+    dao,
+    market, 
+    users,
+    guardian,
+    owner
   };
 }
 
@@ -676,285 +761,285 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
 //   };
 // }
 
-export async function makeProtocol(opts: ProtocolOpts = {}): Promise<Protocol> {
+// export async function makeProtocol(opts: ProtocolOpts = {}): Promise<Protocol> {
 
-  const signers = await ethers.getSigners();
-  const assets = opts.assets || defaultAssets();
-  let priceFeeds = {};
-  const PriceFeedFactory = (await ethers.getContractFactory('SimplePriceFeed')) as SimplePriceFeed__factory;
-  for (const asset in assets) {
-    const initialPrice = exp(assets[asset].initialPrice || 1, 8);
-    const priceFeedDecimals = assets[asset].priceFeedDecimals || 8;
-    const priceFeed = await PriceFeedFactory.deploy(initialPrice, priceFeedDecimals);
-    await priceFeed.deployed();
-    priceFeeds[asset] = priceFeed;
-  }
+//   const signers = await ethers.getSigners();
+//   const assets = opts.assets || defaultAssets();
+//   let priceFeeds = {};
+//   const PriceFeedFactory = (await ethers.getContractFactory('SimplePriceFeed')) as SimplePriceFeed__factory;
+//   for (const asset in assets) {
+//     const initialPrice = exp(assets[asset].initialPrice || 1, 8);
+//     const priceFeedDecimals = assets[asset].priceFeedDecimals || 8;
+//     const priceFeed = await PriceFeedFactory.deploy(initialPrice, priceFeedDecimals);
+//     await priceFeed.deployed();
+//     priceFeeds[asset] = priceFeed;
+//   }
 
-  const name32 = ethers.utils.formatBytes32String((opts.name || 'Compound Comet'));
-  const symbol32 = ethers.utils.formatBytes32String((opts.symbol || '📈BASE'));
-  const governor = opts.governor || signers[0];
-  const pauseGuardian = opts.pauseGuardian || signers[1];
-  const users = signers.slice(2); // guaranteed to not be governor or pause guardian
-  const base = opts.base || 'USDC';
-  const reward = opts.reward || 'COMP';
-  const supplyKink = dfn(opts.supplyKink, exp(0.8, 18));
-  const supplyPerYearInterestRateBase = dfn(opts.supplyInterestRateBase, exp(0.0, 18));
-  const supplyPerYearInterestRateSlopeLow = dfn(opts.supplyInterestRateSlopeLow, exp(0.05, 18));
-  const supplyPerYearInterestRateSlopeHigh = dfn(opts.supplyInterestRateSlopeHigh, exp(2, 18));
-  const borrowKink = dfn(opts.borrowKink, exp(0.8, 18));
-  const borrowPerYearInterestRateBase = dfn(opts.borrowInterestRateBase, exp(0.005, 18));
-  const borrowPerYearInterestRateSlopeLow = dfn(opts.borrowInterestRateSlopeLow, exp(0.1, 18));
-  const borrowPerYearInterestRateSlopeHigh = dfn(opts.borrowInterestRateSlopeHigh, exp(3, 18));
-  const storeFrontPriceFactor = dfn(opts.storeFrontPriceFactor, ONE);
-  const trackingIndexScale = opts.trackingIndexScale || exp(1, 15);
-  const baseTrackingSupplySpeed = dfn(opts.baseTrackingSupplySpeed, trackingIndexScale);
-  const baseTrackingBorrowSpeed = dfn(opts.baseTrackingBorrowSpeed, trackingIndexScale);
-  const baseMinForRewards = dfn(opts.baseMinForRewards, exp(1, assets[base].decimals));
-  const baseBorrowMin = dfn(opts.baseBorrowMin, exp(1, assets[base].decimals));
-  const targetReserves = dfn(opts.targetReserves, 0);
+//   const name32 = ethers.utils.formatBytes32String((opts.name || 'Compound Comet'));
+//   const symbol32 = ethers.utils.formatBytes32String((opts.symbol || '📈BASE'));
+//   const governor = opts.governor || signers[0];
+//   const pauseGuardian = opts.pauseGuardian || signers[1];
+//   const users = signers.slice(2); // guaranteed to not be governor or pause guardian
+//   const base = opts.base || 'USDC';
+//   const reward = opts.reward || 'COMP';
+//   const supplyKink = dfn(opts.supplyKink, exp(0.8, 18));
+//   const supplyPerYearInterestRateBase = dfn(opts.supplyInterestRateBase, exp(0.0, 18));
+//   const supplyPerYearInterestRateSlopeLow = dfn(opts.supplyInterestRateSlopeLow, exp(0.05, 18));
+//   const supplyPerYearInterestRateSlopeHigh = dfn(opts.supplyInterestRateSlopeHigh, exp(2, 18));
+//   const borrowKink = dfn(opts.borrowKink, exp(0.8, 18));
+//   const borrowPerYearInterestRateBase = dfn(opts.borrowInterestRateBase, exp(0.005, 18));
+//   const borrowPerYearInterestRateSlopeLow = dfn(opts.borrowInterestRateSlopeLow, exp(0.1, 18));
+//   const borrowPerYearInterestRateSlopeHigh = dfn(opts.borrowInterestRateSlopeHigh, exp(3, 18));
+//   const storeFrontPriceFactor = dfn(opts.storeFrontPriceFactor, ONE);
+//   const trackingIndexScale = opts.trackingIndexScale || exp(1, 15);
+//   const baseTrackingSupplySpeed = dfn(opts.baseTrackingSupplySpeed, trackingIndexScale);
+//   const baseTrackingBorrowSpeed = dfn(opts.baseTrackingBorrowSpeed, trackingIndexScale);
+//   const baseMinForRewards = dfn(opts.baseMinForRewards, exp(1, assets[base].decimals));
+//   const baseBorrowMin = dfn(opts.baseBorrowMin, exp(1, assets[base].decimals));
+//   const targetReserves = dfn(opts.targetReserves, 0);
 
-  const FaucetFactory = (await ethers.getContractFactory('FaucetToken')) as FaucetToken__factory;
-  const tokens = {};
-  for (const symbol in assets) {
-    const config = assets[symbol];
-    const decimals = config.decimals || 18;
-    const initial = config.initial || 1e6;
-    const name = config.name || symbol;
-    const factory = config.factory || FaucetFactory;
-    let token;
-    token = (tokens[symbol] = await factory.deploy(initial, name, decimals, symbol));
-    await token.deployed();
-  }
-  const unsupportedToken = await FaucetFactory.deploy(1e6, 'Unsupported Token', 6, 'USUP');
+//   const FaucetFactory = (await ethers.getContractFactory('FaucetToken')) as FaucetToken__factory;
+//   const tokens = {};
+//   for (const symbol in assets) {
+//     const config = assets[symbol];
+//     const decimals = config.decimals || 18;
+//     const initial = config.initial || 1e6;
+//     const name = config.name || symbol;
+//     const factory = config.factory || FaucetFactory;
+//     let token;
+//     token = (tokens[symbol] = await factory.deploy(initial, name, decimals, symbol));
+//     await token.deployed();
+//   }
+//   const unsupportedToken = await FaucetFactory.deploy(1e6, 'Unsupported Token', 6, 'USUP');
 
-  const AssetListFactory = (await ethers.getContractFactory('AssetListFactory')) as AssetListFactory__factory;
-  const assetListFactory = await AssetListFactory.deploy();
-  await assetListFactory.deployed();
+//   const AssetListFactory = (await ethers.getContractFactory('AssetListFactory')) as AssetListFactory__factory;
+//   const assetListFactory = await AssetListFactory.deploy();
+//   await assetListFactory.deployed();
 
-  let extensionDelegateAssetList = opts.extensionDelegate;
-  if (extensionDelegateAssetList === undefined) {
-    const CometExtFactory = (await ethers.getContractFactory('CometExtAssetList')) as CometExtAssetList__factory;
-    extensionDelegateAssetList = await CometExtFactory.deploy({ name32, symbol32 }, assetListFactory.address);
-    await extensionDelegateAssetList.deployed();
-  }
+//   let extensionDelegateAssetList = opts.extensionDelegate;
+//   if (extensionDelegateAssetList === undefined) {
+//     const CometExtFactory = (await ethers.getContractFactory('CometExtAssetList')) as CometExtAssetList__factory;
+//     extensionDelegateAssetList = await CometExtFactory.deploy({ name32, symbol32 }, assetListFactory.address);
+//     await extensionDelegateAssetList.deployed();
+//   }
 
-  const CometFactory = (await ethers.getContractFactory('CometHarness')) as CometHarness__factory;
-  const config = {
-    governor: governor.address,
-    pauseGuardian: pauseGuardian.address,
-    extensionDelegate: extensionDelegateAssetList.address,
-    baseToken: tokens[base].address,
-    baseTokenPriceFeed: priceFeeds[base].address,
-    supplyKink,
-    supplyPerYearInterestRateBase,
-    supplyPerYearInterestRateSlopeLow,
-    supplyPerYearInterestRateSlopeHigh,
-    borrowKink,
-    borrowPerYearInterestRateBase,
-    borrowPerYearInterestRateSlopeLow,
-    borrowPerYearInterestRateSlopeHigh,
-    storeFrontPriceFactor,
-    trackingIndexScale,
-    baseTrackingSupplySpeed,
-    baseTrackingBorrowSpeed,
-    baseMinForRewards,
-    baseBorrowMin,
-    targetReserves,
-    assetConfigs: Object.entries(assets).reduce((acc, [symbol, config], _i) => {
-      if (symbol != base && _i <= 12) {
-        acc.push({
-          asset: tokens[symbol].address,
-          priceFeed: priceFeeds[symbol].address,
-          decimals: dfn(assets[symbol].decimals, 18),
-          borrowCollateralFactor: dfn(config.borrowCF, ONE - 1n),
-          liquidateCollateralFactor: dfn(config.liquidateCF, ONE),
-          liquidationFactor: dfn(config.liquidationFactor, ONE),
-          supplyCap: dfn(config.supplyCap, exp(100, dfn(config.decimals, 18))),
-        });
-      }
-      return acc;
-    }, []),
-  };
+//   const CometFactory = (await ethers.getContractFactory('CometHarness')) as CometHarness__factory;
+//   const config = {
+//     governor: governor.address,
+//     pauseGuardian: pauseGuardian.address,
+//     extensionDelegate: extensionDelegateAssetList.address,
+//     baseToken: tokens[base].address,
+//     baseTokenPriceFeed: priceFeeds[base].address,
+//     supplyKink,
+//     supplyPerYearInterestRateBase,
+//     supplyPerYearInterestRateSlopeLow,
+//     supplyPerYearInterestRateSlopeHigh,
+//     borrowKink,
+//     borrowPerYearInterestRateBase,
+//     borrowPerYearInterestRateSlopeLow,
+//     borrowPerYearInterestRateSlopeHigh,
+//     storeFrontPriceFactor,
+//     trackingIndexScale,
+//     baseTrackingSupplySpeed,
+//     baseTrackingBorrowSpeed,
+//     baseMinForRewards,
+//     baseBorrowMin,
+//     targetReserves,
+//     assetConfigs: Object.entries(assets).reduce((acc, [symbol, config], _i) => {
+//       if (symbol != base && _i <= 12) {
+//         acc.push({
+//           asset: tokens[symbol].address,
+//           priceFeed: priceFeeds[symbol].address,
+//           decimals: dfn(assets[symbol].decimals, 18),
+//           borrowCollateralFactor: dfn(config.borrowCF, ONE - 1n),
+//           liquidateCollateralFactor: dfn(config.liquidateCF, ONE),
+//           liquidationFactor: dfn(config.liquidationFactor, ONE),
+//           supplyCap: dfn(config.supplyCap, exp(100, dfn(config.decimals, 18))),
+//         });
+//       }
+//       return acc;
+//     }, []),
+//   };
 
-  const comet = await CometFactory.deploy(config);
-  await comet.deployed();
-  config.assetConfigs = Object.entries(assets).reduce((acc, [symbol, config], _i) => {
-    if (symbol != base) {
-      acc.push({
-        asset: tokens[symbol].address,
-        priceFeed: priceFeeds[symbol].address,
-        decimals: dfn(assets[symbol].decimals, 18),
-        borrowCollateralFactor: dfn(config.borrowCF, ONE - 1n),
-        liquidateCollateralFactor: dfn(config.liquidateCF, ONE),
-        liquidationFactor: dfn(config.liquidationFactor, ONE),
-        supplyCap: dfn(config.supplyCap, exp(100, dfn(config.decimals, 18))),
-      });
-    }
-    return acc;
-  }, []);
+//   const comet = await CometFactory.deploy(config);
+//   await comet.deployed();
+//   config.assetConfigs = Object.entries(assets).reduce((acc, [symbol, config], _i) => {
+//     if (symbol != base) {
+//       acc.push({
+//         asset: tokens[symbol].address,
+//         priceFeed: priceFeeds[symbol].address,
+//         decimals: dfn(assets[symbol].decimals, 18),
+//         borrowCollateralFactor: dfn(config.borrowCF, ONE - 1n),
+//         liquidateCollateralFactor: dfn(config.liquidateCF, ONE),
+//         liquidationFactor: dfn(config.liquidationFactor, ONE),
+//         supplyCap: dfn(config.supplyCap, exp(100, dfn(config.decimals, 18))),
+//       });
+//     }
+//     return acc;
+//   }, []);
 
-  config.extensionDelegate = extensionDelegateAssetList.address;
-  const SandboxCometFactory = (await ethers.getContractFactory('CometHarness')) as CometHarnessExtendedAssetList__factory;
+//   config.extensionDelegate = extensionDelegateAssetList.address;
+//   const SandboxCometFactory = (await ethers.getContractFactory('CometHarness')) as CometHarnessExtendedAssetList__factory;
 
-  const cometSandbox = await SandboxCometFactory.deploy(config);
-  await cometSandbox.deployed();
+//   const cometSandbox = await SandboxCometFactory.deploy(config);
+//   await cometSandbox.deployed();
 
-  if (opts.start) await ethers.provider.send('evm_setNextBlockTimestamp', [opts.start]);
-  await comet.initializeStorage();
+//   if (opts.start) await ethers.provider.send('evm_setNextBlockTimestamp', [opts.start]);
+//   await comet.initializeStorage();
 
-  await cometSandbox.initializeStorage();
+//   await cometSandbox.initializeStorage();
 
-  const baseTokenBalance = opts.baseTokenBalance;
-  if (baseTokenBalance) {
-    const baseToken = tokens[base];
-    await wait(baseToken.allocateTo(comet.address, baseTokenBalance));
-  }
-  return {
-    opts,
-    governor,
-    pauseGuardian,
-    extensionDelegate: extensionDelegateAssetList,
-    users,
-    base,
-    reward,
-    comet: await ethers.getContractAt('CometHarnessInterfaceExtendedAssetList', cometSandbox.address) as SandboxComet,
-    assetListFactory: assetListFactory,
-    tokens,
-    unsupportedToken,
-    priceFeeds,
-  };
-}
+//   const baseTokenBalance = opts.baseTokenBalance;
+//   if (baseTokenBalance) {
+//     const baseToken = tokens[base];
+//     await wait(baseToken.allocateTo(comet.address, baseTokenBalance));
+//   }
+//   return {
+//     opts,
+//     governor,
+//     pauseGuardian,
+//     extensionDelegate: extensionDelegateAssetList,
+//     users,
+//     base,
+//     reward,
+//     comet: await ethers.getContractAt('CometHarnessInterfaceExtendedAssetList', cometSandbox.address) as SandboxComet,
+//     assetListFactory: assetListFactory,
+//     tokens,
+//     unsupportedToken,
+//     priceFeeds,
+//   };
+// }
 
-// Only for testing configurator. Non-configurator tests need to deploy the CometHarness instead.
-export async function makeConfigurator(opts: ProtocolOpts = {}): Promise<ConfiguratorAndProtocol> {
-  const assets = opts.assets || defaultAssets();
+// // Only for testing configurator. Non-configurator tests need to deploy the CometHarness instead.
+// export async function makeConfigurator(opts: ProtocolOpts = {}): Promise<ConfiguratorAndProtocol> {
+//   const assets = opts.assets || defaultAssets();
 
-  const {
-    governor,
-    pauseGuardian,
-    extensionDelegate,
-    users,
-    base,
-    reward,
-    comet,
-    assetListFactory,
-    tokens,
-    unsupportedToken,
-    priceFeeds,
-  } = await makeProtocol(opts);
+//   const {
+//     governor,
+//     pauseGuardian,
+//     extensionDelegate,
+//     users,
+//     base,
+//     reward,
+//     comet,
+//     assetListFactory,
+//     tokens,
+//     unsupportedToken,
+//     priceFeeds,
+//   } = await makeProtocol(opts);
 
-  // Deploy ProxyAdmin
-  const ProxyAdmin = (await ethers.getContractFactory('CometProxyAdmin')) as CometProxyAdmin__factory;
-  const proxyAdmin = await ProxyAdmin.connect(governor).deploy();
-  await proxyAdmin.deployed();
+//   // Deploy ProxyAdmin
+//   const ProxyAdmin = (await ethers.getContractFactory('CometProxyAdmin')) as CometProxyAdmin__factory;
+//   const proxyAdmin = await ProxyAdmin.connect(governor).deploy();
+//   await proxyAdmin.deployed();
 
-  // Deploy Comet proxy
-  const CometProxy = (await ethers.getContractFactory('TransparentUpgradeableProxy')) as TransparentUpgradeableProxy__factory;
-  const cometProxy = await CometProxy.deploy(
-    comet.address,
-    proxyAdmin.address,
-    (await comet.populateTransaction.initializeStorage()).data,
-  );
-  await cometProxy.deployed();
+//   // Deploy Comet proxy
+//   const CometProxy = (await ethers.getContractFactory('TransparentUpgradeableProxy')) as TransparentUpgradeableProxy__factory;
+//   const cometProxy = await CometProxy.deploy(
+//     comet.address,
+//     proxyAdmin.address,
+//     (await comet.populateTransaction.initializeStorage()).data,
+//   );
+//   await cometProxy.deployed();
 
-  // Derive the rest of the Configurator configuration values
-  const supplyKink = dfn(opts.supplyKink, exp(0.8, 18));
-  const supplyPerYearInterestRateBase = dfn(opts.supplyInterestRateBase, exp(0.0, 18));
-  const supplyPerYearInterestRateSlopeLow = dfn(opts.supplyInterestRateSlopeLow, exp(0.05, 18));
-  const supplyPerYearInterestRateSlopeHigh = dfn(opts.supplyInterestRateSlopeHigh, exp(2, 18));
-  const borrowKink = dfn(opts.borrowKink, exp(0.8, 18));
-  const borrowPerYearInterestRateBase = dfn(opts.borrowInterestRateBase, exp(0.005, 18));
-  const borrowPerYearInterestRateSlopeLow = dfn(opts.borrowInterestRateSlopeLow, exp(0.1, 18));
-  const borrowPerYearInterestRateSlopeHigh = dfn(opts.borrowInterestRateSlopeHigh, exp(3, 18));
-  const storeFrontPriceFactor = await comet.storeFrontPriceFactor();
-  const trackingIndexScale = await comet.trackingIndexScale();
-  const baseTrackingSupplySpeed = await comet.baseTrackingSupplySpeed();
-  const baseTrackingBorrowSpeed = await comet.baseTrackingBorrowSpeed();
-  const baseMinForRewards = await comet.baseMinForRewards();
-  const baseBorrowMin = await comet.baseBorrowMin();
-  const targetReserves = await comet.targetReserves();
+//   // Derive the rest of the Configurator configuration values
+//   const supplyKink = dfn(opts.supplyKink, exp(0.8, 18));
+//   const supplyPerYearInterestRateBase = dfn(opts.supplyInterestRateBase, exp(0.0, 18));
+//   const supplyPerYearInterestRateSlopeLow = dfn(opts.supplyInterestRateSlopeLow, exp(0.05, 18));
+//   const supplyPerYearInterestRateSlopeHigh = dfn(opts.supplyInterestRateSlopeHigh, exp(2, 18));
+//   const borrowKink = dfn(opts.borrowKink, exp(0.8, 18));
+//   const borrowPerYearInterestRateBase = dfn(opts.borrowInterestRateBase, exp(0.005, 18));
+//   const borrowPerYearInterestRateSlopeLow = dfn(opts.borrowInterestRateSlopeLow, exp(0.1, 18));
+//   const borrowPerYearInterestRateSlopeHigh = dfn(opts.borrowInterestRateSlopeHigh, exp(3, 18));
+//   const storeFrontPriceFactor = await comet.storeFrontPriceFactor();
+//   const trackingIndexScale = await comet.trackingIndexScale();
+//   const baseTrackingSupplySpeed = await comet.baseTrackingSupplySpeed();
+//   const baseTrackingBorrowSpeed = await comet.baseTrackingBorrowSpeed();
+//   const baseMinForRewards = await comet.baseMinForRewards();
+//   const baseBorrowMin = await comet.baseBorrowMin();
+//   const targetReserves = await comet.targetReserves();
 
-  // Deploy CometFactory
-  const CometFactoryFactory = (await ethers.getContractFactory('SandboxCometFactory')) as SandboxCometFactory__factory;
-  const cometFactory = await CometFactoryFactory.deploy();
-  await cometFactory.deployed();
+//   // Deploy CometFactory
+//   const CometFactoryFactory = (await ethers.getContractFactory('SandboxCometFactory')) as SandboxCometFactory__factory;
+//   const cometFactory = await CometFactoryFactory.deploy();
+//   await cometFactory.deployed();
 
-  // Deploy Configurator
-  const ConfiguratorFactory = (await ethers.getContractFactory('Configurator')) as Configurator__factory;
-  const configurator = await ConfiguratorFactory.deploy();
-  await configurator.deployed();
-  const configuration = {
-    governor: governor.address,
-    pauseGuardian: pauseGuardian.address,
-    extensionDelegate: extensionDelegate.address,
-    baseToken: tokens[base].address,
-    baseTokenPriceFeed: priceFeeds[base].address,
-    supplyKink,
-    supplyPerYearInterestRateBase,
-    supplyPerYearInterestRateSlopeLow,
-    supplyPerYearInterestRateSlopeHigh,
-    borrowKink,
-    borrowPerYearInterestRateBase,
-    borrowPerYearInterestRateSlopeLow,
-    borrowPerYearInterestRateSlopeHigh,
-    storeFrontPriceFactor,
-    trackingIndexScale,
-    baseTrackingSupplySpeed,
-    baseTrackingBorrowSpeed,
-    baseMinForRewards,
-    baseBorrowMin,
-    targetReserves,
-    assetConfigs: Object.entries(assets).reduce((acc, [symbol, config], _i) => {
-      if (symbol != base) {
-        acc.push({
-          asset: tokens[symbol].address,
-          priceFeed: priceFeeds[symbol].address,
-          decimals: dfn(assets[symbol].decimals, 18),
-          borrowCollateralFactor: dfn(config.borrowCF, ONE - 1n),
-          liquidateCollateralFactor: dfn(config.liquidateCF, ONE),
-          liquidationFactor: dfn(config.liquidationFactor, ONE),
-          supplyCap: dfn(config.supplyCap, exp(100, dfn(config.decimals, 18))),
-        });
-      }
-      return acc;
-    }, []),
-  };
+//   // Deploy Configurator
+//   const ConfiguratorFactory = (await ethers.getContractFactory('Configurator')) as Configurator__factory;
+//   const configurator = await ConfiguratorFactory.deploy();
+//   await configurator.deployed();
+//   const configuration = {
+//     governor: governor.address,
+//     pauseGuardian: pauseGuardian.address,
+//     extensionDelegate: extensionDelegate.address,
+//     baseToken: tokens[base].address,
+//     baseTokenPriceFeed: priceFeeds[base].address,
+//     supplyKink,
+//     supplyPerYearInterestRateBase,
+//     supplyPerYearInterestRateSlopeLow,
+//     supplyPerYearInterestRateSlopeHigh,
+//     borrowKink,
+//     borrowPerYearInterestRateBase,
+//     borrowPerYearInterestRateSlopeLow,
+//     borrowPerYearInterestRateSlopeHigh,
+//     storeFrontPriceFactor,
+//     trackingIndexScale,
+//     baseTrackingSupplySpeed,
+//     baseTrackingBorrowSpeed,
+//     baseMinForRewards,
+//     baseBorrowMin,
+//     targetReserves,
+//     assetConfigs: Object.entries(assets).reduce((acc, [symbol, config], _i) => {
+//       if (symbol != base) {
+//         acc.push({
+//           asset: tokens[symbol].address,
+//           priceFeed: priceFeeds[symbol].address,
+//           decimals: dfn(assets[symbol].decimals, 18),
+//           borrowCollateralFactor: dfn(config.borrowCF, ONE - 1n),
+//           liquidateCollateralFactor: dfn(config.liquidateCF, ONE),
+//           liquidationFactor: dfn(config.liquidationFactor, ONE),
+//           supplyCap: dfn(config.supplyCap, exp(100, dfn(config.decimals, 18))),
+//         });
+//       }
+//       return acc;
+//     }, []),
+//   };
 
-  // Deploy Configurator proxy
-  const initializeCalldata = (await configurator.populateTransaction.initialize(governor.address)).data;
-  const ConfiguratorProxy = (await ethers.getContractFactory('ConfiguratorProxy')) as ConfiguratorProxy__factory;
-  const configuratorProxy = await ConfiguratorProxy.deploy(
-    configurator.address,
-    proxyAdmin.address,
-    initializeCalldata,
-  );
-  await configuratorProxy.deployed();
+//   // Deploy Configurator proxy
+//   const initializeCalldata = (await configurator.populateTransaction.initialize(governor.address)).data;
+//   const ConfiguratorProxy = (await ethers.getContractFactory('ConfiguratorProxy')) as ConfiguratorProxy__factory;
+//   const configuratorProxy = await ConfiguratorProxy.deploy(
+//     configurator.address,
+//     proxyAdmin.address,
+//     initializeCalldata,
+//   );
+//   await configuratorProxy.deployed();
 
-  // Set the initial factory and configuration for Comet in Configurator
-  const configuratorAsProxy = configurator.attach(configuratorProxy.address);
-  await configuratorAsProxy.setConfiguration(cometProxy.address, configuration);
-  await configuratorAsProxy.setFactory(cometProxy.address, cometFactory.address);
+//   // Set the initial factory and configuration for Comet in Configurator
+//   const configuratorAsProxy = configurator.attach(configuratorProxy.address);
+//   await configuratorAsProxy.setConfiguration(cometProxy.address, configuration);
+//   await configuratorAsProxy.setFactory(cometProxy.address, cometFactory.address);
 
-  return {
-    opts,
-    governor,
-    pauseGuardian,
-    extensionDelegate,
-    users,
-    base,
-    reward,
-    proxyAdmin,
-    comet,
-    assetListFactory,
-    cometProxy,
-    configurator,
-    configuratorProxy,
-    cometFactory,
-    tokens,
-    unsupportedToken,
-    priceFeeds,
-  };
-}
+//   return {
+//     opts,
+//     governor,
+//     pauseGuardian,
+//     extensionDelegate,
+//     users,
+//     base,
+//     reward,
+//     proxyAdmin,
+//     comet,
+//     assetListFactory,
+//     cometProxy,
+//     configurator,
+//     configuratorProxy,
+//     cometFactory,
+//     tokens,
+//     unsupportedToken,
+//     priceFeeds,
+//   };
+// }
 
 export async function makeRewards(opts: RewardsOpts = {}): Promise<Rewards> {
   const signers = await ethers.getSigners();
@@ -1018,7 +1103,7 @@ export function defaultSandboxControllerOpts(partial?: Partial<SandboxController
     reserveFactorBorrow: partial?.reserveFactorBorrow ?? ethers.utils.parseEther("0.2").toString(),
     protocolFactorLiquidation: partial?.protocolFactorLiquidation ?? ethers.utils.parseEther("0.3").toString(),
     reserveFactorLiquidation: partial?.reserveFactorLiquidation ?? ethers.utils.parseEther("0.4").toString(),
-    targetReserves: partial?.targetReserves ?? ethers.utils.parseEther("0.5").toString(),
+    targetPercent: partial?.targetPercent ?? ethers.utils.parseEther("0.5").toString(),
     minUpdateTime: partial?.minUpdateTime ?? 300,
     maxCollateralAssets: partial?.maxCollateralAssets ?? 10,
     suggestedAmountOfSeedReserves: partial?.suggestedAmountOfSeedReserves ?? ethers.utils.parseEther("500").toString(),
@@ -1039,6 +1124,7 @@ export async function makeSandboxController(
     'SandboxController'
   )) as SandboxController__factory
 
+
   const sandboxController = await SandboxControllerFactory.deploy(
     admin.address,
     dao.address,
@@ -1048,7 +1134,7 @@ export async function makeSandboxController(
     opts.protocolFactorLiquidation,
     opts.reserveFactorLiquidation,
     opts.maxCollateralAssets,
-    opts.targetReserves,
+    opts.targetPercent,
     opts.storeFrontPriceFactor,
     opts.minUpdateTime,
     opts.suggestedAmountOfSeedReserves,
@@ -1121,7 +1207,8 @@ export async function portfolio({ comet, base, tokens }, account): Promise<Portf
   const external = { [base]: BigInt(await tokens[base].balanceOf(account)) };
   for (const symbol in tokens) {
     if (symbol != base) {
-      internal[symbol] = BigInt(await comet.collateralBalanceOf(account, tokens[symbol].address));
+      //internal[symbol] = BigInt(await comet.collateralBalanceOf(account, tokens[symbol].address));
+      internal[symbol] = BigInt(0)
       external[symbol] = BigInt(await tokens[symbol].balanceOf(account));
     }
   }

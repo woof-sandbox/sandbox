@@ -179,7 +179,7 @@ abstract contract IConfigController is ISandboxErrors {
     function getAssetConfigByAddress(
         address market,
         address asset
-    ) external view virtual returns (CollateralToken memory);
+    ) external view virtual returns (CollateralToken memory, uint8 index);
 
     function marketProposals(
         address market

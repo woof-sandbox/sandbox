@@ -148,7 +148,8 @@ describe('ConfigController', () => {
 
             expect(deployedCollateralTokens.length).to.eq(expectedCollateralCount);
             for (const token of deployedCollateralTokens) {
-                const config = await market.getAssetInfoByAddress(token);
+                const payload = await market.getAssetInfoByAddress(token);
+                const config = payload[0]
                 const expected = marketConfig.collateralTokens.find(c => c.collateralToken === token);
                 expect(expected).to.not.be.undefined;
                 expect(config.config.priceFeed).to.eq(expected!.config.priceFeed);
@@ -1924,7 +1925,7 @@ describe('ConfigController', () => {
             const market = await createMarket(configController, tokens, baseToken, priceFeeds, sandboxController);
             const comet = await ethers.getContractAt("SandboxComet", market) as SandboxComet;
 
-            await expect(comet.connect(owner).setSpeeds(0, 0, false)).to.be.not.reverted;
+            await expect(configController.connect(owner).setSpeeds(comet.address, 0, 0,)).to.be.not.reverted;
         })
 
         it("Should noy set dao speeds on market contract by not dao", async () => {
@@ -1990,10 +1991,11 @@ describe('ConfigController', () => {
 
         it("should transfer ownership", async () => {
             const { configControllerFactory, users } = await makeConfigController();
-
+            
+            const previousOwner = await configControllerFactory.owner();
             await expect(configControllerFactory.transferOwnership(users[4].address))
                 .to.emit(configControllerFactory, 'OwnerTransferred')
-                .withArgs(users[4].address);
+                .withArgs(previousOwner, users[4].address);
 
             expect(await configControllerFactory.owner()).to.equal(users[4].address);
         });
