@@ -1464,8 +1464,7 @@ contract SandboxComet is ISandboxComet, Initializable {
                 uint256 value = mulPrice(
                     seizeAmount,
                     getPrice(assetInfo.config.priceFeed),
-                    // assetInfo.scale hardcoded to 1e18
-                    1e18 // TODO
+                    uint64(10**IERC20NonStandard(assetInfo.collateralToken).decimals())
                 );
                 deltaValue += mulFactor(
                     value,
@@ -1610,7 +1609,8 @@ contract SandboxComet is ISandboxComet, Initializable {
         // = ((basePrice * baseAmount / baseScale) / assetPriceDiscounted) * assetScale
         return
             // (basePrice * baseAmount * assetInfo.scale) / hardcoded to 1e18
-            (basePrice * baseAmount * 1e18) / assetPriceDiscounted / baseScale;
+            (basePrice * baseAmount * 10**IERC20NonStandard(asset).decimals())
+            / assetPriceDiscounted / baseScale;
     }
 
     /**
@@ -1657,18 +1657,17 @@ contract SandboxComet is ISandboxComet, Initializable {
         return presentValueBorrow(baseBorrowIndex_, totalBorrowBase);
     }
 
+    /**
+     * @notice Get the target reserves of the protocol
+     * @dev Note: uses updated interest indices to calculate
+     * @return The target reserves
+     **/
     function targetReserves() public view override returns (uint256) {
-        // utilisation in [0 , 1e18]
         uint256 util = getUtilization();
-
-        // present value of total base supplied (wei)
         uint256 base = presentValueSupply(baseSupplyIndex, totalSupplyBase);
 
-        // Step-1:  base * util   (fits: 1e28 * 1e18  <= 1e46  < 2²⁵⁶)
-        uint256 tmp = (base * util) / FACTOR_SCALE; // scaled back to wei
-
-        // Step-2:  tmp * targetPercent (fits: 1e46 * 1e18 / 1e18  = 1e46)
-        return (tmp * targetPercent) / FACTOR_SCALE; // final wei
+        uint256 tmp = (base * util) / FACTOR_SCALE; 
+        return (tmp * targetPercent) / FACTOR_SCALE;
     }
 
     /**
