@@ -11,7 +11,6 @@ import {SandboxUtils} from "./lib/SandboxUtils.sol";
  * @dev Manages base asset configurations and interest rate baseAssetCurves.
  */
 contract SandboxController is ISandboxController {
-
     using SandboxUtils for address;
 
     uint256 public protocolFactorBorrow;
@@ -28,7 +27,7 @@ contract SandboxController is ISandboxController {
     address public treasury;
     address public owner;
     address public dao;
-    
+
     bool public feeEnabled;
 
     SandboxControllerConfiguration public controllerConfiguration;
@@ -271,7 +270,9 @@ contract SandboxController is ISandboxController {
         baseAssetCount++;
 
         isPriceFeedWhitelisted[priceFeed] = true;
-        isCurveConfigurationWhitelisted[token.encodeCurve(baseAssetCurve)] = true;
+        isCurveConfigurationWhitelisted[
+            token.encodeCurve(baseAssetCurve)
+        ] = true;
 
         emit BaseAssetWhitelisted(
             token,
@@ -326,12 +327,12 @@ contract SandboxController is ISandboxController {
         ) {
             revert InvalidFactors();
         }
-        
+
         (, int256 answer, , , ) = IPriceFeed(priceFeed).latestRoundData();
         if (answer <= 0) {
             revert InvalidPriceFeed();
         }
-    
+
         uint256 decimals = IERC20NonStandard(token).decimals();
 
         _collateralAssets[token].collateralToken = token;
@@ -451,8 +452,7 @@ contract SandboxController is ISandboxController {
         emit BaseAssetCurveChanged(token, oldCurve, newCurve);
     }
 
-
-        /**
+    /**
      * @notice Transfers the owner privileges to a new address.
      * @param newOwner The address of the new owner.
      */
@@ -465,7 +465,7 @@ contract SandboxController is ISandboxController {
         emit OwnerTransferred(oldOwner, newOwner);
     }
 
-        /**
+    /**
      * @notice Transfers the DAO privileges to a new address.
      * @param newDao The address of the new DAO.
      */
@@ -508,14 +508,22 @@ contract SandboxController is ISandboxController {
     function isCurveConfigurationValid(
         BaseAssetCurve memory curve
     ) public pure returns (bool) {
-        
-        if (curve.supplyKink >= 1e18 || curve.borrowKink >= 1e18) {
-            return false;
-        }
-        if (curve.borrowPerYearInterestRateBase == 0) {
+
+        if (curve.supplyKink == 0 || curve.borrowKink == 0) {
             return false;
         }
 
+        if (
+            curve.supplyPerYearInterestRateSlopeLow == 0 ||
+            curve.supplyPerYearInterestRateSlopeHigh == 0 ||
+            curve.supplyPerYearInterestRateBase == 0 ||
+            curve.borrowPerYearInterestRateSlopeLow == 0 ||
+            curve.borrowPerYearInterestRateSlopeHigh == 0 ||
+            curve.borrowPerYearInterestRateBase == 0
+        ) {
+            return false;
+        }
+        
         return true;
     }
 
@@ -552,15 +560,12 @@ contract SandboxController is ISandboxController {
         return _baseAssets[token].baseAssetCurves;
     }
 
-
     /**
      * @notice Returns the minimum borrow amount for a given base asset token.
      * @param token The address of the base asset token.
      * @return The minimum borrow amount.
      */
-    function borrowMin(
-        address token
-    ) external view returns (uint256) {
+    function borrowMin(address token) external view returns (uint256) {
         return _baseAssets[token].minBorrow;
     }
 
@@ -568,7 +573,11 @@ contract SandboxController is ISandboxController {
      * @notice Returns the configuration of the sandbox controller.
      * @return The sandbox controller configuration.
      */
-    function config() external view returns (SandboxControllerConfiguration memory) {
+    function config()
+        external
+        view
+        returns (SandboxControllerConfiguration memory)
+    {
         return controllerConfiguration;
     }
 }

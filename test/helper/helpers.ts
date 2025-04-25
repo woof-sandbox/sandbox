@@ -361,15 +361,13 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
   for (const symbol in assets) {
     const config = assets[symbol];
     const decimals = config.decimals || 18;
-    const initial = config.initial || 1e6;
+    const initial = config.initial.toString() || 1e6;
     const name = config.name || symbol;
     const factory = config.factory || FaucetFactory;
     let token;
     token = (tokens[symbol] = await factory.deploy(initial, name, decimals, symbol));
     await token.deployed();
   }
-
-  console.log("111111")
 
   const unsupportedToken = await FaucetFactory.deploy(1e6, 'Unsupported Token', 6, 'USUP');
   // --- Deploy mock of the SandboxController ---
@@ -389,7 +387,6 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
   const priceFeed = await PriceFeedFactory.deploy(1, 6);
   await priceFeed.deployed();
   priceFeeds['USUP'] = priceFeed;
-  console.log("222222")
 
   // --- Parameters ---
   const supplyKink = dfn(opts.supplyKink, exp(0.8, 18));
@@ -412,7 +409,7 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
     admin: owner,
     dao: dao,
     feeEnabled: false,
-    storeFrontPriceFactor: "100000000000000000",
+    storeFrontPriceFactor:  (opts.storeFrontPriceFactor ?? exp(0.1, 18)).toString(),
     protocolFactorBorrow: "100000000000000000",
     reserveFactorBorrow: "100000000000000000",
     protocolFactorLiquidation: "100000000000000000",
@@ -423,14 +420,11 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
     suggestedLockTimeOfSeedReserves: 3600,
     targetPercent: opts.targetPercent ? ethers.utils.parseEther(opts.targetPercent.toString()).toString() : ethers.utils.parseEther("0.4").toString()
   })
-  console.log("333333")
 
-  console.log(sandboxControllerOpts)
 
   const sandboxController = (await makeSandboxController(sandboxControllerOpts)).sandboxController;
   
   await baseToken.allocateTo(owner.address, sandboxControllerOpts.suggestedAmountOfSeedReserves);
-  console.log("444444")
   // --- Whitelist the base token ---
   await sandboxController.whitelistBaseAsset(
     tokens[base].address,
@@ -447,7 +441,7 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
     },
     baseBorrowMin
   )
-  console.log("5555555")
+
   // --- Whitelist the collateral tokens ---
   for (const asset in assets) {
     const priceFeed = priceFeeds[asset];
@@ -470,17 +464,14 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
       await sandboxController.whitelistCollateralAsset(
         tokens[asset].address,
         priceFeeds[asset].address,
-        exp(0.5, 18), // minBorrowCF
-        exp(1, 18),   // maxBorrowCF
-        exp(0.6, 18), // minLiquidateCF
-        exp(0.7, 18), // maxLiquidateCF
-        exp(0.8, 18), // minLiquidationFactor
-        exp(0.9, 18), // maxLiquidationFactor
+        exp(0.5, 18),   // minBorrowCF
+        exp(1, 18),     // maxBorrowCF
+        exp(0.6, 18),   // minLiquidateCF
+        exp(0.7, 18),   // maxLiquidateCF
+        exp(0.8, 18),   // minLiquidationFactor  = 0.80
+        exp(1, 18),   // maxLiquidationFactor  = 0.80 
       );
-
-
     }
-    console.log("6666666")
   }
 
   const ConfigControllerFactoryFactory = (await ethers.getContractFactory('ConfigControllerFactory')) as ConfigControllerFactory__factory;
@@ -539,6 +530,7 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
 }
 
 async function createMarket(
+  opts: ProtocolOpts,
   configController: ConfigController,
   tokens: Record<string, FaucetToken | NonStandardFaucetFeeToken>,
   baseToken: FaucetToken | NonStandardFaucetFeeToken,
@@ -554,16 +546,16 @@ async function createMarket(
   for (let token of Object.keys(tokens)) {
     if (token !== baseSymbol) {
       const decimals = await tokens[token].decimals?.() ?? 6;
-
+     
       collateralTokens.push({
         collateralToken: tokens[token].address,
         config: {
           priceFeed: priceFeeds[token].address,
           decimals,
-          borrowCollateralFactor: factor(0.6),
-          liquidateCollateralFactor: factor(0.7),
-          liquidationFactor: factor(0.8),
-          supplyCap: exp(1_000_000, 6),
+          borrowCollateralFactor: opts.assets?.[token]?.borrowCF ?? exp(0.6, 18),
+          liquidateCollateralFactor: opts.assets?.[token]?.liquidateCF ?? exp(0.7, 18),
+          liquidationFactor:  opts.assets?.[token]?.liquidationFactor ?? exp(0.8, 18),
+          supplyCap: opts.assets?.[token]?.supplyCap ?? exp(1e6, 18),
         },
       });
     }
@@ -595,7 +587,7 @@ export const makeProtocol = async (opts: ProtocolOpts = {}) => {
   const { configController, tokens, baseToken, priceFeeds, dao, sandboxController, seedReserves, users, guardian, owner} = await makeConfigController(opts);
 
   await baseToken.approve(configController.address, seedReserves);
-  const market = await createMarket(configController, tokens, baseToken, priceFeeds, sandboxController);
+  const market = await createMarket(opts, configController, tokens, baseToken, priceFeeds, sandboxController);
   const comet = await ethers.getContractAt("SandboxComet", market) as SandboxComet;
   return {
     comet,

@@ -264,7 +264,11 @@ contract ConfigController is IConfigController {
             config.suggestedAmountOfSeedReserves
         );
 
-        ISandboxComet(market).supply(_marketConfig.baseToken, config.suggestedAmountOfSeedReserves);
+        //ISandboxComet(market).supply(_marketConfig.baseToken, config.suggestedAmountOfSeedReserves);
+        IERC20NonStandard(_marketConfig.baseToken).transfer(
+            market,
+            config.suggestedAmountOfSeedReserves
+        );
 
         emit MarketConfigurationCreated(
             markets[marketsLength - 1],

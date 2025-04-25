@@ -7,6 +7,7 @@ import "./interfaces/ISandboxComet.sol";
 import "./interfaces/IERC20NonStandard.sol";
 import "./interfaces/IPriceFeed.sol";
 import "./interfaces/IConfigController.sol";
+import "./interfaces/ISandboxController.sol";
 
 /**
  * @title Compound's Comet Contract
@@ -15,7 +16,6 @@ import "./interfaces/IConfigController.sol";
  */
 contract SandboxComet is ISandboxComet, Initializable {
     /** General configuration constants **/
-
     /// @notice Config Controller address
     address public override configController;
 
@@ -525,7 +525,9 @@ contract SandboxComet is ISandboxComet, Initializable {
                     i
                 );
 
-                uint64 scale = uint64(10 ** uint256(IPriceFeed(asset.config.priceFeed).decimals()));
+                uint64 scale = uint64(
+                    10 ** uint256(IPriceFeed(asset.config.priceFeed).decimals())
+                );
 
                 uint newAmount = mulPrice(
                     userCollateral[account][asset.collateralToken].balance,
@@ -576,7 +578,9 @@ contract SandboxComet is ISandboxComet, Initializable {
                     i
                 );
 
-                uint64 scale = uint64(10 ** uint256(IPriceFeed(asset.config.priceFeed).decimals()));
+                uint64 scale = uint64(
+                    10 ** uint256(IPriceFeed(asset.config.priceFeed).decimals())
+                );
 
                 uint newAmount = mulPrice(
                     userCollateral[account][asset.collateralToken].balance,
@@ -1553,14 +1557,17 @@ contract SandboxComet is ISandboxComet, Initializable {
         if (isBuyPaused()) revert Paused();
 
         int reserves = getReserves();
-        if (reserves >= 0 && uint(reserves) >= targetReserves())
-            revert NotForSale();
-
-        // Note: Re-entrancy can skip the reserves check above on a second buyCollateral call.
         baseAmount = doTransferIn(baseToken, msg.sender, baseAmount);
 
         uint collateralAmount = quoteCollateral(asset, baseAmount);
+
+        if (reserves > 0 && uint(reserves) >= targetReserves()) // >=?
+            revert NotForSale();
+
+        // Note: Re-entrancy can skip the reserves check above on a second buyCollateral call.
+
         if (collateralAmount < minAmount) revert TooMuchSlippage();
+      
         if (collateralAmount > getCollateralReserves(asset))
             revert InsufficientReserves();
 
@@ -1650,8 +1657,18 @@ contract SandboxComet is ISandboxComet, Initializable {
         return presentValueBorrow(baseBorrowIndex_, totalBorrowBase);
     }
 
-    function targetReserves() public view override returns (uint) {
-        return (totalBorrowBase * targetPercent) / FACTOR_SCALE;
+    function targetReserves() public view override returns (uint256) {
+        // utilisation in [0 , 1e18]
+        uint256 util = getUtilization();
+
+        // present value of total base supplied (wei)
+        uint256 base = presentValueSupply(baseSupplyIndex, totalSupplyBase);
+
+        // Step-1:  base * util   (fits: 1e28 * 1e18  <= 1e46  < 2²⁵⁶)
+        uint256 tmp = (base * util) / FACTOR_SCALE; // scaled back to wei
+
+        // Step-2:  tmp * targetPercent (fits: 1e46 * 1e18 / 1e18  = 1e46)
+        return (tmp * targetPercent) / FACTOR_SCALE; // final wei
     }
 
     /**

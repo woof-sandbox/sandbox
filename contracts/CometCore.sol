@@ -51,6 +51,7 @@ abstract contract CometCore is CometStorage, CometMath {
     /// @dev The reentrancy guard statuses
     uint256 internal constant REENTRANCY_GUARD_NOT_ENTERED = 0;
     uint256 internal constant REENTRANCY_GUARD_ENTERED = 1;
+    uint256 internal constant MIN_TARGET_RESERVES = 1;
 
     /**
      * @notice Determine if the manager has permission to act on behalf of the owner
