@@ -20,9 +20,7 @@ contract SandboxCometFactory is ISandboxCometFactory, Initializable {
     function createMarket(
         IConfigController.MarketConfig memory _marketConfig,
         ISandboxController.SandboxControllerConfiguration memory config,
-        address governor,
-        address dao,
-        address pauseGuardian,
+        address sandboxController,
         uint256 baseBorrowMin
     ) external returns (address) {
         require(configController != address(0), MarketFactoryNotInitialized());
@@ -33,9 +31,7 @@ contract SandboxCometFactory is ISandboxCometFactory, Initializable {
             _marketConfig,
             config,
             configController,
-            governor,
-            dao,
-            pauseGuardian,
+            sandboxController,
             baseBorrowMin
         );
 

@@ -19,14 +19,8 @@ contract SandboxComet is ISandboxComet, Initializable {
     /// @notice Config Controller address
     address public override configController;
 
-    /// @notice The admin of the protocol
-    address public override governor;
-
-    /// @notice The address of the DAO
-    address public override dao;
-
-    /// @notice The account which may trigger pauses
-    address public override pauseGuardian;
+    /// @notice Sandbox Controller address
+    address public override sandboxController;
 
     /// @notice The address of the base token contract
     address public override baseToken;
@@ -106,9 +100,9 @@ contract SandboxComet is ISandboxComet, Initializable {
     uint public override targetPercent;
 
     /// @notice Seed reserves
-    uint public seedReserves;
+    uint public override seedReserves;
 
-    uint public unlockTimestamp;
+    uint public override unlockTimestamp;
 
     /// @notice The number of decimals for wrapped base token
     uint8 public override decimals;
@@ -130,9 +124,7 @@ contract SandboxComet is ISandboxComet, Initializable {
         IConfigController.MarketConfig memory market,
         ISandboxController.SandboxControllerConfiguration memory config,
         address configController_,
-        address governor_,
-        address dao_,
-        address pauseGuardian_,
+        address sandboxController_,
         uint256 baseBorrowMin_
     ) external override initializer {
         uint8 decimals_ = IERC20NonStandard(market.baseToken).decimals();
@@ -143,9 +135,8 @@ contract SandboxComet is ISandboxComet, Initializable {
         ) revert BadDecimals();
 
         configController = configController_;
-        governor = governor_;
-        dao = dao_;
-        pauseGuardian = pauseGuardian_;
+        sandboxController = sandboxController_;
+
         baseToken = market.baseToken;
         baseTokenPriceFeed = market.config.priceFeed;
         storeFrontPriceFactor = config.storeFrontPriceFactor;
@@ -611,6 +602,7 @@ contract SandboxComet is ISandboxComet, Initializable {
         bool _dao
     ) external override {
         if (_dao) {
+            address dao = ISandboxController(sandboxController).dao();
             if (msg.sender != dao) revert Unauthorized();
             daoBaseTrackingSupplySpeed = baseTrackingSupplySpeed_;
             daoBaseTrackingBorrowSpeed = baseTrackingBorrowSpeed_;
@@ -680,7 +672,8 @@ contract SandboxComet is ISandboxComet, Initializable {
         bool absorbPaused,
         bool buyPaused
     ) external override {
-        if (msg.sender != governor && msg.sender != pauseGuardian)
+        address dao = ISandboxController(sandboxController).dao();
+        if (msg.sender != configController && dao != msg.sender)
             revert Unauthorized();
 
         pauseFlags =
@@ -806,8 +799,7 @@ contract SandboxComet is ISandboxComet, Initializable {
      */
     function updateAssetsIn(
         address account,
-        IConfigController.CollateralTokenConfig memory assetInfo,
-        uint256 index,
+        uint8 index,
         uint128 initialUserBalance,
         uint128 finalUserBalance
     ) internal {
@@ -1066,13 +1058,7 @@ contract SandboxComet is ISandboxComet, Initializable {
         totalsCollateral[asset] = totals;
         userCollateral[dst][asset].balance = dstCollateralNew;
 
-        updateAssetsIn(
-            dst,
-            assetInfo.config,
-            index,
-            dstCollateral,
-            dstCollateralNew
-        );
+        updateAssetsIn(dst, index, dstCollateral, dstCollateralNew);
 
         emit SupplyCollateral(from, dst, asset, amount);
     }
@@ -1233,24 +1219,9 @@ contract SandboxComet is ISandboxComet, Initializable {
         userCollateral[src][asset].balance = srcCollateralNew;
         userCollateral[dst][asset].balance = dstCollateralNew;
 
-        (
-            IConfigController.CollateralToken memory assetInfo,
-            uint8 index
-        ) = getAssetInfoByAddress(asset);
-        updateAssetsIn(
-            src,
-            assetInfo.config,
-            index,
-            srcCollateral,
-            srcCollateralNew
-        );
-        updateAssetsIn(
-            dst,
-            assetInfo.config,
-            index,
-            dstCollateral,
-            dstCollateralNew
-        );
+        (, uint8 index) = getAssetInfoByAddress(asset);
+        updateAssetsIn(src, index, srcCollateral, srcCollateralNew);
+        updateAssetsIn(dst, index, dstCollateral, dstCollateralNew);
 
         // Note: no accrue interest, BorrowCF < LiquidationCF covers small changes
         if (!isBorrowCollateralized(src)) revert NotCollateralized();
@@ -1328,7 +1299,7 @@ contract SandboxComet is ISandboxComet, Initializable {
     function withdrawBase(address src, address to, uint256 amount) internal {
         accrueInternal();
 
-        if (msg.sender == governor) {
+        if (msg.sender == configController) {
             require(
                 block.timestamp >= unlockTimestamp,
                 Locked(block.timestamp, unlockTimestamp)
@@ -1385,17 +1356,8 @@ contract SandboxComet is ISandboxComet, Initializable {
         totalsCollateral[asset].totalSupplyAsset -= amount;
         userCollateral[src][asset].balance = srcCollateralNew;
 
-        (
-            IConfigController.CollateralToken memory assetInfo,
-            uint8 index
-        ) = getAssetInfoByAddress(asset);
-        updateAssetsIn(
-            src,
-            assetInfo.config,
-            index,
-            srcCollateral,
-            srcCollateralNew
-        );
+        (, uint8 index) = getAssetInfoByAddress(asset);
+        updateAssetsIn(src, index, srcCollateral, srcCollateralNew);
 
         // Note: no accrue interest, BorrowCF < LiquidationCF covers small changes
         if (!isBorrowCollateralized(src)) revert NotCollateralized();
@@ -1464,7 +1426,11 @@ contract SandboxComet is ISandboxComet, Initializable {
                 uint256 value = mulPrice(
                     seizeAmount,
                     getPrice(assetInfo.config.priceFeed),
-                    uint64(10**IERC20NonStandard(assetInfo.collateralToken).decimals())
+                    uint64(
+                        10 **
+                            IERC20NonStandard(assetInfo.collateralToken)
+                                .decimals()
+                    )
                 );
                 deltaValue += mulFactor(
                     value,
@@ -1554,19 +1520,13 @@ contract SandboxComet is ISandboxComet, Initializable {
         address recipient
     ) external override nonReentrant {
         if (isBuyPaused()) revert Paused();
-
-        int reserves = getReserves();
         baseAmount = doTransferIn(baseToken, msg.sender, baseAmount);
 
         uint collateralAmount = quoteCollateral(asset, baseAmount);
-
-        if (reserves > 0 && uint(reserves) >= targetReserves()) // >=?
-            revert NotForSale();
-
         // Note: Re-entrancy can skip the reserves check above on a second buyCollateral call.
 
         if (collateralAmount < minAmount) revert TooMuchSlippage();
-      
+
         if (collateralAmount > getCollateralReserves(asset))
             revert InsufficientReserves();
 
@@ -1609,28 +1569,11 @@ contract SandboxComet is ISandboxComet, Initializable {
         // = ((basePrice * baseAmount / baseScale) / assetPriceDiscounted) * assetScale
         return
             // (basePrice * baseAmount * assetInfo.scale) / hardcoded to 1e18
-            (basePrice * baseAmount * 10**IERC20NonStandard(asset).decimals())
-            / assetPriceDiscounted / baseScale;
-    }
-
-    /**
-     * @notice Sets Comet's ERC20 allowance of an asset for a manager
-     * @dev Only callable by governor
-     * @dev Note: Setting the `asset` as Comet's address will allow the manager
-     * to withdraw from Comet's Comet balance
-     * @dev Note: For USDT, if there is non-zero prior allowance, it must be reset to 0 first before setting a new value in proposal
-     * @param asset The asset that the manager will gain approval of
-     * @param manager The account which will be allowed or disallowed
-     * @param amount The amount of an asset to approve
-     */
-    function approveThis(
-        address manager,
-        address asset,
-        uint amount
-    ) external override {
-        if (msg.sender != governor) revert Unauthorized();
-
-        IERC20NonStandard(asset).approve(manager, amount);
+            (basePrice *
+                baseAmount *
+                10 ** IERC20NonStandard(asset).decimals()) /
+            assetPriceDiscounted /
+            baseScale;
     }
 
     /**
@@ -1650,7 +1593,7 @@ contract SandboxComet is ISandboxComet, Initializable {
      * @dev Note: uses updated interest indices to calculate
      * @return The amount of debt
      **/
-    function totalBorrow() external view override returns (uint256) {
+    function totalBorrow() public view override returns (uint256) {
         (, uint64 baseBorrowIndex_) = accruedInterestIndices(
             getNowInternal() - lastAccrualTime
         );
@@ -1663,11 +1606,7 @@ contract SandboxComet is ISandboxComet, Initializable {
      * @return The target reserves
      **/
     function targetReserves() public view override returns (uint256) {
-        uint256 util = getUtilization();
-        uint256 base = presentValueSupply(baseSupplyIndex, totalSupplyBase);
-
-        uint256 tmp = (base * util) / FACTOR_SCALE; 
-        return (tmp * targetPercent) / FACTOR_SCALE;
+        return (totalBorrow() * targetPercent) / FACTOR_SCALE;
     }
 
     /**

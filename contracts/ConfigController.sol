@@ -247,9 +247,7 @@ contract ConfigController is IConfigController {
         address market = ISandboxCometFactory(marketFactory).createMarket(
             _marketConfig,
             config,
-            owner,
-            ISandboxController(sandboxController).dao(),
-            guardian,
+            sandboxController,
             ISandboxController(sandboxController).borrowMin(
                 _marketConfig.baseToken
             )
@@ -437,6 +435,21 @@ contract ConfigController is IConfigController {
         emit MarketConfigProposalExecuted(market, msg.sender);
     }
 
+    /// @notice Withdraws base tokens from the market
+    /// @dev Only callable by the owner
+    /// @param market The address of the market
+    /// @param amount The amount of base tokens to withdraw
+    function withdraw(address market, uint256 amount) external override {
+        if (market == ZERO_ADDRESS) revert ZeroAddress();
+        if (msg.sender != owner) revert Unauthorized();
+        ISandboxComet comet = ISandboxComet(market);
+        address baseToken = comet.baseToken();
+        comet.withdraw(baseToken, amount);
+        IERC20(baseToken).transfer(msg.sender, amount);
+        emit Withdrawn(baseToken, msg.sender, amount);
+    }
+
+    /// @notice Returns the configuration of a specific market by index
     function getAssetConfig(
         address market,
         uint256 index
@@ -444,6 +457,7 @@ contract ConfigController is IConfigController {
         return _marketConfigs[market].collateralTokens[index];
     }
 
+    /// @notice Returns the configuration of a specific market by asset address
     function getAssetConfigByAddress(
         address market,
         address asset

@@ -10,9 +10,7 @@ interface ISandboxCometFactory is ISandboxErrors {
     function createMarket(
         IConfigController.MarketConfig memory _marketConfig,
         ISandboxController.SandboxControllerConfiguration memory config,
-        address governor_,
-        address dao_,
-        address pauseGuardian_,
+        address sandboxController,
         uint256 baseBorrowMin
     ) external returns (address);
 }

@@ -77,15 +77,11 @@ abstract contract ISandboxComet is CometCore {
     function withdrawTo(address to, address asset, uint amount) virtual external;
     function withdrawFrom(address src, address to, address asset, uint amount) virtual external;
 
-    function approveThis(address manager, address asset, uint amount) virtual external;
-
     function initialize(
           IConfigController.MarketConfig memory market,
         ISandboxController.SandboxControllerConfiguration memory config,
         address configController_,
-        address governor_,
-        address dao_,
-        address pauseGuardian_,
+        address sandboxController_,
         uint256 baseBorrowMin_
     ) virtual external;
 
@@ -122,9 +118,7 @@ abstract contract ISandboxComet is CometCore {
     function getUtilization() virtual public view returns (uint);
 
     function configController() virtual external view returns (address);
-    function governor() virtual external view returns (address);
-    function dao() virtual external view returns (address);
-    function pauseGuardian() virtual external view returns (address);
+    function sandboxController() virtual external view returns (address);
     function baseToken() virtual external view returns (address);
     function baseTokenPriceFeed() virtual external view returns (address);
 
@@ -146,7 +140,6 @@ abstract contract ISandboxComet is CometCore {
     function borrowPerSecondInterestRateBase() virtual external view returns (uint);
     /// @dev uint64
     function storeFrontPriceFactor() virtual external view returns (uint);
-
     /// @dev uint64
     function baseScale() virtual external view returns (uint);
     /// @dev uint64
@@ -169,6 +162,10 @@ abstract contract ISandboxComet is CometCore {
 
     function targetPercent() virtual external view returns (uint);
     
+    function seedReserves() virtual external view returns (uint);
+
+    function unlockTimestamp() virtual external view returns (uint);
+
     function numAssets() virtual external view returns (uint8);
     function decimals() virtual external view returns (uint8);
 

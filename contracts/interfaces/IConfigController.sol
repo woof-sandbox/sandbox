@@ -19,7 +19,6 @@ abstract contract IConfigController is ISandboxErrors {
         bool isActive;
     }
 
-
     struct MarketConfig {
         address baseToken;
         BaseTokenConfig config;
@@ -37,7 +36,6 @@ abstract contract IConfigController is ISandboxErrors {
         address collateralToken;
         CollateralTokenConfig config;
     }
-
 
     struct MarketOptions {
         uint256 baseTrackingSupplySpeed;
@@ -61,7 +59,7 @@ abstract contract IConfigController is ISandboxErrors {
         address priceFeed,
         uint baseTokenId
     );
-    
+
     event AddedCollateralTokenConfig(
         address asset,
         address priceFeed,
@@ -123,6 +121,12 @@ abstract contract IConfigController is ISandboxErrors {
         address indexed executedBy
     );
 
+    event Withdrawn(
+        address indexed baseToken,
+        address indexed sender,
+        uint256 amount
+    );
+
     address constant ZERO_ADDRESS = 0x0000000000000000000000000000000000000000;
 
     /// @notice Returns the current curator fee in basis points (1% = 100)
@@ -174,7 +178,10 @@ abstract contract IConfigController is ISandboxErrors {
 
     function name() external view virtual returns (string memory);
 
-    function getAssetConfig(address market, uint256 index) external view virtual returns (CollateralToken memory);
+    function getAssetConfig(
+        address market,
+        uint256 index
+    ) external view virtual returns (CollateralToken memory);
 
     function getAssetConfigByAddress(
         address market,
@@ -201,4 +208,6 @@ abstract contract IConfigController is ISandboxErrors {
     function createMarket(
         MarketConfig memory _marketConfig
     ) external virtual returns (address);
+
+    function withdraw(address market, uint256 amount) external virtual;
 }

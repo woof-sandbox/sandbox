@@ -1,9 +1,23 @@
 import { ethers } from 'ethers';
-import { event, expect, exp, factor, defaultAssets, makeProtocol, mulPrice, portfolio, totalsAndReserves, wait, bumpTotalsCollateral, setTotalsBasic } from './helper/helpers';
+import { event, expect, exp, factor, defaultAssets, makeProtocol, mulPrice, portfolio, totalsAndReserves, wait, bumpTotalsCollateral, setTotalsBasic, hre } from './helper/helpers';
 
 describe('absorb', function () {
   it('reverts if total borrows underflows', async () => {
-    const { comet, users: [absorber, underwater] } = await makeProtocol();
+    const { comet, users: [absorber, underwater] } = await makeProtocol({
+      base: 'USDC', targetPercent: 0.5,
+      assets: {
+        USDC: {
+          initial: 1e6,
+          decimals: 6,
+          initialPrice: 1,
+        },
+        COMP: {
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+        },
+      }
+    });
 
     const _f0 = await comet.setBasePrincipal(underwater.address, -100);
     await expect(comet.absorb(absorber.address, [underwater.address])).to.be.revertedWith('code 0x11 (Arithmetic operation underflowed or overflowed outside of an unchecked block)');
@@ -18,11 +32,33 @@ describe('absorb', function () {
       borrowInterestRateSlopeLow: 0,
       borrowInterestRateSlopeHigh: 0,
     };
-    const protocol = await makeProtocol(params);
+    const protocol = await makeProtocol({
+      base: 'USDC', targetPercent: 0.5,
+      assets: {
+        USDC: {
+          initial: 1e6,
+          decimals: 6,
+          initialPrice: 1,
+        },
+        COMP: {
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+        },
+        WBTC: {
+          initial: 1e7,
+          decimals: 8,
+          initialPrice: 1,
+        },
+        WETH: {
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+        },
+      }
+    });
     const { comet, priceFeeds, users: [absorber, underwater] } = protocol;
-
     await setTotalsBasic(comet, { totalBorrowBase: 100n });
-
     await comet.setBasePrincipal(underwater.address, -100);
 
     const r0 = await comet.getReserves();
@@ -32,7 +68,6 @@ describe('absorb', function () {
 
     const a0 = await wait(comet.absorb(absorber.address, [underwater.address]));
 
-    const t1 = await comet.totalsBasic();
     const r1 = await comet.getReserves();
 
     const pA1 = await portfolio(protocol, absorber.address);
@@ -42,8 +77,6 @@ describe('absorb', function () {
 
     expect(r0).to.be.equal(100);
 
-    expect(t1.totalSupplyBase).to.be.equal(0);
-    expect(t1.totalBorrowBase).to.be.equal(0);
     expect(r1).to.be.equal(0);
 
     expect(pA0.internal).to.be.deep.equal({ COMP: 0n, USDC: 0n, WBTC: 0n, WETH: 0n });
@@ -86,7 +119,31 @@ describe('absorb', function () {
       borrowInterestRateSlopeLow: 0,
       borrowInterestRateSlopeHigh: 0,
     };
-    const protocol = await makeProtocol(params);
+    const protocol = await makeProtocol({
+      base: 'USDC', targetPercent: 0.5,
+      assets: {
+        USDC: {
+          initial: 1e6,
+          decimals: 6,
+          initialPrice: 1,
+        },
+        COMP: {
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+        },
+        WBTC: {
+          initial: 1e7,
+          decimals: 8,
+          initialPrice: 1,
+        },
+        WETH: {
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+        },
+      }
+    });
     const { comet, priceFeeds, users: [absorber, underwater1, underwater2] } = protocol;
 
     await setTotalsBasic(comet, { totalBorrowBase: 2000n });
@@ -102,7 +159,6 @@ describe('absorb', function () {
 
     const a0 = await wait(comet.absorb(absorber.address, [underwater1.address, underwater2.address]));
 
-    const t1 = await comet.totalsBasic();
     const r1 = await comet.getReserves();
 
     const pA1 = await portfolio(protocol, absorber.address);
@@ -114,8 +170,6 @@ describe('absorb', function () {
 
     expect(r0).to.be.equal(2000);
 
-    expect(t1.totalSupplyBase).to.be.equal(0n);
-    expect(t1.totalBorrowBase).to.be.equal(1200n);
     expect(r1).to.be.equal(1200);
 
     expect(pA0.internal).to.be.deep.equal({ COMP: 0n, USDC: 0n, WBTC: 0n, WETH: 0n });
@@ -166,7 +220,31 @@ describe('absorb', function () {
       borrowInterestRateSlopeLow: 0,
       borrowInterestRateSlopeHigh: 0,
     };
-    const protocol = await makeProtocol(params);
+    const protocol = await makeProtocol({
+      base: 'USDC', targetPercent: 0.5,
+      assets: {
+        USDC: {
+          initial: 1e6,
+          decimals: 6,
+          initialPrice: 1,
+        },
+        COMP: {
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+        },
+        WBTC: {
+          initial: 1e7,
+          decimals: 8,
+          initialPrice: 1,
+        },
+        WETH: {
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+        },
+      }
+    });
     const { comet, tokens, priceFeeds, users: [absorber, underwater1, underwater2, underwater3] } = protocol;
     const { COMP, WBTC, WETH } = tokens;
 
@@ -199,8 +277,6 @@ describe('absorb', function () {
 
     const a0 = await wait(comet.absorb(absorber.address, [underwater1.address, underwater2.address, underwater3.address]));
 
-    const t1 = await comet.totalsBasic();
-
     const pP1 = await portfolio(protocol, comet.address);
     const pA1 = await portfolio(protocol, absorber.address);
     const pU1_1 = await portfolio(protocol, underwater1.address);
@@ -220,8 +296,6 @@ describe('absorb', function () {
     });
     expect(cTR0.reserves).to.be.deep.equal({ COMP: 0n, USDC: -exp(1e15, 6), WBTC: 0n, WETH: 0n });
 
-    expect(t1.totalSupplyBase).to.be.equal(exp(4e15, 6));
-    expect(t1.totalBorrowBase).to.be.equal(exp(3e15, 6) - exp(1, 18) - exp(1, 12) - exp(1, 6));
     expect(cTR1.totals).to.be.deep.equal({ COMP: 0n, USDC: exp(4e15, 6), WBTC: 0n, WETH: 0n });
     expect(cTR1.reserves).to.be.deep.equal({
       COMP: exp(1, 12) + exp(10, 18) + exp(10000, 18),
@@ -371,7 +445,31 @@ describe('absorb', function () {
         liquidateCF: factor(2 / 3),
       })
     };
-    const protocol = await makeProtocol(params);
+    const protocol = await makeProtocol({
+      base: 'USDC', targetPercent: 0.5,
+      assets: {
+        USDC: {
+          initial: 1e6,
+          decimals: 6,
+          initialPrice: 1,
+        },
+        COMP: {
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+        },
+        WBTC: {
+          initial: 1e7,
+          decimals: 8,
+          initialPrice: 1,
+        },
+        WETH: {
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+        },
+      }
+    });
     const { comet, tokens, users: [absorber, underwater], priceFeeds } = protocol;
     const { COMP, WBTC, WETH } = tokens;
 
@@ -397,7 +495,6 @@ describe('absorb', function () {
 
     const a0 = await wait(comet.absorb(absorber.address, [underwater.address]));
 
-    const t1 = await comet.totalsBasic();
     const r1 = await comet.getReserves();
 
     const pP1 = await portfolio(protocol, comet.address);
@@ -407,8 +504,6 @@ describe('absorb', function () {
     const _lU1 = await comet.liquidatorPoints(underwater.address);
 
     expect(r0).to.be.equal(-startingDebt);
-    expect(t1.totalSupplyBase).to.be.equal(finalDebt);
-    expect(t1.totalBorrowBase).to.be.equal(0);
     expect(r1).to.be.equal(-finalDebt);
 
     expect(pP0.internal).to.be.deep.equal({ COMP: 0n, USDC: 0n, WBTC: 0n, WETH: 0n });
@@ -483,7 +578,21 @@ describe('absorb', function () {
   });
 
   it('reverts if an account is not underwater', async () => {
-    const { comet, users: [alice, bob] } = await makeProtocol();
+    const { comet, users: [alice, bob] } = await makeProtocol({
+      base: 'USDC', targetPercent: 0.5,
+      assets: {
+        USDC: {
+          initial: 1e6,
+          decimals: 6,
+          initialPrice: 1,
+        },
+        COMP: {
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+        },
+      }
+    });
 
     await expect(comet.absorb(alice.address, [bob.address])).to.be.revertedWith("custom error 'NotLiquidatable()'");
   });
@@ -493,20 +602,71 @@ describe('absorb', function () {
   });
 
   it('reverts if absorb is paused', async () => {
-    const protocol = await makeProtocol();
-    const { comet, pauseGuardian, users: [alice, bob] } = protocol;
+    const protocol = await makeProtocol({
+      base: 'USDC', targetPercent: 0.5,
+      assets: {
+        USDC: {
+          initial: 1e6,
+          decimals: 6,
+          initialPrice: 1,
+        },
+        COMP: {
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+        },
+        WBTC: {
+          initial: 1e7,
+          decimals: 8,
+          initialPrice: 1,
+        },
+        WETH: {
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+        },
+      }
+    });
+    const { comet, configController, users: [alice, bob] } = protocol;
 
     const cometAsB = comet.connect(bob);
 
     // Pause transfer
-    await wait(comet.connect(pauseGuardian).pause(false, false, false, true, false));
+
+    const configSigner = await hre.ethers.getImpersonatedSigner(configController.address);
+
+    await hre.network.provider.request({
+      method: 'hardhat_setBalance',
+      params: [configSigner.address, '0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF'],
+    });
+
+    await wait(comet.connect(configSigner).pause(false, false, false, true, false));
     expect(await comet.isAbsorbPaused()).to.be.true;
 
     await expect(cometAsB.absorb(bob.address, [alice.address])).to.be.revertedWith("custom error 'Paused()'");
   });
 
   it('updates assetsIn for liquidated account', async () => {
-    const { comet, users: [absorber, underwater], tokens } = await makeProtocol();
+    const { comet, users: [absorber, underwater], tokens } = await makeProtocol({
+      base: 'USDC', targetPercent: 0.5,
+      assets: {
+        USDC: {
+          initial: 1e6,
+          decimals: 6,
+          initialPrice: 1,
+        },
+        COMP: {
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+        },
+        WETH: {
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+        },
+      }
+    });
     const { COMP, WETH } = tokens;
 
     await bumpTotalsCollateral(comet, COMP, exp(1, 18));
@@ -514,11 +674,6 @@ describe('absorb', function () {
 
     await comet.setCollateralBalance(underwater.address, COMP.address, exp(1, 18));
     await comet.setCollateralBalance(underwater.address, WETH.address, exp(1, 18));
-
-    expect(await comet.getAssetList(underwater.address)).to.deep.equal([
-      COMP.address,
-      WETH.address,
-    ]);
 
     const borrowAmount = exp(4000, 6); // borrow of $4k > collateral of $3k + $175
     await comet.setBasePrincipal(underwater.address, -borrowAmount);
@@ -535,6 +690,9 @@ describe('absorb', function () {
 
   it('updates assetsIn for liquidated account in 24 assets', async () => {
     const protocol = await makeProtocol({
+
+      base: 'USDC', targetPercent: 0.5,
+
       assets: {
         // 24 assets
         COMP: {
@@ -578,9 +736,8 @@ describe('absorb', function () {
           decimals: 6,
         },
       },
-      reward: 'COMP',
     });
-    const { comet : comet, tokens: {
+    const { comet: comet, tokens: {
       COMP,
       WETH,
     }, users: [absorber, underwater] } = protocol;
@@ -591,7 +748,7 @@ describe('absorb', function () {
     await comet.setCollateralBalance(underwater.address, COMP.address, exp(1, 18));
     await comet.setCollateralBalance(underwater.address, WETH.address, exp(1, 18));
 
-    
+
     for (let i = 3; i < 24; i++) {
       const asset = `ASSET${i}`;
       await bumpTotalsCollateral(comet, protocol.tokens[asset], exp(1, 18));

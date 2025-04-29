@@ -61,7 +61,7 @@ import { SandboxController } from '../../build/types/SandboxController';
 import { SandboxController__factory } from '../../build/types/factories/SandboxController__factory';
 import { BigNumber } from 'ethers';
 import { TransactionReceipt, TransactionResponse } from '@ethersproject/abstract-provider';
-import { TotalsBasicStructOutput, TotalsCollateralStructOutput } from '../../build/types/CometHarness';
+import { CometHarness, TotalsBasicStructOutput, TotalsCollateralStructOutput } from '../../build/types/CometHarness';
 import { MarketConfigStruct } from '../../build/types/ConfigController';
 
 export { Comet, ethers, expect, hre };
@@ -327,7 +327,7 @@ export async function makeMockMarket(opts: ProtocolOpts = {}): Promise<MarketMoc
 }
 
 export async function makeMarket(opts: ProtocolOpts = {}): Promise<ISandboxMarket> {
-  const Market = await ethers.getContractFactory('SandboxComet') as SandboxMarket__factory
+  const Market = await ethers.getContractFactory('CometHarness') as CometHarness__factory
   const market = await Market.deploy();
   await market.deployed();
   return market;
@@ -475,7 +475,7 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
   }
 
   const ConfigControllerFactoryFactory = (await ethers.getContractFactory('ConfigControllerFactory')) as ConfigControllerFactory__factory;
-  const CometFactory = (await ethers.getContractFactory('SandboxComet')) as SandboxComet__factory;
+  const CometFactory = (await ethers.getContractFactory('CometHarness')) as CometHarness__factory;
 
   const cometImpl = await CometFactory.deploy();
 
@@ -584,11 +584,11 @@ async function createMarket(
 }
 
 export const makeProtocol = async (opts: ProtocolOpts = {}) => {
-  const { configController, tokens, baseToken, priceFeeds, dao, sandboxController, seedReserves, users, guardian, owner} = await makeConfigController(opts);
+  const { configController, tokens, baseToken, priceFeeds, dao, sandboxController, seedReserves, users, guardian, owner,unsupportedToken} = await makeConfigController(opts);
 
   await baseToken.approve(configController.address, seedReserves);
   const market = await createMarket(opts, configController, tokens, baseToken, priceFeeds, sandboxController);
-  const comet = await ethers.getContractAt("SandboxComet", market) as SandboxComet;
+  const comet = await ethers.getContractAt("CometHarness", market) as CometHarness;
   return {
     comet,
     configController,
@@ -600,7 +600,8 @@ export const makeProtocol = async (opts: ProtocolOpts = {}) => {
     market, 
     users,
     guardian,
-    owner
+    owner,
+    unsupportedToken,
   };
 }
 
@@ -1140,7 +1141,7 @@ export async function makeSandboxController(
   }
 }
 
-export async function bumpTotalsCollateral(comet: CometHarnessInterface, token: FaucetToken | NonStandardFaucetFeeToken, delta: bigint): Promise<TotalsCollateralStructOutput> {
+export async function bumpTotalsCollateral(comet: CometHarness, token: FaucetToken | NonStandardFaucetFeeToken, delta: bigint): Promise<TotalsCollateralStructOutput> {
   const t0 = await comet.totalsCollateral(token.address);
   const t1 = Object.assign({}, t0, { totalSupplyAsset: t0.totalSupplyAsset.toBigInt() + delta });
   await token.allocateTo(comet.address, delta);
@@ -1148,8 +1149,9 @@ export async function bumpTotalsCollateral(comet: CometHarnessInterface, token: 
   return t1;
 }
 
-export async function setTotalsBasic(comet: CometHarnessInterface, overrides = {}): Promise<TotalsBasicStructOutput> {
+export async function setTotalsBasic(comet: CometHarness, overrides = {}): Promise<TotalsBasicStructOutput> {
   const t0 = await comet.totalsBasic();
+  console.log('t0', t0);
   const t1 = Object.assign({}, t0, overrides);
   await wait(comet.setTotalsBasic(t1));
   return t1;
@@ -1199,8 +1201,8 @@ export async function portfolio({ comet, base, tokens }, account): Promise<Portf
   const external = { [base]: BigInt(await tokens[base].balanceOf(account)) };
   for (const symbol in tokens) {
     if (symbol != base) {
-      //internal[symbol] = BigInt(await comet.collateralBalanceOf(account, tokens[symbol].address));
-      internal[symbol] = BigInt(0)
+      console.log(comet)
+      internal[symbol] = BigInt(await comet.collateralBalanceOf(account, tokens[symbol].address));
       external[symbol] = BigInt(await tokens[symbol].balanceOf(account));
     }
   }

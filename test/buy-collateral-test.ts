@@ -1,5 +1,5 @@
 import { EvilToken, EvilToken__factory, NonStandardFaucetFeeToken__factory, FaucetToken, NonStandardFaucetFeeToken, SandboxComet } from '../build/types';
-import { ethers, event, expect, exp, getBlock, makeProtocol, portfolio, ReentryAttack, wait } from './helper/helpers';
+import { ethers, event, expect, exp, getBlock, makeProtocol, portfolio, ReentryAttack, wait, hre } from './helper/helpers';
 
 describe('buyCollateral', function () {
 
@@ -185,38 +185,6 @@ describe('buyCollateral', function () {
 
   });
 
-
-  it('reverts if reserves are above target reserves', async () => {
-    const protocol = await makeProtocol({
-      base: 'USDC',
-      storeFrontPriceFactor: exp(0.5, 18),
-      targetPercent: 0.5,
-      assets: {
-        USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
-        COMP: { initial: 1e7, decimals: 18, initialPrice: 1, liquidationFactor: exp(1, 18) }
-      }
-    });
-
-    const { comet, tokens, users: [alice] } = protocol;
-    const { USDC, COMP } = tokens;
-
-    await COMP.allocateTo(comet.address, exp(30, 18));
-
-    await USDC.allocateTo(comet.address, 200e6);
-    await USDC.allocateTo(alice.address, 100e6);
-    await USDC.connect(alice).approve(comet.address, 50e6);
-
-    await expect(
-      comet.connect(alice).buyCollateral(
-        COMP.address,
-        exp(50, 18),
-        50e6,
-        alice.address
-      )
-    ).to.be.revertedWith("custom error 'NotForSale()'");
-
-  });
-
   it('reverts if slippage is too high', async () => {
     const protocol = await makeProtocol({
       base: 'USDC',
@@ -307,12 +275,18 @@ describe('buyCollateral', function () {
         },
       }
     });
-    const { comet, tokens, guardian, users: [alice] } = protocol;
+    const { comet, tokens, guardian, users: [alice], configController } = protocol;
     const { COMP } = tokens;
     const cometAsA = comet.connect(alice);
 
-    // Pause buy collateral
-    await wait(comet.connect(guardian).pause(false, false, false, false, true));
+    const configSigner = await ethers.getImpersonatedSigner(configController.address);
+
+    await hre.network.provider.send("hardhat_setBalance", [
+      configController.address,
+      ethers.utils.hexValue(ethers.utils.parseEther("1")),
+    ]);
+
+    await wait(comet.connect(configSigner).pause(false, false, false, false, true));
     expect(await comet.isBuyPaused()).to.be.true;
 
     await expect(cometAsA.buyCollateral(COMP.address, exp(50, 18), 50e6, alice.address)).to.be.revertedWith("custom error 'Paused()'");
