@@ -8,7 +8,6 @@ import "./interfaces/IMarketFactory.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 import "./ConfigControllerFactory.sol";
-import "hardhat/console.sol";
 
 /**
  * @title ConfigController
@@ -203,7 +202,8 @@ contract ConfigController is IConfigController, Initializable {
         emit MarketBaseTokenCurveProposed(
             market, 
             msg.sender, 
-            block.timestamp + proposalDuration
+            block.timestamp + proposalDuration,
+            curveId
         );
     }
 
@@ -218,6 +218,7 @@ contract ConfigController is IConfigController, Initializable {
         IMarket(market).setBaseCurveParams(proposedBaseAssetCurve[market].curveId);
 
         delete proposedBaseAssetCurve[market];
+        emit MarketBaseTokenCurveProposalExecuted(market, msg.sender);
     }
 
     /// @notice Cancels the base token curve proposal for a market
@@ -229,7 +230,9 @@ contract ConfigController is IConfigController, Initializable {
         } else {
             if (msg.sender != owner && (msg.sender != curator && msg.sender != proposedBaseAssetCurve[market].proposer)) revert Unauthorized();
         }
+        
         delete proposedBaseAssetCurve[market];
+        emit MarketBaseTokenCurveProposalCancelled(market, msg.sender);
     }
 
     /// @notice Returns the market configuration proposal for a given market

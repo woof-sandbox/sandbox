@@ -77,7 +77,18 @@ abstract contract IConfigController {
     event MarketBaseTokenCurveProposed(
         address indexed market,
         address indexed proposer,
-        uint256 revertTime
+        uint256 revertTime,
+        uint256 curveId
+    );
+
+    event MarketBaseTokenCurveProposalExecuted(
+        address indexed market,
+        address indexed executedBy
+    );
+
+    event MarketBaseTokenCurveProposalCancelled(
+        address indexed market,
+        address indexed cancelledBy
     );
 
     event MarketCreated(

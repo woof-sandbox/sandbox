@@ -2182,7 +2182,12 @@ describe('ConfigController', () => {
             await ethers.provider.send('evm_mine', []);
             
             // Execute the proposal
-            await configController.connect(owner).executeBaseTokenCurveProposal(marketAdress);
+            const tx = await configController.connect(owner).executeBaseTokenCurveProposal(marketAdress);
+            const receipt = await tx.wait();
+            const events = receipt.events?.filter((event) => event.event === 'MarketBaseTokenCurveProposalExecuted');
+            
+            expect(events[0].args.market).to.equal(marketAdress);
+            expect(events[0].args.executedBy).to.equal(owner.address);
             
             // Verify proposal is deleted after execution
             const updatedProposal = await configController.baseAssetsCurvesProposals(marketAdress);
@@ -2325,8 +2330,13 @@ describe('ConfigController', () => {
                 }
             );
             await configController.connect(owner).proposeUpdateBaseTokenCurve(marketAdress, 0);
+            const tx = await configController.connect(owner).cancelBaseTokenCurveProposal(marketAdress);
+            const receipt = await tx.wait();
+            const events = receipt.events?.filter((event) => event.event === 'MarketBaseTokenCurveProposalCancelled');
             
-            await configController.connect(owner).cancelBaseTokenCurveProposal(marketAdress);
+            expect(events[0].args.market).to.equal(marketAdress);
+            expect(events[0].args.cancelledBy).to.equal(owner.address);
+            
             const proposal = await configController.baseAssetsCurvesProposals(marketAdress);
             expect(proposal.revertTime).to.equal(0);
         });
