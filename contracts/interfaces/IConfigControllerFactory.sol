@@ -61,6 +61,7 @@ abstract contract IConfigControllerFactory {
     /// @return The address of the newly created controller
     function createConfigController(
         address owner_,
+        address _curator,
         address guardian_,
         address _sandboxController,
         address _marketFactory,

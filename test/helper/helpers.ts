@@ -189,8 +189,8 @@ export type BulkerOpts = {
 };
 
 export interface SandboxControllerOpts {
-  admin?: any
-  governor?: any
+  owner?: any
+  dao?: any
   feeEnabled?: boolean
   storeFrontPriceFactor?: string
   protocolFactorBorrow?: string
@@ -319,19 +319,27 @@ export async function makeMockMarket(opts: ProtocolOpts = {}): Promise<MarketMoc
   return marketMock;
 }
 
-export async function makeMarketFactory(opts: ProtocolOpts = {}, marketImpl: IMarket, configControllerFactory: ConfigControllerFactory): Promise<MarketFactory> {
+export async function makeMarketFactory(marketImpl: IMarket, configControllerFactory: ConfigControllerFactory, sandboxController: SandboxController): Promise<MarketFactory> {
   const MarketFactory = await ethers.getContractFactory('MarketFactory') as MarketFactory__factory;
-  const marketFactory = await MarketFactory.deploy(marketImpl.address, configControllerFactory.address);
+  const marketFactory = await MarketFactory.deploy(marketImpl.address, configControllerFactory.address, sandboxController.address);
   await marketFactory.deployed();
   return marketFactory;
 }
 
+export async function makeConfigControllerFactory(configControllerImpl: string): Promise<ConfigControllerFactory> {
+  const ConfigControllerFactory = await ethers.getContractFactory('ConfigControllerFactory') as ConfigControllerFactory__factory;
+  const configControllerFactory = await ConfigControllerFactory.deploy(configControllerImpl);
+  await configControllerFactory.deployed();
+  return configControllerFactory;
+}
+
 export async function makeOnlyConfigController(opts: ProtocolOpts = {}): Promise<string> {
   // Deploy ConfigController.
-  const ConfigControllerFactory = (await ethers.getContractFactory('ConfigController')) as ConfigController__factory;
-  const configController  = await ConfigControllerFactory.deploy();
+  const configControllerFactory: ConfigControllerFactory = <ConfigControllerFactory>await ethers.getContractAt('ConfigControllerFactory', opts.configControllerFactory);
 
-    await configController.initialize(opts.owner.address,
+  const configControllerTx = await configControllerFactory.createConfigController(
+    opts.owner.address,
+    opts.curator.address,
     opts.guardian.address,
     opts.sandboxController,
     opts.marketFactory,
@@ -339,10 +347,11 @@ export async function makeOnlyConfigController(opts: ProtocolOpts = {}): Promise
     "ConfigController",
     7 * 24 * 60 * 60, // 7 days for curator proposal duration
     7 * 24 * 60 * 60,  // 7 days for market proposal duration
-    opts.configControllerFactory || ethers.constants.AddressZero
-  )
+  );
+  const configControllerReceipt = await configControllerTx.wait();
+  const configControllerAddress = configControllerReceipt.events?.find(e => e.event === 'ConfigControllerCreated')?.args?.[0];
   // Propose and accept curator role
-  await configController.connect(opts.owner).proposeCurator(opts.curator.address);
+  const configController: ConfigController = <ConfigController>await ethers.getContractAt('ConfigController', configControllerAddress);
   await configController.connect(opts.curator).acceptCuratorRole();
 
   return configController.address;
@@ -356,7 +365,7 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
   const owner = opts.owner || signers[0];
   const curator = opts.curator || signers[1];
   const guardian = opts.guardian || signers[2];
-  const dao = opts.guardian || signers[3];
+  const dao = opts.dao || signers[3];
   const users = signers.slice(4); // guaranteed to not be governor or pause guardian
   const base = opts.base || 'USDC';
   // --- Deploy mock of the Market ---
@@ -377,11 +386,9 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
   }
 
   const unsupportedToken = await FaucetFactory.deploy(1e6, 'Unsupported Token', 6, 'USUP');
-  // --- Deploy mock of the SandboxController ---
-  opts.dao = dao;
-  opts.owner = owner;
+  
   // const sandboxControllerMock = await makeSandboxControllerMock(opts);
-  const sandboxController = (await makeSandboxController(defaultSandboxControllerOpts())).sandboxController;
+  const sandboxController = (await makeSandboxController(defaultSandboxControllerOpts({owner: owner, dao: dao}))).sandboxController;
   // --- Price feeds ---
   let priceFeeds = {};
   const PriceFeedFactory = (await ethers.getContractFactory('SimplePriceFeed')) as SimplePriceFeed__factory;
@@ -463,9 +470,10 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
   const ConfigControllerFactoryFactory = (await ethers.getContractFactory('ConfigControllerFactory')) as ConfigControllerFactory__factory;
   const configControllerFactory: ConfigControllerFactory = await ConfigControllerFactoryFactory.deploy(configControllerImpl.address);
   // --- Deploy Market Factory ---
-  const marketFactory = await makeMarketFactory({}, marketImpl, configControllerFactory);
+  const marketFactory = await makeMarketFactory(marketImpl, configControllerFactory, sandboxController);
   const configControllerTx = await configControllerFactory.createConfigController(
     owner.address,
+    curator.address,
     guardian.address,
     sandboxController.address,
     marketFactory.address,
@@ -478,7 +486,6 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
   const configControllerAddress = configControllerReceipt.events?.find(e => e.event === 'ConfigControllerCreated')?.args?.[0];
   // Propose and accept curator role
   const configController: ConfigController = <ConfigController>await ethers.getContractAt('ConfigController', configControllerAddress);
-  await configController.connect(owner).proposeCurator(curator.address);
   await configController.connect(curator).acceptCuratorRole();
 
   return {
@@ -984,8 +991,8 @@ export async function makePriceFeed({amount}: any = {}): Promise<SimplePriceFeed
 
 export function defaultSandboxControllerOpts(partial?: Partial<SandboxControllerOpts>): SandboxControllerOpts { 
   return {
-    admin: partial?.admin,
-    governor: partial?.governor,
+    owner: partial?.owner,
+    dao: partial?.dao,
     feeEnabled: partial?.feeEnabled ?? false,
     storeFrontPriceFactor: partial?.storeFrontPriceFactor ?? ethers.utils.parseEther("0.9999999999").toString(),
     protocolFactorBorrow: partial?.protocolFactorBorrow ?? ethers.utils.parseEther("0.5").toString(),
@@ -1005,8 +1012,8 @@ export async function makeSandboxController(
   opts: SandboxControllerOpts
 ): Promise<SandboxControllerInfo> {
   const signers = await ethers.getSigners()
-  const admin = opts.admin || signers[0]
-  const governor = opts.governor || signers[1]
+  const owner = opts.owner || signers[0]
+  const dao = opts.dao || signers[1]
 
 
   const SandboxControllerFactory = (await ethers.getContractFactory(
@@ -1014,8 +1021,8 @@ export async function makeSandboxController(
   )) as SandboxController__factory
 
   const sandboxController = await SandboxControllerFactory.deploy(
-    admin.address,
-    governor.address,
+    owner.address,
+    dao.address,
     opts.feeEnabled,
     opts.protocolFactorBorrow,
     opts.reserveFactorBorrow,

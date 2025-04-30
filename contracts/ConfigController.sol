@@ -8,10 +8,11 @@ import "./interfaces/IMarketFactory.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 import "./ConfigControllerFactory.sol";
+import "hardhat/console.sol";
 
 /**
  * @title ConfigController
- * @author Vladyslav Budiuk  
+ * @author WOOF Software
  * @notice Manages protocol configuration, market creation, and curator governance
  * @dev This contract handles the core configuration of the protocol, including:
  * - Market creation and management
@@ -55,6 +56,12 @@ contract ConfigController is IConfigController, Initializable {
     /// @notice Mapping of token => address => unclaimed revenue
     mapping(address => mapping(address => uint)) public unclaimedRevenue;
     
+    /// @notice Mapping of market address => base token curve Id.
+    mapping(address => uint) public override marketBaseTokenCurveId;
+
+    /// @notice Mapping of market address => proposed base asset curve.
+    mapping(address => MarketBaseTokenCurveProposal) public proposedBaseAssetCurve;
+
     /// @notice The list of revenue tokens
     address[] public override revenueTokens;
 
@@ -102,19 +109,7 @@ contract ConfigController is IConfigController, Initializable {
 
     /// @notice Modifier to check if proposal exists and is active
     modifier proposalExists(address market) {
-        if (!_marketProposals[market].isActive) revert NoActiveProposal();
-        if (block.timestamp > _marketProposals[market].expiration) revert ProposalExpired();
-        _;
-    }
-
-    /// @notice Modifier to check if caller can cancel proposal
-    modifier canCancelProposal(address market) {
-        MarketConfigProposal memory proposal = _marketProposals[market];
-        if (msg.sender != owner && 
-            msg.sender != guardian && 
-            (msg.sender != curator || proposal.proposer != curator)) {
-            revert Unauthorized();
-        }
+        if (_marketProposals[market].revertTime == 0) revert NoActiveProposal();
         _;
     }
 
@@ -133,6 +128,7 @@ contract ConfigController is IConfigController, Initializable {
     /// @param _proposalDuration Duration of market proposals in seconds
     function initialize(
         address _owner,
+        address _curator,
         address _guardian,
         address _sandboxController,
         address _marketFactory,
@@ -161,6 +157,79 @@ contract ConfigController is IConfigController, Initializable {
         configControllerFactory = _configControllerFactory;
         /// @dev This is a dummy market to make the array indexing work correctly
         markets.push(ZERO_ADDRESS);
+        proposeCurator(_curator);
+    }
+
+    /// @notice Returns the proposed base token curve for a market
+    /// @param market The address of the market
+    /// @return The proposed base token curve
+    function baseAssetsCurvesProposals(address market) external view override returns (MarketBaseTokenCurveProposal memory) {
+        return proposedBaseAssetCurve[market];
+    }
+
+    /// @notice Proposes a new base token curve for a market
+    /// @dev Only callable by owner or curator
+    /// @param market The address of the market
+    /// @param curveId The index of the new base token curve
+    function proposeUpdateBaseTokenCurve(address market, uint256 curveId) external override onlyOwnerOrCurator {
+        if (!_isMarketOwned(market)) revert MarketNotOwned();
+        IMarket marketContract = IMarket(market);
+        if (curveId >= ISandboxController(sandboxController).getBaseAssetCurves(marketContract.baseToken()).length) revert InvalidCurveId();
+        // Get the current curve from the market
+        IMarket.BaseCurveParams memory currentCurve = marketContract.getBaseCurveParams();
+        // Get new curve from sandbox controller
+        ISandboxController.BaseAssetCurve memory newCurve = ISandboxController(sandboxController).getBaseAssetCurves(marketContract.baseToken())[curveId];
+        // Check if new curve is different from current curve
+        if (
+            newCurve.supplyKink == currentCurve.supplyKink &&
+            newCurve.supplyPerYearInterestRateBase == currentCurve.supplyPerYearInterestRateBase &&
+            newCurve.supplyPerYearInterestRateSlopeLow == currentCurve.supplyPerYearInterestRateSlopeLow &&
+            newCurve.supplyPerYearInterestRateSlopeHigh == currentCurve.supplyPerYearInterestRateSlopeHigh &&
+            newCurve.borrowKink == currentCurve.borrowKink &&
+            newCurve.borrowPerYearInterestRateBase == currentCurve.borrowPerYearInterestRateBase &&
+            newCurve.borrowPerYearInterestRateSlopeLow == currentCurve.borrowPerYearInterestRateSlopeLow &&
+            newCurve.borrowPerYearInterestRateSlopeHigh == currentCurve.borrowPerYearInterestRateSlopeHigh
+        ) {
+            revert SameCurve();
+        }
+        // Create new proposal
+        proposedBaseAssetCurve[market] = MarketBaseTokenCurveProposal({
+            market: market,
+            curveId: curveId,
+            revertTime: block.timestamp + proposalDuration,
+            proposer: msg.sender
+        });
+
+        emit MarketBaseTokenCurveProposed(
+            market, 
+            msg.sender, 
+            block.timestamp + proposalDuration
+        );
+    }
+
+    /// @notice Executes the base token curve proposal for a market
+    /// @param market The address of the market
+    function executeBaseTokenCurveProposal(address market) external override {
+        if (proposedBaseAssetCurve[market].revertTime == 0) revert NoActiveProposal();
+
+        if (msg.sender != owner && msg.sender != curator) revert Unauthorized();
+        if (block.timestamp < proposedBaseAssetCurve[market].revertTime) revert ProposalNotReady();
+
+        IMarket(market).setBaseCurveParams(proposedBaseAssetCurve[market].curveId);
+
+        delete proposedBaseAssetCurve[market];
+    }
+
+    /// @notice Cancels the base token curve proposal for a market
+    /// @param market The address of the market
+    function cancelBaseTokenCurveProposal(address market) external override {
+        if (proposedBaseAssetCurve[market].revertTime == 0) revert NoActiveProposal();
+        if (msg.sender == guardian) {
+            if (block.timestamp > proposedBaseAssetCurve[market].revertTime) revert ProposalNotRevertable();
+        } else {
+            if (msg.sender != owner && (msg.sender != curator && msg.sender != proposedBaseAssetCurve[market].proposer)) revert Unauthorized();
+        }
+        delete proposedBaseAssetCurve[market];
     }
 
     /// @notice Returns the market configuration proposal for a given market
@@ -195,14 +264,12 @@ contract ConfigController is IConfigController, Initializable {
         return revenueTokens.length;
     }
     
-    
     /// @notice Accumulates revenue in the contract
     /// @dev Anyone can call this function to add revenue
     /// @param token The ERC20 token address to accumulate
     /// @param amount The amount of tokens to accumulate
     function accumulateRevenue(address token, uint amount) external override {
-        if (IMarketFactory(marketFactory).marketToController(msg.sender) != address(this)) revert Unauthorized();
-        if (token == ZERO_ADDRESS) revert ZeroAddress();
+        if (marketId[msg.sender] == 0) revert Unauthorized();
         if (amount == 0) revert ZeroAmount();
 
         IERC20(token).transferFrom(msg.sender, address(this), amount);
@@ -316,11 +383,15 @@ contract ConfigController is IConfigController, Initializable {
             revenueTokens.push(_marketConfig.baseToken);
             revenueTokenIndex[_marketConfig.baseToken] = revenueTokens.length;
         }
-        emit MarketConfigurationCreated(
+        /// Add base token curve id to market for future updates of the curve value.
+        marketBaseTokenCurveId[markets[marketsLength]] = _marketConfig.baseTokenCurveId;
+        
+        emit MarketCreated(
             markets[marketsLength],
             _marketConfig.baseToken,
             _marketConfig.priceFeed,
-            marketsLength
+            marketsLength,
+            _marketConfig.baseTokenCurveId
         );
 
         return markets[marketsLength];
@@ -328,7 +399,7 @@ contract ConfigController is IConfigController, Initializable {
 
     /// @notice Transfers ownership of the protocol to a new address
     /// @dev Only callable by the current owner
-    /// @param _newOwner The address of the new owner
+    /// @param _newOwner The address of the new owner 
     function grantOwnership(address _newOwner) external onlyOwner {
         if (_newOwner == ZERO_ADDRESS) revert ZeroAddress();
         owner = _newOwner;
@@ -337,7 +408,10 @@ contract ConfigController is IConfigController, Initializable {
     /// @notice Proposes a new curator
     /// @dev Only callable by the owner. Emits a CuratorProposed event
     /// @param _proposedCurator The address of the proposed curator
-    function proposeCurator(address _proposedCurator) external onlyOwner {
+    function proposeCurator(address _proposedCurator) public {
+        if (!_isInitializing()) {
+            if (msg.sender != owner) revert Unauthorized();
+        }
         if (_proposedCurator == ZERO_ADDRESS) revert ZeroAddress();
         if (_proposedCurator == curator) revert InvalidCurator();
         
@@ -402,7 +476,7 @@ contract ConfigController is IConfigController, Initializable {
         if (market == ZERO_ADDRESS) revert ZeroAddress();
         if (_collateralTokens.length == 0) revert ZeroCollateralAssets();
         if (msg.sender != owner && msg.sender != curator) revert Unauthorized();
-        if (_marketProposals[market].isActive) revert ProposalExists();
+        if (_marketProposals[market].revertTime > 0) revert ProposalExists();
 
         uint length = _collateralTokens.length;
         IConfigController.CollateralTokenConfig memory collateralTokenConfig;
@@ -427,9 +501,8 @@ contract ConfigController is IConfigController, Initializable {
         _marketProposals[market] = MarketConfigProposal({
             market: market,
             collateralTokens: _collateralTokens,
-            expiration: block.timestamp + proposalDuration,
-            proposer: msg.sender,
-            isActive: true
+            revertTime: block.timestamp + proposalDuration,
+            proposer: msg.sender
         });
         emit MarketConfigProposed(
             market, 
@@ -441,9 +514,17 @@ contract ConfigController is IConfigController, Initializable {
     /// @notice Cancels an active proposal
     /// @dev Can be called by owner, guardian, or curator (only their own proposals)
     /// @param market The address of the market
-     function cancelMarketConfigProposal(address market) external proposalExists(market) canCancelProposal(market) {
+     function cancelMarketConfigProposal(address market) external proposalExists(market) {
+        MarketConfigProposal memory proposal = _marketProposals[market];
+        if (proposal.revertTime == 0) revert NoActiveProposal();
+        if (msg.sender == guardian) {
+            if (block.timestamp > proposal.revertTime) revert ProposalNotRevertable();
+        } else {
+            if (msg.sender != owner || (msg.sender != curator && msg.sender != proposal.proposer)) revert Unauthorized();
+        }
+
         delete _marketProposals[market];
-        emit MarketConfigProposalCancelled(market, msg.sender);
+        emit MarketConfigProposalCancelled(market, msg.sender); 
     }
 
     /// @notice Executes an active proposal
@@ -451,7 +532,7 @@ contract ConfigController is IConfigController, Initializable {
     /// @param market The address of the market
     function executeMarketConfigProposal(address market) external proposalExists(market) onlyOwnerOrCurator {
         MarketConfigProposal memory proposal = _marketProposals[market];
-        if (block.timestamp <= proposal.expiration) revert ProposalNotExpired();
+        if (block.timestamp <= proposal.revertTime) revert ProposalNotReady();
 
         IMarket(market).setCollateralTokens(proposal.collateralTokens);
         delete _marketProposals[market];
@@ -481,16 +562,15 @@ contract ConfigController is IConfigController, Initializable {
     /// @param newController The address of the new controller
     function proposeMarketTransfer(address market, address newController) external onlyOwner {
         if (market == ZERO_ADDRESS) revert ZeroAddress();
-        if (!ConfigControllerFactory(configControllerFactory).isController(newController)) revert Unauthorized();
-        if (_marketTransferProposals[market].isActive) revert ProposalExists();
-        if (!_isMarketOwned(market)) revert Unauthorized();
+        if (!ConfigControllerFactory(configControllerFactory).isController(newController)) revert NonConfigController();
+        if (_marketTransferProposals[market].expiration > 0) revert ProposalExists();
+        if (!_isMarketOwned(market)) revert MarketNotOwned();
 
         _marketTransferProposals[market] = MarketTransferProposal({
             market: market,
             newController: newController,
-            expiration: block.timestamp + proposalDuration,
-            isActive: true
-        });
+            expiration: block.timestamp + proposalDuration
+            });
 
         emit MarketTransferProposed(market, newController, block.timestamp + proposalDuration);
     }
@@ -499,7 +579,7 @@ contract ConfigController is IConfigController, Initializable {
     /// @dev Only callable by the owner
     /// @param market The address of the market
     function cancelMarketTransferProposal(address market) external onlyOwner {
-        if (!_marketTransferProposals[market].isActive) revert NoActiveProposal();
+        if (_marketTransferProposals[market].expiration == 0) revert NoActiveProposal();
 
         delete _marketTransferProposals[market];
         emit MarketTransferProposalCancelled(market, msg.sender);
@@ -510,8 +590,8 @@ contract ConfigController is IConfigController, Initializable {
     /// @param market The address of the market
     function acceptMarketTransferProposal(address market) external {
         MarketTransferProposal memory proposal = _marketTransferProposals[market];
-        if (msg.sender != proposal.newController) revert Unauthorized();
-        if (!proposal.isActive) revert NoActiveProposal();
+        if (proposal.newController == ZERO_ADDRESS) revert NoActiveProposal();
+        if (msg.sender != IConfigController(proposal.newController).owner()) revert Unauthorized();
         if (block.timestamp > proposal.expiration) revert ProposalExpired();
 
         _removeMarket(market);
@@ -519,6 +599,14 @@ contract ConfigController is IConfigController, Initializable {
 
         delete _marketTransferProposals[market];
         emit MarketTransferProposalAccepted(market, address(this), proposal.newController);
+    }
+
+    function addMarket(address market) external override {
+        if (marketId[market] != 0) revert MarketAlreadyAdded();
+        
+        markets.push(market);
+        marketId[market] = markets.length;
+        marketsLength++;
     }
 
     /// @notice Validates market collateral token configuration

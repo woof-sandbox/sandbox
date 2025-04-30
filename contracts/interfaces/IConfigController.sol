@@ -9,15 +9,20 @@ abstract contract IConfigController {
         address market;
         address newController;
         uint256 expiration;
-        bool isActive;
     }
-    /// @notice Market configuration proposal
+    
     struct MarketConfigProposal {
         address market;
         IConfigController.CollateralTokenConfig[] collateralTokens;
-        uint256 expiration;
+        uint256 revertTime;
         address proposer;
-        bool isActive;
+    }
+
+    struct MarketBaseTokenCurveProposal {
+        address market;
+        uint curveId;
+        uint256 revertTime;
+        address proposer;
     }
     
     struct MarketConfig {
@@ -59,15 +64,28 @@ abstract contract IConfigController {
     error ProposalExpired();
     error NoActiveProposal();
     error ProposalExists();
-    error ProposalNotExpired();
+    error ProposalNotReady();
     error ProposalDurationTooShort();
     error TokenNotRevenue();
-    
-    event MarketConfigurationCreated(
+    error MarketAlreadyAdded();
+    error NonConfigController();
+    error MarketNotOwned();
+    error InvalidCurveId();
+    error SameCurve();
+    error ProposalNotRevertable();
+
+    event MarketBaseTokenCurveProposed(
+        address indexed market,
+        address indexed proposer,
+        uint256 revertTime
+    );
+
+    event MarketCreated(
         address market,
         address baseToken,
         address priceFeed,
-        uint baseTokenId
+        uint marketId,
+        uint baseTokenCurveId
     );
     event AddedCollateralTokenConfig(
         address asset,
@@ -116,7 +134,7 @@ abstract contract IConfigController {
     event MarketConfigProposed(
         address indexed market,
         address indexed proposer,
-        uint256 expiration
+        uint256 revertTime
     );
     event MarketConfigProposalCancelled(
         address indexed market,
@@ -150,6 +168,29 @@ abstract contract IConfigController {
     );
     
     address constant ZERO_ADDRESS = 0x0000000000000000000000000000000000000000;
+
+    /// @notice Executes the base token curve proposal for a market
+    /// @param market The address of the market
+    function executeBaseTokenCurveProposal(address market) virtual external;
+
+    /// @notice Cancels the base token curve proposal for a market
+    /// @param market The address of the market
+    function cancelBaseTokenCurveProposal(address market) virtual external;
+
+    /// @notice Proposes an update to the base token curve for a market
+    /// @param market The address of the market
+    /// @param curveId The id of the new base token curve
+    function proposeUpdateBaseTokenCurve(address market, uint256 curveId) virtual external;
+    
+    /// @notice Returns the proposed base token curve for a market
+    /// @param market The address of the market
+    /// @return The proposed base token curve
+    function baseAssetsCurvesProposals(address market) virtual external view returns (MarketBaseTokenCurveProposal memory);
+
+    /// @notice Returns the base token curve id for a given market
+    /// @param market The address of the market
+    /// @return The base token curve id
+    function marketBaseTokenCurveId(address market) virtual external view returns (uint);
 
     /// @notice Returns the address of a revenue token by its index
     function revenueTokens(uint) virtual external view returns (address);
@@ -233,6 +274,7 @@ abstract contract IConfigController {
     /// @param _configControllerFactory The address of the ConfigControllerFactory contract
     function initialize(
         address owner_,
+        address _curator,
         address guardian_,
         address _sandboxController,
         address _marketFactory,
@@ -246,4 +288,6 @@ abstract contract IConfigController {
     /// @notice Returns the address of the ConfigControllerFactory
     /// @return The address of the ConfigControllerFactory
     function configControllerFactory() external view virtual returns (address);
+
+    function addMarket(address market) external virtual;
 }

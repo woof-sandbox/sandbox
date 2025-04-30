@@ -5,11 +5,15 @@ import "./IConfigController.sol";
 
 abstract contract IMarketFactory {
     event MarketCreated(address indexed market, address indexed configController);
-    
+    event MarketControllerChanged(address indexed market, address indexed newController);
+
     error Unauthorized();
 
     /// @notice Returns the implementation address used for cloning
     function implementation() external view virtual returns (address);
+
+    /// @notice Returns the sandbox controller address
+    function sandboxController() external view virtual returns (address);
 
     /// @notice Returns the config controller address for a given market
     /// @param market The address of the market
@@ -28,4 +32,6 @@ abstract contract IMarketFactory {
     /// @param index The index of the market
     /// @return The address of the market
     function markets(uint256 index) external view virtual returns (address);
+
+    function changeMarketController(address market) external virtual;
 }

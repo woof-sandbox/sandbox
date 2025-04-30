@@ -23,7 +23,7 @@ interface IMarket {
 
     // Base curve parameters
     function getBaseCurveParams() external view returns (BaseCurveParams memory);
-    function setBaseCurveParams(BaseCurveParams memory _params) external;
+    function setBaseCurveParams(uint _curveId) external;
 
     // Collateral token configuration
     function transferOwnership(address _newConfigController) external;
@@ -39,6 +39,7 @@ interface IMarket {
     // Initialization
     function initialize(
         IConfigController.MarketConfig memory _marketConfig,
-        address _configControllerAddress
+        address _configControllerAddress,
+        address _sandboxControllerAddress
     ) external;
 }

@@ -18,6 +18,9 @@ contract MarketFactory is IMarketFactory {
     /// @notice The address of the config controller factory
     address public immutable override configControllerFactory;
 
+    /// @notice The address of the sandbox controller
+    address public immutable override sandboxController;
+
     /// @notice Mapping of market addresses to their respective config controller addresses
     mapping(address => address) public override marketToController;
 
@@ -35,9 +38,10 @@ contract MarketFactory is IMarketFactory {
      * @notice Constructs a new MarketFactory
      * @param _marketImplementation The address of the market implementation contract to be cloned
      */
-    constructor(address _marketImplementation, address _configControllerFactory) {
+    constructor(address _marketImplementation, address _configControllerFactory, address _sandboxController) {
         implementation = _marketImplementation;
         configControllerFactory = _configControllerFactory;
+        sandboxController = _sandboxController;
     }
 
     /**
@@ -50,7 +54,7 @@ contract MarketFactory is IMarketFactory {
     ) external override onlyConfigController returns (address) {
         address market = Clones.clone(implementation);
         marketToController[market] = msg.sender; // Store the config controller address
-        IMarket(market).initialize(_marketConfig, msg.sender);
+        IMarket(market).initialize(_marketConfig, msg.sender, sandboxController);
         markets.push(market);
         
         emit MarketCreated(market, msg.sender);
@@ -58,6 +62,12 @@ contract MarketFactory is IMarketFactory {
         return market;
     }
 
+    function changeMarketController(address market) external override onlyConfigController {
+        if (marketToController[market] == msg.sender) revert Unauthorized();
+        marketToController[market] = msg.sender;
+        
+        emit MarketControllerChanged(market, msg.sender);
+    }
     /**
      * @notice Returns the total number of markets created by this factory
      * @return The number of markets in the markets array

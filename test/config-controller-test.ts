@@ -8,7 +8,8 @@ import {
     makeMockMarket,
     makeMarketFactory,
     defaultSandboxControllerOpts,
-    makeOnlyConfigController
+    makeOnlyConfigController,
+    makeConfigControllerFactory
 } from './helper/helpers';
 import { 
     MarketConfigStruct, 
@@ -20,8 +21,11 @@ import {
     IMarket, 
     SimplePriceFeed, 
     NonStandardFaucetFeeToken,
-    MarketMock
+    MarketMock,
+    SandboxController,
+    MarketFactory__factory
 } from '../build/types';
+import { BigNumber, ContractTransaction, ContractReceipt, Event } from 'ethers';
 
 describe('ConfigController', () => {
     async function createMarket(
@@ -54,12 +58,12 @@ describe('ConfigController', () => {
         
         const createMarketTx = await configController.createMarket(marketConfig);
         const createMarketReceipt = await createMarketTx.wait();
-        const [createMarketEvents] = createMarketReceipt.events?.filter((event) => event.event === 'MarketConfigurationCreated');
+        const [createMarketEvents] = createMarketReceipt.events?.filter((event) => event.event === 'MarketCreated');
         const marketAddress = createMarketEvents.args.market;
         return marketAddress;
     }
 
-    describe('Constructor', () => {
+    describe('Initialize', () => {
         it('should initialize with correct values', async () => {
             const {
                 configController,
@@ -82,14 +86,18 @@ describe('ConfigController', () => {
         });
 
         it('should revert if owner is zero address', async () => {
-            const ConfigController = await ethers.getContractFactory('ConfigController');
-            const [guardian] = await ethers.getSigners();
+            const ConfigController_Factory = await ethers.getContractFactory('ConfigController');
+            const [guardian, curator] = await ethers.getSigners();
             const sandboxController = (await makeSandboxController(defaultSandboxControllerOpts())).sandboxController;
             const market = await makeMockMarket();
-            const marketFactory = await makeMarketFactory({}, market);
+            const configControllerImpl = await ConfigController_Factory.deploy();
+            const configControllerFactory = await makeConfigControllerFactory(configControllerImpl.address);
+        
+            const marketFactory = await makeMarketFactory(market, configControllerFactory, sandboxController);
             await expect(
-                ConfigController.deploy(
+                configControllerFactory.createConfigController(
                     ethers.constants.AddressZero,
+                    curator.address,
                     guardian.address,
                     sandboxController.address,
                     marketFactory.address,
@@ -98,17 +106,22 @@ describe('ConfigController', () => {
                     7 * 24 * 60 * 60, // 7 days for curator proposal duration
                     7 * 24 * 60 * 60 
                 )
-            ).to.be.revertedWithCustomError(ConfigController, 'ZeroAddress');
+            ).to.be.revertedWithCustomError(configControllerImpl, 'ZeroAddress');
         });
 
         it('should revert if sandbox controller is zero address', async () => {
-            const ConfigController = await ethers.getContractFactory('ConfigController');
-            const [owner, guardian] = await ethers.getSigners();
+            const ConfigController_Factory = await ethers.getContractFactory('ConfigController');
+            const [owner, guardian, curator] = await ethers.getSigners();
             const market = await makeMockMarket();
-            const marketFactory = await makeMarketFactory({}, market);
+            const configControllerImpl = await ConfigController_Factory.deploy();
+            const configControllerFactory = await makeConfigControllerFactory(configControllerImpl.address);
+            const MarketFactory = await ethers.getContractFactory('MarketFactory') as MarketFactory__factory;
+            const marketFactory = await MarketFactory.deploy(market.address, configControllerFactory.address, ethers.constants.AddressZero);
+            await marketFactory.deployed();            
             await expect(
-                ConfigController.deploy(
+                configControllerFactory.createConfigController(
                     owner.address,
+                    curator.address,
                     guardian.address,
                     ethers.constants.AddressZero,
                     marketFactory.address,
@@ -117,36 +130,42 @@ describe('ConfigController', () => {
                     7 * 24 * 60 * 60, // 7 days for curator proposal duration
                     7 * 24 * 60 * 60 
                 )
-            ).to.be.revertedWithCustomError(ConfigController, 'ZeroAddress');
+            ).to.be.revertedWithCustomError(configControllerImpl, 'ZeroAddress');
         });
 
         it('should revert if market factory is zero address', async () => {
-            const ConfigController = await ethers.getContractFactory('ConfigController');
-            const [owner, guardian] = await ethers.getSigners();
+            const ConfigController_Factory = await ethers.getContractFactory('ConfigController');
+            const [owner, guardian, curator] = await ethers.getSigners();
             const sandboxController = (await makeSandboxController(defaultSandboxControllerOpts())).sandboxController;
+            const configControllerImpl = await ConfigController_Factory.deploy();
+            const configControllerFactory = await makeConfigControllerFactory(configControllerImpl.address);
             await expect(
-                ConfigController.deploy(
+                configControllerFactory.createConfigController(
                     owner.address,
+                    curator.address,
                     guardian.address,
                     sandboxController.address,
                     ethers.constants.AddressZero,
                     1000,
                     "ConfigController",
                     7 * 24 * 60 * 60, // 7 days for curator proposal duration
-                    7 * 24 * 60 * 60     
+                    7 * 24 * 60 * 60 
                 )
-            ).to.be.revertedWithCustomError(ConfigController, 'ZeroAddress');
+            ).to.be.revertedWithCustomError(configControllerImpl, 'ZeroAddress');
         });
 
         it('should revert if curator fee is greater than 100%', async () => {
-            const ConfigController = await ethers.getContractFactory('ConfigController');
-            const [owner, guardian] = await ethers.getSigners();
+            const ConfigController_Factory = await ethers.getContractFactory('ConfigController');
+            const [owner, guardian, curator] = await ethers.getSigners();
             const sandboxController = (await makeSandboxController(defaultSandboxControllerOpts())).sandboxController;
             const market = await makeMockMarket();
-            const marketFactory = await makeMarketFactory({}, market);
+            const configControllerImpl = await ConfigController_Factory.deploy();
+            const configControllerFactory = await makeConfigControllerFactory(configControllerImpl.address);
+            const marketFactory = await makeMarketFactory(market, configControllerFactory, sandboxController);
             await expect(
-                ConfigController.deploy(
+                configControllerFactory.createConfigController(
                     owner.address,
+                    curator.address,
                     guardian.address,
                     sandboxController.address,
                     marketFactory.address,
@@ -155,7 +174,44 @@ describe('ConfigController', () => {
                     7 * 24 * 60 * 60, // 7 days for curator proposal duration
                     7 * 24 * 60 * 60 
                 )
-            ).to.be.revertedWithCustomError(ConfigController, 'InvalidFeePercentage');
+            ).to.be.revertedWithCustomError(configControllerImpl, 'InvalidFeePercentage');
+        });
+
+        it('should revert if curator proposal duration is less than min update time', async () => {
+            const {
+                owner, guardian, curator, sandboxController, marketFactory, configControllerFactory, configController
+            } = await makeConfigController();
+
+            await expect(
+                configControllerFactory.createConfigController(
+                    owner.address,
+                    curator.address,
+                    guardian.address,
+                    sandboxController.address,
+                    marketFactory.address,
+                    1000,
+                    "ConfigController",
+                    1, 
+                    7 * 24 * 60 * 60 
+                )
+            ).to.be.revertedWithCustomError(configController, 'ProposalDurationTooShort');
+        });
+
+        it('disable initialization', async () => {
+            const ConfigController_Factory = await ethers.getContractFactory('ConfigController');
+            const configControllerImpl = await ConfigController_Factory.deploy();
+            await expect(configControllerImpl.initialize(
+                ethers.constants.AddressZero,
+                ethers.constants.AddressZero,
+                ethers.constants.AddressZero,
+                ethers.constants.AddressZero,
+                ethers.constants.AddressZero,
+                1000,
+                "ConfigController",
+                7 * 24 * 60 * 60,
+                7 * 24 * 60 * 60,
+                ethers.constants.AddressZero
+            )).to.be.revertedWithCustomError(configControllerImpl, 'InvalidInitialization');
         });
     
     });
@@ -196,7 +252,11 @@ describe('ConfigController', () => {
 
             const createMarketTx = await configController.connect(owner).createMarket(marketConfig);
             const createMarketReceipt = await createMarketTx.wait();
-            const [createMarketEvents] = createMarketReceipt.events?.filter((event) => event.event === 'MarketConfigurationCreated');
+            const [createMarketEvents] = createMarketReceipt.events?.filter((event) => event.event === 'MarketCreated');
+            expect(createMarketEvents.args.baseToken).to.equal(baseToken.address);
+            expect(createMarketEvents.args.priceFeed).to.equal(priceFeeds[await baseToken.symbol()].address);
+            expect(createMarketEvents.args.marketId).to.equal(1);
+            expect(createMarketEvents.args.baseTokenCurveId).to.equal(0);
             const marketAddress = createMarketEvents.args.market;
             const marketContract: IMarket = <IMarket>await ethers.getContractAt("IMarket", marketAddress);
             // -- Base token --
@@ -253,7 +313,7 @@ describe('ConfigController', () => {
             );
             expect(baseTokenConfig).to.be.undefined;
 
-            expect(await configController.markets(0)).to.eq(marketAddress);
+            expect(await configController.markets(1)).to.eq(marketAddress);
             expect(await configController.marketsLength()).to.eq(1);    
         });
 
@@ -287,8 +347,8 @@ describe('ConfigController', () => {
                 }
             }
 
-            await expect(configController.createMarket(marketConfig)).to.emit(configController, 'MarketConfigurationCreated').withArgs(
-                await configController.markets(0),baseToken.address, priceFeeds[await baseToken.symbol()].address, 1
+            await expect(configController.createMarket(marketConfig)).to.emit(configController, 'MarketCreated').withArgs(
+                await configController.markets(1), baseToken.address, priceFeeds[await baseToken.symbol()].address, 1, 0
             );
         });
 
@@ -958,15 +1018,17 @@ describe('ConfigController', () => {
             }
             let createMarketTx = await configController.createMarket(marketConfig);
             let createMarketReceipt = await createMarketTx.wait();
-            let [createMarketEvents] = createMarketReceipt.events?.filter((event) => event.event === 'MarketConfigurationCreated');
+            let [createMarketEvents] = createMarketReceipt.events?.filter((event) => event.event === 'MarketCreated');
             let marketAddress = createMarketEvents.args.market;
-            
+            expect(await configController.markets(1)).to.eq(marketAddress);
+            expect(await configController.marketsLength()).to.eq(1);
+
             createMarketTx = await configController.createMarket(marketConfig);
             createMarketReceipt = await createMarketTx.wait();
-            [createMarketEvents] = createMarketReceipt.events?.filter((event) => event.event === 'MarketConfigurationCreated');
+            [createMarketEvents] = createMarketReceipt.events?.filter((event) => event.event === 'MarketCreated');
             marketAddress = createMarketEvents.args.market;
 
-            expect(await configController.markets(1)).to.eq(marketAddress);
+            expect(await configController.markets(2)).to.eq(marketAddress);
             expect(await configController.marketsLength()).to.eq(2);
         });
     });
@@ -996,13 +1058,36 @@ describe('ConfigController', () => {
 
     describe('accumulateRevenue', () => {
         it('should accumulate revenue with curator fee', async () => {
-            const { configController, tokens, users } = await makeConfigController();
+            const { configController, tokens, users, owner, baseToken, priceFeeds, marketFactory } = await makeConfigController();
             const token = tokens['USDC'];
             const amount = exp(1000, 6); // 1000 USDC
+            
+            let marketConfig: MarketConfigStruct = {
+                baseToken: baseToken.address,
+                    priceFeed: priceFeeds[await baseToken.symbol()].address,
+                        collateraTokens: [],
+                        baseTokenCurveId: 0n
+            }
+            
+            marketConfig.collateraTokens.push(
+                {
+                    collateralToken: tokens["COMP"].address,
+                    priceFeed: priceFeeds["COMP"].address,
+                    borrowCollateralFactor: factor(0.6),
+                    liquidateCollateralFactor: factor(0.7),
+                    liquidationFactor: factor(0.8),
+                    supplyCap: exp(1_000_000, 6)
+                }
+            );
 
-            await token.connect(users[4]).approve(configController.address, amount);
-            await token.allocateTo(users[4].address, amount);
-            await expect(configController.connect(users[4]).accumulateRevenue(token.address, amount))
+            const createMarketTx = await configController.connect(owner).createMarket(marketConfig);
+            const createMarketReceipt = await createMarketTx.wait();
+            const [createMarketEvents] = createMarketReceipt.events?.filter((event) => event.event === 'MarketCreated');
+            const marketAddress = createMarketEvents.args.market;
+            const marketContract: MarketMock = <MarketMock>await ethers.getContractAt("MarketMock", marketAddress);
+
+            await token.allocateTo(marketAddress, amount);
+            await expect(marketContract.accumulateRevenue(token.address, amount))
                 .to.emit(configController, 'RevenueAccumulated')
                 .withArgs(token.address, amount);
 
@@ -1016,47 +1101,110 @@ describe('ConfigController', () => {
         });
 
         it('should accumulate all revenue to owner when curator fee is 0', async () => {
-            const { configController, tokens, users } = await makeConfigController();
+            const { configController, tokens, users, owner, baseToken, priceFeeds } = await makeConfigController();
             await configController.setCuratorFee(0);
             
             const token = tokens['USDC'];
             const amount = exp(1000, 6); // 1000 USDC
+            let marketConfig: MarketConfigStruct = {
+                baseToken: baseToken.address,
+                    priceFeed: priceFeeds[await baseToken.symbol()].address,
+                        collateraTokens: [],
+                        baseTokenCurveId: 0n
+            }
+            
+            marketConfig.collateraTokens.push(
+                {
+                    collateralToken: tokens["COMP"].address,
+                    priceFeed: priceFeeds["COMP"].address,
+                    borrowCollateralFactor: factor(0.6),
+                    liquidateCollateralFactor: factor(0.7),
+                    liquidationFactor: factor(0.8),
+                    supplyCap: exp(1_000_000, 6)
+                }
+            );
 
-            await token.connect(users[4]).approve(configController.address, amount);
-            await token.allocateTo(users[4].address, amount);
-            await expect(configController.connect(users[4]).accumulateRevenue(token.address, amount))
-                .to.emit(configController, 'RevenueAccumulated')
-                .withArgs(token.address, amount);
+            const createMarketTx = await configController.connect(owner).createMarket(marketConfig);
+            const createMarketReceipt = await createMarketTx.wait();
+            const [createMarketEvents] = createMarketReceipt.events?.filter((event) => event.event === 'MarketCreated');
+            const marketAddress = createMarketEvents.args.market;
+            const marketContract: MarketMock = <MarketMock>await ethers.getContractAt("MarketMock", marketAddress);
 
+            await token.allocateTo(marketAddress, amount);
+            await marketContract.accumulateRevenue(token.address, amount);
             expect(await configController.getUnclaimedRevenue(token.address, await configController.owner()))
                 .to.equal(amount);
             expect(await configController.getUnclaimedRevenue(token.address, await configController.curator()))
                 .to.equal(0);
         });
 
-        it('should revert if token is zero address', async () => {
-            const { configController } = await makeConfigController();
-            await expect(configController.accumulateRevenue(ethers.constants.AddressZero, 1000))
-                .to.be.revertedWithCustomError(configController, 'ZeroAddress');
-        });
-
         it('should revert if amount is zero', async () => {
-            const { configController, tokens } = await makeConfigController();
-            await expect(configController.accumulateRevenue(tokens['USDC'].address, 0))
+            const { configController, tokens, owner, baseToken, priceFeeds } = await makeConfigController();
+            
+            let marketConfig: MarketConfigStruct = {
+                baseToken: baseToken.address,
+                    priceFeed: priceFeeds[await baseToken.symbol()].address,
+                        collateraTokens: [],
+                        baseTokenCurveId: 0n
+            }
+            
+            marketConfig.collateraTokens.push(
+                {
+                    collateralToken: tokens["COMP"].address,
+                    priceFeed: priceFeeds["COMP"].address,
+                    borrowCollateralFactor: factor(0.6),
+                    liquidateCollateralFactor: factor(0.7),
+                    liquidationFactor: factor(0.8),
+                    supplyCap: exp(1_000_000, 6)
+                }
+            );
+
+            const createMarketTx = await configController.connect(owner).createMarket(marketConfig);
+            const createMarketReceipt = await createMarketTx.wait();
+            const [createMarketEvents] = createMarketReceipt.events?.filter((event) => event.event === 'MarketCreated');
+            const marketAddress = createMarketEvents.args.market;
+            const marketContract: MarketMock = <MarketMock>await ethers.getContractAt("MarketMock", marketAddress);
+
+            await expect(marketContract.accumulateRevenue(tokens['USDC'].address, 0))
                 .to.be.revertedWithCustomError(configController, 'ZeroAmount');
         });
     });
 
     describe('claimRevenue', () => {
         it('should allow owner to claim revenue', async () => {
-            const { configController, tokens, users, owner } = await makeConfigController();
+            const { configController, tokens, users, owner, baseToken, priceFeeds } = await makeConfigController();
             const token = tokens['USDC'];
             const amount = exp(1000, 6); // 1000 USDC
 
-            await token.connect(users[4]).approve(configController.address, amount);
-            await token.connect(users[4]).allocateTo(users[4].address, amount);
-            await configController.connect(users[4]).accumulateRevenue(token.address, amount);
+            let marketConfig: MarketConfigStruct = {
+                baseToken: baseToken.address,
+                    priceFeed: priceFeeds[await baseToken.symbol()].address,
+                        collateraTokens: [],
+                        baseTokenCurveId: 0n
+            }
             
+            marketConfig.collateraTokens.push(
+                {
+                    collateralToken: tokens["COMP"].address,
+                    priceFeed: priceFeeds["COMP"].address,
+                    borrowCollateralFactor: factor(0.6),
+                    liquidateCollateralFactor: factor(0.7),
+                    liquidationFactor: factor(0.8),
+                    supplyCap: exp(1_000_000, 6)
+                }
+            );
+
+            const createMarketTx = await configController.connect(owner).createMarket(marketConfig);
+            const createMarketReceipt = await createMarketTx.wait();
+            const [createMarketEvents] = createMarketReceipt.events?.filter((event) => event.event === 'MarketCreated');
+            const marketAddress = createMarketEvents.args.market;
+            const marketContract: MarketMock = <MarketMock>await ethers.getContractAt("MarketMock", marketAddress);
+
+            await token.allocateTo(marketAddress, amount);
+            await expect(marketContract.accumulateRevenue(token.address, amount))
+                .to.emit(configController, 'RevenueAccumulated')
+                .withArgs(token.address, amount);
+
             const ownerAmount = (amount * 9000n) / 10000n; // 90%
             const balanceBefore = await token.balanceOf(owner.address);
             
@@ -1069,14 +1217,39 @@ describe('ConfigController', () => {
         });
 
         it('should allow curator to claim revenue', async () => {
-            const { configController, tokens, users, curator } = await makeConfigController();
+            const { configController, curator, tokens, users, owner, baseToken, priceFeeds } = await makeConfigController();
             const token = tokens['USDC'];
             const amount = exp(1000, 6); // 1000 USDC
 
-            await token.connect(users[4]).approve(configController.address, amount);
-            await token.connect(users[4]).allocateTo(users[4].address, amount);
-            await configController.connect(users[4]).accumulateRevenue(token.address, amount);
-          
+            let marketConfig: MarketConfigStruct = {
+                baseToken: baseToken.address,
+                    priceFeed: priceFeeds[await baseToken.symbol()].address,
+                        collateraTokens: [],
+                        baseTokenCurveId: 0n
+            }
+            
+            marketConfig.collateraTokens.push(
+                {
+                    collateralToken: tokens["COMP"].address,
+                    priceFeed: priceFeeds["COMP"].address,
+                    borrowCollateralFactor: factor(0.6),
+                    liquidateCollateralFactor: factor(0.7),
+                    liquidationFactor: factor(0.8),
+                    supplyCap: exp(1_000_000, 6)
+                }
+            );
+
+            const createMarketTx = await configController.connect(owner).createMarket(marketConfig);
+            const createMarketReceipt = await createMarketTx.wait();
+            const [createMarketEvents] = createMarketReceipt.events?.filter((event) => event.event === 'MarketCreated');
+            const marketAddress = createMarketEvents.args.market;
+            const marketContract: MarketMock = <MarketMock>await ethers.getContractAt("MarketMock", marketAddress);
+
+            await token.allocateTo(marketAddress, amount);
+            await expect(marketContract.accumulateRevenue(token.address, amount))
+                .to.emit(configController, 'RevenueAccumulated')
+                .withArgs(token.address, amount);
+
             const curatorAmount = (amount * 1000n) / 10000n; // 10%
             const balanceBefore = await token.balanceOf(curator.address);
 
@@ -1101,19 +1274,42 @@ describe('ConfigController', () => {
         });
 
         it('should allow old curator to claim revenue after curator change', async () => {
-            const { configController, tokens, users, curator } = await makeConfigController();
+            const { configController, tokens, curator, users, owner, baseToken, priceFeeds } = await makeConfigController();
             const token = tokens['USDC'];
             const amount = exp(1000, 6); // 1000 USDC
-            const newCurator = users[4];
 
-            // Accumulate revenue with old curator
-            await token.connect(users[5]).approve(configController.address, amount);
-            await token.connect(users[5]).allocateTo(users[5].address, amount);
-            await configController.connect(users[5]).accumulateRevenue(token.address, amount);
+            let marketConfig: MarketConfigStruct = {
+                baseToken: baseToken.address,
+                    priceFeed: priceFeeds[await baseToken.symbol()].address,
+                        collateraTokens: [],
+                        baseTokenCurveId: 0n
+            }
+            
+            marketConfig.collateraTokens.push(
+                {
+                    collateralToken: tokens["COMP"].address,
+                    priceFeed: priceFeeds["COMP"].address,
+                    borrowCollateralFactor: factor(0.6),
+                    liquidateCollateralFactor: factor(0.7),
+                    liquidationFactor: factor(0.8),
+                    supplyCap: exp(1_000_000, 6)
+                }
+            );
+
+            const createMarketTx = await configController.connect(owner).createMarket(marketConfig);
+            const createMarketReceipt = await createMarketTx.wait();
+            const [createMarketEvents] = createMarketReceipt.events?.filter((event) => event.event === 'MarketCreated');
+            const marketAddress = createMarketEvents.args.market;
+            const marketContract: MarketMock = <MarketMock>await ethers.getContractAt("MarketMock", marketAddress);
+
+            await token.allocateTo(marketAddress, amount);
+            await expect(marketContract.accumulateRevenue(token.address, amount))
+                .to.emit(configController, 'RevenueAccumulated')
+                .withArgs(token.address, amount);
 
             const oldCuratorAmount = (amount * 1000n) / 10000n; // 10%
             const oldCuratorBalanceBefore = await token.balanceOf(curator.address);
-
+            const newCurator = users[0];
             // Change curator
             await configController.proposeCurator(newCurator.address);
             await configController.connect(newCurator).acceptCuratorRole();
@@ -1306,27 +1502,28 @@ describe('ConfigController', () => {
 
     describe('Market Configuration Proposals', () => {
         
-
         it('should allow owner to create proposal', async () => {
             const { configController, tokens, baseToken, priceFeeds, owner } = await makeConfigController();
-            const market = await createMarket(configController, tokens, baseToken, priceFeeds);
+            const marketAddress: string = await createMarket(configController, tokens, baseToken, priceFeeds);
 
-            const collateralTokens = [{
+            const collateralTokens: CollateralTokenConfigStruct[] = [{
                 collateralToken: tokens["COMP"].address,
                 priceFeed: priceFeeds["COMP"].address,
                 borrowCollateralFactor: factor(0.6),
                 liquidateCollateralFactor: factor(0.7),
                 liquidationFactor: factor(0.8),
                 supplyCap: exp(1_000_000, 6)
-            }];
+            }]; 
+            const tx: ContractTransaction = await configController.connect(owner).proposeMarketCollateralTokens(marketAddress, collateralTokens);
+            const receipt: ContractReceipt = await tx.wait();
+            const events: Event[] = receipt.events?.filter((event) => event.event === 'MarketConfigProposed');
             
-            await expect(configController.connect(owner).proposeMarketCollateralTokens(market, collateralTokens))
-                .to.emit(configController, 'MarketConfigProposed')
-                .withArgs(market, await configController.owner(), await configController.marketProposals(market).then(p => p.expiration));
-
-            const proposal = await configController.marketProposals(market);
-            expect(proposal.isActive).to.be.true;
-            expect(proposal.proposer).to.equal(await configController.owner());
+            expect(events[0].args.market).to.equal(marketAddress);
+            expect(events[0].args.proposer).to.equal(owner.address);
+            
+            const block = await ethers.provider.getBlock(receipt.blockNumber);
+            expect(events[0].args.revertTime).to.equal(block.timestamp + 7 * 24 * 60 * 60);
+            expect(events[0].args.revertTime).to.equal(block.timestamp + 7 * 24 * 60 * 60);
         });
 
         it('should allow curator to create proposal', async () => {
@@ -1351,9 +1548,10 @@ describe('ConfigController', () => {
             const events = receipt.events?.filter((event) => event.event === 'MarketConfigProposed');
             expect(events[0].args.market).to.equal(market);
             expect(events[0].args.proposer).to.equal(curator.address);
-            expect(events[0].args.expiration).to.equal(proposal.expiration);
+            expect(events[0].args.revertTime).to.equal(proposal.revertTime);
+            const block = await ethers.provider.getBlock(receipt.blockNumber);
+            expect(events[0].args.revertTime).to.equal(block.timestamp + 7 * 24 * 60 * 60);
 
-            expect(proposal.isActive).to.be.true;
             expect(proposal.proposer).to.equal(curator.address);
             expect(proposal.market).to.equal(market);
             expect(proposal.collateralTokens[0].collateralToken).to.equal(
@@ -1408,7 +1606,7 @@ describe('ConfigController', () => {
 
             await expect(configController.connect(owner).setProposalDurations(newDuration, newDuration))
                 .to.emit(configController, "ProposalDurationsUpdated")
-                .withArgs(7 * 24 * 60 * 60, 7 * 24 * 60 * 60, newDuration, newDuration);
+                .withArgs(7 * 24 * 60 * 60, newDuration, 7 * 24 * 60 * 60, newDuration);
 
             expect(await configController.proposalDuration()).to.equal(newDuration);
             expect(await configController.curatorProposalDuration()).to.equal(newDuration);
@@ -1416,17 +1614,17 @@ describe('ConfigController', () => {
 
         it('should revert when durations are below minimum update time', async function () {
             const { configController, owner } = await makeConfigController();
-            const newDuration = 6 * 24 * 60 * 60; // 6 days
+            const newDuration = 299;
 
             await expect(configController.connect(owner).setProposalDurations(newDuration, newDuration))
-                .to.be.revertedWithCustomError(configController, "InvalidProposalDuration");
+                .to.be.revertedWithCustomError(configController, "ProposalDurationTooShort");
         });
 
         it('should revert when durations are set to zero', async function () {
             const { configController, owner } = await makeConfigController();
 
             await expect(configController.connect(owner).setProposalDurations(0, 0))
-                .to.be.revertedWithCustomError(configController, "InvalidProposalDuration");
+                .to.be.revertedWithCustomError(configController, "ProposalDurationTooShort");
         });
 
         it('should revert when called by non-owner', async function () {
@@ -1444,13 +1642,13 @@ describe('ConfigController', () => {
 
             await expect(configController.connect(owner).setProposalDurations(newDuration, newDuration))
                 .to.emit(configController, "ProposalDurationsUpdated")
-                .withArgs(oldDuration, oldDuration, newDuration, newDuration);
+                .withArgs(oldDuration, newDuration, oldDuration, newDuration);
         });
     });
 
     describe('Market Transfer Proposals', () => {
         it('should allow owner to propose market transfer', async () => {
-            const { configController, owner, tokens, baseToken, priceFeeds } = await makeConfigController();
+            const { configControllerFactory, configController, owner, curator, guardian, dao, sandboxController, marketFactory, tokens, baseToken, priceFeeds } = await makeConfigController();
 
             // Create a market
             const marketAdress: string = await createMarket(
@@ -1460,25 +1658,36 @@ describe('ConfigController', () => {
                 priceFeeds
             );
 
-            const { configController: newController } = await makeConfigController();
-            const tx = await configController.connect(owner).proposeMarketTransfer(marketAdress, newController.address);
+            const newControllerAddress = await makeOnlyConfigController(
+                {
+                    owner: owner,
+                    curator: curator,
+                    guardian: guardian,
+                    dao: dao,
+                    sandboxController: sandboxController.address,
+                    marketFactory: marketFactory.address,
+                    configControllerFactory: configControllerFactory.address
+                }
+            );
+            const tx = await configController.connect(owner).proposeMarketTransfer(
+                marketAdress, 
+                newControllerAddress
+            );
             const receipt = await tx.wait();
             const events = receipt.events?.filter((event) => event.event === 'MarketTransferProposed');
             const proposal = await configController.marketTransferProposals(marketAdress);
 
             expect(events[0].args.market).to.equal(marketAdress);
-            expect(events[0].args.newController).to.equal(newController.address);
+            expect(events[0].args.newController).to.equal(newControllerAddress);
             expect(events[0].args.expiration).to.equal(proposal.expiration);
 
             expect(proposal.market).to.equal(marketAdress);
-            expect(proposal.newController).to.equal(newController.address);
-            expect(proposal.isActive).to.be.true;
+            expect(proposal.newController).to.equal(newControllerAddress);
         });
 
         it('should not allow non-owner to propose market transfer', async () => {
-            const { configController, users, tokens, baseToken, priceFeeds } = await makeConfigController();
-            const nonOwner = users[5];
-
+            const { users, configControllerFactory, configController, owner, curator, guardian, dao, sandboxController, marketFactory, tokens, baseToken, priceFeeds } = await makeConfigController();
+            const nonOwner = users[0];
             // Create a market
             const marketAdress: string = await createMarket(
                 configController,
@@ -1487,15 +1696,23 @@ describe('ConfigController', () => {
                 priceFeeds
             );
 
-            // Deploy a new controller for testing transfers
-            const { configController: newController } = await makeConfigController();
-
-            await expect(configController.connect(nonOwner).proposeMarketTransfer(marketAdress, newController.address))
+            const newControllerAddress = await makeOnlyConfigController(
+                {
+                    owner: owner,
+                    curator: curator,
+                    guardian: guardian,
+                    dao: dao,
+                    sandboxController: sandboxController.address,
+                    marketFactory: marketFactory.address,
+                    configControllerFactory: configControllerFactory.address
+                }
+            );
+            await expect(configController.connect(nonOwner).proposeMarketTransfer(marketAdress, newControllerAddress))
                 .to.be.revertedWithCustomError(configController, 'Unauthorized');
         });
 
         it('should not allow proposing transfer of non-owned market', async () => {
-            const { configController, owner, curator, guardian, dao, sandboxController, marketFactory, tokens, baseToken, priceFeeds } = await makeConfigController();
+            const { configControllerFactory, configController, owner, curator, guardian, dao, sandboxController, marketFactory, tokens, baseToken, priceFeeds } = await makeConfigController();
             
             // Deploy a new controller for testing transfers
             const newControllerAddress: string = await makeOnlyConfigController(
@@ -1505,20 +1722,20 @@ describe('ConfigController', () => {
                     guardian: guardian,
                     dao: dao,
                     sandboxController: sandboxController.address,
-                    marketFactory: marketFactory.address
+                    marketFactory: marketFactory.address,
+                    configControllerFactory: configControllerFactory.address
                 }
             );
-
-            // Create a market in the new controller
+            const newController = <ConfigController>(await ethers.getContractAt('ConfigController', newControllerAddress));
+                // Create a market in the new controller
             const otherMarketAdress: string = await createMarket(
-                <ConfigController>(await ethers.getContractAt('ConfigController', newControllerAddress)),
+                newController,
                 tokens,
                 baseToken,
                 priceFeeds
             );
-
             await expect(configController.connect(owner).proposeMarketTransfer(otherMarketAdress, newControllerAddress))
-                .to.be.revertedWithCustomError(configController, 'Unauthorized');
+                .to.be.revertedWithCustomError(configController, 'MarketNotOwned');
         });
 
         it('should not allow proposing transfer to zero address', async () => {
@@ -1533,7 +1750,7 @@ describe('ConfigController', () => {
             );
 
             await expect(configController.connect(owner).proposeMarketTransfer(marketAdress, ethers.constants.AddressZero))
-                .to.be.revertedWithCustomError(configController, 'ZeroAddress');
+                .to.be.revertedWithCustomError(configController, 'NonConfigController');
         });
 
         it('should not allow proposing transfer of zero address market', async () => {
@@ -1547,7 +1764,7 @@ describe('ConfigController', () => {
         });
 
         it('should not allow duplicate proposals', async () => {
-            const { configController, owner, tokens, baseToken, priceFeeds } = await makeConfigController();
+            const { configControllerFactory, configController, owner, curator, guardian, dao, sandboxController, marketFactory, tokens, baseToken, priceFeeds } = await makeConfigController();
 
             // Create a market
             const marketAdress: string = await createMarket(
@@ -1557,17 +1774,26 @@ describe('ConfigController', () => {
                 priceFeeds
             );
 
-            // Deploy a new controller for testing transfers
-            const { configController: newController } = await makeConfigController();
+            const newControllerAddress = await makeOnlyConfigController(
+                {
+                    owner: owner,
+                    curator: curator,
+                    guardian: guardian,
+                    dao: dao,
+                    sandboxController: sandboxController.address,
+                    marketFactory: marketFactory.address,
+                    configControllerFactory: configControllerFactory.address
+                }
+            );
 
-            await configController.connect(owner).proposeMarketTransfer(marketAdress, newController.address);
+            await configController.connect(owner).proposeMarketTransfer(marketAdress, newControllerAddress);
             
-            await expect(configController.connect(owner).proposeMarketTransfer(marketAdress, newController.address))
+            await expect(configController.connect(owner).proposeMarketTransfer(marketAdress, newControllerAddress))
                 .to.be.revertedWithCustomError(configController, 'ProposalExists');
         });
 
         it('should allow owner to cancel market transfer proposal', async () => {
-            const { configController, owner, tokens, baseToken, priceFeeds } = await makeConfigController();
+            const { configControllerFactory, configController, owner, curator, guardian, dao, sandboxController, marketFactory, tokens, baseToken, priceFeeds } = await makeConfigController();
 
             // Create a market
             const marketAdress: string = await createMarket(
@@ -1577,21 +1803,29 @@ describe('ConfigController', () => {
                 priceFeeds
             );
 
-            // Deploy a new controller for testing transfers
-            const { configController: newController } = await makeConfigController();
-
-            await configController.connect(owner).proposeMarketTransfer(marketAdress, newController.address);
+            const newControllerAddress = await makeOnlyConfigController(
+                {
+                    owner: owner,
+                    curator: curator,
+                    guardian: guardian,
+                    dao: dao,
+                    sandboxController: sandboxController.address,
+                    marketFactory: marketFactory.address,
+                    configControllerFactory: configControllerFactory.address
+                }
+            );
+            await configController.connect(owner).proposeMarketTransfer(marketAdress, newControllerAddress);
             
             await expect(configController.connect(owner).cancelMarketTransferProposal(marketAdress))
                 .to.emit(configController, 'MarketTransferProposalCancelled')
                 .withArgs(marketAdress, owner.address);
 
             const proposal = await configController.marketTransferProposals(marketAdress);
-            expect(proposal.isActive).to.be.false;
+            expect(proposal.expiration).to.equal(0);
         });
 
         it('should not allow non-owner to cancel market transfer proposal', async () => {
-            const { configController, owner, users, tokens, baseToken, priceFeeds } = await makeConfigController();
+            const { users, configControllerFactory, configController, owner, curator, guardian, dao, sandboxController, marketFactory, tokens, baseToken, priceFeeds } = await makeConfigController();
             const nonOwner = users[0];
 
             // Create a market
@@ -1602,10 +1836,19 @@ describe('ConfigController', () => {
                 priceFeeds
             );
 
-            // Deploy a new controller for testing transfers
-            const { configController: newController } = await makeConfigController();
+            const newControllerAddress = await makeOnlyConfigController(
+                {
+                    owner: owner,
+                    curator: curator,
+                    guardian: guardian,
+                    dao: dao,
+                    sandboxController: sandboxController.address,
+                    marketFactory: marketFactory.address,
+                    configControllerFactory: configControllerFactory.address
+                }
+            ); 
 
-            await configController.connect(owner).proposeMarketTransfer(marketAdress, newController.address);
+            await configController.connect(owner).proposeMarketTransfer(marketAdress, newControllerAddress);
             
             await expect(configController.connect(nonOwner).cancelMarketTransferProposal(marketAdress))
                 .to.be.revertedWithCustomError(configController, 'Unauthorized');
@@ -1627,8 +1870,8 @@ describe('ConfigController', () => {
         });
 
         it('should allow owner to accept market transfer proposal', async () => {
-            const { configController, owner, curator, guardian, dao, sandboxController, marketFactory, tokens, baseToken, priceFeeds } = await makeConfigController();
-
+            const { users, configControllerFactory, configController, owner, curator, guardian, dao, sandboxController, marketFactory, tokens, baseToken, priceFeeds } = await makeConfigController();
+            const newConfigControllerOwner = users[0];
             // Create a market
             const marketAdress: string = await createMarket(
                 configController,
@@ -1637,97 +1880,618 @@ describe('ConfigController', () => {
                 priceFeeds
             );
             // Deploy a new controller for testing transfers
-            const newControllerAddress: string = await makeOnlyConfigController(
+            const newConfigControllerAddress: string = await makeOnlyConfigController(
+                {
+                    owner: newConfigControllerOwner,
+                    curator: curator,
+                    guardian: guardian,
+                    dao: dao,
+                    sandboxController: sandboxController.address,
+                    marketFactory: marketFactory.address,
+                    configControllerFactory: configControllerFactory.address
+                }
+            );
+            const newConfigController = <ConfigController>(await ethers.getContractAt('ConfigController', newConfigControllerAddress));
+            await configController.connect(owner).proposeMarketTransfer(marketAdress, newConfigControllerAddress);
+
+            await expect(configController.connect(newConfigControllerOwner).acceptMarketTransferProposal(marketAdress))
+                .to.emit(configController, 'MarketTransferProposalAccepted')
+                .withArgs(marketAdress, configController.address, newConfigControllerAddress);
+
+            // Verify market ownership was transferred
+            const market = <MarketMock>(await ethers.getContractAt('MarketMock', marketAdress));
+        
+            expect(await market.configControllerAddress()).to.equal(newConfigControllerAddress);
+            // Verify market was removed from old controller
+            const marketsLength = await configController.marketsLength();
+            expect(marketsLength).to.equal(0); 
+            expect(await newConfigController.marketsLength()).to.equal(1);
+            expect(await newConfigController.markets(1)).to.equal(marketAdress);
+        });
+
+        it('should not allow non-owner to accept market transfer proposal', async () => {
+            const { users, configControllerFactory, configController, owner, curator, guardian, dao, sandboxController, marketFactory, tokens, baseToken, priceFeeds } = await makeConfigController();
+            const nonOwner = users[0];
+            // Create a market
+            const marketAdress: string = await createMarket(
+                configController,
+                tokens,
+                baseToken,
+                priceFeeds
+            );
+            // Deploy a new controller for testing transfers
+            const newConfigControllerAddress: string = await makeOnlyConfigController(
                 {
                     owner: owner,
                     curator: curator,
                     guardian: guardian,
                     dao: dao,
                     sandboxController: sandboxController.address,
-                    marketFactory: marketFactory.address
+                    marketFactory: marketFactory.address,
+                    configControllerFactory: configControllerFactory.address
                 }
             );
-            const newConfigController = <ConfigController>(await ethers.getContractAt('ConfigController', newControllerAddress));
-            await configController.connect(owner).proposeMarketTransfer(marketAdress, newControllerAddress);
-
-            await expect(configController.connect(owner).acceptMarketTransferProposal(marketAdress))
-                .to.emit(configController, 'MarketTransferProposalAccepted')
-                .withArgs(marketAdress, configController.address, newControllerAddress);
-
-            // Verify market ownership was transferred
-            const market = <MarketMock>(await ethers.getContractAt('MarketMock', marketAdress));
-        
-            expect(await market.configControllerAddress()).to.equal(newControllerAddress);
-            // Verify market was removed from old controller
-            const marketsLength = await configController.marketsLength();
-            expect(marketsLength).to.equal(0); 
-            expect(await newConfigController.marketsLength()).to.equal(1);
-            expect(await newConfigController.markets(0)).to.equal(marketAdress);
-        });
-
-        it('should not allow non-owner to accept market transfer proposal', async () => {
-            const { configController, owner, users, tokens, baseToken, priceFeeds } = await makeConfigController();
-            const nonOwner = users[0];
-
-            // Create a market
-            const { market } = await createMarket(
-                configController,
-                tokens,
-                baseToken,
-                priceFeeds
-            );
-
-            // Deploy a new controller for testing transfers
-            const { configController: newController } = await makeConfigController();
-
-            await configController.connect(owner).proposeMarketTransfer(market.address, newController.address);
+            await configController.connect(owner).proposeMarketTransfer(marketAdress, newConfigControllerAddress);
             
-            await expect(configController.connect(nonOwner).acceptMarketTransferProposal(market.address))
+            await expect(configController.connect(nonOwner).acceptMarketTransferProposal(marketAdress))
                 .to.be.revertedWithCustomError(configController, 'Unauthorized');
         });
 
         it('should not allow accepting non-existent proposal', async () => {
-            const { configController, owner, users, tokens, baseToken, priceFeeds } = await makeConfigController();
-            const nonOwner = users[0];
-
+            const { configControllerFactory, configController, owner, curator, guardian, dao, sandboxController, marketFactory, tokens, baseToken, priceFeeds } = await makeConfigController();
             // Create a market
-            const { market } = await createMarket(
+            const marketAdress: string = await createMarket(
                 configController,
                 tokens,
                 baseToken,
                 priceFeeds
             );
-
-            await expect(configController.connect(owner).acceptMarketTransferProposal(market.address))
+            // Deploy a new controller for testing transfers
+            const newConfigControllerAddress: string = await makeOnlyConfigController(
+                {
+                    owner: owner,
+                    curator: curator,
+                    guardian: guardian,
+                    dao: dao,
+                    sandboxController: sandboxController.address,
+                    marketFactory: marketFactory.address,
+                    configControllerFactory: configControllerFactory.address
+                }
+            );
+            await configController.connect(owner).proposeMarketTransfer(marketAdress, newConfigControllerAddress);
+            const marketAdress2: string = await createMarket(
+                configController,
+                tokens,
+                baseToken,
+                priceFeeds
+            );
+            await expect(configController.connect(owner).acceptMarketTransferProposal(marketAdress2))
                 .to.be.revertedWithCustomError(configController, 'NoActiveProposal');
         });
 
         it('should not allow accepting expired proposal', async () => {
-            const { configController, owner, users, tokens, baseToken, priceFeeds } = await makeConfigController();
-            const nonOwner = users[0];
-
+            const { configControllerFactory, configController, owner, curator, guardian, dao, sandboxController, marketFactory, tokens, baseToken, priceFeeds } = await makeConfigController();
             // Create a market
-            const { market } = await createMarket(
+            const marketAdress: string = await createMarket(
                 configController,
                 tokens,
                 baseToken,
                 priceFeeds
             );
-
             // Deploy a new controller for testing transfers
-            const { configController: newController } = await makeConfigController();
-
-            await configController.connect(owner).proposeMarketTransfer(market.address, newController.address);
+            const newConfigControllerAddress: string = await makeOnlyConfigController(
+                {
+                    owner: owner,
+                    curator: curator,
+                    guardian: guardian,
+                    dao: dao,
+                    sandboxController: sandboxController.address,
+                    marketFactory: marketFactory.address,
+                    configControllerFactory: configControllerFactory.address
+                }
+            );
+            await configController.connect(owner).proposeMarketTransfer(marketAdress, newConfigControllerAddress);
             
             // Fast forward past proposal duration
-            const proposal = await configController.marketTransferProposals(market.address);
+            const proposal = await configController.marketTransferProposals(marketAdress);
             const block = await ethers.provider.getBlock('latest');
             const timeToFastForward = Number(proposal.expiration) - block.timestamp + 1;
             await ethers.provider.send('evm_increaseTime', [timeToFastForward]);
             await ethers.provider.send('evm_mine', []);
             
-            await expect(configController.connect(owner).acceptMarketTransferProposal(market.address))
+            await expect(configController.connect(owner).acceptMarketTransferProposal(marketAdress))
                 .to.be.revertedWithCustomError(configController, 'ProposalExpired');
+        });
+    });
+
+    describe('Base Token Curve Proposal', () => {
+        it('should allow owner to propose base token curve', async () => {
+            const { configController, dao, sandboxController, owner, tokens, baseToken, priceFeeds } = await makeConfigController();
+            const marketAdress: string = await createMarket(
+                configController,
+                tokens,
+                baseToken,
+                priceFeeds
+            );  
+            /// Update the base token curve
+            await sandboxController.connect(dao).changeBaseAssetCurve(
+                baseToken.address, 
+                0, 
+                {
+                    supplyKink: BigNumber.from(factor(0.91)),
+                    supplyPerYearInterestRateBase: BigNumber.from(factor(0.01)),
+                    supplyPerYearInterestRateSlopeLow: BigNumber.from(factor(0.01)),
+                    supplyPerYearInterestRateSlopeHigh: BigNumber.from(factor(0.01)),
+                    borrowKink: BigNumber.from(factor(0.91)),
+                    borrowPerYearInterestRateBase: BigNumber.from(factor(0.01)),
+                    borrowPerYearInterestRateSlopeLow: BigNumber.from(factor(0.01)),
+                    borrowPerYearInterestRateSlopeHigh: BigNumber.from(factor(0.01)),
+                }
+            );
+            await configController.connect(owner).proposeUpdateBaseTokenCurve(marketAdress, 0);
+            const proposal = await configController.baseAssetsCurvesProposals(marketAdress);
+            const block = await ethers.provider.getBlock('latest');
+
+            expect(proposal.revertTime).to.equal(block.timestamp + 7 * 24 * 60 * 60);
+            expect(proposal.proposer).to.equal(owner.address);
+            expect(proposal.curveId).to.equal(0);
+        });
+
+        it('should allow curator to propose base token curve', async () => {
+            const { configController, dao, sandboxController, curator, tokens, baseToken, priceFeeds } = await makeConfigController();
+            const marketAdress: string = await createMarket(
+                configController,
+                tokens,
+                baseToken,
+                priceFeeds
+            );  
+            /// Update the base token curve
+            await sandboxController.connect(dao).changeBaseAssetCurve(
+                baseToken.address, 
+                0, 
+                {
+                    supplyKink: BigNumber.from(factor(0.91)),
+                    supplyPerYearInterestRateBase: BigNumber.from(factor(0.01)),
+                    supplyPerYearInterestRateSlopeLow: BigNumber.from(factor(0.01)),
+                    supplyPerYearInterestRateSlopeHigh: BigNumber.from(factor(0.01)),
+                    borrowKink: BigNumber.from(factor(0.91)),
+                    borrowPerYearInterestRateBase: BigNumber.from(factor(0.01)),
+                    borrowPerYearInterestRateSlopeLow: BigNumber.from(factor(0.01)),
+                    borrowPerYearInterestRateSlopeHigh: BigNumber.from(factor(0.01)),
+                }
+            );
+            await configController.connect(curator).proposeUpdateBaseTokenCurve(marketAdress, 0);
+            const proposal = await configController.baseAssetsCurvesProposals(marketAdress);
+            const block = await ethers.provider.getBlock('latest');
+            expect(proposal.revertTime).to.equal(block.timestamp + 7 * 24 * 60 * 60);
+            expect(proposal.proposer).to.equal(curator.address);
+            expect(proposal.curveId).to.equal(0);
+        });
+
+        it('should revert when non-owner/curator tries to propose', async () => {
+            const { configController, dao, sandboxController, users, tokens, baseToken, priceFeeds } = await makeConfigController();
+            const marketAdress: string = await createMarket(
+                configController,
+                tokens,
+                baseToken,
+                priceFeeds
+            );  
+            /// Update the base token curve
+            await sandboxController.connect(dao).changeBaseAssetCurve(
+                baseToken.address, 
+                0, 
+                {
+                    supplyKink: BigNumber.from(factor(0.91)),
+                    supplyPerYearInterestRateBase: BigNumber.from(factor(0.01)),
+                    supplyPerYearInterestRateSlopeLow: BigNumber.from(factor(0.01)),
+                    supplyPerYearInterestRateSlopeHigh: BigNumber.from(factor(0.01)),
+                    borrowKink: BigNumber.from(factor(0.91)),
+                    borrowPerYearInterestRateBase: BigNumber.from(factor(0.01)),
+                    borrowPerYearInterestRateSlopeLow: BigNumber.from(factor(0.01)),
+                    borrowPerYearInterestRateSlopeHigh: BigNumber.from(factor(0.01)),
+                }
+            );
+            await expect(configController.connect(users[0]).proposeUpdateBaseTokenCurve(marketAdress, 0))
+                .to.be.revertedWithCustomError(configController, 'Unauthorized');
+        });
+
+        it('should revert when market is not owned', async () => {
+            const { configController, owner } = await makeConfigController();
+            const randomAddress = ethers.Wallet.createRandom().address;
+            await expect(configController.connect(owner).proposeUpdateBaseTokenCurve(randomAddress, 0))
+                .to.be.revertedWithCustomError(configController, 'MarketNotOwned');
+        });
+
+        it('should revert when curve id is invalid', async () => {
+            const { configController, dao, sandboxController, owner, tokens, baseToken, priceFeeds } = await makeConfigController();
+            const marketAdress: string = await createMarket(
+                configController,
+                tokens,
+                baseToken,
+                priceFeeds
+            );  
+            /// Update the base token curve
+            await sandboxController.connect(dao).changeBaseAssetCurve(
+                baseToken.address, 
+                0, 
+                {
+                    supplyKink: BigNumber.from(factor(0.91)),
+                    supplyPerYearInterestRateBase: BigNumber.from(factor(0.01)),
+                    supplyPerYearInterestRateSlopeLow: BigNumber.from(factor(0.01)),
+                    supplyPerYearInterestRateSlopeHigh: BigNumber.from(factor(0.01)),
+                    borrowKink: BigNumber.from(factor(0.91)),
+                    borrowPerYearInterestRateBase: BigNumber.from(factor(0.01)),
+                    borrowPerYearInterestRateSlopeLow: BigNumber.from(factor(0.01)),
+                    borrowPerYearInterestRateSlopeHigh: BigNumber.from(factor(0.01)),
+                }
+            );
+            await expect(configController.connect(owner).proposeUpdateBaseTokenCurve(marketAdress, 1))
+                .to.be.revertedWithCustomError(configController, 'InvalidCurveId');
+        });
+
+        it('should revert when proposing same curve', async () => {
+            const { configController, owner, tokens, baseToken, priceFeeds } = await makeConfigController();
+            const marketAdress: string = await createMarket(
+                configController,
+                tokens,
+                baseToken,
+                priceFeeds
+            );  
+                        
+            await expect(configController.connect(owner).proposeUpdateBaseTokenCurve(marketAdress, 0))
+                .to.be.revertedWithCustomError(configController, 'SameCurve');
+        });
+
+        it('should allow owner to execute base token curve proposal', async () => {
+            const { configController, dao, sandboxController, owner, tokens, baseToken, priceFeeds } = await makeConfigController();
+            const marketAdress: string = await createMarket(
+                configController,
+                tokens,
+                baseToken,
+                priceFeeds
+            );  
+            
+            // Verify market is owned by controller
+            expect(await configController.marketId(marketAdress)).to.not.equal(0);
+            
+            /// Update the base token curve
+            await sandboxController.connect(dao).changeBaseAssetCurve(
+                baseToken.address, 
+                0, 
+                {
+                    supplyKink: BigNumber.from(factor(0.91)),
+                    supplyPerYearInterestRateBase: BigNumber.from(factor(0.01)),
+                    supplyPerYearInterestRateSlopeLow: BigNumber.from(factor(0.01)),
+                    supplyPerYearInterestRateSlopeHigh: BigNumber.from(factor(0.01)),
+                    borrowKink: BigNumber.from(factor(0.91)),
+                    borrowPerYearInterestRateBase: BigNumber.from(factor(0.01)),
+                    borrowPerYearInterestRateSlopeLow: BigNumber.from(factor(0.01)),
+                    borrowPerYearInterestRateSlopeHigh: BigNumber.from(factor(0.01)),
+                }
+            );
+            
+            // Propose the update
+            await configController.connect(owner).proposeUpdateBaseTokenCurve(marketAdress, 0);
+            
+            // Verify proposal exists
+            const proposal = await configController.baseAssetsCurvesProposals(marketAdress);
+            expect(proposal.revertTime).to.not.equal(0);
+            
+            // Fast forward time to after proposal period
+            await ethers.provider.send('evm_increaseTime', [7 * 24 * 60 * 60 + 1]);
+            await ethers.provider.send('evm_mine', []);
+            
+            // Execute the proposal
+            await configController.connect(owner).executeBaseTokenCurveProposal(marketAdress);
+            
+            // Verify proposal is deleted after execution
+            const updatedProposal = await configController.baseAssetsCurvesProposals(marketAdress);
+            expect(updatedProposal.revertTime).to.equal(0);
+            
+            // Verify market's base token curve ID is updated
+            expect(await configController.marketBaseTokenCurveId(marketAdress)).to.equal(0);
+        });
+
+        it('should allow curator to execute base token curve proposal', async () => {
+            const { configController, dao, sandboxController, curator, tokens, baseToken, priceFeeds } = await makeConfigController();
+            const marketAdress: string = await createMarket(
+                configController,
+                tokens,
+                baseToken,
+                priceFeeds
+            );  
+            /// Update the base token curve
+            await sandboxController.connect(dao).changeBaseAssetCurve(
+                baseToken.address, 
+                0, 
+                {
+                    supplyKink: BigNumber.from(factor(0.91)),
+                    supplyPerYearInterestRateBase: BigNumber.from(factor(0.01)),
+                    supplyPerYearInterestRateSlopeLow: BigNumber.from(factor(0.01)),
+                    supplyPerYearInterestRateSlopeHigh: BigNumber.from(factor(0.01)),
+                    borrowKink: BigNumber.from(factor(0.91)),
+                    borrowPerYearInterestRateBase: BigNumber.from(factor(0.01)),
+                    borrowPerYearInterestRateSlopeLow: BigNumber.from(factor(0.01)),
+                    borrowPerYearInterestRateSlopeHigh: BigNumber.from(factor(0.01)),
+                }
+            );
+            await configController.connect(curator).proposeUpdateBaseTokenCurve(marketAdress, 0);
+            
+            // Fast forward time to after proposal period
+            await ethers.provider.send('evm_increaseTime', [7 * 24 * 60 * 60 + 1]);
+            await ethers.provider.send('evm_mine', []);
+            
+            await configController.connect(curator).executeBaseTokenCurveProposal(marketAdress);
+            const proposal = await configController.baseAssetsCurvesProposals(marketAdress);
+            expect(proposal.revertTime).to.equal(0); // Proposal should be deleted after execution
+        });
+
+        it('should revert when non-owner/curator tries to execute', async () => {
+            const { configController, dao, sandboxController, owner, users, tokens, baseToken, priceFeeds } = await makeConfigController();
+            const marketAdress: string = await createMarket(
+                configController,
+                tokens,
+                baseToken,
+                priceFeeds
+            );  
+            /// Update the base token curve
+            await sandboxController.connect(dao).changeBaseAssetCurve(
+                baseToken.address, 
+                0, 
+                {
+                    supplyKink: BigNumber.from(factor(0.91)),
+                    supplyPerYearInterestRateBase: BigNumber.from(factor(0.01)),
+                    supplyPerYearInterestRateSlopeLow: BigNumber.from(factor(0.01)),
+                    supplyPerYearInterestRateSlopeHigh: BigNumber.from(factor(0.01)),
+                    borrowKink: BigNumber.from(factor(0.91)),
+                    borrowPerYearInterestRateBase: BigNumber.from(factor(0.01)),
+                    borrowPerYearInterestRateSlopeLow: BigNumber.from(factor(0.01)),
+                    borrowPerYearInterestRateSlopeHigh: BigNumber.from(factor(0.01)),
+                }
+            );
+            await configController.connect(owner).proposeUpdateBaseTokenCurve(marketAdress, 0);
+            
+            // Fast forward time to after proposal period
+            await ethers.provider.send('evm_increaseTime', [7 * 24 * 60 * 60 + 1]);
+            await ethers.provider.send('evm_mine', []);
+            
+            await expect(configController.connect(users[0]).executeBaseTokenCurveProposal(marketAdress))
+                .to.be.revertedWithCustomError(configController, 'Unauthorized');
+        });
+
+        it('should revert when no active proposal exists', async () => {
+            const { configController, owner, tokens, baseToken, priceFeeds } = await makeConfigController();
+            const marketAdress: string = await createMarket(
+                configController,
+                tokens,
+                baseToken,
+                priceFeeds
+            );  
+            
+            await expect(configController.connect(owner).executeBaseTokenCurveProposal(marketAdress))
+                .to.be.revertedWithCustomError(configController, 'NoActiveProposal');
+        });
+
+        it('should revert when trying to execute before proposal period ends', async () => {
+            const { configController, dao, sandboxController, owner, tokens, baseToken, priceFeeds } = await makeConfigController();
+            const marketAdress: string = await createMarket(
+                configController,
+                tokens,
+                baseToken,
+                priceFeeds
+            );  
+            /// Update the base token curve
+            await sandboxController.connect(dao).changeBaseAssetCurve(
+                baseToken.address, 
+                0, 
+                {
+                    supplyKink: BigNumber.from(factor(0.91)),
+                    supplyPerYearInterestRateBase: BigNumber.from(factor(0.01)),
+                    supplyPerYearInterestRateSlopeLow: BigNumber.from(factor(0.01)),
+                    supplyPerYearInterestRateSlopeHigh: BigNumber.from(factor(0.01)),
+                    borrowKink: BigNumber.from(factor(0.91)),
+                    borrowPerYearInterestRateBase: BigNumber.from(factor(0.01)),
+                    borrowPerYearInterestRateSlopeLow: BigNumber.from(factor(0.01)),
+                    borrowPerYearInterestRateSlopeHigh: BigNumber.from(factor(0.01)),
+                }
+            );
+            await configController.connect(owner).proposeUpdateBaseTokenCurve(marketAdress, 0);
+            
+            await expect(configController.connect(owner).executeBaseTokenCurveProposal(marketAdress))
+                .to.be.revertedWithCustomError(configController, 'ProposalNotReady');
+        });
+
+        it('should allow owner to cancel base token curve proposal', async () => {
+            const { configController, dao, sandboxController, owner, tokens, baseToken, priceFeeds } = await makeConfigController();
+            const marketAdress: string = await createMarket(
+                configController,
+                tokens,
+                baseToken, 
+                priceFeeds
+            );  
+            /// Update the base token curve
+            await sandboxController.connect(dao).changeBaseAssetCurve(
+                baseToken.address, 
+                0, 
+                {
+                    supplyKink: BigNumber.from(factor(0.91)),
+                    supplyPerYearInterestRateBase: BigNumber.from(factor(0.01)),
+                    supplyPerYearInterestRateSlopeLow: BigNumber.from(factor(0.01)),
+                    supplyPerYearInterestRateSlopeHigh: BigNumber.from(factor(0.01)),
+                    borrowKink: BigNumber.from(factor(0.91)),
+                    borrowPerYearInterestRateBase: BigNumber.from(factor(0.01)),
+                    borrowPerYearInterestRateSlopeLow: BigNumber.from(factor(0.01)),
+                    borrowPerYearInterestRateSlopeHigh: BigNumber.from(factor(0.01)),
+                }
+            );
+            await configController.connect(owner).proposeUpdateBaseTokenCurve(marketAdress, 0);
+            
+            await configController.connect(owner).cancelBaseTokenCurveProposal(marketAdress);
+            const proposal = await configController.baseAssetsCurvesProposals(marketAdress);
+            expect(proposal.revertTime).to.equal(0);
+        });
+
+        it('should revert when non-owner tries to cancel', async () => {
+            const { configController, dao, sandboxController, owner, users, tokens, baseToken, priceFeeds } = await makeConfigController();
+            const marketAdress: string = await createMarket(
+                configController,
+                tokens,
+                baseToken, 
+                priceFeeds
+            );  
+            /// Update the base token curve
+            await sandboxController.connect(dao).changeBaseAssetCurve(
+                baseToken.address, 
+                0, 
+                {
+                    supplyKink: BigNumber.from(factor(0.91)),
+                    supplyPerYearInterestRateBase: BigNumber.from(factor(0.01)),
+                    supplyPerYearInterestRateSlopeLow: BigNumber.from(factor(0.01)),
+                    supplyPerYearInterestRateSlopeHigh: BigNumber.from(factor(0.01)),
+                    borrowKink: BigNumber.from(factor(0.91)),
+                    borrowPerYearInterestRateBase: BigNumber.from(factor(0.01)),
+                    borrowPerYearInterestRateSlopeLow: BigNumber.from(factor(0.01)),
+                    borrowPerYearInterestRateSlopeHigh: BigNumber.from(factor(0.01)),
+                }
+            );
+            await configController.connect(owner).proposeUpdateBaseTokenCurve(marketAdress, 0);
+            await expect(configController.connect(users[0]).cancelBaseTokenCurveProposal(marketAdress))
+                .to.be.revertedWithCustomError(configController, 'Unauthorized');
+        });
+
+        it('should revert when no proposal exists', async () => {
+            const { configController, owner, tokens, baseToken, priceFeeds } = await makeConfigController();
+            const marketAdress: string = await createMarket(
+                configController,
+                tokens,
+                baseToken,  
+                priceFeeds
+            );  
+            
+            await expect(configController.connect(owner).cancelBaseTokenCurveProposal(marketAdress))
+                .to.be.revertedWithCustomError(configController, 'NoActiveProposal');
+        });
+
+        it('should allow guardian to cancel proposal', async () => {
+            const { configController, dao, owner, sandboxController, guardian, tokens, baseToken, priceFeeds } = await makeConfigController();
+            const marketAdress: string = await createMarket(
+                configController,
+                tokens,
+                baseToken,   
+                priceFeeds
+            );  
+            /// Update the base token curve
+            await sandboxController.connect(dao).changeBaseAssetCurve(
+                baseToken.address, 
+                0, 
+                {
+                    supplyKink: BigNumber.from(factor(0.91)),
+                    supplyPerYearInterestRateBase: BigNumber.from(factor(0.01)),
+                    supplyPerYearInterestRateSlopeLow: BigNumber.from(factor(0.01)),
+                    supplyPerYearInterestRateSlopeHigh: BigNumber.from(factor(0.01)),
+                    borrowKink: BigNumber.from(factor(0.91)),
+                    borrowPerYearInterestRateBase: BigNumber.from(factor(0.01)),
+                    borrowPerYearInterestRateSlopeLow: BigNumber.from(factor(0.01)),
+                    borrowPerYearInterestRateSlopeHigh: BigNumber.from(factor(0.01)),
+                }
+            );
+            await configController.connect(owner).proposeUpdateBaseTokenCurve(marketAdress, 0);
+
+            await configController.connect(guardian).cancelBaseTokenCurveProposal(marketAdress);
+            const proposal = await configController.baseAssetsCurvesProposals(marketAdress);
+            expect(proposal.revertTime).to.equal(0);
+        });
+
+        it('should revert when guardian tries to cancel after proposal period ends', async () => {
+            const { configController, dao, owner, sandboxController, guardian, tokens, baseToken, priceFeeds } = await makeConfigController();
+            const marketAdress: string = await createMarket(
+                configController,
+                tokens,
+                baseToken,     
+                priceFeeds
+            );  
+            /// Update the base token curve
+            await sandboxController.connect(dao).changeBaseAssetCurve(
+                baseToken.address, 
+                0, 
+                {
+                    supplyKink: BigNumber.from(factor(0.91)),
+                    supplyPerYearInterestRateBase: BigNumber.from(factor(0.01)),
+                    supplyPerYearInterestRateSlopeLow: BigNumber.from(factor(0.01)),
+                    supplyPerYearInterestRateSlopeHigh: BigNumber.from(factor(0.01)),
+                    borrowKink: BigNumber.from(factor(0.91)),
+                    borrowPerYearInterestRateBase: BigNumber.from(factor(0.01)),
+                    borrowPerYearInterestRateSlopeLow: BigNumber.from(factor(0.01)),
+                    borrowPerYearInterestRateSlopeHigh: BigNumber.from(factor(0.01)),
+                }
+            );
+            await configController.connect(owner).proposeUpdateBaseTokenCurve(marketAdress, 0);
+            // Fast forward time to after proposal period
+            await ethers.provider.send('evm_increaseTime', [7 * 24 * 60 * 60 + 1]);
+            await ethers.provider.send('evm_mine', []);
+
+            await expect(configController.connect(guardian).cancelBaseTokenCurveProposal(marketAdress))
+                .to.be.revertedWithCustomError(configController, 'ProposalNotRevertable');
+        });
+
+        it('should allow curator to cancel proposal if curator is proposer', async () => {
+            const { configController, dao, curator, sandboxController, guardian, tokens, baseToken, priceFeeds } = await makeConfigController();
+            const marketAdress: string = await createMarket(
+                configController,
+                tokens,
+                baseToken,     
+                priceFeeds
+            );  
+            /// Update the base token curve
+            await sandboxController.connect(dao).changeBaseAssetCurve(
+                baseToken.address, 
+                0, 
+                {
+                    supplyKink: BigNumber.from(factor(0.91)),
+                    supplyPerYearInterestRateBase: BigNumber.from(factor(0.01)),
+                    supplyPerYearInterestRateSlopeLow: BigNumber.from(factor(0.01)),
+                    supplyPerYearInterestRateSlopeHigh: BigNumber.from(factor(0.01)),
+                    borrowKink: BigNumber.from(factor(0.91)),
+                    borrowPerYearInterestRateBase: BigNumber.from(factor(0.01)),
+                    borrowPerYearInterestRateSlopeLow: BigNumber.from(factor(0.01)),
+                    borrowPerYearInterestRateSlopeHigh: BigNumber.from(factor(0.01)),
+                }
+            );
+            await configController.connect(curator).proposeUpdateBaseTokenCurve(marketAdress, 0);
+
+            await configController.connect(curator).cancelBaseTokenCurveProposal(marketAdress);
+            const proposal = await configController.baseAssetsCurvesProposals(marketAdress);
+            expect(proposal.revertTime).to.equal(0);
+        });
+
+        it('should revert when curator is not proposer and tries to cancel', async () => {
+            const { configController, dao, owner, curator, sandboxController, guardian, tokens, baseToken, priceFeeds } = await makeConfigController();
+            const marketAdress: string = await createMarket(
+                configController,
+                tokens,
+                baseToken,     
+                priceFeeds
+            );  
+            /// Update the base token curve
+            await sandboxController.connect(dao).changeBaseAssetCurve(
+                baseToken.address, 
+                0, 
+                {
+                    supplyKink: BigNumber.from(factor(0.91)),
+                    supplyPerYearInterestRateBase: BigNumber.from(factor(0.01)),
+                    supplyPerYearInterestRateSlopeLow: BigNumber.from(factor(0.01)),
+                    supplyPerYearInterestRateSlopeHigh: BigNumber.from(factor(0.01)),
+                    borrowKink: BigNumber.from(factor(0.91)),
+                    borrowPerYearInterestRateBase: BigNumber.from(factor(0.01)),
+                    borrowPerYearInterestRateSlopeLow: BigNumber.from(factor(0.01)),
+                    borrowPerYearInterestRateSlopeHigh: BigNumber.from(factor(0.01)),
+                }
+            );
+            await configController.connect(owner).proposeUpdateBaseTokenCurve(marketAdress, 0);
+
+            await configController.connect(curator).cancelBaseTokenCurveProposal(marketAdress);
+            const proposal = await configController.baseAssetsCurvesProposals(marketAdress);
+            expect(proposal.revertTime).to.equal(0);
         });
     });
 });

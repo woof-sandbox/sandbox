@@ -34,6 +34,7 @@ contract ConfigControllerFactory is IConfigControllerFactory {
     /// @return The address of the newly created ConfigController
     function createConfigController(
         address owner_,
+        address _curator,
         address guardian_,
         address _sandboxController,
         address _marketFactory,
@@ -49,6 +50,7 @@ contract ConfigControllerFactory is IConfigControllerFactory {
 
         IConfigController(configController).initialize(
             owner_,
+            _curator,
             guardian_,
             _sandboxController,
             _marketFactory,
