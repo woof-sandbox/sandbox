@@ -7,7 +7,7 @@ import {ISandboxController} from "./interfaces/ISandboxController.sol";
 
 /**
  * @title SandboxController
- * @dev Manages base asset configurations and interest rate curves.
+ * @dev Manages base asset configurations and interest rate baseAssetCurves.
  */
 contract SandboxController is ISandboxController {
     uint256 public override protocolFactorBorrow;
@@ -105,7 +105,7 @@ contract SandboxController is ISandboxController {
             _reserveFactorLiquidation == 0 ||
             (_protocolFactorLiquidation + _reserveFactorLiquidation) > 1e18 ||
             _maxCollateralAssets == 0 ||
-            _targetReserves > 5e17 ||
+            _targetPercent > 5e17 ||
             _storeFrontPriceFactor >= 1e18 ||
             _minUpdateTime == 0 ||
             _suggestedAmountOfSeedReserves == 0 ||
@@ -119,8 +119,8 @@ contract SandboxController is ISandboxController {
         protocolFactorLiquidation = _protocolFactorLiquidation;
         reserveFactorLiquidation = _reserveFactorLiquidation;
         maxCollateralAssets = _maxCollateralAssets;
-        targetReserves = _targetReserves;
-        _controllerConfiguration = SandboxControllerConfiguration(
+        controllerConfiguration = SandboxControllerConfiguration(
+            _targetPercent,
             _storeFrontPriceFactor,
             _minUpdateTime,
             _suggestedAmountOfSeedReserves,
@@ -232,7 +232,7 @@ contract SandboxController is ISandboxController {
             revert ZeroAddress();
         }
         if (isBaseTokenWhitelisted(token)) {
-            revert TokenAlreadyWhitelisted();
+            revert BaseTokenAlreadyWhitelisted();
         }
         if (isPriceFeedWhitelisted[priceFeed]) {
             revert PriceFeedAlreadyWhitelisted();
@@ -258,6 +258,9 @@ contract SandboxController is ISandboxController {
         baseAssetCount++;
 
         isPriceFeedWhitelisted[priceFeed] = true;
+        isCurveConfigurationWhitelisted[
+            token.encodeCurve(baseAssetCurve)
+        ] = true;
 
         emit BaseAssetWhitelisted(
             token,
@@ -294,7 +297,7 @@ contract SandboxController is ISandboxController {
             revert ZeroAddress();
         }
         if (isCollateralTokenWhitelisted(token)) {
-            revert TokenAlreadyWhitelisted();
+            revert CollateralTokenAlreadyWhitelisted();
         }
         if (isPriceFeedWhitelisted[priceFeed]) {
             revert PriceFeedAlreadyWhitelisted();
@@ -312,12 +315,12 @@ contract SandboxController is ISandboxController {
         ) {
             revert InvalidFactors();
         }
-        
+
         (, int256 answer, , , ) = IPriceFeed(priceFeed).latestRoundData();
         if (answer <= 0) {
             revert InvalidPriceFeed();
         }
-    
+
         uint256 decimals = IERC20NonStandard(token).decimals();
 
         _collateralAssets[token].collateralToken = token;
@@ -395,7 +398,7 @@ contract SandboxController is ISandboxController {
     ) external override onlyAuthorized {
         if (token == address(0)) revert ZeroAddress();
         if (!isBaseTokenWhitelisted(token)) {
-            revert TokenNotWhitelisted();
+            revert BaseTokenNotWhitelisted();
         }
         if (!isCurveConfigurationValid(baseAssetCurve)) {
             revert InvalidCurveConfiguration();
@@ -420,7 +423,7 @@ contract SandboxController is ISandboxController {
             revert ZeroAddress();
         }
         if (!isBaseTokenWhitelisted(token)) {
-            revert TokenNotWhitelisted();
+            revert BaseTokenNotWhitelisted();
         }
         if (
             curveIndex >= _baseAssets[token].baseAssetCurves.length ||
@@ -493,10 +496,18 @@ contract SandboxController is ISandboxController {
     function isCurveConfigurationValid(
         BaseAssetCurve memory curve
     ) public pure override returns (bool) {
-        if (curve.supplyKink >= 1e18 || curve.borrowKink >= 1e18) {
+
+        if (curve.supplyKink == 0 || curve.borrowKink == 0 || curve.supplyKink >= 1e18 || curve.borrowKink >= 1e18) {
             return false;
         }
-        if (curve.borrowPerYearInterestRateBase == 0) {
+
+        if (
+            curve.supplyPerYearInterestRateSlopeLow == 0 ||
+            curve.supplyPerYearInterestRateSlopeHigh == 0 ||
+            curve.supplyPerYearInterestRateBase == 0 ||
+            curve.borrowPerYearInterestRateSlopeLow == 0 ||
+            curve.borrowPerYearInterestRateSlopeHigh == 0 
+        ) {
             return false;
         }
 
@@ -526,11 +537,11 @@ contract SandboxController is ISandboxController {
     }
 
     /**
-     * @notice Returns base asset curves for a given token.
+     * @notice Returns base asset baseAssetCurves for a given token.
      * @param token The address of the base asset token.
-     * @return The base asset curves.
+     * @return The base asset baseAssetCurves.
      */
-    function getBaseAssetCurves(
+    function curves(
         address token
     ) external view override returns (BaseAssetCurve[] memory) {
         return _baseAssets[token].baseAssetCurves;
@@ -538,5 +549,25 @@ contract SandboxController is ISandboxController {
 
     function controllerConfiguration() external view override returns (SandboxControllerConfiguration memory) {
         return _controllerConfiguration;
+    }
+    /**
+     * @notice Returns the minimum borrow amount for a given base asset token.
+     * @param token The address of the base asset token.
+     * @return The minimum borrow amount.
+     */
+    function borrowMin(address token) external view returns (uint256) {
+        return _baseAssets[token].minBorrow;
+    }
+
+    /**
+     * @notice Returns the configuration of the sandbox controller.
+     * @return The sandbox controller configuration.
+     */
+    function config()
+        external
+        view
+        returns (SandboxControllerConfiguration memory)
+    {
+        return controllerConfiguration;
     }
 }

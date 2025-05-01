@@ -51,7 +51,7 @@ contract ConfigController is IConfigController, Initializable {
 
     /// @notice The name of this controller
     string public override name;
-    
+
     /// @notice Mapping of token => address => unclaimed revenue
     mapping(address => mapping(address => uint)) public unclaimedRevenue;
     
@@ -84,6 +84,7 @@ contract ConfigController is IConfigController, Initializable {
 
     /// @notice Mapping of market => active market configuration proposal
     mapping(address => MarketConfigProposal) public _marketProposals;
+    mapping(address => MarketConfig) public _marketConfigs;
 
     /// @notice Mapping of market => active market transfer proposal
     mapping(address => MarketTransferProposal) public _marketTransferProposals;
@@ -91,18 +92,6 @@ contract ConfigController is IConfigController, Initializable {
     /// @notice Modifier to restrict access to owner only
     modifier onlyOwner() {
         if (msg.sender != owner) revert Unauthorized();
-        _;
-    }
-
-    /// @notice Modifier to restrict access to owner or curator
-    modifier onlyOwnerOrCurator() {
-        if (msg.sender != owner && msg.sender != curator) revert Unauthorized();
-        _;
-    }
-
-    /// @notice Modifier to restrict access to guardian only
-    modifier onlyGuardian() {
-        if (msg.sender != guardian) revert Unauthorized();
         _;
     }
 
@@ -115,6 +104,7 @@ contract ConfigController is IConfigController, Initializable {
     constructor() {
         _disableInitializers();
     }
+
 
     /// @notice Initializes the ConfigController contract
     /// @param _owner The address of the protocol owner
@@ -130,6 +120,7 @@ contract ConfigController is IConfigController, Initializable {
         address _curator,
         address _guardian,
         address _sandboxController,
+        address _cometImplementation,
         address _marketFactory,
         uint _curatorFee,
         string memory _name,
@@ -254,10 +245,10 @@ contract ConfigController is IConfigController, Initializable {
     /// @param _curatorFee New curator fee in basis points (1% = 100). Must not exceed 10000 (100%)
     function setCuratorFee(uint _curatorFee) external override onlyOwner {
         if (_curatorFee > 10000) revert InvalidFeePercentage();
-        
+
         uint oldFee = curatorFee;
         curatorFee = _curatorFee;
-        
+
         emit CuratorFeeUpdated(oldFee, _curatorFee);
     }
 
@@ -282,17 +273,17 @@ contract ConfigController is IConfigController, Initializable {
             emit RevenueAccumulated(token, amount);
             return;
         }
-        
+
         uint curatorAmount = (amount * curatorFee) / 10000;
         uint ownerAmount = amount - curatorAmount;
-        
+
         if (curatorAmount > 0) {
             unclaimedRevenue[token][curator] += curatorAmount;
         }
         if (ownerAmount > 0) {
             unclaimedRevenue[token][owner] += ownerAmount;
         }
-        
+
         emit RevenueAccumulated(token, amount);
     }
 
@@ -301,13 +292,13 @@ contract ConfigController is IConfigController, Initializable {
     /// @param token The ERC20 token address to claim
     function claimRevenue(address token) external override {
         if (token == ZERO_ADDRESS) revert ZeroAddress();
-        
+
         uint amount = unclaimedRevenue[token][msg.sender];
         if (amount == 0) revert InsufficientBalance();
-        
+
         unclaimedRevenue[token][msg.sender] = 0;
         IERC20(token).transfer(msg.sender, amount);
-        
+
         emit RevenueClaimed(token, msg.sender, amount);
     }
 
@@ -339,7 +330,10 @@ contract ConfigController is IConfigController, Initializable {
     /// @param token The ERC20 token address
     /// @param account The address to check balance for
     /// @return The unclaimed balance
-    function getUnclaimedRevenue(address token, address account) external view override returns (uint) {
+    function getUnclaimedRevenue(
+        address token,
+        address account
+    ) external view override returns (uint) {
         return unclaimedRevenue[token][account];
     }
 
@@ -357,7 +351,8 @@ contract ConfigController is IConfigController, Initializable {
         if (_marketConfig.baseTokenCurveId >= baseAssetConfig.baseAssetCurves.length) revert WrongCurveParams();
         uint length = _marketConfig.collateraTokens.length;
         CollateralTokenConfig memory collateralTokenConfig;
-        ISandboxController.CollateralAssetConfiguration memory collateralAssetLimitations;
+        ISandboxController.CollateralAssetConfiguration
+            memory collateralAssetLimitations;
         address[] memory addedCollateralTokens = new address[](length);
         for (uint i; i < length;) {
             unchecked {
@@ -366,12 +361,12 @@ contract ConfigController is IConfigController, Initializable {
                 
                 if (collateralTokenConfig.collateralToken == _marketConfig.baseToken) revert WrongCollateralTokenSettings(); 
                 _validateCollateralTokenConfig(
-                    collateralTokenConfig, 
-                    collateralAssetLimitations, 
+                    _marketConfig.collateralTokens[i],
+                    collateralAssetLimitations,
                     addedCollateralTokens
                 );
-                
-                addedCollateralTokens[i] = collateralTokenConfig.collateralToken;
+
+                addedCollateralTokens[i] = collateralToken;
                 i++;
             }
         }   
@@ -417,7 +412,7 @@ contract ConfigController is IConfigController, Initializable {
         }
         if (_proposedCurator == ZERO_ADDRESS) revert ZeroAddress();
         if (_proposedCurator == curator) revert InvalidCurator();
-        
+
         proposedCurator = _proposedCurator;
         curatorProposalExpiry = block.timestamp + curatorProposalDuration;
         
@@ -429,12 +424,12 @@ contract ConfigController is IConfigController, Initializable {
     function acceptCuratorRole() external {
         if (msg.sender != proposedCurator) revert Unauthorized();
         if (block.timestamp > curatorProposalExpiry) revert ProposalExpired();
-        
+
         address oldCurator = curator;
         curator = proposedCurator;
         proposedCurator = ZERO_ADDRESS;
         curatorProposalExpiry = 0;
-        
+
         emit CuratorAccepted(oldCurator, curator);
     }
 
@@ -442,11 +437,11 @@ contract ConfigController is IConfigController, Initializable {
     /// @dev Only callable by the owner. Emits a CuratorProposalCancelled event
     function cancelCuratorProposal() external onlyOwner {
         if (proposedCurator == ZERO_ADDRESS) revert NoActiveProposal();
-        
+
         address cancelledProposal = proposedCurator;
         proposedCurator = ZERO_ADDRESS;
         curatorProposalExpiry = 0;
-        
+
         emit CuratorProposalCancelled(cancelledProposal);
     }
 
@@ -464,7 +459,7 @@ contract ConfigController is IConfigController, Initializable {
     function setGuardian(address _newGuardian) external override onlyOwner {
         address oldGuardian = guardian;
         guardian = _newGuardian;
-        
+
         emit GuardianUpdated(oldGuardian, _newGuardian);
     }
 
@@ -473,8 +468,8 @@ contract ConfigController is IConfigController, Initializable {
     /// @param market The address of the market
     /// @param _collateralTokens The new collateral tokens configuration
     function proposeMarketCollateralTokens(
-        address market, 
-        IConfigController.CollateralTokenConfig[] memory _collateralTokens
+        address market,
+        IConfigController.CollateralToken[] memory _collateralTokens
     ) external {
         if (market == ZERO_ADDRESS) revert ZeroAddress();
         if (_collateralTokens.length == 0) revert ZeroCollateralAssets();
@@ -482,24 +477,30 @@ contract ConfigController is IConfigController, Initializable {
         if (_marketProposals[market].revertTime > 0) revert ProposalExists();
 
         uint length = _collateralTokens.length;
-        IConfigController.CollateralTokenConfig memory collateralTokenConfig;
-        ISandboxController.CollateralAssetConfiguration memory collateralAssetLimitations;
+        ISandboxController.CollateralAssetConfiguration
+            memory collateralAssetLimitations;
         address[] memory addedCollateralTokens = new address[](length);
-        for (uint i; i < length;) {
+        for (uint i; i < length; ) {
             unchecked {
-                collateralTokenConfig = _collateralTokens[i];
-                collateralAssetLimitations = ISandboxController(sandboxController).collateralAssets(collateralTokenConfig.collateralToken);
-                
+                collateralAssetLimitations = ISandboxController(
+                    sandboxController
+                ).collateralAssets(_collateralTokens[i].collateralToken);
+
                 _validateCollateralTokenConfig(
-                    collateralTokenConfig, 
-                    collateralAssetLimitations, 
+                    _collateralTokens[i],
+                    collateralAssetLimitations,
                     addedCollateralTokens
                 );
-                
-                addedCollateralTokens[i] = collateralTokenConfig.collateralToken;
+
+                addedCollateralTokens[i] = _collateralTokens[i].collateralToken;
                 i++;
             }
         }
+
+        bytes memory callData = abi.encodeWithSelector(
+            ISandboxMarket.setCollateralTokens.selector,
+            _collateralTokens
+        );
 
         _marketProposals[market] = MarketConfigProposal({
             market: market,
@@ -530,8 +531,8 @@ contract ConfigController is IConfigController, Initializable {
         emit MarketConfigProposalCancelled(market, msg.sender); 
     }
 
-    /// @notice Executes an active proposal
-    /// @dev Can be called by anyone after proposal period
+    /// @notice Executes a market configuration proposal
+    /// @dev Can be called by anyone after the proposal expiration
     /// @param market The address of the market
     function executeMarketConfigProposal(address market) external proposalExists(market) onlyOwnerOrCurator {
         MarketConfigProposal memory proposal = _marketProposals[market];

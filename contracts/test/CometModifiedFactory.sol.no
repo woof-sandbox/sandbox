@@ -2,7 +2,7 @@
 pragma solidity 0.8.28;
 
 import "./CometModified.sol";
-import "../CometConfiguration.sol";
+import "../interfaces/ICometConfiguration.sol";
 
 contract CometModifiedFactory is CometConfiguration {
     function clone(Configuration calldata config) external returns (address) {

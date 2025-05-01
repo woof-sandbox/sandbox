@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
-
 import "./ISandboxController.sol";
+import "./ISandboxErrors.sol";
 
 abstract contract IConfigController {
     /// @notice Market transfer proposal
@@ -24,17 +24,35 @@ abstract contract IConfigController {
         uint256 revertTime;
         address proposer;
     }
-    
+
     struct MarketConfig {
         address baseToken;
+        BaseTokenConfig config;
+        CollateralToken[] collateralTokens;
+        MarketOptions options;
+    }
+
+    struct BaseTokenConfig {
         address priceFeed;
-        CollateralTokenConfig[] collateraTokens;
-        uint baseTokenCurveId;
+        uint256 decimals;
+        ISandboxController.BaseAssetCurve curve;
+    }
+
+    struct CollateralToken {
+        address collateralToken;
+        CollateralTokenConfig config;
+    }
+
+    struct MarketOptions {
+        uint256 baseTrackingSupplySpeed;
+        uint256 baseTrackingBorrowSpeed;
+        uint256 trackingIndexScale;
+        uint256 baseMinForRewards;
     }
 
     struct CollateralTokenConfig {
-        address collateralToken;
         address priceFeed;
+        uint8 decimals;
         uint64 borrowCollateralFactor;
         uint64 liquidateCollateralFactor;
         uint64 liquidationFactor;
@@ -98,6 +116,7 @@ abstract contract IConfigController {
         uint marketId,
         uint baseTokenCurveId
     );
+
     event AddedCollateralTokenConfig(
         address asset,
         address priceFeed,
@@ -117,7 +136,7 @@ abstract contract IConfigController {
         uint64 borrowPerSecondInterestRateSlopeLow,
         uint64 borrowPerSecondInterestRateSlopeHigh,
         uint64 borrowPerSecondInterestRateBase,
-        uint64 storeFrontPriceFactor    
+        uint64 storeFrontPriceFactor
     );
 
     event CuratorFeeUpdated(uint oldFee, uint newFee);
@@ -126,21 +145,24 @@ abstract contract IConfigController {
         uint curatorAmount,
         uint ownerAmount
     );
-    event RevenueAccumulated(
-        address token,
-        uint amount
+    event RevenueAccumulated(address token, uint amount);
+    event RevenueClaimed(address token, address recipient, uint amount);
+    event CuratorProposed(
+        address indexed currentCurator,
+        address indexed proposedCurator,
+        uint expiry
     );
-    event RevenueClaimed(
-        address token,
-        address recipient,
-        uint amount
+    event CuratorAccepted(
+        address indexed oldCurator,
+        address indexed newCurator
     );
-    event CuratorProposed(address indexed currentCurator, address indexed proposedCurator, uint expiry);
-    event CuratorAccepted(address indexed oldCurator, address indexed newCurator);
     event CuratorCanceled(address indexed oldCurator);
     event CuratorProposalCancelled(address indexed proposedCurator);
-    event GuardianUpdated(address indexed oldGuardian, address indexed newGuardian);
-    
+    event GuardianUpdated(
+        address indexed oldGuardian,
+        address indexed newGuardian
+    );
+
     /// @notice Events for proposal system
     event MarketConfigProposed(
         address indexed market,
@@ -210,22 +232,23 @@ abstract contract IConfigController {
 
     /// @notice Returns the current curator fee in basis points (1% = 100)
     /// @return The curator fee value
-    function curatorFee() virtual external view returns (uint);
+    function curatorFee() external view virtual returns (uint);
 
     /// @notice Sets a new curator fee
     /// @dev Only callable by the owner
     /// @param _curatorFee New curator fee in basis points (1% = 100). Must not exceed 10000 (100%)
-    function setCuratorFee(uint _curatorFee) virtual external;
+    function setCuratorFee(uint _curatorFee) external virtual;
+
     /// @notice Accumulates revenue in the contract
     /// @dev Anyone can call this function to add revenue
     /// @param token The ERC20 token address to accumulate
     /// @param amount The amount of tokens to accumulate
-    function accumulateRevenue(address token, uint amount) virtual external;
+    function accumulateRevenue(address token, uint amount) external virtual;
 
     /// @notice Claims accumulated revenue for the caller
     /// @dev Can be called by owner or curator to claim their share
     /// @param token The ERC20 token address to claim
-    function claimRevenue(address token) virtual external;
+    function claimRevenue(address token) external virtual;
 
     /// @notice Claims accumulated revenue for all tokens for the caller
     /// @dev Can be called by anyone to claim their share of all revenue tokens
@@ -240,32 +263,53 @@ abstract contract IConfigController {
     /// @param token The ERC20 token address
     /// @param account The address to check balance for
     /// @return The unclaimed balance
-    function getUnclaimedRevenue(address token, address account) virtual external view returns (uint);
+    function getUnclaimedRevenue(
+        address token,
+        address account
+    ) external view virtual returns (uint);
 
-    function curator() virtual external view returns (address);
-    function owner() virtual external view returns (address);
-    function guardian() virtual external view returns (address);
-    function sandboxController() virtual external view returns (address);
-    function marketFactory() virtual external view returns (address);
-    function markets(uint) virtual external view returns (address);
-    function marketsLength() virtual external view returns (uint);
-    function proposedCurator() virtual external view returns (address);
-    function curatorProposalExpiry() virtual external view returns (uint);
-    function name() virtual external view returns (string memory);
-    
-    /// @notice Returns the market configuration proposal for a given market
-    /// @param market The address of the market
-    /// @return The market configuration proposal
-    function marketProposals(address market) virtual external view returns (MarketConfigProposal memory);
-    
+    function curator() external view virtual returns (address);
+
+    function owner() external view virtual returns (address);
+
+    function guardian() external view virtual returns (address);
+
+    function sandboxController() external view virtual returns (address);
+
+    function marketFactory() external view virtual returns (address);
+
+    function markets(uint) external view virtual returns (address);
+
+    function marketsLength() external view virtual returns (uint);
+
+    function proposedCurator() external view virtual returns (address);
+
+    function curatorProposalExpiry() external view virtual returns (uint);
+
+    function name() external view virtual returns (string memory);
+
+    function getAssetConfig(
+        address market,
+        uint256 index
+    ) external view virtual returns (CollateralToken memory);
+
+    function getAssetConfigByAddress(
+        address market,
+        address asset
+    ) external view virtual returns (CollateralToken memory, uint8 index);
+
+    function marketProposals(
+        address market
+    ) external view virtual returns (MarketConfigProposal memory);
+
     /// @notice Removes the current curator
     /// @dev Only callable by the owner
-    function removeCurator() virtual external;
+    function removeCurator() external virtual;
 
     /// @notice Sets a new guardian address
     /// @dev Only callable by the owner
     /// @param _newGuardian The address of the new guardian
-    function setGuardian(address _newGuardian) virtual external;
+    function setGuardian(address _newGuardian) external virtual;
 
     /// @notice Creates a new market with the specified configuration
     /// @dev Only callable by the owner

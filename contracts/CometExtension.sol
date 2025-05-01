@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
-import "./CometInterface.sol";
+import "./interfaces/ICometExtension.sol";
 
-contract CometExt is CometExtInterface {
+contract CometExtension is ICometExtension {
     /** Public constants **/
 
+    
     /// @notice The major version of this contract
     string public override constant version = "0";
 
@@ -20,7 +21,6 @@ contract CometExt is CometExtInterface {
     /// @dev The highest valid value for s in an ECDSA signature pair (0 < s < secp256k1n ÷ 2 + 1)
     ///  See https://ethereum.github.io/yellowpaper/paper.pdf #307)
     uint internal constant MAX_VALID_ECDSA_S = 0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5D576E7357A4501DDFE92F46681B20A0;
-
     /** Immutable symbol **/
 
     /// @dev The ERC20 name for wrapped base token
@@ -28,14 +28,14 @@ contract CometExt is CometExtInterface {
 
     /// @dev The ERC20 symbol for wrapped base token
     bytes32 internal immutable symbol32;
-
+    
     /**
      * @notice Construct a new protocol instance
-     * @param config The mapping of initial/constant parameters
+     * @param _name32 The ERC20 name for wrapped base token
      **/
-    constructor(ExtConfiguration memory config) {
-        name32 = config.name32;
-        symbol32 = config.symbol32;
+    constructor(bytes32 _name32, bytes32 _symbol32) {
+        name32 = _name32;
+        symbol32 = _symbol32;
     }
 
     /** External getters for internal constants **/
@@ -44,7 +44,7 @@ contract CometExt is CometExtInterface {
     function baseIndexScale() override external pure returns (uint64) { return BASE_INDEX_SCALE; }
     function factorScale() override external pure returns (uint64) { return FACTOR_SCALE; }
     function priceScale() override external pure returns (uint64) { return PRICE_SCALE; }
-    function maxAssets() override virtual external pure returns (uint8) { return MAX_ASSETS; }
+    function maxAssets() override external pure returns (uint8) { return MAX_ASSETS; }
 
     /**
      * @notice Aggregate variables tracked for the entire market

@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
-abstract contract ISandboxController {
+import "./ISandboxErrors.sol";
+
+interface ISandboxController is ISandboxErrors {
     enum MarketState {
         Low,
         Medium,
@@ -39,23 +41,12 @@ abstract contract ISandboxController {
     }
 
     struct SandboxControllerConfiguration {
+        uint256 targetPercent;
         uint256 storeFrontPriceFactor;
         uint256 minUpdateTime;
         uint256 suggestedAmountOfSeedReserves;
         uint256 suggestedLockTimeOfSeedReserves;
     }
-
-    error ZeroAddress();
-    error InvalidFactors();
-    error NotOwner(address);
-    error NotDao(address);
-    error NotAuthorized(address);
-    error TokenAlreadyWhitelisted();
-    error PriceFeedAlreadyWhitelisted();
-    error InvalidCurveConfiguration();
-    error InvalidPriceFeed();
-    error TokenNotWhitelisted();
-
     event BaseAssetWhitelisted(
         address indexed token,
         address indexed priceFeed,
@@ -113,6 +104,7 @@ abstract contract ISandboxController {
         uint256 minBorrow
     ) external virtual;
 
+     error Test();
     function whitelistCollateralAsset(
         address token,
         address priceFeed,
