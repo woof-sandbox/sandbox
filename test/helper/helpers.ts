@@ -29,8 +29,6 @@ import {
   Configurator__factory,
   ConfigController__factory,
   ConfigController,
-  MockSandboxController__factory,
-  MockSandboxController,
   CometHarnessInterface,
   CometInterface,
   NonStandardFaucetFeeToken,
@@ -43,7 +41,6 @@ import {
   IMarket,
   AssetListFactory,
   AssetListFactory__factory,
-  CometHarnessExtendedAssetList__factory,
   CometHarnessInterfaceExtendedAssetList as CometSandbox,
   ConfigControllerFactory
 } from '../../build/types';

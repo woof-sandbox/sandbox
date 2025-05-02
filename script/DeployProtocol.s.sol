@@ -5,7 +5,7 @@ import "forge-std/Script.sol";
 import "../contracts/SandboxController.sol";
 import "../contracts/ConfigControllerFactory.sol";
 import "../contracts/MarketFactory.sol";
-import "../contracts/MarketMock.sol";
+import "../contracts/SandboxComet.sol";
 import "../contracts/test/ManagedFaucetToken.sol";
 import "../contracts/test/ManagedSimplePriceFeed.sol";
 
@@ -22,13 +22,13 @@ contract DeployProtocol is Script {
         address marketImplementation = deployMarketImplementation();
         address configControllerImplementation = deployConfigControllerImplementation();
 
-        // Deploy factories
-        address configControllerFactory = deployConfigControllerFactory(configControllerImplementation);
-        address marketFactory = deployMarketFactory(marketImplementation, configControllerFactory);
-        
         // Deploy SandboxController
         address sandboxController = deploySandboxController(owner);
-
+        
+        // Deploy factories
+        address configControllerFactory = deployConfigControllerFactory(configControllerImplementation);
+        address marketFactory = deployMarketFactory(marketImplementation, configControllerFactory, sandboxController);
+        
         // Deploy test tokens and price feeds
         (address baseToken, address basePriceFeed) = deployBaseAsset();
         (address collateralToken, address collateralPriceFeed) = deployCollateralAsset();
@@ -73,7 +73,7 @@ contract DeployProtocol is Script {
 
     function deployMarketImplementation() internal returns (address) {
         // Deploy Market implementation contract
-        MarketMock market = new MarketMock();
+        SandboxComet market = new SandboxComet();
         return address(market);
     }
 
@@ -83,11 +83,12 @@ contract DeployProtocol is Script {
         return address(configController);
     }
 
-    function deployMarketFactory(address marketImplementation, address configControlllerFactory) internal returns (address) {
+    function deployMarketFactory(address marketImplementation, address configControlllerFactory, address sandboxController) internal returns (address) {
         // Deploy MarketFactory
         MarketFactory marketFactory = new MarketFactory(
             marketImplementation,
-            configControlllerFactory
+            configControlllerFactory,
+            sandboxController
         );
         return address(marketFactory);
     }
@@ -125,14 +126,14 @@ contract DeployProtocol is Script {
         ManagedFaucetToken baseToken = new ManagedFaucetToken(
             1e24, // initialAmount
             "Test Base Token",
-            18, // decimals
+            8, // decimals
             "TBT"
         );
 
         // Deploy price feed for base token
         ManagedSimplePriceFeed basePriceFeed = new ManagedSimplePriceFeed(
             1e18, // initial price: 1.0
-            18 // decimals
+            8 // decimals
         );
 
         return (address(baseToken), address(basePriceFeed));
@@ -143,14 +144,14 @@ contract DeployProtocol is Script {
         ManagedFaucetToken collateralToken = new ManagedFaucetToken(
             1e24, // initialAmount
             "Test Collateral Token",
-            18, // decimals
+            8, // decimals
             "TCT"
         );
 
         // Deploy price feed for collateral token
         ManagedSimplePriceFeed collateralPriceFeed = new ManagedSimplePriceFeed(
             1e18, // initial price: 1.0
-            18 // decimals
+            8 // decimals
         );
 
         return (address(collateralToken), address(collateralPriceFeed));
@@ -215,6 +216,7 @@ contract DeployProtocol is Script {
         // Create new ConfigController instance
         address configController = factory.createConfigController(
             owner, // owner
+            owner, // curator
             owner, // guardian
             sandboxController,
             marketFactory,
@@ -253,7 +255,7 @@ contract DeployProtocol is Script {
         IConfigController.MarketConfig memory marketConfig = IConfigController.MarketConfig({
             baseToken: baseToken,
             priceFeed: basePriceFeed,
-            collateraTokens: collateralTokens,
+            collateralTokens: collateralTokens,
             baseTokenCurveId: 0 // Use first curve
         });
 

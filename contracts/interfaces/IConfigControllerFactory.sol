@@ -28,7 +28,8 @@ abstract contract IConfigControllerFactory {
         uint curatorFee,
         string name,
         uint curatorProposalDuration,
-        uint proposalDuration
+        uint proposalDuration,
+        uint controllerId
     );
 
     /// @notice Returns the implementation address used for cloning

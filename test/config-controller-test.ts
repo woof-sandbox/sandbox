@@ -37,13 +37,13 @@ describe('ConfigController', () => {
         let marketConfig: MarketConfigStruct = {
             baseToken: baseToken.address,
             priceFeed: priceFeeds[await baseToken.symbol()].address,
-            collateraTokens: [],
+            collateralTokens: [],
             baseTokenCurveId: 0n
         }
 
         for (let token in tokens) {
             if (token != await baseToken.symbol()) {
-                marketConfig.collateraTokens.push(
+                marketConfig.collateralTokens.push(
                     {
                         collateralToken: tokens[token].address,
                         priceFeed: priceFeeds[token].address,
@@ -231,13 +231,13 @@ describe('ConfigController', () => {
             let marketConfig: MarketConfigStruct = {
                 baseToken: baseToken.address,
                     priceFeed: priceFeeds[await baseToken.symbol()].address,
-                        collateraTokens: [],
+                        collateralTokens: [],
                         baseTokenCurveId: 0n
             }
 
             for (let token in tokens) {
                 if (token != await baseToken.symbol()) {
-                    marketConfig.collateraTokens.push(
+                    marketConfig.collateralTokens.push(
                         {
                             collateralToken: tokens[token].address,
                             priceFeed: priceFeeds[token].address,
@@ -292,12 +292,12 @@ describe('ConfigController', () => {
                     // Check that token is whitelisted only one time.
                     expect(whitelistedCollateralAddresses.filter(addr => addr === tokens[token].address).length).to.equal(1);
                     // Default check for collateral token config.
-                    expect(marketConfig.collateraTokens[index].collateralToken).to.eq(tokens[token].address);
-                    expect(marketConfig.collateraTokens[index].priceFeed).to.eq(priceFeeds[token].address);
-                    expect(marketConfig.collateraTokens[index].borrowCollateralFactor).to.eq(factor(0.6));
-                    expect(marketConfig.collateraTokens[index].liquidateCollateralFactor).to.eq(factor(0.7));
-                    expect(marketConfig.collateraTokens[index].liquidationFactor).to.eq(factor(0.8));
-                    expect(marketConfig.collateraTokens[index].supplyCap).to.eq(exp(1_000_000, 6));
+                    expect(marketConfig.collateralTokens[index].collateralToken).to.eq(tokens[token].address);
+                    expect(marketConfig.collateralTokens[index].priceFeed).to.eq(priceFeeds[token].address);
+                    expect(marketConfig.collateralTokens[index].borrowCollateralFactor).to.eq(factor(0.6));
+                    expect(marketConfig.collateralTokens[index].liquidateCollateralFactor).to.eq(factor(0.7));
+                    expect(marketConfig.collateralTokens[index].liquidationFactor).to.eq(factor(0.8));
+                    expect(marketConfig.collateralTokens[index].supplyCap).to.eq(exp(1_000_000, 6));
                     index++;
                 }
             }
@@ -328,13 +328,13 @@ describe('ConfigController', () => {
             let marketConfig: MarketConfigStruct = {
                 baseToken: baseToken.address,
                     priceFeed: priceFeeds[await baseToken.symbol()].address,
-                        collateraTokens: [],
+                        collateralTokens: [],
                         baseTokenCurveId: 0n
             }
 
             for (let token in tokens) {
                 if (token != await baseToken.symbol()) {
-                    marketConfig.collateraTokens.push(
+                    marketConfig.collateralTokens.push(
                         {
                             collateralToken: tokens[token].address,
                             priceFeed: priceFeeds[token].address,
@@ -363,13 +363,13 @@ describe('ConfigController', () => {
             let marketConfig: MarketConfigStruct = {
                 baseToken: baseToken.address,
                     priceFeed: priceFeeds[await baseToken.symbol()].address,
-                        collateraTokens: [],
+                        collateralTokens: [],
                         baseTokenCurveId: 0n
             }
 
             for (let token in tokens) {
                 if (token != await baseToken.symbol()) {
-                    marketConfig.collateraTokens.push(
+                    marketConfig.collateralTokens.push(
                         {
                             collateralToken: tokens[token].address,
                             priceFeed: priceFeeds[token].address,
@@ -397,13 +397,13 @@ describe('ConfigController', () => {
             let marketConfig: MarketConfigStruct = {
                 baseToken: ethers.constants.AddressZero,
                     priceFeed: priceFeeds[await baseToken.symbol()].address,
-                        collateraTokens: [],
+                        collateralTokens: [],
                         baseTokenCurveId: 0n
             }
 
             for (let token in tokens) {
                 if (token != await baseToken.symbol()) {
-                    marketConfig.collateraTokens.push(
+                    marketConfig.collateralTokens.push(
                         {
                             collateralToken: tokens[token].address,
                             priceFeed: priceFeeds[token].address,
@@ -430,13 +430,13 @@ describe('ConfigController', () => {
             let marketConfig: MarketConfigStruct = {
                 baseToken: baseToken.address,
                     priceFeed: ethers.constants.AddressZero,
-                        collateraTokens: [],
+                        collateralTokens: [],
                         baseTokenCurveId: 0n
             }
 
             for (let token in tokens) {
                 if (token != await baseToken.symbol()) {
-                    marketConfig.collateraTokens.push(
+                    marketConfig.collateralTokens.push(
                         {
                             collateralToken: tokens[token].address,
                             priceFeed: ethers.constants.AddressZero,
@@ -464,13 +464,13 @@ describe('ConfigController', () => {
             let marketConfig: MarketConfigStruct = {
                 baseToken: baseToken.address,
                     priceFeed: priceFeeds[await baseToken.symbol()].address,
-                        collateraTokens: [],
+                        collateralTokens: [],
                         baseTokenCurveId: 0n
             }
 
             for (let token in tokens) {
                 if (token != await baseToken.symbol()) {
-                    marketConfig.collateraTokens.push(
+                    marketConfig.collateralTokens.push(
                         {
                             collateralToken: ethers.constants.AddressZero,
                             priceFeed: priceFeeds[token].address,
@@ -498,13 +498,13 @@ describe('ConfigController', () => {
             let marketConfig: MarketConfigStruct = {
                 baseToken: baseToken.address,
                     priceFeed: priceFeeds[await baseToken.symbol()].address,
-                        collateraTokens: [],
+                        collateralTokens: [],
                         baseTokenCurveId: 0n
             }
 
             for (let token in tokens) {
                 if (token != await baseToken.symbol()) {
-                    marketConfig.collateraTokens.push(
+                    marketConfig.collateralTokens.push(
                         {
                             collateralToken: baseToken.address,
                             priceFeed: priceFeeds[token].address,
@@ -532,13 +532,13 @@ describe('ConfigController', () => {
             let marketConfig: MarketConfigStruct = {
                 baseToken: baseToken.address,
                     priceFeed: priceFeeds[await baseToken.symbol()].address,
-                        collateraTokens: [],
+                        collateralTokens: [],
                         baseTokenCurveId: 0n
             }
 
             for (let token in tokens) {
                 if (token != await baseToken.symbol()) {
-                    marketConfig.collateraTokens.push(
+                    marketConfig.collateralTokens.push(
                         {
                             collateralToken: tokens[token].address,
                             priceFeed: ethers.constants.AddressZero,
@@ -566,11 +566,11 @@ describe('ConfigController', () => {
             let marketConfig: MarketConfigStruct = {
                 baseToken: baseToken.address,
                     priceFeed: priceFeeds[await baseToken.symbol()].address,
-                        collateraTokens: [],
+                        collateralTokens: [],
                         baseTokenCurveId: 0n
             }
 
-            marketConfig.collateraTokens.push(
+            marketConfig.collateralTokens.push(
                 {
                     collateralToken: tokens["COMP"].address,
                     priceFeed: priceFeeds["COMP"].address,
@@ -580,7 +580,7 @@ describe('ConfigController', () => {
                     supplyCap: exp(1_000_000, 6)
                 }
             );
-            marketConfig.collateraTokens.push(
+            marketConfig.collateralTokens.push(
                 {
                     collateralToken: tokens["COMP"].address,
                     priceFeed: priceFeeds["COMP"].address,
@@ -607,11 +607,11 @@ describe('ConfigController', () => {
             let marketConfig: MarketConfigStruct = {
                 baseToken: baseToken.address,
                     priceFeed: priceFeeds[await baseToken.symbol()].address,
-                        collateraTokens: [],
+                        collateralTokens: [],
                         baseTokenCurveId: 0n
             }
             
-            marketConfig.collateraTokens.push(
+            marketConfig.collateralTokens.push(
                 {
                     collateralToken: unsupportedToken.address,
                     priceFeed: priceFeeds[await unsupportedToken.symbol()].address,
@@ -638,11 +638,11 @@ describe('ConfigController', () => {
             let marketConfig: MarketConfigStruct = {
                 baseToken: baseToken.address,
                     priceFeed: priceFeeds[await baseToken.symbol()].address,
-                        collateraTokens: [],
+                        collateralTokens: [],
                         baseTokenCurveId: 0n
             }
             
-            marketConfig.collateraTokens.push(
+            marketConfig.collateralTokens.push(
                 {
                     collateralToken: tokens["COMP"].address,
                     priceFeed: priceFeeds["COMP"].address,
@@ -668,11 +668,11 @@ describe('ConfigController', () => {
             let marketConfig: MarketConfigStruct = {
                 baseToken: baseToken.address,
                     priceFeed: priceFeeds[await baseToken.symbol()].address,
-                        collateraTokens: [],
+                        collateralTokens: [],
                         baseTokenCurveId: 0n
             }
             
-            marketConfig.collateraTokens.push(
+            marketConfig.collateralTokens.push(
                 {
                     collateralToken: tokens["COMP"].address,
                     priceFeed: priceFeeds["COMP"].address,
@@ -698,11 +698,11 @@ describe('ConfigController', () => {
             let marketConfig: MarketConfigStruct = {
                 baseToken: baseToken.address,
                     priceFeed: priceFeeds[await baseToken.symbol()].address,
-                        collateraTokens: [],
+                        collateralTokens: [],
                         baseTokenCurveId: 0n
             }
 
-            marketConfig.collateraTokens.push(
+            marketConfig.collateralTokens.push(
                 {
                     collateralToken: tokens["COMP"].address,
                     priceFeed: priceFeeds["COMP"].address,
@@ -728,11 +728,11 @@ describe('ConfigController', () => {
             let marketConfig: MarketConfigStruct = {
                 baseToken: baseToken.address,
                     priceFeed: priceFeeds[await baseToken.symbol()].address,
-                        collateraTokens: [],
+                        collateralTokens: [],
                         baseTokenCurveId: 0n
             }
 
-            marketConfig.collateraTokens.push(
+            marketConfig.collateralTokens.push(
                 {
                     collateralToken: tokens["COMP"].address,
                     priceFeed: priceFeeds["COMP"].address,
@@ -758,11 +758,11 @@ describe('ConfigController', () => {
             let marketConfig: MarketConfigStruct = {
                 baseToken: baseToken.address,
                     priceFeed: priceFeeds[await baseToken.symbol()].address,
-                        collateraTokens: [],
+                        collateralTokens: [],
                         baseTokenCurveId: 0n
             }
 
-            marketConfig.collateraTokens.push(
+            marketConfig.collateralTokens.push(
                 {
                     collateralToken: tokens["COMP"].address,
                     priceFeed: priceFeeds["COMP"].address,
@@ -788,11 +788,11 @@ describe('ConfigController', () => {
             let marketConfig: MarketConfigStruct = {
                 baseToken: baseToken.address,
                     priceFeed: priceFeeds[await baseToken.symbol()].address,
-                        collateraTokens: [],
+                        collateralTokens: [],
                         baseTokenCurveId: 0n
             }
 
-            marketConfig.collateraTokens.push(
+            marketConfig.collateralTokens.push(
                 {
                     collateralToken: tokens["COMP"].address,
                     priceFeed: priceFeeds["COMP"].address,
@@ -818,11 +818,11 @@ describe('ConfigController', () => {
             let marketConfig: MarketConfigStruct = {
                 baseToken: baseToken.address,
                 priceFeed: priceFeeds[await baseToken.symbol()].address,
-                    collateraTokens: [],
+                    collateralTokens: [],
                     baseTokenCurveId: 0n
             }
 
-            marketConfig.collateraTokens.push(
+            marketConfig.collateralTokens.push(
                 {
                     collateralToken: tokens["COMP"].address,
                     priceFeed: priceFeeds["COMP"].address,
@@ -848,11 +848,11 @@ describe('ConfigController', () => {
             let marketConfig: MarketConfigStruct = {
                 baseToken: baseToken.address,
                 priceFeed: priceFeeds[await baseToken.symbol()].address,
-                    collateraTokens: [],
+                    collateralTokens: [],
                     baseTokenCurveId: 0n
             }
 
-            marketConfig.collateraTokens.push(
+            marketConfig.collateralTokens.push(
                 {
                     collateralToken: tokens["COMP"].address,
                     priceFeed: priceFeeds["COMP"].address,
@@ -878,11 +878,11 @@ describe('ConfigController', () => {
             let marketConfig: MarketConfigStruct = {
                 baseToken: baseToken.address,
                 priceFeed: priceFeeds[await baseToken.symbol()].address,
-                    collateraTokens: [],
+                    collateralTokens: [],
                     baseTokenCurveId: 0n
             }
 
-            marketConfig.collateraTokens.push(
+            marketConfig.collateralTokens.push(
                 {
                     collateralToken: tokens["COMP"].address,
                     priceFeed: priceFeeds["COMP"].address,
@@ -908,11 +908,11 @@ describe('ConfigController', () => {
             let marketConfig: MarketConfigStruct = {
                 baseToken: baseToken.address,
                 priceFeed: priceFeeds[await baseToken.symbol()].address,
-                    collateraTokens: [],
+                    collateralTokens: [],
                     baseTokenCurveId: 0n
             }
 
-            marketConfig.collateraTokens.push(
+            marketConfig.collateralTokens.push(
                 {
                     collateralToken: tokens["COMP"].address,
                     priceFeed: priceFeeds["COMP"].address,
@@ -938,11 +938,11 @@ describe('ConfigController', () => {
             let marketConfig: MarketConfigStruct = {
                 baseToken: baseToken.address,
                 priceFeed: priceFeeds[await baseToken.symbol()].address,
-                    collateraTokens: [],
+                    collateralTokens: [],
                     baseTokenCurveId: 0n
             }
 
-            marketConfig.collateraTokens.push(
+            marketConfig.collateralTokens.push(
                 {
                     collateralToken: tokens["COMP"].address,
                     priceFeed: priceFeeds["COMP"].address,
@@ -968,11 +968,11 @@ describe('ConfigController', () => {
             let marketConfig: MarketConfigStruct = {
                 baseToken: baseToken.address,
                 priceFeed: priceFeeds[await baseToken.symbol()].address,
-                    collateraTokens: [],
+                    collateralTokens: [],
                     baseTokenCurveId: 0n
             }
 
-            marketConfig.collateraTokens.push(
+            marketConfig.collateralTokens.push(
                 {
                     collateralToken: tokens["COMP"].address,
                     priceFeed: priceFeeds["COMP"].address,
@@ -998,13 +998,13 @@ describe('ConfigController', () => {
             let marketConfig: MarketConfigStruct = {
                 baseToken: baseToken.address,
                     priceFeed: priceFeeds[await baseToken.symbol()].address,
-                        collateraTokens: [],
+                        collateralTokens: [],
                         baseTokenCurveId: 0n
             }
 
             for (let token in tokens) {
                 if (token != await baseToken.symbol()) {
-                    marketConfig.collateraTokens.push(
+                    marketConfig.collateralTokens.push(
                         {
                             collateralToken: tokens[token].address,
                             priceFeed: priceFeeds[token].address,
@@ -1065,11 +1065,11 @@ describe('ConfigController', () => {
             let marketConfig: MarketConfigStruct = {
                 baseToken: baseToken.address,
                     priceFeed: priceFeeds[await baseToken.symbol()].address,
-                        collateraTokens: [],
+                        collateralTokens: [],
                         baseTokenCurveId: 0n
             }
             
-            marketConfig.collateraTokens.push(
+            marketConfig.collateralTokens.push(
                 {
                     collateralToken: tokens["COMP"].address,
                     priceFeed: priceFeeds["COMP"].address,
@@ -1109,11 +1109,11 @@ describe('ConfigController', () => {
             let marketConfig: MarketConfigStruct = {
                 baseToken: baseToken.address,
                     priceFeed: priceFeeds[await baseToken.symbol()].address,
-                        collateraTokens: [],
+                        collateralTokens: [],
                         baseTokenCurveId: 0n
             }
             
-            marketConfig.collateraTokens.push(
+            marketConfig.collateralTokens.push(
                 {
                     collateralToken: tokens["COMP"].address,
                     priceFeed: priceFeeds["COMP"].address,
@@ -1144,11 +1144,11 @@ describe('ConfigController', () => {
             let marketConfig: MarketConfigStruct = {
                 baseToken: baseToken.address,
                     priceFeed: priceFeeds[await baseToken.symbol()].address,
-                        collateraTokens: [],
+                        collateralTokens: [],
                         baseTokenCurveId: 0n
             }
             
-            marketConfig.collateraTokens.push(
+            marketConfig.collateralTokens.push(
                 {
                     collateralToken: tokens["COMP"].address,
                     priceFeed: priceFeeds["COMP"].address,
@@ -1179,11 +1179,11 @@ describe('ConfigController', () => {
             let marketConfig: MarketConfigStruct = {
                 baseToken: baseToken.address,
                     priceFeed: priceFeeds[await baseToken.symbol()].address,
-                        collateraTokens: [],
+                        collateralTokens: [],
                         baseTokenCurveId: 0n
             }
             
-            marketConfig.collateraTokens.push(
+            marketConfig.collateralTokens.push(
                 {
                     collateralToken: tokens["COMP"].address,
                     priceFeed: priceFeeds["COMP"].address,
@@ -1224,11 +1224,11 @@ describe('ConfigController', () => {
             let marketConfig: MarketConfigStruct = {
                 baseToken: baseToken.address,
                     priceFeed: priceFeeds[await baseToken.symbol()].address,
-                        collateraTokens: [],
+                        collateralTokens: [],
                         baseTokenCurveId: 0n
             }
             
-            marketConfig.collateraTokens.push(
+            marketConfig.collateralTokens.push(
                 {
                     collateralToken: tokens["COMP"].address,
                     priceFeed: priceFeeds["COMP"].address,
@@ -1281,11 +1281,11 @@ describe('ConfigController', () => {
             let marketConfig: MarketConfigStruct = {
                 baseToken: baseToken.address,
                     priceFeed: priceFeeds[await baseToken.symbol()].address,
-                        collateraTokens: [],
+                        collateralTokens: [],
                         baseTokenCurveId: 0n
             }
             
-            marketConfig.collateraTokens.push(
+            marketConfig.collateralTokens.push(
                 {
                     collateralToken: tokens["COMP"].address,
                     priceFeed: priceFeeds["COMP"].address,

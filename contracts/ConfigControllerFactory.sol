@@ -60,6 +60,7 @@ contract ConfigControllerFactory is IConfigControllerFactory {
             _proposalDuration,
             address(this)
         );
+        
         emit ConfigControllerCreated(
             configController,
             owner_,
@@ -69,7 +70,8 @@ contract ConfigControllerFactory is IConfigControllerFactory {
             _curatorFee,
             _name,
             _curatorProposalDuration,
-            _proposalDuration
+            _proposalDuration,
+            lastController
         );
 
         return configController;

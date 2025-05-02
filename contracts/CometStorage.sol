@@ -8,6 +8,7 @@ pragma solidity 0.8.28;
  */
 contract CometStorage {
     // 512 bits total = 2 slots
+    
     struct TotalsBasic {
         // 1st slot
         uint64 baseSupplyIndex;

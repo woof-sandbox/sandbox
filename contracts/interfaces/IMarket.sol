@@ -39,7 +39,9 @@ interface IMarket {
     // Initialization
     function initialize(
         IConfigController.MarketConfig memory _marketConfig,
+        ISandboxController.SandboxControllerConfiguration memory config,
         address _configControllerAddress,
-        address _sandboxControllerAddress
+        address _sandboxControllerAddress,
+        uint256 baseBorrowMin_
     ) external;
 }

@@ -3,7 +3,7 @@ pragma solidity 0.8.28;
 
 import "./ISandboxErrors.sol";
 
-interface ISandboxController is ISandboxErrors {
+abstract contract ISandboxController is ISandboxErrors {
     enum MarketState {
         Low,
         Medium,
@@ -132,5 +132,7 @@ interface ISandboxController is ISandboxErrors {
     function isCurveConfigurationValid(BaseAssetCurve memory curve) external pure virtual returns (bool);
     function baseAssets(address token) external view virtual returns (BaseAssetConfiguration memory);
     function collateralAssets(address token) external view virtual returns (CollateralAssetConfiguration memory);
-    function getBaseAssetCurves(address token) external view virtual returns (BaseAssetCurve[] memory);
+    function curves(address token) external view virtual returns (BaseAssetCurve[] memory);
+
+    function config() external view virtual returns (SandboxControllerConfiguration memory);
 }

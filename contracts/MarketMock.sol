@@ -39,8 +39,8 @@ contract MarketMock is IMarket, Initializable {
         baseToken = _marketConfig.baseToken;
         priceFeed = _marketConfig.priceFeed;
         baseTokenCurveId = _marketConfig.baseTokenCurveId;
-        collateralTokens = _marketConfig.collateraTokens;
-        collateralTokensCount = _marketConfig.collateraTokens.length;
+        collateralTokens = _marketConfig.collateralTokens;
+        collateralTokensCount = _marketConfig.collateralTokens.length;
         IConfigController _configController = IConfigController(_configControllerAddress);
         ISandboxController.BaseAssetConfiguration memory baseAssetConfig = ISandboxController(_configController.sandboxController()).baseAssets(_marketConfig.baseToken);
 

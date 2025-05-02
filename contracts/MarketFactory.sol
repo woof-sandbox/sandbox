@@ -54,7 +54,13 @@ contract MarketFactory is IMarketFactory {
     ) external override onlyConfigController returns (address) {
         address market = Clones.clone(implementation);
         marketToController[market] = msg.sender; // Store the config controller address
-        IMarket(market).initialize(_marketConfig, msg.sender, sandboxController);
+        IMarket(market).initialize(
+            _marketConfig, 
+            ISandboxController(sandboxController).config(),
+            msg.sender,
+            sandboxController,
+            ISandboxController(sandboxController).baseAssets(_marketConfig.baseToken).minBorrow
+        );
         markets.push(market);
         
         emit MarketCreated(market, msg.sender);

@@ -49,7 +49,7 @@ contract SandboxController is ISandboxController {
      */
     modifier onlyAuthorized() {
         if (msg.sender != owner && msg.sender != dao) {
-            revert NotAuthorized(msg.sender);
+            revert Unauthorized();
         }
         _;
     }
@@ -65,7 +65,7 @@ contract SandboxController is ISandboxController {
      * @param _protocolFactorLiquidation Nonzero. Sum with _reserveFactorLiquidation <= 1e18.
      * @param _reserveFactorLiquidation  Nonzero.
      * @param _maxCollateralAssets       > 0
-     * @param _targetReserves            < 0.5 (50%)
+     * @param _targetPercent            < 0.5 (50%)
      * @param _storeFrontPriceFactor     < 1e18
      * @param _minUpdateTime             > 0
      * @param _suggestedAmountOfSeedReserves > 0
@@ -80,7 +80,7 @@ contract SandboxController is ISandboxController {
         uint256 _protocolFactorLiquidation,
         uint256 _reserveFactorLiquidation,
         uint256 _maxCollateralAssets,
-        uint256 _targetReserves,
+        uint256 _targetPercent,
         uint256 _storeFrontPriceFactor,
         uint256 _minUpdateTime,
         uint256 _suggestedAmountOfSeedReserves,
@@ -119,7 +119,7 @@ contract SandboxController is ISandboxController {
         protocolFactorLiquidation = _protocolFactorLiquidation;
         reserveFactorLiquidation = _reserveFactorLiquidation;
         maxCollateralAssets = _maxCollateralAssets;
-        controllerConfiguration = SandboxControllerConfiguration(
+        _controllerConfiguration = SandboxControllerConfiguration(
             _targetPercent,
             _storeFrontPriceFactor,
             _minUpdateTime,
@@ -258,9 +258,6 @@ contract SandboxController is ISandboxController {
         baseAssetCount++;
 
         isPriceFeedWhitelisted[priceFeed] = true;
-        isCurveConfigurationWhitelisted[
-            token.encodeCurve(baseAssetCurve)
-        ] = true;
 
         emit BaseAssetWhitelisted(
             token,
@@ -566,8 +563,9 @@ contract SandboxController is ISandboxController {
     function config()
         external
         view
+        override
         returns (SandboxControllerConfiguration memory)
     {
-        return controllerConfiguration;
+        return _controllerConfiguration;
     }
 }

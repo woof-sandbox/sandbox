@@ -36,7 +36,7 @@ contract SandboxComet is ISandboxComet, Initializable {
     /// @dev uint64
     uint public override supplyPerSecondInterestRateSlopeLow;
 
-    /// @notice Per second supply interest rate slope applied when utilization is above kink (factor)
+    /// @notice Per secollateralTokenscond supply interest rate slope applied when utilization is above kink (factor)
     /// @dev uint64
     uint public override supplyPerSecondInterestRateSlopeHigh;
 
@@ -115,6 +115,37 @@ contract SandboxComet is ISandboxComet, Initializable {
 
     bool private _initialized;
 
+    mapping(address => uint8) public collateralAssetIndex;
+    mapping(uint8 => address) public collateralAssetAddress;
+    IConfigController.CollateralTokenConfig[] public collateralAssets;
+
+    struct Configuration {
+        address configController;
+        address baseToken;
+        address baseTokenPriceFeed;
+        address extensionDelegate;
+
+        uint64 supplyKink;
+        uint64 supplyPerYearInterestRateSlopeLow;
+        uint64 supplyPerYearInterestRateSlopeHigh;
+        uint64 supplyPerYearInterestRateBase;
+        uint64 borrowKink;
+        uint64 borrowPerYearInterestRateSlopeLow;
+        uint64 borrowPerYearInterestRateSlopeHigh;
+        uint64 borrowPerYearInterestRateBase;
+        uint64 storeFrontPriceFactor;
+        uint64 trackingIndexScale;
+        uint64 baseTrackingSupplySpeed;
+        uint64 baseTrackingBorrowSpeed;
+        uint104 baseMinForRewards;
+        uint104 baseBorrowMin;
+        uint104 targetPercent;
+        uint104 seedReserves;
+        uint104 unlockTimestamp;
+
+        IConfigController.CollateralTokenConfig[] assetConfigs;
+    }
+
     constructor() {
         _disableInitializers();
     }
@@ -130,7 +161,7 @@ contract SandboxComet is ISandboxComet, Initializable {
         uint8 decimals_ = IERC20NonStandard(market.baseToken).decimals();
         if (decimals_ > MAX_BASE_DECIMALS) revert BadDecimals();
         if (
-            IPriceFeed(market.config.priceFeed).decimals() !=
+            IPriceFeed(market.priceFeed).decimals() !=
             PRICE_FEED_DECIMALS
         ) revert BadDecimals();
 
@@ -138,15 +169,15 @@ contract SandboxComet is ISandboxComet, Initializable {
         sandboxController = sandboxController_;
 
         baseToken = market.baseToken;
-        baseTokenPriceFeed = market.config.priceFeed;
+        baseTokenPriceFeed = market.priceFeed;
         storeFrontPriceFactor = config.storeFrontPriceFactor;
 
-        trackingIndexScale = market.options.trackingIndexScale;
+        trackingIndexScale = 1 ether;
 
-        baseTrackingSupplySpeed = market.options.baseTrackingSupplySpeed;
-        baseTrackingBorrowSpeed = market.options.baseTrackingBorrowSpeed;
+        baseTrackingSupplySpeed = 1 ether;
+        baseTrackingBorrowSpeed = 1 ether;
 
-        baseMinForRewards = market.options.baseMinForRewards;
+        baseMinForRewards = 1 ether;
 
         decimals = decimals_;
         baseScale = uint64(10 ** decimals_);
@@ -161,7 +192,13 @@ contract SandboxComet is ISandboxComet, Initializable {
             block.timestamp +
             config.suggestedLockTimeOfSeedReserves;
 
-        ISandboxController.BaseAssetCurve memory curve = market.config.curve;
+        ISandboxController.BaseAssetCurve memory curve = ISandboxController(sandboxController).baseAssets(market.baseToken).baseAssetCurves[market.baseTokenCurveId];
+      
+        for (uint8 i; i < market.collateralTokens.length; i++) {
+            collateralAssets.push(market.collateralTokens[i]);
+            collateralAssetAddress[i] = market.collateralTokens[i].collateralToken;
+            collateralAssetIndex[market.collateralTokens[i].collateralToken] = i;
+        }
 
         unchecked {
             supplyKink = curve.supplyKink;
@@ -188,6 +225,7 @@ contract SandboxComet is ISandboxComet, Initializable {
         }
         numAssets = uint8(market.collateralTokens.length);
     }
+
 
     /**
      * @dev Prevents marked functions from being reentered
@@ -251,12 +289,8 @@ contract SandboxComet is ISandboxComet, Initializable {
      */
     function getAssetInfo(
         uint8 i
-    ) public view returns (IConfigController.CollateralToken memory) {
-        return
-            IConfigController(configController).getAssetConfig(
-                address(this),
-                i
-            );
+    ) public view returns (IConfigController.CollateralTokenConfig memory) {
+        return collateralAssets[i];
     }
 
     /**
@@ -267,13 +301,9 @@ contract SandboxComet is ISandboxComet, Initializable {
     )
         public
         view
-        returns (IConfigController.CollateralToken memory, uint8 index)
+        returns (IConfigController.CollateralTokenConfig memory, uint8 index)
     {
-        return
-            IConfigController(configController).getAssetConfigByAddress(
-                address(this),
-                asset
-            );
+        return (collateralAssets[collateralAssetIndex[asset]], collateralAssetIndex[asset]);
     }
 
     /**
@@ -512,21 +542,21 @@ contract SandboxComet is ISandboxComet, Initializable {
                     return true;
                 }
 
-                IConfigController.CollateralToken memory asset = getAssetInfo(
+                IConfigController.CollateralTokenConfig memory asset = getAssetInfo(
                     i
                 );
 
                 uint64 scale = uint64(
-                    10 ** uint256(IPriceFeed(asset.config.priceFeed).decimals())
+                    10 ** uint256(IPriceFeed(asset.priceFeed).decimals())
                 );
 
                 uint newAmount = mulPrice(
                     userCollateral[account][asset.collateralToken].balance,
-                    getPrice(asset.config.priceFeed),
+                    getPrice(asset.priceFeed),
                     scale
                 );
                 liquidity += signed256(
-                    mulFactor(newAmount, asset.config.borrowCollateralFactor)
+                    mulFactor(newAmount, asset.borrowCollateralFactor)
                 );
             }
             unchecked {
@@ -565,21 +595,21 @@ contract SandboxComet is ISandboxComet, Initializable {
                     return false;
                 }
 
-                IConfigController.CollateralToken memory asset = getAssetInfo(
+                IConfigController.CollateralTokenConfig memory asset = getAssetInfo(
                     i
                 );
 
                 uint64 scale = uint64(
-                    10 ** uint256(IPriceFeed(asset.config.priceFeed).decimals())
+                    10 ** uint256(IPriceFeed(asset.priceFeed).decimals())
                 );
 
                 uint newAmount = mulPrice(
                     userCollateral[account][asset.collateralToken].balance,
-                    getPrice(asset.config.priceFeed),
+                    getPrice(asset.priceFeed),
                     scale
                 );
                 liquidity += signed256(
-                    mulFactor(newAmount, asset.config.liquidateCollateralFactor)
+                    mulFactor(newAmount, asset.liquidateCollateralFactor)
                 );
             }
             unchecked {
@@ -1044,12 +1074,12 @@ contract SandboxComet is ISandboxComet, Initializable {
         amount = safe128(doTransferIn(asset, from, amount));
 
         (
-            IConfigController.CollateralToken memory assetInfo,
+            IConfigController.CollateralTokenConfig memory assetInfo,
             uint8 index
         ) = getAssetInfoByAddress(asset);
         TotalsCollateral memory totals = totalsCollateral[asset];
         totals.totalSupplyAsset += amount;
-        if (totals.totalSupplyAsset > assetInfo.config.supplyCap)
+        if (totals.totalSupplyAsset > assetInfo.supplyCap)
             revert SupplyCapExceeded();
 
         uint128 dstCollateral = userCollateral[dst][asset].balance;
@@ -1416,7 +1446,7 @@ contract SandboxComet is ISandboxComet, Initializable {
 
         for (uint8 i = 0; i < numAssets; ) {
             if (isInAsset(assetsIn, i, _reserved)) {
-                IConfigController.CollateralToken
+                IConfigController.CollateralTokenConfig
                     memory assetInfo = getAssetInfo(i);
                 address asset = assetInfo.collateralToken;
                 uint128 seizeAmount = userCollateral[account][asset].balance;
@@ -1425,7 +1455,7 @@ contract SandboxComet is ISandboxComet, Initializable {
 
                 uint256 value = mulPrice(
                     seizeAmount,
-                    getPrice(assetInfo.config.priceFeed),
+                    getPrice(assetInfo.priceFeed),
                     uint64(
                         10 **
                             IERC20NonStandard(assetInfo.collateralToken)
@@ -1434,7 +1464,7 @@ contract SandboxComet is ISandboxComet, Initializable {
                 );
                 deltaValue += mulFactor(
                     value,
-                    assetInfo.config.liquidationFactor
+                    assetInfo.liquidationFactor
                 );
 
                 emit AbsorbCollateral(
@@ -1549,15 +1579,15 @@ contract SandboxComet is ISandboxComet, Initializable {
         uint baseAmount
     ) public view override returns (uint) {
         (
-            IConfigController.CollateralToken memory assetInfo,
+            IConfigController.CollateralTokenConfig memory assetInfo,
 
         ) = getAssetInfoByAddress(asset);
-        uint256 assetPrice = getPrice(assetInfo.config.priceFeed);
+        uint256 assetPrice = getPrice(assetInfo.priceFeed);
         // Store front discount is derived from the collateral asset's liquidationFactor and storeFrontPriceFactor
         // discount = storeFrontPriceFactor * (1e18 - liquidationFactor)
         uint256 discountFactor = mulFactor(
             storeFrontPriceFactor,
-            FACTOR_SCALE - assetInfo.config.liquidationFactor
+            FACTOR_SCALE - assetInfo.liquidationFactor
         );
         uint256 assetPriceDiscounted = mulFactor(
             assetPrice,
@@ -1643,6 +1673,37 @@ contract SandboxComet is ISandboxComet, Initializable {
             principal < 0
                 ? presentValueBorrow(baseBorrowIndex_, unsigned104(-principal))
                 : 0;
+    }
+
+    /// @notice Returns the current configuration of the market
+    /// @return Configuration struct containing all market parameters
+    function getConfiguration() external view returns (Configuration memory) {
+        return Configuration({
+            configController: configController,
+            baseToken: baseToken,
+            baseTokenPriceFeed: baseTokenPriceFeed,
+            extensionDelegate: address(0), // Not implemented in this version
+
+            supplyKink: uint64(supplyKink),
+            supplyPerYearInterestRateSlopeLow: uint64(supplyPerSecondInterestRateSlopeLow * SECONDS_PER_YEAR),
+            supplyPerYearInterestRateSlopeHigh: uint64(supplyPerSecondInterestRateSlopeHigh * SECONDS_PER_YEAR),
+            supplyPerYearInterestRateBase: uint64(supplyPerSecondInterestRateBase * SECONDS_PER_YEAR),
+            borrowKink: uint64(borrowKink),
+            borrowPerYearInterestRateSlopeLow: uint64(borrowPerSecondInterestRateSlopeLow * SECONDS_PER_YEAR),
+            borrowPerYearInterestRateSlopeHigh: uint64(borrowPerSecondInterestRateSlopeHigh * SECONDS_PER_YEAR),
+            borrowPerYearInterestRateBase: uint64(borrowPerSecondInterestRateBase * SECONDS_PER_YEAR),
+            storeFrontPriceFactor: uint64(storeFrontPriceFactor),
+            trackingIndexScale: uint64(trackingIndexScale),
+            baseTrackingSupplySpeed: uint64(baseTrackingSupplySpeed),
+            baseTrackingBorrowSpeed: uint64(baseTrackingBorrowSpeed),
+            baseMinForRewards: uint104(baseMinForRewards),
+            baseBorrowMin: uint104(baseBorrowMin),
+            targetPercent: uint104(targetPercent),
+            seedReserves: uint104(seedReserves),
+            unlockTimestamp: uint104(unlockTimestamp),
+            
+            assetConfigs: collateralAssets
+        });
     }
 
     receive() external payable {}
