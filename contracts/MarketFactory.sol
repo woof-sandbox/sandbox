@@ -2,7 +2,7 @@
 pragma solidity 0.8.28;
 
 import "@openzeppelin/contracts/proxy/Clones.sol";
-import "./interfaces/IMarket.sol";
+import "./interfaces/ISandboxComet.sol";
 import "./interfaces/IMarketFactory.sol";
 import "./interfaces/IConfigControllerFactory.sol";
 
@@ -54,7 +54,7 @@ contract MarketFactory is IMarketFactory {
     ) external override onlyConfigController returns (address) {
         address market = Clones.clone(implementation);
         marketToController[market] = msg.sender; // Store the config controller address
-        IMarket(market).initialize(
+        ISandboxComet(market).initialize(
             _marketConfig, 
             ISandboxController(sandboxController).config(),
             msg.sender,

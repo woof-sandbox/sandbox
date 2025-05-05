@@ -4,13 +4,11 @@ import { HardhatUserConfig, task } from 'hardhat/config';
 import '@compound-finance/hardhat-import';
 import '@nomiclabs/hardhat-ethers';
 import '@nomiclabs/hardhat-etherscan';
-import '@nomicfoundation/hardhat-foundry';
-
 import '@typechain/hardhat';
 import 'hardhat-chai-matchers';
 import 'hardhat-change-network';
 import 'hardhat-contract-sizer';
-import 'solidity-coverage';
+// import 'hardhat-cover';
 import 'hardhat-gas-reporter';
 import 'hardhat-preprocessor';
 
@@ -107,8 +105,6 @@ function getRemappings() {
     .map((line: string) => line.trim().split("="));
 }
 
-const remappings = getRemappings().map(([from, to]) => `${from}=${to}`);
-
 
 const config: HardhatUserConfig = {
 
@@ -133,7 +129,6 @@ const config: HardhatUserConfig = {
       {
         version: "0.8.28",
         settings: {
-          remappings,
           optimizer: process.env.OPTIMIZER_DISABLED
             ? { enabled: false }
             : {

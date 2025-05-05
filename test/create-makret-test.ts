@@ -14,11 +14,10 @@ import {
     bumpTotalsCollateral,
     setTotalsBasic,
 } from './helper/helpers';
-import { ISandboxMarket, IConfigController, SandboxMarket } from '../build/types';
+import { IConfigController } from '../build/types';
 import { BaseAssetCurveStruct, MarketConfigStruct } from '../build/types/ConfigController';
 
 describe('Create Market', () => {
-
 
     it('should create a market', async () => {
         const {

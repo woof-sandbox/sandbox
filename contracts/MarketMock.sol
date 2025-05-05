@@ -30,8 +30,10 @@ contract MarketMock is IMarket, Initializable {
     
     function initialize(
         IConfigController.MarketConfig memory _marketConfig,
+        ISandboxController.SandboxControllerConfiguration memory _config,
         address _configControllerAddress,
-        address _sandboxControllerAddress
+        address _sandboxControllerAddress,
+        uint256 baseBorrowMin_
     ) initializer external override {
         configControllerAddress = _configControllerAddress;
         sandboxControllerAddress = _sandboxControllerAddress;
