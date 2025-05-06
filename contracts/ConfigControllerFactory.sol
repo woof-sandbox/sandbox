@@ -32,7 +32,7 @@ contract ConfigControllerFactory is IConfigControllerFactory {
     /// @param _curatorProposalDuration Duration of curator proposals in seconds
     /// @param _proposalDuration Duration of market proposals in seconds
     /// @return The address of the newly created ConfigController
-    function createConfigController(
+    function create(
         address owner_,
         address _curator,
         address guardian_,

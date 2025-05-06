@@ -3,11 +3,14 @@ pragma solidity 0.8.28;
 
 import "./interfaces/IConfigController.sol";
 import "./interfaces/ISandboxController.sol";
-import "./interfaces/IMarket.sol";
-import "./interfaces/IMarketFactory.sol";
+import "./interfaces/ISandboxComet.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 import "./ConfigControllerFactory.sol";
+import "./interfaces/ISandboxCometFactory.sol";
+import "./interfaces/IERC20NonStandard.sol";
+
+
 
 /**
  * @title ConfigController
@@ -172,26 +175,9 @@ contract ConfigController is IConfigController, Initializable {
     /// @param curveId The index of the new base token curve
     function proposeUpdateBaseTokenCurve(address market, uint256 curveId) external override onlyOwnerOrCurator {
         if (!_isMarketOwned(market)) revert MarketNotOwned();
-        IMarket marketContract = IMarket(market);
+        ISandboxComet marketContract = ISandboxComet(market);
         if (curveId >= ISandboxController(sandboxController).curves(marketContract.baseToken()).length) revert InvalidCurveId();
-        // Get the current curve from the market
-        IMarket.BaseCurveParams memory currentCurve = marketContract.getBaseCurveParams();
-        // Get new curve from sandbox controller
-        ISandboxController.BaseAssetCurve memory newCurve = ISandboxController(sandboxController).curves(marketContract.baseToken())[curveId];
-        // Check if new curve is different from current curve
-        if (
-            newCurve.supplyKink == currentCurve.supplyKink &&
-            newCurve.supplyPerYearInterestRateBase == currentCurve.supplyPerYearInterestRateBase &&
-            newCurve.supplyPerYearInterestRateSlopeLow == currentCurve.supplyPerYearInterestRateSlopeLow &&
-            newCurve.supplyPerYearInterestRateSlopeHigh == currentCurve.supplyPerYearInterestRateSlopeHigh &&
-            newCurve.borrowKink == currentCurve.borrowKink &&
-            newCurve.borrowPerYearInterestRateBase == currentCurve.borrowPerYearInterestRateBase &&
-            newCurve.borrowPerYearInterestRateSlopeLow == currentCurve.borrowPerYearInterestRateSlopeLow &&
-            newCurve.borrowPerYearInterestRateSlopeHigh == currentCurve.borrowPerYearInterestRateSlopeHigh
-        ) {
-            revert SameCurve();
-        }
-        // Create new proposal
+
         proposedBaseAssetCurve[market] = MarketBaseTokenCurveProposal({
             market: market,
             curveId: curveId,
@@ -215,7 +201,7 @@ contract ConfigController is IConfigController, Initializable {
         if (msg.sender != owner && msg.sender != curator) revert Unauthorized();
         if (block.timestamp < proposedBaseAssetCurve[market].revertTime) revert ProposalNotReady();
 
-        IMarket(market).setBaseCurveParams(proposedBaseAssetCurve[market].curveId);
+        marketBaseTokenCurveId[market] = proposedBaseAssetCurve[market].curveId;
 
         delete proposedBaseAssetCurve[market];
         emit MarketBaseTokenCurveProposalExecuted(market, msg.sender);
@@ -378,19 +364,19 @@ contract ConfigController is IConfigController, Initializable {
         unchecked {
             marketsLength++;
         }
-        markets.push(IMarketFactory(marketFactory).createMarket(_marketConfig));
-        marketId[markets[marketsLength]] = marketsLength;
+        address market = ISandboxCometFactory(marketFactory).createMarket(_marketConfig);
+        markets.push(market);
+        marketId[market] = marketsLength;
 
-        /// Add revenue token.
         if (revenueTokenIndex[_marketConfig.baseToken] == 0) {
             revenueTokens.push(_marketConfig.baseToken);
             revenueTokenIndex[_marketConfig.baseToken] = revenueTokens.length;
         }
-        /// Add base token curve id to market for future updates of the curve value.
+
         marketBaseTokenCurveId[markets[marketsLength]] = _marketConfig.baseTokenCurveId;
-        
+
         emit MarketCreated(
-            markets[marketsLength],
+            market,
             _marketConfig.baseToken,
             _marketConfig.priceFeed,
             marketsLength,
@@ -537,7 +523,7 @@ contract ConfigController is IConfigController, Initializable {
         MarketConfigProposal memory proposal = _marketProposals[market];
         if (block.timestamp <= proposal.revertTime) revert ProposalNotReady();
 
-        IMarket(market).setCollateralTokens(proposal.collateralTokens);
+        ISandboxComet(market).setCollateralTokens(proposal.collateralTokens);
         delete _marketProposals[market];
         emit MarketConfigProposalExecuted(market, msg.sender);
     }
@@ -598,7 +584,7 @@ contract ConfigController is IConfigController, Initializable {
         if (block.timestamp > proposal.expiration) revert ProposalExpired();
 
         _removeMarket(market);
-        IMarket(market).transferOwnership(proposal.newController);
+        ISandboxComet(market).transferOwnership(proposal.newController);
 
         delete _marketTransferProposals[market];
         emit MarketTransferProposalAccepted(market, address(this), proposal.newController);
