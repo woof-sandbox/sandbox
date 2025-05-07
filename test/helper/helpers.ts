@@ -463,8 +463,10 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
   const CometFactory = (await ethers.getContractFactory('CometHarness')) as CometHarness__factory;
 
   const cometImpl = await CometFactory.deploy();
+  const ConfigControllerFactory = (await ethers.getContractFactory('ConfigController')) as ConfigController__factory;
 
-  const configControllerFactory = await ConfigControllerFactoryFactory.deploy(cometImpl.address);
+  const configControllerImpl = await ConfigControllerFactory.deploy();
+  const configControllerFactory = await ConfigControllerFactoryFactory.deploy(configControllerImpl.address);
 
   await configControllerFactory.create(
     owner.address,
@@ -478,11 +480,12 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
     7 * 24 * 60 * 60,
   );
 
-  const ConfigControllerFactory = (await ethers.getContractFactory('ConfigController')) as ConfigController__factory;
+
   const configController = await ConfigControllerFactory.attach(
-    await configControllerFactory.controllerAddresses(1)
+    await configControllerFactory.controllerAddresses(0)
   ) as ConfigController;
 
+  await marketFactory.initialize(cometImpl.address, sandboxController.address, configController.address);
 
   const curve = {
     supplyKink,
@@ -555,12 +558,12 @@ async function createMarket(
   const receipt = await createMarketTx.wait();
   const filter = configController.filters.MarketCreated();
   const events = await configController.queryFilter(filter, receipt.blockNumber, receipt.blockNumber); 
-  console.log(await configController.marketsLength());
+
   return configController.markets(0);
 }
 
 export const makeProtocol = async (opts: ProtocolOpts = {}) => {
-  const { configController, tokens, baseToken, priceFeeds, dao, sandboxController, seedReserves, users, guardian, owner,unsupportedToken} = await makeConfigController(opts);
+  const { configController, tokens, baseToken, priceFeeds, dao, sandboxController, seedReserves, users, guardian, owner,unsupportedToken, marketFactory} = await makeConfigController(opts);
 
   await baseToken.approve(configController.address, seedReserves);
 

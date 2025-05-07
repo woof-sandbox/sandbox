@@ -15,35 +15,25 @@ contract SandboxCometFactory is ISandboxCometFactory, Initializable {
     address public sandboxController;
     address public cometImplementation;
 
-    function initialize(address _cometImplementation, address _sanboxController) external initializer {
+    address[] public markets;
+
+    function initialize(address _cometImplementation, address _sanboxController, address _configController) external initializer {
         require(_cometImplementation != address(0), ZeroAddress());
         cometImplementation = _cometImplementation;
         sandboxController = _sanboxController;
-        configController = msg.sender;
+        configController = _configController;
     }
 
     function createMarket(
-        IConfigController.MarketConfig memory _marketConfig
+        IConfigController.MarketConfig memory _marketConfig,
+        ISandboxController.SandboxControllerConfiguration memory config
     ) external returns (address) {
         require(configController != address(0), MarketFactoryNotInitialized());
         require(msg.sender == configController, Unauthorized());
         address market = Clones.clone(cometImplementation);
+        markets.push(market);
+
         CometExtension ext = new CometExtension(bytes32(0), bytes32(0));
-
-        ISandboxController.SandboxControllerConfiguration memory config = ISandboxController(sandboxController).config();
-
-        IERC20NonStandard(_marketConfig.baseToken).transferFrom(
-            msg.sender,
-            address(this),
-            config.suggestedAmountOfSeedReserves
-        );
-
-        IERC20NonStandard(_marketConfig.baseToken).approve(
-            market,
-            config.suggestedAmountOfSeedReserves
-        );
-
-        ISandboxComet(market).supply(_marketConfig.baseToken, config.suggestedAmountOfSeedReserves);
 
         ISandboxComet(market).initialize(
             _marketConfig,

@@ -15,7 +15,6 @@ contract SandboxController is ISandboxController {
     uint256 public override protocolFactorLiquidation;
     uint256 public override reserveFactorLiquidation;
     uint256 public override maxCollateralAssets;
-    uint256 public override targetReserves;
     uint256 public override baseAssetCount;
     uint256 public override collateralAssetCount;
     address public override treasury;
@@ -126,20 +125,6 @@ contract SandboxController is ISandboxController {
             _suggestedAmountOfSeedReserves,
             _suggestedLockTimeOfSeedReserves
         );
-    }
-
-    /**
-     * @notice Sets the target reserves factor.
-     * @param _targetReserves The target reserves factor, scaled by 1e18.
-     * @dev Must be less than 0.5 (50%).
-     */
-    function setTargetReserves(uint256 _targetReserves) external override onlyOwner {
-        if (_targetReserves > 5e17) {
-            revert InvalidFactors();
-        }
-        uint256 oldTargetReserves = targetReserves;
-        targetReserves = _targetReserves;
-        emit TargetReservesChanged(oldTargetReserves, _targetReserves);
     }
 
     /**
@@ -363,7 +348,8 @@ contract SandboxController is ISandboxController {
             _config.storeFrontPriceFactor >= 1e18 ||
             _config.minUpdateTime == 0 ||
             _config.suggestedAmountOfSeedReserves == 0 ||
-            _config.suggestedLockTimeOfSeedReserves == 0
+            _config.suggestedLockTimeOfSeedReserves == 0 ||
+            _config.targetPercent > 5e17
         ) {
             revert InvalidFactors();
         }
