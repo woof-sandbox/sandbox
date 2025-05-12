@@ -9,6 +9,8 @@ import "./interfaces/IPriceFeed.sol";
 import "./interfaces/IConfigController.sol";
 import "./interfaces/ISandboxController.sol";
 
+import "hardhat/console.sol";
+
 /**
  * @title Compound's Comet Contract
  * @notice An efficient monolithic money market protocol
@@ -242,7 +244,7 @@ contract SandboxComet is ISandboxComet, Initializable {
 
     function setCollateralTokens(
         IConfigController.CollateralTokenConfig[] memory _collateralTokens
-    ) external override onlyConfigController  {
+    ) external override onlyConfigController {
         if (msg.sender != configController) revert Unauthorized();
 
         for (uint8 i; i < numAssets; i++) {
@@ -314,7 +316,6 @@ contract SandboxComet is ISandboxComet, Initializable {
         lastAccrualTime = getNowInternal();
         baseSupplyIndex = BASE_INDEX_SCALE;
         baseBorrowIndex = BASE_INDEX_SCALE;
-
         // Implicit initialization (not worth increasing contract size)
         // trackingSupplyIndex = 0;
         // trackingBorrowIndex = 0;
@@ -376,34 +377,70 @@ contract SandboxComet is ISandboxComet, Initializable {
         return (baseSupplyIndex_, baseBorrowIndex_);
     }
 
-    /**
-     * @dev Accrue interest (and rewards) in base token supply and borrows
-     **/
+    uint256 public lastReserveBalance;
+
+    function _marketState(
+        uint256 reserves
+    ) internal view returns (ISandboxController.MarketState) {
+        ISandboxController sc = ISandboxController(sandboxController);
+
+        uint256 tRes = targetReserves();
+        uint256 ratio = tRes == 0 ? 0 : (reserves * 1e18) / tRes;
+
+        if (ratio < sc.threshold(ISandboxController.MarketState.Low))
+            return ISandboxController.MarketState.Low;
+        if (ratio < sc.threshold(ISandboxController.MarketState.Medium))
+            return ISandboxController.MarketState.Medium;
+        return ISandboxController.MarketState.High;
+    }
+
+    function _distributeReserves() internal {
+        if (totalBorrowBase != 0) return;
+
+        uint256 current = unsigned256(getReserves());
+        if (current <= lastReserveBalance) return;
+
+        uint256 delta = current - lastReserveBalance;
+        ISandboxController sc = ISandboxController(sandboxController);
+        ISandboxController.MarketState s = _marketState(current);
+
+        uint256 reserveFactor = sc.reserveCommission(s);
+        uint256 protocolFactor = sc.feeEnabled() ? sc.protocolCommission(s) : 0;
+
+        uint256 protocolPart = (delta * protocolFactor) / 1e18;
+        uint256 controllerPart = delta -
+            (delta * reserveFactor) /
+            1e18 -
+            protocolPart; 
+
+        if (protocolPart != 0)
+            doTransferOut(baseToken, sc.treasury(), protocolPart);
+        if (controllerPart != 0)
+            doTransferOut(baseToken, configController, controllerPart);
+
+        lastReserveBalance = current;
+    }
+
     function accrueInternal() internal {
         uint40 now_ = getNowInternal();
         uint timeElapsed = uint256(now_ - lastAccrualTime);
-        if (timeElapsed > 0) {
-            (baseSupplyIndex, baseBorrowIndex) = accruedInterestIndices(
-                timeElapsed
-            );
+
+        if (timeElapsed != 0) {
+            (baseSupplyIndex, baseBorrowIndex) = accruedInterestIndices(timeElapsed);
             if (totalSupplyBase >= baseMinForRewards) {
                 trackingSupplyIndex += safe64(
-                    divBaseWei(
-                        baseTrackingSupplySpeed * timeElapsed,
-                        totalSupplyBase
-                    )
+                    divBaseWei(baseTrackingSupplySpeed * timeElapsed, totalSupplyBase)
                 );
             }
             if (totalBorrowBase >= baseMinForRewards) {
                 trackingBorrowIndex += safe64(
-                    divBaseWei(
-                        baseTrackingBorrowSpeed * timeElapsed,
-                        totalBorrowBase
-                    )
+                    divBaseWei(baseTrackingBorrowSpeed * timeElapsed, totalBorrowBase)
                 );
             }
             lastAccrualTime = now_;
         }
+
+        _distributeReserves();
     }
 
     /**
@@ -1082,6 +1119,7 @@ contract SandboxComet is ISandboxComet, Initializable {
 
         updateBasePrincipal(dst, dstUser, dstPrincipalNew);
 
+        _distributeReserves();
         emit Supply(from, dst, amount);
 
         if (supplyAmount > 0) {
@@ -1367,6 +1405,7 @@ contract SandboxComet is ISandboxComet, Initializable {
             );
             seedReserves -= amount;
             emit WithdrawReserves(to, amount);
+            return;
         }
 
         UserBasic memory srcUser = userBasic[src];
@@ -1522,6 +1561,8 @@ contract SandboxComet is ISandboxComet, Initializable {
         //  the amount of debt repaid by reserves is `newBalance - oldBalance`
         totalSupplyBase += supplyAmount;
         totalBorrowBase -= repayAmount;
+        console.logInt(newBalance);
+        console.logInt(oldBalance);
 
         uint256 basePaidOut = unsigned256(newBalance - oldBalance);
 

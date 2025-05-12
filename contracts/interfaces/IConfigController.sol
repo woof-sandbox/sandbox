@@ -177,6 +177,12 @@ abstract contract IConfigController {
         address indexed oldController,
         address indexed newController
     );
+
+    event Withdrawn(
+        address indexed baseToken,
+        address indexed sender,
+        uint256 amount
+    );
     
     address constant ZERO_ADDRESS = 0x0000000000000000000000000000000000000000;
 
@@ -272,6 +278,13 @@ abstract contract IConfigController {
     /// @param _marketConfig The configuration parameters for the new market
     /// @return The address of the newly created market
     function createMarket(MarketConfig memory _marketConfig) virtual external returns(address);
+    
+    /// @notice Withdraws base tokens from the market
+    /// @dev Only callable by the owner
+    /// @param market The address of the market
+    /// @param amount The amount of base tokens to withdraw
+    function withdraw(address market, uint256 amount) virtual external;
+
 
     /// @notice Initializes the ConfigController contract
     /// @param owner_ The address of the protocol owner

@@ -74,8 +74,6 @@ describe('absorb', function () {
 
     expect(r0).to.equal(BigInt(seedReserves) + 100n);
 
-
-
     expect(t1.totalSupplyBase).to.be.equal(0);
     expect(t1.totalBorrowBase).to.be.equal(0);
     expect(r1).to.be.equal(seedReserves);

@@ -424,7 +424,7 @@ contract ConfigController is IConfigController, Initializable {
             config
         );
         markets.push(market);
-        marketId[market] = marketsLength-1;
+        marketId[market] = marketsLength - 1;
 
         IERC20NonStandard(_marketConfig.baseToken).transferFrom(
             msg.sender,
@@ -432,22 +432,18 @@ contract ConfigController is IConfigController, Initializable {
             config.suggestedAmountOfSeedReserves
         );
 
-        IERC20NonStandard(_marketConfig.baseToken).approve(
+        IERC20NonStandard(_marketConfig.baseToken).transfer(
             market,
             config.suggestedAmountOfSeedReserves
         );
 
-        ISandboxComet(market).supply(
-            _marketConfig.baseToken,
-            config.suggestedAmountOfSeedReserves
-        );
-
+        ISandboxComet(market).initializeStorage();
         if (revenueTokenIndex[_marketConfig.baseToken] == 0) {
             revenueTokens.push(_marketConfig.baseToken);
             revenueTokenIndex[_marketConfig.baseToken] = revenueTokens.length;
         }
 
-        marketBaseTokenCurveId[markets[marketsLength-1]] = _marketConfig
+        marketBaseTokenCurveId[markets[marketsLength - 1]] = _marketConfig
             .baseTokenCurveId;
 
         emit MarketCreated(
@@ -458,7 +454,21 @@ contract ConfigController is IConfigController, Initializable {
             _marketConfig.baseTokenCurveId
         );
 
-        return markets[marketsLength-1];
+        return markets[marketsLength - 1];
+    }
+
+    /// @notice Withdraws base tokens from the market
+    /// @dev Only callable by the owner
+    /// @param market The address of the market
+    /// @param amount The amount of base tokens to withdraw
+    function withdraw(address market, uint256 amount) external override {
+        if (market == ZERO_ADDRESS) revert ZeroAddress();
+        if (msg.sender != owner) revert Unauthorized();
+        ISandboxComet comet = ISandboxComet(market);
+        address baseToken = comet.baseToken();
+        comet.withdraw(baseToken, amount);
+        IERC20(baseToken).transfer(msg.sender, amount);
+        emit Withdrawn(baseToken, msg.sender, amount);
     }
 
     /// @notice Transfers ownership of the protocol to a new address

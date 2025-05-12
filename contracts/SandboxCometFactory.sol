@@ -44,8 +44,6 @@ contract SandboxCometFactory is ISandboxCometFactory, Initializable {
             ISandboxController(sandboxController).baseAssets(_marketConfig.baseToken).minBorrow
         );
 
-        ISandboxComet(market).initializeStorage();
-
         return market;
     }
 }
