@@ -39,7 +39,7 @@ scenario(
 
 // Note: These revert scenarios may need to add `upgrade` if Hardhat fails to
 //  recognize custom errors received in fallback functions that originate from external artifacts.
-// CometExt is an external artifact here unless we redeploy it.
+// CometExtension is an external artifact here unless we redeploy it.
 // Related: https://github.com/NomicFoundation/hardhat/issues/1875
 scenario(
   'Comet#allowBySig > fails if owner argument is altered',

@@ -7,36 +7,27 @@ import {ISandboxController} from "./interfaces/ISandboxController.sol";
 
 /**
  * @title SandboxController
- * @dev Manages base asset configurations and interest rate curves.
+ * @dev Manages base asset configurations and interest rate baseAssetCurves.
  */
 contract SandboxController is ISandboxController {
-    uint256 public protocolFactorBorrow;
-    uint256 public reserveFactorBorrow;
-    uint256 public protocolFactorLiquidation;
-    uint256 public reserveFactorLiquidation;
-    uint256 public maxCollateralAssets;
-
-    uint256 public targetReserves;
-
-    uint256 public baseAssetCount;
-    uint256 public collateralAssetCount;
-
-    address public treasury;
-    address public owner;
-    address public dao;
-    
-    bool public feeEnabled;
-
-    SandboxControllerConfiguration public controllerConfiguration;
-
-    address[] public baseAssetTokens;
-    address[] public collateralAssetTokens;
-
-    mapping(address => bool) public isPriceFeedWhitelisted;
-    mapping(MarketState => uint256) public reserveCommission;
-    mapping(MarketState => uint256) public protocolCommission;
-    mapping(MarketState => uint256) public threshold;
-
+    uint256 public override protocolFactorBorrow;
+    uint256 public override reserveFactorBorrow;
+    uint256 public override protocolFactorLiquidation;
+    uint256 public override reserveFactorLiquidation;
+    uint256 public override maxCollateralAssets;
+    uint256 public override baseAssetCount;
+    uint256 public override collateralAssetCount;
+    address public override treasury;
+    address public override owner;
+    address public override dao;
+    bool public override feeEnabled;
+    SandboxControllerConfiguration public _controllerConfiguration;
+    address[] public override baseAssetTokens;
+    address[] public override collateralAssetTokens;
+    mapping(address => bool) public override isPriceFeedWhitelisted;
+    mapping(MarketState => uint256) public override reserveCommission;
+    mapping(MarketState => uint256) public override protocolCommission;
+    mapping(MarketState => uint256) public override threshold;
     mapping(address => BaseAssetConfiguration) private _baseAssets;
     mapping(address => CollateralAssetConfiguration) private _collateralAssets;
 
@@ -57,7 +48,7 @@ contract SandboxController is ISandboxController {
      */
     modifier onlyAuthorized() {
         if (msg.sender != owner && msg.sender != dao) {
-            revert NotAuthorized(msg.sender);
+            revert Unauthorized();
         }
         _;
     }
@@ -73,7 +64,7 @@ contract SandboxController is ISandboxController {
      * @param _protocolFactorLiquidation Nonzero. Sum with _reserveFactorLiquidation <= 1e18.
      * @param _reserveFactorLiquidation  Nonzero.
      * @param _maxCollateralAssets       > 0
-     * @param _targetReserves            < 0.5 (50%)
+     * @param _targetPercent            < 0.5 (50%)
      * @param _storeFrontPriceFactor     < 1e18
      * @param _minUpdateTime             > 0
      * @param _suggestedAmountOfSeedReserves > 0
@@ -88,7 +79,7 @@ contract SandboxController is ISandboxController {
         uint256 _protocolFactorLiquidation,
         uint256 _reserveFactorLiquidation,
         uint256 _maxCollateralAssets,
-        uint256 _targetReserves,
+        uint256 _targetPercent,
         uint256 _storeFrontPriceFactor,
         uint256 _minUpdateTime,
         uint256 _suggestedAmountOfSeedReserves,
@@ -113,7 +104,7 @@ contract SandboxController is ISandboxController {
             _reserveFactorLiquidation == 0 ||
             (_protocolFactorLiquidation + _reserveFactorLiquidation) > 1e18 ||
             _maxCollateralAssets == 0 ||
-            _targetReserves > 5e17 ||
+            _targetPercent > 5e17 ||
             _storeFrontPriceFactor >= 1e18 ||
             _minUpdateTime == 0 ||
             _suggestedAmountOfSeedReserves == 0 ||
@@ -127,8 +118,8 @@ contract SandboxController is ISandboxController {
         protocolFactorLiquidation = _protocolFactorLiquidation;
         reserveFactorLiquidation = _reserveFactorLiquidation;
         maxCollateralAssets = _maxCollateralAssets;
-        targetReserves = _targetReserves;
-        controllerConfiguration = SandboxControllerConfiguration(
+        _controllerConfiguration = SandboxControllerConfiguration(
+            _targetPercent,
             _storeFrontPriceFactor,
             _minUpdateTime,
             _suggestedAmountOfSeedReserves,
@@ -137,24 +128,10 @@ contract SandboxController is ISandboxController {
     }
 
     /**
-     * @notice Sets the target reserves factor.
-     * @param _targetReserves The target reserves factor, scaled by 1e18.
-     * @dev Must be less than 0.5 (50%).
-     */
-    function setTargetReserves(uint256 _targetReserves) external onlyOwner {
-        if (_targetReserves > 5e17) {
-            revert InvalidFactors();
-        }
-        uint256 oldTargetReserves = targetReserves;
-        targetReserves = _targetReserves;
-        emit TargetReservesChanged(oldTargetReserves, _targetReserves);
-    }
-
-    /**
      * @notice Sets the threshold factors for each market state.
      * @param thresholds The new threshold factors, scaled by 1e18.
      */
-    function setThresholds(uint256[3] calldata thresholds) external onlyOwner {
+    function setThresholds(uint256[3] calldata thresholds) external override onlyOwner {
         for (uint256 i = 0; i < 3; i++) {
             if (thresholds[i] >= 1e18) {
                 revert InvalidFactors();
@@ -172,7 +149,7 @@ contract SandboxController is ISandboxController {
      */
     function setReserveCommissions(
         uint256[3] calldata reserveCommissions
-    ) external onlyOwner {
+    ) external override onlyOwner {
         for (uint256 i = 0; i < 3; i++) {
             MarketState state = MarketState(i);
             if (reserveCommissions[i] + protocolCommission[state] > 8e17) {
@@ -194,7 +171,7 @@ contract SandboxController is ISandboxController {
      */
     function setProtocolCommissions(
         uint256[3] calldata protocolCommissions
-    ) external onlyOwner {
+    ) external override onlyOwner {
         for (uint256 i = 0; i < 3; i++) {
             MarketState state = MarketState(i);
             if (protocolCommissions[i] + reserveCommission[state] > 8e17) {
@@ -214,7 +191,7 @@ contract SandboxController is ISandboxController {
      * @notice Sets the treasury address.
      * @param _treasury The address of the treasury.
      */
-    function setTreasury(address _treasury) external onlyOwner {
+    function setTreasury(address _treasury) external override onlyOwner {
         if (_treasury == address(0)) {
             revert ZeroAddress();
         }
@@ -235,12 +212,12 @@ contract SandboxController is ISandboxController {
         address priceFeed,
         BaseAssetCurve memory baseAssetCurve,
         uint256 minBorrow
-    ) external onlyAuthorized {
+    ) external override onlyAuthorized {
         if (token == address(0) || priceFeed == address(0)) {
             revert ZeroAddress();
         }
         if (isBaseTokenWhitelisted(token)) {
-            revert TokenAlreadyWhitelisted();
+            revert BaseTokenAlreadyWhitelisted();
         }
         if (isPriceFeedWhitelisted[priceFeed]) {
             revert PriceFeedAlreadyWhitelisted();
@@ -297,12 +274,12 @@ contract SandboxController is ISandboxController {
         uint64 maxLiquidateCollateralFactor,
         uint64 minLiquidationFactor,
         uint64 maxLiquidationFactor
-    ) external onlyAuthorized {
+    ) external override onlyAuthorized {
         if (token == address(0) || priceFeed == address(0)) {
             revert ZeroAddress();
         }
         if (isCollateralTokenWhitelisted(token)) {
-            revert TokenAlreadyWhitelisted();
+            revert CollateralTokenAlreadyWhitelisted();
         }
         if (isPriceFeedWhitelisted[priceFeed]) {
             revert PriceFeedAlreadyWhitelisted();
@@ -320,12 +297,12 @@ contract SandboxController is ISandboxController {
         ) {
             revert InvalidFactors();
         }
-        
+
         (, int256 answer, , , ) = IPriceFeed(priceFeed).latestRoundData();
         if (answer <= 0) {
             revert InvalidPriceFeed();
         }
-    
+
         uint256 decimals = IERC20NonStandard(token).decimals();
 
         _collateralAssets[token].collateralToken = token;
@@ -366,19 +343,20 @@ contract SandboxController is ISandboxController {
      */
     function setConfiguration(
         SandboxControllerConfiguration memory _config
-    ) external onlyOwner {
+    ) external override onlyOwner {
         if (
             _config.storeFrontPriceFactor >= 1e18 ||
             _config.minUpdateTime == 0 ||
             _config.suggestedAmountOfSeedReserves == 0 ||
-            _config.suggestedLockTimeOfSeedReserves == 0
+            _config.suggestedLockTimeOfSeedReserves == 0 ||
+            _config.targetPercent > 5e17
         ) {
             revert InvalidFactors();
         }
 
         SandboxControllerConfiguration
-            memory oldConfig = controllerConfiguration;
-        controllerConfiguration = _config;
+            memory oldConfig = _controllerConfiguration;
+        _controllerConfiguration = _config;
 
         emit ConfigurationChanged(oldConfig, _config);
     }
@@ -387,7 +365,7 @@ contract SandboxController is ISandboxController {
      * @notice Sets the global feeEnabled flag for the entire protocol.
      * @param _feeEnabled True to enable fees, false to disable.
      */
-    function setFeeEnabled(bool _feeEnabled) external onlyDao {
+    function setFeeEnabled(bool _feeEnabled) external override onlyDao {
         feeEnabled = _feeEnabled;
         emit FeeEnabledSet(_feeEnabled);
     }
@@ -400,10 +378,10 @@ contract SandboxController is ISandboxController {
     function addBaseAssetCurve(
         address token,
         BaseAssetCurve memory baseAssetCurve
-    ) external onlyAuthorized {
+    ) external override onlyAuthorized {
         if (token == address(0)) revert ZeroAddress();
         if (!isBaseTokenWhitelisted(token)) {
-            revert TokenNotWhitelisted();
+            revert BaseTokenNotWhitelisted();
         }
         if (!isCurveConfigurationValid(baseAssetCurve)) {
             revert InvalidCurveConfiguration();
@@ -423,12 +401,12 @@ contract SandboxController is ISandboxController {
         address token,
         uint256 curveIndex,
         BaseAssetCurve memory newCurve
-    ) external onlyDao {
+    ) external override onlyDao {
         if (token == address(0)) {
             revert ZeroAddress();
         }
         if (!isBaseTokenWhitelisted(token)) {
-            revert TokenNotWhitelisted();
+            revert BaseTokenNotWhitelisted();
         }
         if (
             curveIndex >= _baseAssets[token].baseAssetCurves.length ||
@@ -445,12 +423,11 @@ contract SandboxController is ISandboxController {
         emit BaseAssetCurveChanged(token, oldCurve, newCurve);
     }
 
-
-        /**
+    /**
      * @notice Transfers the owner privileges to a new address.
      * @param newOwner The address of the new owner.
      */
-    function transferOwner(address newOwner) external onlyOwner {
+    function transferOwner(address newOwner) external override onlyOwner {
         if (newOwner == address(0)) {
             revert ZeroAddress();
         }
@@ -459,11 +436,11 @@ contract SandboxController is ISandboxController {
         emit OwnerTransferred(oldOwner, newOwner);
     }
 
-        /**
+    /**
      * @notice Transfers the DAO privileges to a new address.
      * @param newDao The address of the new DAO.
      */
-    function transferDao(address newDao) external onlyDao {
+    function transferDao(address newDao) external override onlyDao {
         if (newDao == address(0)) {
             revert ZeroAddress();
         }
@@ -501,11 +478,19 @@ contract SandboxController is ISandboxController {
      */
     function isCurveConfigurationValid(
         BaseAssetCurve memory curve
-    ) public pure returns (bool) {
-        if (curve.supplyKink >= 1e18 || curve.borrowKink >= 1e18) {
+    ) public pure override returns (bool) {
+
+        if (curve.supplyKink == 0 || curve.borrowKink == 0 || curve.supplyKink >= 1e18 || curve.borrowKink >= 1e18) {
             return false;
         }
-        if (curve.borrowPerYearInterestRateBase == 0) {
+
+        if (
+            curve.supplyPerYearInterestRateSlopeLow == 0 ||
+            curve.supplyPerYearInterestRateSlopeHigh == 0 ||
+            curve.supplyPerYearInterestRateBase == 0 ||
+            curve.borrowPerYearInterestRateSlopeLow == 0 ||
+            curve.borrowPerYearInterestRateSlopeHigh == 0 
+        ) {
             return false;
         }
 
@@ -519,7 +504,7 @@ contract SandboxController is ISandboxController {
      */
     function baseAssets(
         address token
-    ) external view returns (BaseAssetConfiguration memory) {
+    ) external view override returns (BaseAssetConfiguration memory) {
         return _baseAssets[token];
     }
 
@@ -530,20 +515,43 @@ contract SandboxController is ISandboxController {
      */
     function collateralAssets(
         address token
-    ) external view returns (CollateralAssetConfiguration memory) {
+    ) external view override returns (CollateralAssetConfiguration memory) {
         return _collateralAssets[token];
     }
 
     /**
-     * @notice Returns base asset curves for a given token.
+     * @notice Returns base asset baseAssetCurves for a given token.
      * @param token The address of the base asset token.
-     * @return The base asset curves.
+     * @return The base asset baseAssetCurves.
      */
-    function getBaseAssetCurves(
+    function curves(
         address token
-    ) external view returns (BaseAssetCurve[] memory) {
+    ) external view override returns (BaseAssetCurve[] memory) {
         return _baseAssets[token].baseAssetCurves;
     }
 
+    function controllerConfiguration() external view override returns (SandboxControllerConfiguration memory) {
+        return _controllerConfiguration;
+    }
+    /**
+     * @notice Returns the minimum borrow amount for a given base asset token.
+     * @param token The address of the base asset token.
+     * @return The minimum borrow amount.
+     */
+    function borrowMin(address token) external view returns (uint256) {
+        return _baseAssets[token].minBorrow;
+    }
 
+    /**
+     * @notice Returns the configuration of the sandbox controller.
+     * @return The sandbox controller configuration.
+     */
+    function config()
+        external
+        view
+        override
+        returns (SandboxControllerConfiguration memory)
+    {
+        return _controllerConfiguration;
+    }
 }

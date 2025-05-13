@@ -8,9 +8,10 @@ import '@typechain/hardhat';
 import 'hardhat-chai-matchers';
 import 'hardhat-change-network';
 import 'hardhat-contract-sizer';
-import 'hardhat-cover';
+// import 'hardhat-cover';
 import 'hardhat-gas-reporter';
 import 'hardhat-preprocessor';
+import 'solidity-docgen';
 
 // Hardhat tasks
 import './tasks/deployment_manager/task.ts';
