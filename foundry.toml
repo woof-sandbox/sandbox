@@ -7,7 +7,7 @@ optimizer = true
 optimizer_runs = 200
 extra_output = ['storageLayout']
 extra_output_files = ['storageLayout']
-eth_rpc_url = 'https://sepolia.infura.io/v3/2bacc21f30d640a6b7784c1d6c7a3845'
+eth_rpc_url = 'https://rpc.ankr.com/eth_sepolia/bfab75774c460fa32a8c5e98bd890f57777ca3be7fdc5654b31f16a91f1e073e'
 
 [fmt]
 line_length = 120
