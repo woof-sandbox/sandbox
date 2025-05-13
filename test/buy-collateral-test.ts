@@ -42,7 +42,7 @@ describe('buyCollateral', function () {
       }
     });
 
-    const { comet, tokens, owner, users: [alice, bob] } = protocol;
+    const { comet, tokens, owner, users: [alice, bob], seedReserves } = protocol;
     const { USDC, COMP } = tokens;
 
     await COMP.allocateTo(owner.address, exp(60, 18));
@@ -71,7 +71,7 @@ describe('buyCollateral', function () {
     const r1 = await comet.getReserves();
     const p1 = await portfolio(protocol, alice.address);
 
-    expect(r0).to.equal(1n);
+    expect(r0).to.equal(BigInt(1)-BigInt("200000000"));
     expect(r0).to.be.lt(await comet.targetReserves());
 
     expect(p0.internal).to.deep.equal({ USDC: 0n, COMP: 0n });
@@ -83,7 +83,7 @@ describe('buyCollateral', function () {
       COMP: 55555555555555555555n
     });
 
-    expect(r1).to.equal(exp(50, 6) + 1n);
+    expect(r1).to.equal(exp(50, 6) + 1n -BigInt("200000000"));
 
     expect(event(txn, 0)).to.deep.equal({
       Transfer: { from: alice.address, to: comet.address, amount: exp(50, 6) }
