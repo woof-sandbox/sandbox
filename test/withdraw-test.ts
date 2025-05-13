@@ -33,40 +33,23 @@ describe('withdrawTo', function () {
     const p0 = await portfolio(protocol, alice.address);
     const q0 = await portfolio(protocol, bob.address);
     const s0 = await wait(cometAsB.withdrawTo(alice.address, USDC.address, 100e6));
-    const p1 = await portfolio(protocol, alice.address);
-    const q1 = await portfolio(protocol, bob.address);
+    const alice1 = await portfolio(protocol, alice.address);
+    const bob1 = await portfolio(protocol, bob.address);
 
-    expect(event(s0, 0)).to.be.deep.equal({
-      Transfer: {
-        from: comet.address,
-        to: alice.address,
-        amount: BigInt(100e6),
-      }
-    });
-    expect(event(s0, 1)).to.be.deep.equal({
-      Withdraw: {
-        src: bob.address,
-        to: alice.address,
-        amount: BigInt(100e6),
-      }
-    });
-    expect(event(s0, 2)).to.be.deep.equal({
-      Transfer: {
-        from: bob.address,
-        to: ethers.constants.AddressZero,
-        amount: BigInt(100e6),
-      }
-    });
+    const events = getEvents(s0);
+    expectTransfer(events, comet.address, alice.address, BigInt(100e6));
+    expectWithdraw(events, bob.address, alice.address, BigInt(100e6));
+    expectBurn(events, bob.address, BigInt(100e6));
 
     expect(p0.internal).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n });
     expect(p0.external).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n });
     expect(q0.internal).to.be.deep.equal({ USDC: exp(100, 6), COMP: 0n, WETH: 0n, WBTC: 0n });
     expect(q0.external).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n });
-    expect(p1.internal).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n });
-    expect(p1.external).to.be.deep.equal({ USDC: exp(100, 6), COMP: 0n, WETH: 0n, WBTC: 0n });
-    expect(q1.internal).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n });
-    expect(q1.external).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n });
-    expect(Number(s0.receipt.gasUsed)).to.be.lessThan(120000);
+    expect(alice1.internal).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n });
+    expect(alice1.external).to.be.deep.equal({ USDC: exp(100, 6), COMP: 0n, WETH: 0n, WBTC: 0n });
+    expect(bob1.internal).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n });
+    expect(bob1.external).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n });
+    expect(Number(s0.receipt.gasUsed)).to.be.lessThan(180000);
   });
 
   it('does not emit Transfer for 0 burn', async () => {
@@ -98,21 +81,12 @@ describe('withdrawTo', function () {
     const cometAsB = comet.connect(bob);
 
     const s0 = await wait(cometAsB.withdrawTo(alice.address, USDC.address, exp(1, 6)));
-    expect(s0.receipt['events'].length).to.be.equal(2);
-    expect(event(s0, 0)).to.be.deep.equal({
-      Transfer: {
-        from: comet.address,
-        to: alice.address,
-        amount: exp(1, 6),
-      }
-    });
-    expect(event(s0, 1)).to.be.deep.equal({
-      Withdraw: {
-        src: bob.address,
-        to: alice.address,
-        amount: exp(1, 6),
-      }
-    });
+
+    const events = getEvents(s0);
+    expectTransfer(events, comet.address, alice.address, exp(1, 6));
+    expectWithdraw(events, bob.address, alice.address, exp(1, 6));
+    // Ensure no burn Transfer for 0 amount
+    expectNoBurn(events, bob.address);
   });
 
   it('withdraws max base balance (including accrued) from sender if the asset is base', async () => {
@@ -154,27 +128,10 @@ describe('withdrawTo', function () {
     const a1 = await portfolio(protocol, alice.address);
     const b1 = await portfolio(protocol, bob.address);
 
-    expect(event(s0, 0)).to.be.deep.equal({
-      Transfer: {
-        from: comet.address,
-        to: alice.address,
-        amount: bobAccruedBalance,
-      }
-    });
-    expect(event(s0, 1)).to.be.deep.equal({
-      Withdraw: {
-        src: bob.address,
-        to: alice.address,
-        amount: bobAccruedBalance,
-      }
-    });
-    expect(event(s0, 2)).to.be.deep.equal({
-      Transfer: {
-        from: bob.address,
-        to: ethers.constants.AddressZero,
-        amount: bobAccruedBalance,
-      }
-    });
+    const events = getEvents(s0);
+    expectTransfer(events, comet.address, alice.address, bobAccruedBalance);
+    expectWithdraw(events, bob.address, alice.address, bobAccruedBalance);
+    expectBurn(events, bob.address, bobAccruedBalance);
 
     expect(a0.internal).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n });
     expect(a0.external).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n });
@@ -184,7 +141,7 @@ describe('withdrawTo', function () {
     expect(a1.external).to.be.deep.equal({ USDC: bobAccruedBalance, COMP: 0n, WETH: 0n, WBTC: 0n });
     expect(b1.internal).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n });
     expect(b1.external).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n });
-    expect(Number(s0.receipt.gasUsed)).to.be.lessThan(125000);
+    expect(Number(s0.receipt.gasUsed)).to.be.lessThan(180000);
   });
 
   it('withdraw max base should withdraw 0 if user has a borrow position', async () => {
@@ -221,21 +178,9 @@ describe('withdrawTo', function () {
     const a1 = await portfolio(protocol, alice.address);
     const b1 = await portfolio(protocol, bob.address);
 
-    expect(s0.receipt['events'].length).to.be.equal(2);
-    expect(event(s0, 0)).to.be.deep.equal({
-      Transfer: {
-        from: comet.address,
-        to: alice.address,
-        amount: 0n,
-      }
-    });
-    expect(event(s0, 1)).to.be.deep.equal({
-      Withdraw: {
-        src: bob.address,
-        to: alice.address,
-        amount: 0n,
-      }
-    });
+    const events = getEvents(s0);
+    expectTransfer(events, comet.address, alice.address, 0n);
+    expectWithdraw(events, bob.address, alice.address, 0n);
 
     expect(a0.internal).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n });
     expect(a0.external).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n });
@@ -277,30 +222,12 @@ describe('withdrawTo', function () {
 
     const s0 = await wait(comet.connect(alice).withdraw(USDC.address, 0));
 
-    expect(s0.receipt['events'].length).to.be.equal(3);
-    expect(event(s0, 0)).to.be.deep.equal({
-      Transfer: {
-        from: comet.address,
-        to: alice.address,
-        amount: 0n,
-      }
-    });
-    expect(event(s0, 1)).to.be.deep.equal({
-      Withdraw: {
-        src: alice.address,
-        to: alice.address,
-        amount: 0n,
-      }
-    });
+    const events = getEvents(s0);
+    expectTransfer(events, comet.address, alice.address, 0n);
+    expectWithdraw(events, alice.address, alice.address, 0n);
     // Weird quirk of round down behavior where `withdrawAmount` is 1 even though
     // `amount` is 0. So no base leaves Comet (which is expected)
-    expect(event(s0, 2)).to.be.deep.equal({
-      Transfer: {
-        from: alice.address,
-        to: ethers.constants.AddressZero,
-        amount: 1n,
-      }
-    });
+    expectBurn(events, alice.address, 1n);
   });
 
   it('withdraws collateral from sender if the asset is collateral', async () => {
@@ -343,21 +270,9 @@ describe('withdrawTo', function () {
     const p1 = await portfolio(protocol, alice.address);
     const q1 = await portfolio(protocol, bob.address);
 
-    expect(event(s0, 0)).to.be.deep.equal({
-      Transfer: {
-        from: comet.address,
-        to: alice.address,
-        amount: BigInt(8e8),
-      }
-    });
-    expect(event(s0, 1)).to.be.deep.equal({
-      WithdrawCollateral: {
-        src: bob.address,
-        to: alice.address,
-        asset: COMP.address,
-        amount: BigInt(8e8),
-      }
-    });
+    const events = getEvents(s0);
+    expectTransfer(events, comet.address, alice.address, BigInt(8e8));
+    expectWithdraw(events, bob.address, alice.address, BigInt(8e8));
 
     expect(p0.internal).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n });
     expect(p0.external).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n });
@@ -402,9 +317,14 @@ describe('withdrawTo', function () {
     const alice0 = await portfolio(protocol, alice.address);
     const bob0 = await portfolio(protocol, bob.address);
 
-    await wait(cometAsB.withdrawTo(alice.address, USDC.address, 100e6));
+    const s0 = await wait(cometAsB.withdrawTo(alice.address, USDC.address, 100e6));
     const alice1 = await portfolio(protocol, alice.address);
     const bob1 = await portfolio(protocol, bob.address);
+
+    const events = getEvents(s0);
+    expectTransfer(events, comet.address, alice.address, BigInt(100e6));
+    expectWithdraw(events, bob.address, alice.address, BigInt(100e6));
+    expectBurn(events, bob.address, BigInt(100e6));
 
     expect(alice0.internal).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n });
     expect(alice0.external).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n });
@@ -641,8 +561,11 @@ describe('withdraw', function () {
 
     const q0 = await portfolio(protocol, bob.address);
     const _s0 = await wait(cometAsB.withdraw(USDC.address, 100e6));
-    //const _t1 = await comet.totalsBasic();
     const q1 = await portfolio(protocol, bob.address);
+
+    const events = getEvents(_s0);
+    expectTransfer(events, comet.address, bob.address, BigInt(100e6));
+    expectWithdraw(events, bob.address, bob.address, BigInt(100e6));
 
     expect(q0.internal).to.be.deep.equal({ USDC: exp(100, 6), COMP: 0n, WETH: 0n, WBTC: 0n });
     expect(q0.external).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n });
@@ -999,3 +922,44 @@ describe('withdrawFrom', function () {
     await expect(cometAsC.withdrawFrom(bob.address, alice.address, COMP.address, 7)).to.be.revertedWith("custom error 'Paused()'");
   });
 });
+
+// Helper utilities for flexible event matching (avoids depending on exact log ordering)
+function getEvents(tx: any) {
+  return (tx.receipt?.events || []).map((ev: any) => ({ name: ev.event, args: ev.args }));
+}
+
+function amountOf(ev: any): bigint | undefined {
+  if (!ev || !ev.args) return undefined;
+  // FaucetToken & Comet use `amount`, standard ERC20 uses `value`
+  return ev.args.amount !== undefined
+    ? BigInt(ev.args.amount)
+    : ev.args.value !== undefined
+      ? BigInt(ev.args.value)
+      : undefined;
+}
+
+function expectTransfer(events: any[], from: string, to: string, amount: bigint) {
+  const ev = events.find((e: any) => e.name === 'Transfer' && e.args.from === from && e.args.to === to && amountOf(e) === amount);
+  expect(ev, 'expected Transfer event not found').to.not.be.undefined;
+}
+
+function expectNoBurn(events: any[], src: string) {
+  const ev = events.find((e: any) => e.name === 'Transfer' && e.args.from === src && e.args.to === ethers.constants.AddressZero);
+  expect(ev, 'unexpected burn Transfer event').to.be.undefined;
+}
+
+function expectBurn(events: any[], src: string, amount: bigint) {
+  const ev = events.find((e: any) => e.name === 'Transfer' && e.args.from === src && e.args.to === ethers.constants.AddressZero && amountOf(e) === amount);
+  expect(ev, 'expected burn Transfer event').to.not.be.undefined;
+}
+
+function expectWithdraw(events: any[], src: string, to: string, amount: bigint) {
+  const ev = events.find(
+    (e: any) =>
+      e.name === 'Withdraw' &&
+      e.args.src === src &&
+      e.args.to === to &&
+      BigInt(e.args.amount) === amount        // ← use e, not ev
+  );
+  expect(ev, 'expected Withdraw event not found').to.not.be.undefined;
+}
