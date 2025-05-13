@@ -397,10 +397,16 @@ contract SandboxComet is ISandboxComet, Initializable {
     function _distributeReserves() internal {
         if (totalBorrowBase != 0) return;
 
-        uint256 current = unsigned256(getReserves());
+        int256 signed = getReserves();
+        if (signed <= 0) return;
+
+        uint256 current = uint256(signed);
+
+        if (current < targetReserves()) return;
         if (current <= lastReserveBalance) return;
 
         uint256 delta = current - lastReserveBalance;
+
         ISandboxController sc = ISandboxController(sandboxController);
         ISandboxController.MarketState s = _marketState(current);
 
@@ -411,7 +417,7 @@ contract SandboxComet is ISandboxComet, Initializable {
         uint256 controllerPart = delta -
             (delta * reserveFactor) /
             1e18 -
-            protocolPart; 
+            protocolPart;
 
         if (protocolPart != 0)
             doTransferOut(baseToken, sc.treasury(), protocolPart);
@@ -426,15 +432,23 @@ contract SandboxComet is ISandboxComet, Initializable {
         uint timeElapsed = uint256(now_ - lastAccrualTime);
 
         if (timeElapsed != 0) {
-            (baseSupplyIndex, baseBorrowIndex) = accruedInterestIndices(timeElapsed);
+            (baseSupplyIndex, baseBorrowIndex) = accruedInterestIndices(
+                timeElapsed
+            );
             if (totalSupplyBase >= baseMinForRewards) {
                 trackingSupplyIndex += safe64(
-                    divBaseWei(baseTrackingSupplySpeed * timeElapsed, totalSupplyBase)
+                    divBaseWei(
+                        baseTrackingSupplySpeed * timeElapsed,
+                        totalSupplyBase
+                    )
                 );
             }
             if (totalBorrowBase >= baseMinForRewards) {
                 trackingBorrowIndex += safe64(
-                    divBaseWei(baseTrackingBorrowSpeed * timeElapsed, totalBorrowBase)
+                    divBaseWei(
+                        baseTrackingBorrowSpeed * timeElapsed,
+                        totalBorrowBase
+                    )
                 );
             }
             lastAccrualTime = now_;
@@ -1429,6 +1443,12 @@ contract SandboxComet is ISandboxComet, Initializable {
         }
 
         doTransferOut(baseToken, to, amount);
+
+
+        // if (borrowAmount != 0) {
+        //     (baseSupplyIndex, baseBorrowIndex) = accruedInterestIndices(0);
+        //     lastAccrualTime = getNowInternal();
+        // }
 
         emit Withdraw(src, to, amount);
 
