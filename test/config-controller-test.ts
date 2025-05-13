@@ -1906,7 +1906,7 @@ describe('ConfigController', () => {
             const marketsLength = await configController.marketsLength();
             expect(marketsLength).to.equal(0); 
             expect(await newConfigController.marketsLength()).to.equal(1);
-            expect(await newConfigController.markets(1)).to.equal(marketAdress);
+            expect(await newConfigController.markets(0)).to.equal(marketAdress);
         });
 
         it('should not allow non-owner to accept market transfer proposal', async () => {

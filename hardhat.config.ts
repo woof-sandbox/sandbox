@@ -11,6 +11,7 @@ import 'hardhat-contract-sizer';
 // import 'hardhat-cover';
 import 'hardhat-gas-reporter';
 import 'hardhat-preprocessor';
+import 'solidity-docgen';
 
 // Hardhat tasks
 import './tasks/deployment_manager/task.ts';

@@ -62,7 +62,7 @@ abstract contract ISandboxComet is CometCore {
 
     event SpeedsChanged(uint  baseTrackingSupplySpeed, uint baseTrackingBorrowSpeed, bool dao_);
             
-
+    function setCollateralTokens(IConfigController.CollateralTokenConfig[] memory _collateralTokens) external virtual;
     function supply(address asset, uint amount) virtual external;
     function supplyTo(address dst, address asset, uint amount) virtual external;
     function supplyFrom(address from, address dst, address asset, uint amount) virtual external;
@@ -73,15 +73,18 @@ abstract contract ISandboxComet is CometCore {
     function transferAsset(address dst, address asset, uint amount) virtual external;
     function transferAssetFrom(address src, address dst, address asset, uint amount) virtual external;
 
+    function transferOwnership(address _newConfigController) external virtual;
+    
     function withdraw(address asset, uint amount) virtual external;
     function withdrawTo(address to, address asset, uint amount) virtual external;
     function withdrawFrom(address src, address to, address asset, uint amount) virtual external;
 
     function initialize(
-          IConfigController.MarketConfig memory market,
+        IConfigController.MarketConfig memory market,
         ISandboxController.SandboxControllerConfiguration memory config,
         address configController_,
         address sandboxController_,
+        address ext_,
         uint256 baseBorrowMin_
     ) virtual external;
 
@@ -92,7 +95,6 @@ abstract contract ISandboxComet is CometCore {
     function getCollateralReserves(address asset) virtual public view returns (uint);
     function getReserves() virtual public view returns (int);
     function getPrice(address priceFeed) virtual public view returns (uint);
-
     function isBorrowCollateralized(address account) virtual public view returns (bool);
     function isLiquidatable(address account) virtual public view returns (bool);
 
@@ -121,6 +123,7 @@ abstract contract ISandboxComet is CometCore {
     function sandboxController() virtual external view returns (address);
     function baseToken() virtual external view returns (address);
     function baseTokenPriceFeed() virtual external view returns (address);
+    function extension() virtual external view returns (address);
 
     /// @dev uint64
     function supplyKink() virtual external view returns (uint);

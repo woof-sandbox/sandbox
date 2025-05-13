@@ -19,7 +19,6 @@ contract ConfigControllerFactory is IConfigControllerFactory {
     constructor(address _configControllerImplementation) {
         implementation = _configControllerImplementation;
         /// @dev This is a dummy controller to make the array indexing work correctly
-        controllerAddresses.push(address(0));
     }
 
     /// @notice Creates a new ConfigController instance with unique configuration
@@ -32,7 +31,7 @@ contract ConfigControllerFactory is IConfigControllerFactory {
     /// @param _curatorProposalDuration Duration of curator proposals in seconds
     /// @param _proposalDuration Duration of market proposals in seconds
     /// @return The address of the newly created ConfigController
-    function createConfigController(
+    function create(
         address owner_,
         address _curator,
         address guardian_,
@@ -44,8 +43,9 @@ contract ConfigControllerFactory is IConfigControllerFactory {
         uint _proposalDuration
     ) external override returns (address) {
         address configController = Clones.clone(implementation);
-        lastController++;
+        
         controllerIds[configController] = lastController;
+        lastController++;
         controllerAddresses.push(configController);
 
         IConfigController(configController).initialize(

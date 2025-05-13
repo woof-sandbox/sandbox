@@ -67,7 +67,7 @@ abstract contract ISandboxController is ISandboxErrors {
         uint64 minLiquidationFactor,
         uint64 maxLiquidationFactor
     );
-    event TargetReservesChanged(uint256 oldTargetReserves, uint256 newTargetReserves);
+
     event ThresholdChanged(MarketState state, uint256 oldValue, uint256 newValue);
     event ReserveCommissionChanged(MarketState state, uint256 oldValue, uint256 newValue);
     event ProtocolCommissionChanged(MarketState state, uint256 oldValue, uint256 newValue);
@@ -82,7 +82,6 @@ abstract contract ISandboxController is ISandboxErrors {
     function protocolFactorLiquidation() external view virtual returns (uint256);
     function reserveFactorLiquidation() external view virtual returns (uint256);
     function maxCollateralAssets() external view virtual returns (uint256);
-    function targetReserves() external view virtual returns (uint256);
     function baseAssetCount() external view virtual returns (uint256);
     function collateralAssetCount() external view virtual returns (uint256);
     function treasury() external view virtual returns (address);
@@ -104,7 +103,6 @@ abstract contract ISandboxController is ISandboxErrors {
         uint256 minBorrow
     ) external virtual;
 
-     error Test();
     function whitelistCollateralAsset(
         address token,
         address priceFeed,
@@ -118,7 +116,6 @@ abstract contract ISandboxController is ISandboxErrors {
 
     function addBaseAssetCurve(address token, BaseAssetCurve memory baseAssetCurve) external virtual;
     function changeBaseAssetCurve(address token, uint256 curveIndex, BaseAssetCurve memory newCurve) external virtual;
-    function setTargetReserves(uint256 _targetReserves) external virtual;
     function setThresholds(uint256[3] calldata thresholds) external virtual;
     function setReserveCommissions(uint256[3] calldata reserveCommissions) external virtual;
     function setProtocolCommissions(uint256[3] calldata protocolCommissions) external virtual;

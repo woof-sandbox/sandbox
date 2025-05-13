@@ -60,7 +60,7 @@ abstract contract IConfigControllerFactory {
     /// @param _curatorProposalDuration The duration of curator proposals in seconds
     /// @param _proposalDuration The duration of market proposals in seconds
     /// @return The address of the newly created controller
-    function createConfigController(
+    function create(
         address owner_,
         address _curator,
         address guardian_,

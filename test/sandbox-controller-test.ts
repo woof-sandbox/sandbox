@@ -30,7 +30,7 @@ function makeInvalidCurveZeroBase() {
     supplyPerYearInterestRateBase: ethers.BigNumber.from("100"),
     borrowKink: parseEther("0.5").toString(),
     borrowPerYearInterestRateSlopeLow: ethers.BigNumber.from("1000"),
-    borrowPerYearInterestRateSlopeHigh: ethers.BigNumber.from("2000"),
+    borrowPerYearInterestRateSlopeHigh: ethers.BigNumber.from("0"),
     borrowPerYearInterestRateBase: ethers.BigNumber.from("0")
   }
 }
@@ -387,7 +387,7 @@ describe("SandboxController", function () {
         maxCollateralAssets: 10,
         suggestedAmountOfSeedReserves: "1000",
         suggestedLockTimeOfSeedReserves: 3600,
-        targetReserves: "100"
+        targetPercent: ethers.utils.parseEther("0.5").toString()
       })
       const { sandboxController } = await makeSandboxController(opts)
       expect(await sandboxController.owner()).to.equal(owner.address)
@@ -427,7 +427,7 @@ describe("SandboxController", function () {
         maxCollateralAssets: 5,
         suggestedAmountOfSeedReserves: "1000",
         suggestedLockTimeOfSeedReserves: 1000,
-        targetReserves: "100"
+        targetPercent: ethers.utils.parseEther("0.5").toString()
       })
       const c = await makeSandboxController(opts)
       sandboxController = c.sandboxController
@@ -463,7 +463,7 @@ describe("SandboxController", function () {
       const token2Feed = await makePriceFeed({})
       await expect(
         sandboxController.whitelistBaseAsset(token.address, token2Feed.address, curve, 200)
-      ).to.be.revertedWithCustomError(sandboxController, "TokenAlreadyWhitelisted")
+      ).to.be.revertedWithCustomError(sandboxController, "BaseTokenAlreadyWhitelisted")
     })
 
     it("reverts if feed already whitelisted by another token", async function () {
@@ -576,7 +576,7 @@ describe("SandboxController", function () {
         maxCollateralAssets: 5,
         suggestedAmountOfSeedReserves: "1000",
         suggestedLockTimeOfSeedReserves: 1000,
-        targetReserves: "100"
+        targetPercent: ethers.utils.parseEther("0.5").toString()
       })
       const c = await makeSandboxController(opts)
       sandboxController = c.sandboxController
@@ -658,7 +658,7 @@ describe("SandboxController", function () {
           7000,
           9500
         )
-      ).to.be.revertedWithCustomError(sandboxController, "TokenAlreadyWhitelisted")
+      ).to.be.revertedWithCustomError(sandboxController, "CollateralTokenAlreadyWhitelisted")
     })
 
     it("reverts if feed is used by another token", async function () {
@@ -910,7 +910,7 @@ describe("SandboxController", function () {
         maxCollateralAssets: 5,
         suggestedAmountOfSeedReserves: "1000",
         suggestedLockTimeOfSeedReserves: 1000,
-        targetReserves: "100"
+        targetPercent: ethers.utils.parseEther("0.5").toString()
       })
       const c = await makeSandboxController(opts)
       sandboxController = c.sandboxController
@@ -923,7 +923,8 @@ describe("SandboxController", function () {
             storeFrontPriceFactor: parseEther("0.3").toString(),
             minUpdateTime: 400,
             suggestedAmountOfSeedReserves: "1000",
-            suggestedLockTimeOfSeedReserves: 1000
+            suggestedLockTimeOfSeedReserves: 1000,
+            targetPercent: ethers.utils.parseEther("0.5").toString()
           }
         )
       ).to.be.revertedWithCustomError(sandboxController, "NotOwner")
@@ -933,7 +934,8 @@ describe("SandboxController", function () {
             storeFrontPriceFactor: parseEther("0.3").toString(),
             minUpdateTime: 400,
             suggestedAmountOfSeedReserves: "1000",
-            suggestedLockTimeOfSeedReserves: 1000
+            suggestedLockTimeOfSeedReserves: 1000,
+            targetPercent: ethers.utils.parseEther("0.5").toString()
           }
         )
       ).to.be.revertedWithCustomError(sandboxController, "NotOwner")
@@ -947,7 +949,8 @@ describe("SandboxController", function () {
             storeFrontPriceFactor: parseEther("1").toString(),
             minUpdateTime: 400,
             suggestedAmountOfSeedReserves: "1000",
-            suggestedLockTimeOfSeedReserves: 1000
+            suggestedLockTimeOfSeedReserves: 1000,
+            targetPercent: ethers.utils.parseEther("0.5").toString()
           }
         )
       ).to.be.revertedWithCustomError(sandboxController, "InvalidFactors")
@@ -961,7 +964,8 @@ describe("SandboxController", function () {
             storeFrontPriceFactor: parseEther("0.3").toString(),
             minUpdateTime: 0,
             suggestedAmountOfSeedReserves: "1000",
-            suggestedLockTimeOfSeedReserves: 1000
+            suggestedLockTimeOfSeedReserves: 1000,
+            targetPercent: ethers.utils.parseEther("0.5").toString()
           }
         )
       ).to.be.revertedWithCustomError(sandboxController, "InvalidFactors")
@@ -975,7 +979,8 @@ describe("SandboxController", function () {
             storeFrontPriceFactor: parseEther("0.3").toString(),
             minUpdateTime: 400,
             suggestedAmountOfSeedReserves: "0",
-            suggestedLockTimeOfSeedReserves: 1000
+            suggestedLockTimeOfSeedReserves: 1000,
+            targetPercent: ethers.utils.parseEther("0.5").toString()
           }
         )
       ).to.be.revertedWithCustomError(sandboxController, "InvalidFactors")
@@ -989,7 +994,8 @@ describe("SandboxController", function () {
             storeFrontPriceFactor: parseEther("0.3").toString(),
             minUpdateTime: 400,
             suggestedAmountOfSeedReserves: "1000",
-            suggestedLockTimeOfSeedReserves: 0
+            suggestedLockTimeOfSeedReserves: 0,
+            targetPercent: ethers.utils.parseEther("0.5").toString()
           }
         )
       ).to.be.revertedWithCustomError(sandboxController, "InvalidFactors")
@@ -1002,7 +1008,8 @@ describe("SandboxController", function () {
           storeFrontPriceFactor: parseEther("0.4").toString(),
           minUpdateTime: 500,
           suggestedAmountOfSeedReserves: "2000",
-          suggestedLockTimeOfSeedReserves: 2000
+          suggestedLockTimeOfSeedReserves: 2000,
+          targetPercent: ethers.utils.parseEther("0.5").toString()
         }
       )
       expect((await sandboxController.controllerConfiguration()).storeFrontPriceFactor).to.equal(parseEther("0.4").toString())
@@ -1040,7 +1047,7 @@ describe("SandboxController", function () {
         maxCollateralAssets: 5,
         suggestedAmountOfSeedReserves: "1000",
         suggestedLockTimeOfSeedReserves: 1000,
-        targetReserves: "100"
+        targetPercent: ethers.utils.parseEther("0.5").toString()
       })
       const c = await makeSandboxController(opts)
       sandboxController = c.sandboxController
@@ -1084,7 +1091,7 @@ describe("SandboxController", function () {
         maxCollateralAssets: 5,
         suggestedAmountOfSeedReserves: "1000",
         suggestedLockTimeOfSeedReserves: 1000,
-        targetReserves: "100"
+        targetPercent: ethers.utils.parseEther("0.5").toString()
       })
       const c = await makeSandboxController(opts)
       sandboxController = c.sandboxController
@@ -1103,7 +1110,7 @@ describe("SandboxController", function () {
       const token2 = await makeMockERC20({ name: "T10", symbol: "T10" })
       await expect(
         sandboxController.addBaseAssetCurve(token2.address, makeValidCurve())
-      ).to.be.revertedWithCustomError(sandboxController, "TokenNotWhitelisted")
+      ).to.be.revertedWithCustomError(sandboxController, "BaseTokenNotWhitelisted")
     })
 
     it("reverts if curve invalid", async function () {
@@ -1195,7 +1202,7 @@ describe("SandboxController", function () {
         maxCollateralAssets: 5,
         suggestedAmountOfSeedReserves: "1000",
         suggestedLockTimeOfSeedReserves: 1000,
-        targetReserves: "100"
+        targetPercent: ethers.utils.parseEther("0.5").toString()
       })
       const c = await makeSandboxController(opts)
       sandboxController = c.sandboxController
@@ -1214,7 +1221,7 @@ describe("SandboxController", function () {
       const token2 = await makeMockERC20({ name: "T12", symbol: "T12" })
       await expect(
         sandboxController.connect(dao).changeBaseAssetCurve(token2.address, 0, makeValidCurve())
-      ).to.be.revertedWithCustomError(sandboxController, "TokenNotWhitelisted")
+      ).to.be.revertedWithCustomError(sandboxController, "BaseTokenNotWhitelisted")
     })
 
     it("reverts if curve index out of range", async function () {
@@ -1263,23 +1270,23 @@ describe("SandboxController", function () {
       const ev = rcpt.events?.find((e: any) => e.event === "BaseAssetCurveChanged")
       expect(ev).to.exist
       expect(ev.args.token).to.equal(token.address)
-      expect(ev.args.baseAssetCurveOld.supplyKink).to.equal(oldCurve.supplyKink)
-      expect(ev.args.baseAssetCurveOld.supplyPerYearInterestRateSlopeLow).to.equal(oldCurve.supplyPerYearInterestRateSlopeLow)
-      expect(ev.args.baseAssetCurveOld.supplyPerYearInterestRateSlopeHigh).to.equal(oldCurve.supplyPerYearInterestRateSlopeHigh)
-      expect(ev.args.baseAssetCurveOld.supplyPerYearInterestRateBase).to.equal(oldCurve.supplyPerYearInterestRateBase)
-      expect(ev.args.baseAssetCurveOld.borrowKink).to.equal(oldCurve.borrowKink)
-      expect(ev.args.baseAssetCurveOld.borrowPerYearInterestRateSlopeLow).to.equal(oldCurve.borrowPerYearInterestRateSlopeLow)
-      expect(ev.args.baseAssetCurveOld.borrowPerYearInterestRateSlopeHigh).to.equal(oldCurve.borrowPerYearInterestRateSlopeHigh)
-      expect(ev.args.baseAssetCurveOld.borrowPerYearInterestRateBase).to.equal(oldCurve.borrowPerYearInterestRateBase)
+      expect(ev.args.oldCurve.supplyKink).to.equal(oldCurve.supplyKink)
+      expect(ev.args.oldCurve.supplyPerYearInterestRateSlopeLow).to.equal(oldCurve.supplyPerYearInterestRateSlopeLow)
+      expect(ev.args.oldCurve.supplyPerYearInterestRateSlopeHigh).to.equal(oldCurve.supplyPerYearInterestRateSlopeHigh)
+      expect(ev.args.oldCurve.supplyPerYearInterestRateBase).to.equal(oldCurve.supplyPerYearInterestRateBase)
+      expect(ev.args.oldCurve.borrowKink).to.equal(oldCurve.borrowKink)
+      expect(ev.args.oldCurve.borrowPerYearInterestRateSlopeLow).to.equal(oldCurve.borrowPerYearInterestRateSlopeLow)
+      expect(ev.args.oldCurve.borrowPerYearInterestRateSlopeHigh).to.equal(oldCurve.borrowPerYearInterestRateSlopeHigh)
+      expect(ev.args.oldCurve.borrowPerYearInterestRateBase).to.equal(oldCurve.borrowPerYearInterestRateBase)
 
-      expect(ev.args.baseAssetCurveNew.supplyKink).to.equal(newCurve.supplyKink)
-      expect(ev.args.baseAssetCurveNew.supplyPerYearInterestRateSlopeLow).to.equal(newCurve.supplyPerYearInterestRateSlopeLow)
-      expect(ev.args.baseAssetCurveNew.supplyPerYearInterestRateSlopeHigh).to.equal(newCurve.supplyPerYearInterestRateSlopeHigh)
-      expect(ev.args.baseAssetCurveNew.supplyPerYearInterestRateBase).to.equal(newCurve.supplyPerYearInterestRateBase)
-      expect(ev.args.baseAssetCurveNew.borrowKink).to.equal(newCurve.borrowKink)
-      expect(ev.args.baseAssetCurveNew.borrowPerYearInterestRateSlopeLow).to.equal(newCurve.borrowPerYearInterestRateSlopeLow)
-      expect(ev.args.baseAssetCurveNew.borrowPerYearInterestRateSlopeHigh).to.equal(newCurve.borrowPerYearInterestRateSlopeHigh)
-      expect(ev.args.baseAssetCurveNew.borrowPerYearInterestRateBase).to.equal(newCurve.borrowPerYearInterestRateBase)
+      expect(ev.args.newCurve.supplyKink).to.equal(newCurve.supplyKink)
+      expect(ev.args.newCurve.supplyPerYearInterestRateSlopeLow).to.equal(newCurve.supplyPerYearInterestRateSlopeLow)
+      expect(ev.args.newCurve.supplyPerYearInterestRateSlopeHigh).to.equal(newCurve.supplyPerYearInterestRateSlopeHigh)
+      expect(ev.args.newCurve.supplyPerYearInterestRateBase).to.equal(newCurve.supplyPerYearInterestRateBase)
+      expect(ev.args.newCurve.borrowKink).to.equal(newCurve.borrowKink)
+      expect(ev.args.newCurve.borrowPerYearInterestRateSlopeLow).to.equal(newCurve.borrowPerYearInterestRateSlopeLow)
+      expect(ev.args.newCurve.borrowPerYearInterestRateSlopeHigh).to.equal(newCurve.borrowPerYearInterestRateSlopeHigh)
+      expect(ev.args.newCurve.borrowPerYearInterestRateBase).to.equal(newCurve.borrowPerYearInterestRateBase)
 
       existingCurves = await sandboxController.curves(token.address)
       const updatedCurve = existingCurves[1]
@@ -1311,7 +1318,7 @@ describe("SandboxController", function () {
         maxCollateralAssets: 5,
         suggestedAmountOfSeedReserves: "1000",
         suggestedLockTimeOfSeedReserves: 1000,
-        targetReserves: "100"
+        targetPercent: ethers.utils.parseEther("0.5").toString()
       })
       const c = await makeSandboxController(opts)
       sandboxController = c.sandboxController
@@ -1360,7 +1367,7 @@ describe("SandboxController", function () {
         maxCollateralAssets: 5,
         suggestedAmountOfSeedReserves: "1000",
         suggestedLockTimeOfSeedReserves: 1000,
-        targetReserves: "100"
+        targetPercent: ethers.utils.parseEther("0.5").toString()
       })
       const c = await makeSandboxController(opts)
       sandboxController = c.sandboxController
@@ -1409,7 +1416,7 @@ describe("SandboxController", function () {
         maxCollateralAssets: 5,
         suggestedAmountOfSeedReserves: "1000",
         suggestedLockTimeOfSeedReserves: 1000,
-        targetReserves: "100"
+        targetPercent: ethers.utils.parseEther("0.5").toString()
       })
       const c = await makeSandboxController(opts)
       sandboxController = c.sandboxController
@@ -1445,7 +1452,7 @@ describe("SandboxController", function () {
         maxCollateralAssets: 5,
         suggestedAmountOfSeedReserves: "1000",
         suggestedLockTimeOfSeedReserves: 1000,
-        targetReserves: "100"
+        targetPercent: ethers.utils.parseEther("0.5").toString()
       })
       const c = await makeSandboxController(opts)
       sandboxController = c.sandboxController
@@ -1492,7 +1499,7 @@ describe("SandboxController", function () {
         maxCollateralAssets: 5,
         suggestedAmountOfSeedReserves: "1000",
         suggestedLockTimeOfSeedReserves: 1000,
-        targetReserves: "100"
+        targetPercent: ethers.utils.parseEther("0.5").toString()
       })
       const c = await makeSandboxController(opts)
       sandboxController = c.sandboxController
@@ -1544,73 +1551,6 @@ describe("SandboxController", function () {
       })
       expect(ok).to.equal(false)
     })
-
-    it("returns false if borrowPerYearInterestRateBase=0", async function () {
-      const c = makeValidCurve()
-      c.borrowPerYearInterestRateBase = ethers.BigNumber.from("0")
-      const ok = await sandboxController.isCurveConfigurationValid({
-        supplyKink: c.supplyKink,
-        supplyPerYearInterestRateSlopeLow: c.supplyPerYearInterestRateSlopeLow,
-        supplyPerYearInterestRateSlopeHigh: c.supplyPerYearInterestRateSlopeHigh,
-        supplyPerYearInterestRateBase: c.supplyPerYearInterestRateBase,
-        borrowKink: c.borrowKink,
-        borrowPerYearInterestRateSlopeLow: c.borrowPerYearInterestRateSlopeLow,
-        borrowPerYearInterestRateSlopeHigh: c.borrowPerYearInterestRateSlopeHigh,
-        borrowPerYearInterestRateBase: c.borrowPerYearInterestRateBase
-      })
-      expect(ok).to.equal(false)
-    })
-  })
-
-  describe("setTargetReserves", function () {
-    let sandboxController: any
-
-    beforeEach(async function () {
-      const opts = defaultSandboxControllerOpts({
-        admin: owner,
-        dao: dao,
-        feeEnabled: false,
-        storeFrontPriceFactor: parseEther("0.3").toString(),
-        protocolFactorBorrow: parseEther("0.1").toString(),
-        reserveFactorBorrow: parseEther("0.2").toString(),
-        protocolFactorLiquidation: parseEther("0.1").toString(),
-        reserveFactorLiquidation: parseEther("0.2").toString(),
-        minUpdateTime: 400,
-        maxCollateralAssets: 5,
-        suggestedAmountOfSeedReserves: "1000",
-        suggestedLockTimeOfSeedReserves: 1000,
-        targetReserves: parseEther("0.3").toString()
-      })
-      const c = await makeSandboxController(opts)
-      sandboxController = c.sandboxController
-    })
-
-    it("reverts if caller is not owner", async function () {
-      await expect(
-        sandboxController.connect(dao).setTargetReserves(parseEther("0.2").toString())
-      ).to.be.revertedWithCustomError(sandboxController, "NotOwner")
-      await expect(
-        sandboxController.connect(attacker).setTargetReserves(parseEther("0.2").toString())
-      ).to.be.revertedWithCustomError(sandboxController, "NotOwner")
-    })
-
-    it("reverts if new target reserves exceeds 50%", async function () {
-      await expect(
-        sandboxController.connect(owner).setTargetReserves("500000000000000001")
-      ).to.be.revertedWithCustomError(sandboxController, "InvalidFactors")
-    })
-
-    it("updates target reserves and emits event", async function () {
-      const oldTarget = await sandboxController.targetReserves()
-      const newTarget = parseEther("0.4").toString()
-      const tx = await sandboxController.connect(owner).setTargetReserves(newTarget)
-      const rcpt = await tx.wait()
-      const ev = rcpt.events?.find((e: any) => e.event === "TargetReservesChanged")
-      expect(ev).to.exist
-      expect(ev.args[0]).to.equal(oldTarget)
-      expect(ev.args[1]).to.equal(newTarget)
-      expect(await sandboxController.targetReserves()).to.equal(newTarget)
-    })
   })
 
   describe("Reserve Commission and Thresholds", function () {
@@ -1635,7 +1575,7 @@ describe("SandboxController", function () {
         maxCollateralAssets: 5,
         suggestedAmountOfSeedReserves: "1000",
         suggestedLockTimeOfSeedReserves: 1000,
-        targetReserves: parseEther("0.3").toString()
+        targetPercent: ethers.utils.parseEther("0.5").toString()
       })
       const c = await makeSandboxController(opts)
       sandboxController = c.sandboxController
@@ -1809,7 +1749,7 @@ describe("SandboxController", function () {
         maxCollateralAssets: 5,
         suggestedAmountOfSeedReserves: "1000",
         suggestedLockTimeOfSeedReserves: 1000,
-        targetReserves: parseEther("0.3").toString()
+        targetPercent: ethers.utils.parseEther("0.5").toString()
       });
       const c = await makeSandboxController(opts);
       sandboxController = c.sandboxController;

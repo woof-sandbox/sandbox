@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
-import "./interfaces/IMarket.sol";
+import "../interfaces/IMarket.sol";
 import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
-import "./interfaces/IConfigController.sol";
-import "./interfaces/ISandboxController.sol";
+import "../interfaces/IConfigController.sol";
+import "../interfaces/ISandboxController.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 

@@ -9,6 +9,8 @@ import "./interfaces/IPriceFeed.sol";
 import "./interfaces/IConfigController.sol";
 import "./interfaces/ISandboxController.sol";
 
+import "hardhat/console.sol";
+
 /**
  * @title Compound's Comet Contract
  * @notice An efficient monolithic money market protocol
@@ -21,6 +23,9 @@ contract SandboxComet is ISandboxComet, Initializable {
 
     /// @notice Sandbox Controller address
     address public override sandboxController;
+
+    /// @notice The address of the extension contract
+    address public override extension;
 
     /// @notice The address of the base token contract
     address public override baseToken;
@@ -124,7 +129,6 @@ contract SandboxComet is ISandboxComet, Initializable {
         address baseToken;
         address baseTokenPriceFeed;
         address extensionDelegate;
-
         uint64 supplyKink;
         uint64 supplyPerYearInterestRateSlopeLow;
         uint64 supplyPerYearInterestRateSlopeHigh;
@@ -142,7 +146,6 @@ contract SandboxComet is ISandboxComet, Initializable {
         uint104 targetPercent;
         uint104 seedReserves;
         uint104 unlockTimestamp;
-
         IConfigController.CollateralTokenConfig[] assetConfigs;
     }
 
@@ -156,14 +159,13 @@ contract SandboxComet is ISandboxComet, Initializable {
         ISandboxController.SandboxControllerConfiguration memory config,
         address configController_,
         address sandboxController_,
+        address ext,
         uint256 baseBorrowMin_
     ) external override initializer {
         uint8 decimals_ = IERC20NonStandard(market.baseToken).decimals();
         if (decimals_ > MAX_BASE_DECIMALS) revert BadDecimals();
-        if (
-            IPriceFeed(market.priceFeed).decimals() !=
-            PRICE_FEED_DECIMALS
-        ) revert BadDecimals();
+        if (IPriceFeed(market.priceFeed).decimals() != PRICE_FEED_DECIMALS)
+            revert BadDecimals();
 
         configController = configController_;
         sandboxController = sandboxController_;
@@ -173,6 +175,7 @@ contract SandboxComet is ISandboxComet, Initializable {
         storeFrontPriceFactor = config.storeFrontPriceFactor;
 
         trackingIndexScale = 1 ether;
+        extension = ext;
 
         baseTrackingSupplySpeed = 1 ether;
         baseTrackingBorrowSpeed = 1 ether;
@@ -192,12 +195,18 @@ contract SandboxComet is ISandboxComet, Initializable {
             block.timestamp +
             config.suggestedLockTimeOfSeedReserves;
 
-        ISandboxController.BaseAssetCurve memory curve = ISandboxController(sandboxController).baseAssets(market.baseToken).baseAssetCurves[market.baseTokenCurveId];
-      
+        ISandboxController.BaseAssetCurve memory curve = ISandboxController(
+            sandboxController
+        ).baseAssets(market.baseToken).baseAssetCurves[market.baseTokenCurveId];
+
         for (uint8 i; i < market.collateralTokens.length; i++) {
             collateralAssets.push(market.collateralTokens[i]);
-            collateralAssetAddress[i] = market.collateralTokens[i].collateralToken;
-            collateralAssetIndex[market.collateralTokens[i].collateralToken] = i;
+            collateralAssetAddress[i] = market
+                .collateralTokens[i]
+                .collateralToken;
+            collateralAssetIndex[
+                market.collateralTokens[i].collateralToken
+            ] = i;
         }
 
         unchecked {
@@ -226,6 +235,32 @@ contract SandboxComet is ISandboxComet, Initializable {
         numAssets = uint8(market.collateralTokens.length);
     }
 
+    function transferOwnership(
+        address _newConfigController
+    ) external override onlyConfigController {
+        configController = _newConfigController;
+        IConfigController(_newConfigController).addMarket(address(this));
+    }
+
+    function setCollateralTokens(
+        IConfigController.CollateralTokenConfig[] memory _collateralTokens
+    ) external override onlyConfigController {
+        if (msg.sender != configController) revert Unauthorized();
+
+        for (uint8 i; i < numAssets; i++) {
+            address asset = collateralAssetAddress[i];
+            if (asset != address(0)) {
+                delete collateralAssetIndex[asset];
+                delete collateralAssets[i];
+            }
+        }
+        for (uint8 i; i < _collateralTokens.length; i++) {
+            collateralAssets.push(_collateralTokens[i]);
+            collateralAssetAddress[i] = _collateralTokens[i].collateralToken;
+            collateralAssetIndex[_collateralTokens[i].collateralToken] = i;
+        }
+        numAssets = uint8(_collateralTokens.length);
+    }
 
     /**
      * @dev Prevents marked functions from being reentered
@@ -236,6 +271,11 @@ contract SandboxComet is ISandboxComet, Initializable {
         nonReentrantBefore();
         _;
         nonReentrantAfter();
+    }
+
+    modifier onlyConfigController() {
+        if (msg.sender != configController) revert Unauthorized();
+        _;
     }
 
     /**
@@ -276,7 +316,6 @@ contract SandboxComet is ISandboxComet, Initializable {
         lastAccrualTime = getNowInternal();
         baseSupplyIndex = BASE_INDEX_SCALE;
         baseBorrowIndex = BASE_INDEX_SCALE;
-
         // Implicit initialization (not worth increasing contract size)
         // trackingSupplyIndex = 0;
         // trackingBorrowIndex = 0;
@@ -303,7 +342,10 @@ contract SandboxComet is ISandboxComet, Initializable {
         view
         returns (IConfigController.CollateralTokenConfig memory, uint8 index)
     {
-        return (collateralAssets[collateralAssetIndex[asset]], collateralAssetIndex[asset]);
+        return (
+            collateralAssets[collateralAssetIndex[asset]],
+            collateralAssetIndex[asset]
+        );
     }
 
     /**
@@ -335,34 +377,70 @@ contract SandboxComet is ISandboxComet, Initializable {
         return (baseSupplyIndex_, baseBorrowIndex_);
     }
 
-    /**
-     * @dev Accrue interest (and rewards) in base token supply and borrows
-     **/
+    uint256 public lastReserveBalance;
+
+    function _marketState(
+        uint256 reserves
+    ) internal view returns (ISandboxController.MarketState) {
+        ISandboxController sc = ISandboxController(sandboxController);
+
+        uint256 tRes = targetReserves();
+        uint256 ratio = tRes == 0 ? 0 : (reserves * 1e18) / tRes;
+
+        if (ratio < sc.threshold(ISandboxController.MarketState.Low))
+            return ISandboxController.MarketState.Low;
+        if (ratio < sc.threshold(ISandboxController.MarketState.Medium))
+            return ISandboxController.MarketState.Medium;
+        return ISandboxController.MarketState.High;
+    }
+
+    function _distributeReserves() internal {
+        if (totalBorrowBase != 0) return;
+
+        uint256 current = unsigned256(getReserves());
+        if (current <= lastReserveBalance) return;
+
+        uint256 delta = current - lastReserveBalance;
+        ISandboxController sc = ISandboxController(sandboxController);
+        ISandboxController.MarketState s = _marketState(current);
+
+        uint256 reserveFactor = sc.reserveCommission(s);
+        uint256 protocolFactor = sc.feeEnabled() ? sc.protocolCommission(s) : 0;
+
+        uint256 protocolPart = (delta * protocolFactor) / 1e18;
+        uint256 controllerPart = delta -
+            (delta * reserveFactor) /
+            1e18 -
+            protocolPart; 
+
+        if (protocolPart != 0)
+            doTransferOut(baseToken, sc.treasury(), protocolPart);
+        if (controllerPart != 0)
+            doTransferOut(baseToken, configController, controllerPart);
+
+        lastReserveBalance = current;
+    }
+
     function accrueInternal() internal {
         uint40 now_ = getNowInternal();
         uint timeElapsed = uint256(now_ - lastAccrualTime);
-        if (timeElapsed > 0) {
-            (baseSupplyIndex, baseBorrowIndex) = accruedInterestIndices(
-                timeElapsed
-            );
+
+        if (timeElapsed != 0) {
+            (baseSupplyIndex, baseBorrowIndex) = accruedInterestIndices(timeElapsed);
             if (totalSupplyBase >= baseMinForRewards) {
                 trackingSupplyIndex += safe64(
-                    divBaseWei(
-                        baseTrackingSupplySpeed * timeElapsed,
-                        totalSupplyBase
-                    )
+                    divBaseWei(baseTrackingSupplySpeed * timeElapsed, totalSupplyBase)
                 );
             }
             if (totalBorrowBase >= baseMinForRewards) {
                 trackingBorrowIndex += safe64(
-                    divBaseWei(
-                        baseTrackingBorrowSpeed * timeElapsed,
-                        totalBorrowBase
-                    )
+                    divBaseWei(baseTrackingBorrowSpeed * timeElapsed, totalBorrowBase)
                 );
             }
             lastAccrualTime = now_;
         }
+
+        _distributeReserves();
     }
 
     /**
@@ -542,9 +620,8 @@ contract SandboxComet is ISandboxComet, Initializable {
                     return true;
                 }
 
-                IConfigController.CollateralTokenConfig memory asset = getAssetInfo(
-                    i
-                );
+                IConfigController.CollateralTokenConfig
+                    memory asset = getAssetInfo(i);
 
                 uint64 scale = uint64(
                     10 ** uint256(IPriceFeed(asset.priceFeed).decimals())
@@ -583,6 +660,7 @@ contract SandboxComet is ISandboxComet, Initializable {
 
         uint16 assetsIn = userBasic[account].assetsIn;
         uint8 _reserved = userBasic[account]._reserved;
+
         int liquidity = signedMulPrice(
             presentValue(principal),
             getPrice(baseTokenPriceFeed),
@@ -595,9 +673,8 @@ contract SandboxComet is ISandboxComet, Initializable {
                     return false;
                 }
 
-                IConfigController.CollateralTokenConfig memory asset = getAssetInfo(
-                    i
-                );
+                IConfigController.CollateralTokenConfig
+                    memory asset = getAssetInfo(i);
 
                 uint64 scale = uint64(
                     10 ** uint256(IPriceFeed(asset.priceFeed).decimals())
@@ -608,6 +685,7 @@ contract SandboxComet is ISandboxComet, Initializable {
                     getPrice(asset.priceFeed),
                     scale
                 );
+
                 liquidity += signed256(
                     mulFactor(newAmount, asset.liquidateCollateralFactor)
                 );
@@ -1036,21 +1114,12 @@ contract SandboxComet is ISandboxComet, Initializable {
             dstPrincipal,
             dstPrincipalNew
         );
-
-        uint currentReserves = uint(getReserves());
-        uint maxReserves = targetReserves();
-
-        if (currentReserves >= maxReserves) {
-            repayAmount = 0;
-        } else if (currentReserves + repayAmount > maxReserves) {
-            repayAmount = uint104(maxReserves - currentReserves);
-        }
-
         totalSupplyBase += supplyAmount;
         totalBorrowBase -= repayAmount;
 
         updateBasePrincipal(dst, dstUser, dstPrincipalNew);
 
+        _distributeReserves();
         emit Supply(from, dst, amount);
 
         if (supplyAmount > 0) {
@@ -1336,6 +1405,7 @@ contract SandboxComet is ISandboxComet, Initializable {
             );
             seedReserves -= amount;
             emit WithdrawReserves(to, amount);
+            return;
         }
 
         UserBasic memory srcUser = userBasic[src];
@@ -1407,8 +1477,6 @@ contract SandboxComet is ISandboxComet, Initializable {
         address[] calldata accounts
     ) external override {
         if (isAbsorbPaused()) revert Paused();
-
-        uint startGas = gasleft();
         accrueInternal();
         for (uint i = 0; i < accounts.length; ) {
             absorbInternal(absorber, accounts[i]);
@@ -1416,17 +1484,6 @@ contract SandboxComet is ISandboxComet, Initializable {
                 i++;
             }
         }
-        uint gasUsed = startGas - gasleft();
-
-        // Note: liquidator points are an imperfect tool for governance,
-        //  to be used while evaluating strategies for incentivizing absorption.
-        // Using gas price instead of base fee would more accurately reflect spend,
-        //  but is also subject to abuse if refunds were to be given automatically.
-        LiquidatorPoints memory points = liquidatorPoints[absorber];
-        points.numAbsorbs++;
-        points.numAbsorbed += safe64(accounts.length);
-        points.approxSpend += safe128(gasUsed * block.basefee);
-        liquidatorPoints[absorber] = points;
     }
 
     /**
@@ -1462,10 +1519,7 @@ contract SandboxComet is ISandboxComet, Initializable {
                                 .decimals()
                     )
                 );
-                deltaValue += mulFactor(
-                    value,
-                    assetInfo.liquidationFactor
-                );
+                deltaValue += mulFactor(value, assetInfo.liquidationFactor);
 
                 emit AbsorbCollateral(
                     absorber,
@@ -1507,17 +1561,10 @@ contract SandboxComet is ISandboxComet, Initializable {
         //  the amount of debt repaid by reserves is `newBalance - oldBalance`
         totalSupplyBase += supplyAmount;
         totalBorrowBase -= repayAmount;
+        console.logInt(newBalance);
+        console.logInt(oldBalance);
 
         uint256 basePaidOut = unsigned256(newBalance - oldBalance);
-
-        uint maxReserves = targetReserves();
-        int currentReserves = getReserves();
-
-        if (currentReserves >= int(maxReserves)) {
-            basePaidOut = 0;
-        } else if (uint(currentReserves) + basePaidOut > maxReserves) {
-            basePaidOut = maxReserves - uint(currentReserves);
-        }
 
         uint256 valueOfBasePaidOut = mulPrice(
             basePaidOut,
@@ -1678,33 +1725,63 @@ contract SandboxComet is ISandboxComet, Initializable {
     /// @notice Returns the current configuration of the market
     /// @return Configuration struct containing all market parameters
     function getConfiguration() external view returns (Configuration memory) {
-        return Configuration({
-            configController: configController,
-            baseToken: baseToken,
-            baseTokenPriceFeed: baseTokenPriceFeed,
-            extensionDelegate: address(0), // Not implemented in this version
-
-            supplyKink: uint64(supplyKink),
-            supplyPerYearInterestRateSlopeLow: uint64(supplyPerSecondInterestRateSlopeLow * SECONDS_PER_YEAR),
-            supplyPerYearInterestRateSlopeHigh: uint64(supplyPerSecondInterestRateSlopeHigh * SECONDS_PER_YEAR),
-            supplyPerYearInterestRateBase: uint64(supplyPerSecondInterestRateBase * SECONDS_PER_YEAR),
-            borrowKink: uint64(borrowKink),
-            borrowPerYearInterestRateSlopeLow: uint64(borrowPerSecondInterestRateSlopeLow * SECONDS_PER_YEAR),
-            borrowPerYearInterestRateSlopeHigh: uint64(borrowPerSecondInterestRateSlopeHigh * SECONDS_PER_YEAR),
-            borrowPerYearInterestRateBase: uint64(borrowPerSecondInterestRateBase * SECONDS_PER_YEAR),
-            storeFrontPriceFactor: uint64(storeFrontPriceFactor),
-            trackingIndexScale: uint64(trackingIndexScale),
-            baseTrackingSupplySpeed: uint64(baseTrackingSupplySpeed),
-            baseTrackingBorrowSpeed: uint64(baseTrackingBorrowSpeed),
-            baseMinForRewards: uint104(baseMinForRewards),
-            baseBorrowMin: uint104(baseBorrowMin),
-            targetPercent: uint104(targetPercent),
-            seedReserves: uint104(seedReserves),
-            unlockTimestamp: uint104(unlockTimestamp),
-            
-            assetConfigs: collateralAssets
-        });
+        return
+            Configuration({
+                configController: configController,
+                baseToken: baseToken,
+                baseTokenPriceFeed: baseTokenPriceFeed,
+                extensionDelegate: address(0), // Not implemented in this version
+                supplyKink: uint64(supplyKink),
+                supplyPerYearInterestRateSlopeLow: uint64(
+                    supplyPerSecondInterestRateSlopeLow * SECONDS_PER_YEAR
+                ),
+                supplyPerYearInterestRateSlopeHigh: uint64(
+                    supplyPerSecondInterestRateSlopeHigh * SECONDS_PER_YEAR
+                ),
+                supplyPerYearInterestRateBase: uint64(
+                    supplyPerSecondInterestRateBase * SECONDS_PER_YEAR
+                ),
+                borrowKink: uint64(borrowKink),
+                borrowPerYearInterestRateSlopeLow: uint64(
+                    borrowPerSecondInterestRateSlopeLow * SECONDS_PER_YEAR
+                ),
+                borrowPerYearInterestRateSlopeHigh: uint64(
+                    borrowPerSecondInterestRateSlopeHigh * SECONDS_PER_YEAR
+                ),
+                borrowPerYearInterestRateBase: uint64(
+                    borrowPerSecondInterestRateBase * SECONDS_PER_YEAR
+                ),
+                storeFrontPriceFactor: uint64(storeFrontPriceFactor),
+                trackingIndexScale: uint64(trackingIndexScale),
+                baseTrackingSupplySpeed: uint64(baseTrackingSupplySpeed),
+                baseTrackingBorrowSpeed: uint64(baseTrackingBorrowSpeed),
+                baseMinForRewards: uint104(baseMinForRewards),
+                baseBorrowMin: uint104(baseBorrowMin),
+                targetPercent: uint104(targetPercent),
+                seedReserves: uint104(seedReserves),
+                unlockTimestamp: uint104(unlockTimestamp),
+                assetConfigs: collateralAssets
+            });
     }
 
     receive() external payable {}
+
+    /**
+     * @notice Fallback to calling the extension delegate for everything else
+     */
+    fallback() external payable {
+        address delegate = extension;
+        assembly ("memory-safe") {
+            calldatacopy(0, 0, calldatasize())
+            let result := delegatecall(gas(), delegate, 0, calldatasize(), 0, 0)
+            returndatacopy(0, 0, returndatasize())
+            switch result
+            case 0 {
+                revert(0, returndatasize())
+            }
+            default {
+                return(0, returndatasize())
+            }
+        }
+    }
 }
