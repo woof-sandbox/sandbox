@@ -172,15 +172,14 @@ contract SandboxComet is ISandboxComet, Initializable {
 
         baseToken = market.baseToken;
         baseTokenPriceFeed = market.priceFeed;
-        storeFrontPriceFactor = config.storeFrontPriceFactor;
 
-        trackingIndexScale = 1 ether;
         extension = ext;
+        trackingIndexScale = market.options.trackingIndexScale;
 
-        baseTrackingSupplySpeed = 1 ether;
-        baseTrackingBorrowSpeed = 1 ether;
+        baseTrackingSupplySpeed = market.options.baseTrackingSupplySpeed;
+        baseTrackingBorrowSpeed = market.options.baseTrackingBorrowSpeed;
 
-        baseMinForRewards = 1 ether;
+        baseMinForRewards = market.options.baseMinForRewards;
 
         decimals = decimals_;
         baseScale = uint64(10 ** decimals_);
