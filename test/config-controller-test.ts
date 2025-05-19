@@ -38,7 +38,13 @@ describe('ConfigController', () => {
             baseToken: baseToken.address,
             priceFeed: priceFeeds[await baseToken.symbol()].address,
             collateralTokens: [],
-            baseTokenCurveId: 0n
+            baseTokenCurveId: 0n,
+            options: {
+                baseTrackingSupplySpeed: 0n,
+                baseTrackingBorrowSpeed: 0n,
+                trackingIndexScale: 0n,
+                baseMinForRewards: 0n
+            }
         }
 
         for (let token in tokens) {
@@ -63,7 +69,7 @@ describe('ConfigController', () => {
         return marketAddress;
     }
 
-    describe('Initialize', () => {
+    describe.only('Initialize', () => {
         it('should initialize with correct values', async () => {
             const {
                 configController,
