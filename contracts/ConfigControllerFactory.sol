@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
+import "@openzeppelin/contracts/proxy/Clones.sol";
 import "./ConfigController.sol";
 import "./interfaces/IConfigController.sol";
-import "@openzeppelin/contracts/proxy/Clones.sol";
 import "./interfaces/IConfigControllerFactory.sol";
 
 /**
@@ -11,19 +11,24 @@ import "./interfaces/IConfigControllerFactory.sol";
  * @dev Factory contract for creating new ConfigController instances with unique configurations
  */
 contract ConfigControllerFactory is IConfigControllerFactory {
-    address public immutable override implementation;
+    /// @notice The implementation address used for cloning
+    address public immutable override configControllerImplementation;
+    /// @notice The array of controller addresses
     mapping(address => uint) public override controllerIds;
+    /// @notice The array of controller addresses
     address[] public override controllerAddresses;
-    uint public override lastController;
     
+    /// @notice constructor
+    /// @param _configControllerImplementation The address of the ConfigController implementation
     constructor(address _configControllerImplementation) {
-        implementation = _configControllerImplementation;
-        /// @dev This is a dummy controller to make the array indexing work correctly
+        if (_configControllerImplementation == address(0)) revert InvalidAddress();
+        
+        configControllerImplementation = _configControllerImplementation;
     }
 
     /// @notice Creates a new ConfigController instance with unique configuration
-    /// @param owner_ The address of the protocol owner
-    /// @param guardian_ The address of the protocol guardian
+    /// @param _owner The address of the protocol owner
+    /// @param _guardian The address of the protocol guardian
     /// @param _sandboxController The address of the SandboxController contract
     /// @param _marketFactory The address of the MarketFactory contract
     /// @param _curatorFee Initial curator fee in basis points (1% = 100)
@@ -31,10 +36,10 @@ contract ConfigControllerFactory is IConfigControllerFactory {
     /// @param _curatorProposalDuration Duration of curator proposals in seconds
     /// @param _proposalDuration Duration of market proposals in seconds
     /// @return The address of the newly created ConfigController
-    function create(
-        address owner_,
+    function createConfigController(
+        address _owner,
         address _curator,
-        address guardian_,
+        address _guardian,
         address _sandboxController,
         address _marketFactory,
         uint _curatorFee,
@@ -42,16 +47,15 @@ contract ConfigControllerFactory is IConfigControllerFactory {
         uint _curatorProposalDuration,
         uint _proposalDuration
     ) external override returns (address) {
-        address configController = Clones.clone(implementation);
+        address configController = Clones.clone(configControllerImplementation);
         
-        controllerIds[configController] = lastController;
-        lastController++;
+        controllerIds[configController] = controllerAddresses.length;
         controllerAddresses.push(configController);
 
         IConfigController(configController).initialize(
-            owner_,
+            _owner,
             _curator,
-            guardian_,
+            _guardian,
             _sandboxController,
             _marketFactory,
             _curatorFee,
@@ -63,28 +67,30 @@ contract ConfigControllerFactory is IConfigControllerFactory {
         
         emit ConfigControllerCreated(
             configController,
-            owner_,
-            guardian_,
+            _owner,
+            _curator,
             _sandboxController,
             _marketFactory,
             _curatorFee,
             _name,
             _curatorProposalDuration,
             _proposalDuration,
-            lastController
+            controllerAddresses.length - 1
         );
 
         return configController;
     }
 
-    /// @notice Gets a ConfigController by its index
-    /// @param _controllerId The index of the controller
-    /// @return The address of the ConfigController
-    function getController(uint _controllerId) external view override returns (address) {
-        return controllerAddresses[_controllerId];
+    /// @notice Returns the last controller ID
+    /// @return The last controller ID
+    function getLastControllerLength() external view override returns (uint) {
+        return controllerAddresses.length;
     }
 
+    /// @notice Returns true if the address is a controller
+    /// @param _controller The address to check
+    /// @return True if the address is a controller, false otherwise
     function isController(address _controller) external view override returns (bool) {
-        return controllerIds[_controller] != 0;
+        return controllerIds[_controller] != 0 && controllerAddresses[controllerIds[_controller]] != address(0);
     }
 }
