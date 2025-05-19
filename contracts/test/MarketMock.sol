@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
-import "./interfaces/IMarket.sol";
+import "../interfaces/IMarket.sol";
 import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
-import "./interfaces/IConfigController.sol";
-import "./interfaces/ISandboxController.sol";
+import "../interfaces/IConfigController.sol";
+import "../interfaces/ISandboxController.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+
 
 contract MarketMock is IMarket, Initializable {
     // Individual market config variables
@@ -13,6 +15,7 @@ contract MarketMock is IMarket, Initializable {
     uint public override baseTokenCurveId;
     IConfigController.CollateralTokenConfig[] public collateralTokens;
     uint public override collateralTokensCount;
+    address public sandboxControllerAddress;
     
     address public configControllerAddress;
     BaseCurveParams public baseCurveParams;
@@ -25,19 +28,21 @@ contract MarketMock is IMarket, Initializable {
         _;
     }
     
-    // constructor() {}
-
     function initialize(
         IConfigController.MarketConfig memory _marketConfig,
-        address _configControllerAddress
+        ISandboxController.SandboxControllerConfiguration memory _config,
+        address _configControllerAddress,
+        address _sandboxControllerAddress,
+        uint256 baseBorrowMin_
     ) initializer external override {
-        
+        configControllerAddress = _configControllerAddress;
+        sandboxControllerAddress = _sandboxControllerAddress;
         // Set individual variables from market config
         baseToken = _marketConfig.baseToken;
         priceFeed = _marketConfig.priceFeed;
         baseTokenCurveId = _marketConfig.baseTokenCurveId;
-        collateralTokens = _marketConfig.collateraTokens;
-        collateralTokensCount = _marketConfig.collateraTokens.length;
+        collateralTokens = _marketConfig.collateralTokens;
+        collateralTokensCount = _marketConfig.collateralTokens.length;
         IConfigController _configController = IConfigController(_configControllerAddress);
         ISandboxController.BaseAssetConfiguration memory baseAssetConfig = ISandboxController(_configController.sandboxController()).baseAssets(_marketConfig.baseToken);
 
@@ -54,6 +59,16 @@ contract MarketMock is IMarket, Initializable {
         });
     }
 
+    function transferOwnership(address _newConfigController) external override onlyConfigController {
+        configControllerAddress = _newConfigController;
+        IConfigController(_newConfigController).addMarket(address(this));
+    }
+
+    function accumulateRevenue(address _token, uint _amount) external {
+        IERC20(_token).approve(configControllerAddress, _amount);
+        IConfigController(configControllerAddress).accumulateRevenue(_token, _amount);
+    }
+
     function getCollateralTokenConfig(uint _collateralTokenId) external view override returns (IConfigController.CollateralTokenConfig memory) {
         return collateralTokens[_collateralTokenId];
     }
@@ -62,8 +77,19 @@ contract MarketMock is IMarket, Initializable {
         return baseCurveParams;
     }
 
-    function setBaseCurveParams(BaseCurveParams memory _params) external override onlyConfigController {
-        baseCurveParams = _params;
+    function setBaseCurveParams(uint _curveId) external {
+        ISandboxController.BaseAssetCurve memory baseAssetConfig = ISandboxController(sandboxControllerAddress).baseAssets(baseToken).baseAssetCurves[_curveId];
+        
+        baseCurveParams = BaseCurveParams({
+            supplyKink: baseAssetConfig.supplyKink,
+            supplyPerYearInterestRateSlopeLow: baseAssetConfig.supplyPerYearInterestRateSlopeLow,
+            supplyPerYearInterestRateSlopeHigh: baseAssetConfig.supplyPerYearInterestRateSlopeHigh,
+            supplyPerYearInterestRateBase: baseAssetConfig.supplyPerYearInterestRateBase,
+            borrowKink: baseAssetConfig.borrowKink,
+            borrowPerYearInterestRateSlopeLow: baseAssetConfig.borrowPerYearInterestRateSlopeLow,
+            borrowPerYearInterestRateSlopeHigh: baseAssetConfig.borrowPerYearInterestRateSlopeHigh,
+            borrowPerYearInterestRateBase: baseAssetConfig.borrowPerYearInterestRateBase
+        });
     }
 
     function setCollateralTokens(IConfigController.CollateralTokenConfig[] memory _collateralTokens) external override onlyConfigController {

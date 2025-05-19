@@ -1,0 +1,1806 @@
+// SPDX-License-Identifier: BUSL-1.1
+pragma solidity 0.8.28;
+
+import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
+
+import "./interfaces/ISandboxComet.sol";
+import "./interfaces/IERC20NonStandard.sol";
+import "./interfaces/IPriceFeed.sol";
+import "./interfaces/IConfigController.sol";
+import "./interfaces/ISandboxController.sol";
+
+import "hardhat/console.sol";
+
+/**
+ * @title Compound's Comet Contract
+ * @notice An efficient monolithic money market protocol
+ * @author Compound
+ */
+contract SandboxComet is ISandboxComet, Initializable {
+    /** General configuration constants **/
+    /// @notice Config Controller address
+    address public override configController;
+
+    /// @notice Sandbox Controller address
+    address public override sandboxController;
+
+    /// @notice The address of the extension contract
+    address public override extension;
+
+    /// @notice The address of the base token contract
+    address public override baseToken;
+
+    /// @notice The address of the price feed for the base token
+    address public override baseTokenPriceFeed;
+
+    /// @notice The point in the supply rates separating the low interest rate slope and the high interest rate slope (factor)
+    /// @dev uint64
+    uint public override supplyKink;
+
+    /// @notice Per second supply interest rate slope applied when utilization is below kink (factor)
+    /// @dev uint64
+    uint public override supplyPerSecondInterestRateSlopeLow;
+
+    /// @notice Per secollateralTokenscond supply interest rate slope applied when utilization is above kink (factor)
+    /// @dev uint64
+    uint public override supplyPerSecondInterestRateSlopeHigh;
+
+    /// @notice Per second supply base interest rate (factor)
+    /// @dev uint64
+    uint public override supplyPerSecondInterestRateBase;
+
+    /// @notice The point in the borrow rate separating the low interest rate slope and the high interest rate slope (factor)
+    /// @dev uint64
+    uint public override borrowKink;
+
+    /// @notice Per second borrow interest rate slope applied when utilization is below kink (factor)
+    /// @dev uint64
+    uint public override borrowPerSecondInterestRateSlopeLow;
+
+    /// @notice Per second borrow interest rate slope applied when utilization is above kink (factor)
+    /// @dev uint64
+    uint public override borrowPerSecondInterestRateSlopeHigh;
+
+    /// @notice Per second borrow base interest rate (factor)
+    /// @dev uint64
+    uint public override borrowPerSecondInterestRateBase;
+
+    /// @notice The fraction of the liquidation penalty that goes to buyers of collateral instead of the protocol
+    /// @dev uint64
+    uint public override storeFrontPriceFactor;
+
+    /// @notice The scale for base token (must be less than 18 decimals)
+    /// @dev uint64
+    uint public override baseScale;
+
+    /// @notice The scale for reward tracking
+    /// @dev uint64
+    uint public override trackingIndexScale;
+
+    /// @notice The speed at which supply rewards are tracked (in trackingIndexScale)
+    /// @dev uint64
+    uint public override baseTrackingSupplySpeed;
+
+    /// @notice The speed at which borrow rewards are tracked (in trackingIndexScale)
+    /// @dev uint64
+    uint public override baseTrackingBorrowSpeed;
+
+    /// @notice The speed at which supply rewards are tracked (in trackingIndexScale)
+    /// @dev uint64
+    uint public override daoBaseTrackingSupplySpeed;
+
+    /// @notice The speed at which borrow rewards are tracked (in trackingIndexScale)
+    /// @dev uint64
+    uint public override daoBaseTrackingBorrowSpeed;
+
+    /// @notice The minimum amount of base principal wei for rewards to accrue
+    /// @dev This must be large enough so as to prevent division by base wei from overflowing the 64 bit indices
+    /// @dev uint104
+    uint public override baseMinForRewards;
+
+    /// @notice The minimum base amount required to initiate a borrow
+    uint public override baseBorrowMin;
+
+    /// @notice The minimum base token reserves which must be held before collateral is hodled
+    uint public override targetPercent;
+
+    /// @notice Seed reserves
+    uint public override seedReserves;
+
+    uint public override unlockTimestamp;
+
+    /// @notice The number of decimals for wrapped base token
+    uint8 public override decimals;
+
+    /// @notice The number of assets this contract actually supports
+    uint8 public override numAssets;
+
+    /// @notice Factor to divide by when accruing rewards in order to preserve 6 decimals (i.e. baseScale / 1e6)
+    uint internal accrualDescaleFactor;
+
+    bool private _initialized;
+
+    mapping(address => uint8) public collateralAssetIndex;
+    mapping(uint8 => address) public collateralAssetAddress;
+    IConfigController.CollateralTokenConfig[] public collateralAssets;
+
+    struct Configuration {
+        address configController;
+        address baseToken;
+        address baseTokenPriceFeed;
+        address extensionDelegate;
+        uint64 supplyKink;
+        uint64 supplyPerYearInterestRateSlopeLow;
+        uint64 supplyPerYearInterestRateSlopeHigh;
+        uint64 supplyPerYearInterestRateBase;
+        uint64 borrowKink;
+        uint64 borrowPerYearInterestRateSlopeLow;
+        uint64 borrowPerYearInterestRateSlopeHigh;
+        uint64 borrowPerYearInterestRateBase;
+        uint64 storeFrontPriceFactor;
+        uint64 trackingIndexScale;
+        uint64 baseTrackingSupplySpeed;
+        uint64 baseTrackingBorrowSpeed;
+        uint104 baseMinForRewards;
+        uint104 baseBorrowMin;
+        uint104 targetPercent;
+        uint104 seedReserves;
+        uint104 unlockTimestamp;
+        IConfigController.CollateralTokenConfig[] assetConfigs;
+    }
+
+    constructor() {
+        _disableInitializers();
+    }
+
+    /// @notice replaces your old constructor
+    function initialize(
+        IConfigController.MarketConfig memory market,
+        ISandboxController.SandboxControllerConfiguration memory config,
+        address configController_,
+        address sandboxController_,
+        address ext,
+        uint256 baseBorrowMin_
+    ) external override initializer {
+        uint8 decimals_ = IERC20NonStandard(market.baseToken).decimals();
+        if (decimals_ > MAX_BASE_DECIMALS) revert BadDecimals();
+        if (IPriceFeed(market.priceFeed).decimals() != PRICE_FEED_DECIMALS)
+            revert BadDecimals();
+
+        configController = configController_;
+        sandboxController = sandboxController_;
+
+        baseToken = market.baseToken;
+        baseTokenPriceFeed = market.priceFeed;
+
+        extension = ext;
+        trackingIndexScale = market.options.trackingIndexScale;
+
+        baseTrackingSupplySpeed = market.options.baseTrackingSupplySpeed;
+        baseTrackingBorrowSpeed = market.options.baseTrackingBorrowSpeed;
+
+        baseMinForRewards = market.options.baseMinForRewards;
+
+        decimals = decimals_;
+        baseScale = uint64(10 ** decimals_);
+        if (baseScale < BASE_ACCRUAL_SCALE) revert BadDecimals();
+        accrualDescaleFactor = baseScale / BASE_ACCRUAL_SCALE;
+
+        baseBorrowMin = baseBorrowMin_;
+        targetPercent = config.targetPercent;
+        seedReserves = config.suggestedAmountOfSeedReserves;
+        totalSupplyBase = uint104(seedReserves);
+        unlockTimestamp =
+            block.timestamp +
+            config.suggestedLockTimeOfSeedReserves;
+
+        ISandboxController.BaseAssetCurve memory curve = ISandboxController(
+            sandboxController
+        ).baseAssets(market.baseToken).baseAssetCurves[market.baseTokenCurveId];
+
+        for (uint8 i; i < market.collateralTokens.length; i++) {
+            collateralAssets.push(market.collateralTokens[i]);
+            collateralAssetAddress[i] = market
+                .collateralTokens[i]
+                .collateralToken;
+            collateralAssetIndex[
+                market.collateralTokens[i].collateralToken
+            ] = i;
+        }
+
+        unchecked {
+            supplyKink = curve.supplyKink;
+            supplyPerSecondInterestRateSlopeLow =
+                curve.supplyPerYearInterestRateSlopeLow /
+                SECONDS_PER_YEAR;
+            supplyPerSecondInterestRateSlopeHigh =
+                curve.supplyPerYearInterestRateSlopeHigh /
+                SECONDS_PER_YEAR;
+            supplyPerSecondInterestRateBase =
+                curve.supplyPerYearInterestRateBase /
+                SECONDS_PER_YEAR;
+
+            borrowKink = curve.borrowKink;
+            borrowPerSecondInterestRateSlopeLow =
+                curve.borrowPerYearInterestRateSlopeLow /
+                SECONDS_PER_YEAR;
+            borrowPerSecondInterestRateSlopeHigh =
+                curve.borrowPerYearInterestRateSlopeHigh /
+                SECONDS_PER_YEAR;
+            borrowPerSecondInterestRateBase =
+                curve.borrowPerYearInterestRateBase /
+                SECONDS_PER_YEAR;
+        }
+        numAssets = uint8(market.collateralTokens.length);
+    }
+
+    function transferOwnership(
+        address _newConfigController
+    ) external override onlyConfigController {
+        configController = _newConfigController;
+        IConfigController(_newConfigController).addMarket(address(this));
+    }
+
+    function setCollateralTokens(
+        IConfigController.CollateralTokenConfig[] memory _collateralTokens
+    ) external override onlyConfigController {
+        if (msg.sender != configController) revert Unauthorized();
+
+        for (uint8 i; i < numAssets; i++) {
+            address asset = collateralAssetAddress[i];
+            if (asset != address(0)) {
+                delete collateralAssetIndex[asset];
+                delete collateralAssets[i];
+            }
+        }
+        for (uint8 i; i < _collateralTokens.length; i++) {
+            collateralAssets.push(_collateralTokens[i]);
+            collateralAssetAddress[i] = _collateralTokens[i].collateralToken;
+            collateralAssetIndex[_collateralTokens[i].collateralToken] = i;
+        }
+        numAssets = uint8(_collateralTokens.length);
+    }
+
+    /**
+     * @dev Prevents marked functions from being reentered
+     * Note: this restrict contracts from calling comet functions in their hooks.
+     * Doing so will cause the transaction to revert.
+     */
+    modifier nonReentrant() {
+        nonReentrantBefore();
+        _;
+        nonReentrantAfter();
+    }
+
+    modifier onlyConfigController() {
+        if (msg.sender != configController) revert Unauthorized();
+        _;
+    }
+
+    /**
+     * @dev Checks that the reentrancy flag is not set and then sets the flag
+     */
+    function nonReentrantBefore() internal {
+        bytes32 slot = REENTRANCY_GUARD_FLAG_SLOT;
+        uint256 status;
+        assembly ("memory-safe") {
+            status := sload(slot)
+        }
+
+        if (status == REENTRANCY_GUARD_ENTERED) revert ReentrantCallBlocked();
+        assembly ("memory-safe") {
+            sstore(slot, REENTRANCY_GUARD_ENTERED)
+        }
+    }
+
+    /**
+     * @dev Unsets the reentrancy flag
+     */
+    function nonReentrantAfter() internal {
+        bytes32 slot = REENTRANCY_GUARD_FLAG_SLOT;
+        uint256 status;
+        assembly ("memory-safe") {
+            sstore(slot, REENTRANCY_GUARD_NOT_ENTERED)
+        }
+    }
+
+    /**
+     * @notice Initialize storage for the contract
+     * @dev Can be used from constructor or proxy
+     */
+    function initializeStorage() external override {
+        if (lastAccrualTime != 0) revert AlreadyInitialized();
+
+        // Initialize aggregates
+        lastAccrualTime = getNowInternal();
+        baseSupplyIndex = BASE_INDEX_SCALE;
+        baseBorrowIndex = BASE_INDEX_SCALE;
+        // Implicit initialization (not worth increasing contract size)
+        // trackingSupplyIndex = 0;
+        // trackingBorrowIndex = 0;
+    }
+
+    /**
+     * @notice Get the i-th asset info, according to the order they were passed in originally
+     * @param i The index of the asset info to get
+     * @return The asset info object
+     */
+    function getAssetInfo(
+        uint8 i
+    ) public view returns (IConfigController.CollateralTokenConfig memory) {
+        return collateralAssets[i];
+    }
+
+    /**
+     * @dev Determine index of asset that matches given address
+     */
+    function getAssetInfoByAddress(
+        address asset
+    )
+        public
+        view
+        returns (IConfigController.CollateralTokenConfig memory, uint8 index)
+    {
+        return (
+            collateralAssets[collateralAssetIndex[asset]],
+            collateralAssetIndex[asset]
+        );
+    }
+
+    /**
+     * @return The current timestamp
+     **/
+    function getNowInternal() internal view virtual returns (uint40) {
+        return uint40(block.timestamp);
+    }
+
+    /**
+     * @dev Calculate accrued interest indices for base token supply and borrows
+     **/
+    function accruedInterestIndices(
+        uint timeElapsed
+    ) internal view returns (uint64, uint64) {
+        uint64 baseSupplyIndex_ = baseSupplyIndex;
+        uint64 baseBorrowIndex_ = baseBorrowIndex;
+        if (timeElapsed > 0) {
+            uint utilization = getUtilization();
+            uint supplyRate = getSupplyRate(utilization);
+            uint borrowRate = getBorrowRate(utilization);
+            baseSupplyIndex_ += safe64(
+                mulFactor(baseSupplyIndex_, supplyRate * timeElapsed)
+            );
+            baseBorrowIndex_ += safe64(
+                mulFactor(baseBorrowIndex_, borrowRate * timeElapsed)
+            );
+        }
+        return (baseSupplyIndex_, baseBorrowIndex_);
+    }
+
+    uint256 public lastReserveBalance;
+
+    function _marketState(
+        uint256 reserves
+    ) internal view returns (ISandboxController.MarketState) {
+        ISandboxController sc = ISandboxController(sandboxController);
+
+        uint256 tRes = targetReserves();
+        uint256 ratio = tRes == 0 ? 0 : (reserves * 1e18) / tRes;
+
+        if (ratio < sc.threshold(ISandboxController.MarketState.Low))
+            return ISandboxController.MarketState.Low;
+        if (ratio < sc.threshold(ISandboxController.MarketState.Medium))
+            return ISandboxController.MarketState.Medium;
+        return ISandboxController.MarketState.High;
+    }
+
+    function _distributeReserves() internal {
+        if (totalBorrowBase != 0) return;
+
+        int256 signed = getReserves();
+        if (signed <= 0) return;
+
+        uint256 current = uint256(signed);
+
+        if (current < targetReserves()) return;
+        if (current <= lastReserveBalance) return;
+
+        uint256 delta = current - lastReserveBalance;
+
+        ISandboxController sc = ISandboxController(sandboxController);
+        ISandboxController.MarketState s = _marketState(current);
+
+        uint256 reserveFactor = sc.reserveCommission(s);
+        uint256 protocolFactor = sc.feeEnabled() ? sc.protocolCommission(s) : 0;
+
+        uint256 protocolPart = (delta * protocolFactor) / 1e18;
+        uint256 controllerPart = delta -
+            (delta * reserveFactor) /
+            1e18 -
+            protocolPart;
+
+        if (protocolPart != 0)
+            doTransferOut(baseToken, sc.treasury(), protocolPart);
+        if (controllerPart != 0)
+            doTransferOut(baseToken, configController, controllerPart);
+
+        lastReserveBalance = current;
+    }
+
+    function accrueInternal() internal {
+        uint40 now_ = getNowInternal();
+        uint timeElapsed = uint256(now_ - lastAccrualTime);
+
+        if (timeElapsed != 0) {
+            (baseSupplyIndex, baseBorrowIndex) = accruedInterestIndices(
+                timeElapsed
+            );
+            if (totalSupplyBase >= baseMinForRewards) {
+                trackingSupplyIndex += safe64(
+                    divBaseWei(
+                        baseTrackingSupplySpeed * timeElapsed,
+                        totalSupplyBase
+                    )
+                );
+            }
+            if (totalBorrowBase >= baseMinForRewards) {
+                trackingBorrowIndex += safe64(
+                    divBaseWei(
+                        baseTrackingBorrowSpeed * timeElapsed,
+                        totalBorrowBase
+                    )
+                );
+            }
+            lastAccrualTime = now_;
+        }
+
+        _distributeReserves();
+    }
+
+    /**
+     * @notice Accrue interest and rewards for an account
+     **/
+    function accrueAccount(address account) external override {
+        accrueInternal();
+
+        UserBasic memory basic = userBasic[account];
+        updateBasePrincipal(account, basic, basic.principal);
+    }
+
+    /**
+     * @dev Note: Does not accrue interest first
+     * @param utilization The utilization to check the supply rate for
+     * @return The per second supply rate at `utilization`
+     */
+    function getSupplyRate(
+        uint utilization
+    ) public view override returns (uint64) {
+        if (utilization <= supplyKink) {
+            // interestRateBase + interestRateSlopeLow * utilization
+            return
+                safe64(
+                    supplyPerSecondInterestRateBase +
+                        mulFactor(
+                            supplyPerSecondInterestRateSlopeLow,
+                            utilization
+                        )
+                );
+        } else {
+            // interestRateBase + interestRateSlopeLow * kink + interestRateSlopeHigh * (utilization - kink)
+            return
+                safe64(
+                    supplyPerSecondInterestRateBase +
+                        mulFactor(
+                            supplyPerSecondInterestRateSlopeLow,
+                            supplyKink
+                        ) +
+                        mulFactor(
+                            supplyPerSecondInterestRateSlopeHigh,
+                            (utilization - supplyKink)
+                        )
+                );
+        }
+    }
+
+    /**
+     * @dev Note: Does not accrue interest first
+     * @param utilization The utilization to check the borrow rate for
+     * @return The per second borrow rate at `utilization`
+     */
+    function getBorrowRate(
+        uint utilization
+    ) public view override returns (uint64) {
+        if (utilization <= borrowKink) {
+            // interestRateBase + interestRateSlopeLow * utilization
+            return
+                safe64(
+                    borrowPerSecondInterestRateBase +
+                        mulFactor(
+                            borrowPerSecondInterestRateSlopeLow,
+                            utilization
+                        )
+                );
+        } else {
+            // interestRateBase + interestRateSlopeLow * kink + interestRateSlopeHigh * (utilization - kink)
+            return
+                safe64(
+                    borrowPerSecondInterestRateBase +
+                        mulFactor(
+                            borrowPerSecondInterestRateSlopeLow,
+                            borrowKink
+                        ) +
+                        mulFactor(
+                            borrowPerSecondInterestRateSlopeHigh,
+                            (utilization - borrowKink)
+                        )
+                );
+        }
+    }
+
+    /**
+     * @dev Note: Does not accrue interest first
+     * @return The utilization rate of the base asset
+     */
+    function getUtilization() public view override returns (uint) {
+        uint totalSupply_ = presentValueSupply(
+            baseSupplyIndex,
+            totalSupplyBase
+        );
+        uint totalBorrow_ = presentValueBorrow(
+            baseBorrowIndex,
+            totalBorrowBase
+        );
+        if (totalSupply_ == 0) {
+            return 0;
+        } else {
+            return (totalBorrow_ * FACTOR_SCALE) / totalSupply_;
+        }
+    }
+
+    /**
+     * @notice Get the current price from a feed
+     * @param priceFeed The address of a price feed
+     * @return The price, scaled by `PRICE_SCALE`
+     */
+    function getPrice(
+        address priceFeed
+    ) public view override returns (uint256) {
+        (, int price, , , ) = IPriceFeed(priceFeed).latestRoundData();
+        if (price <= 0) revert BadPrice();
+        return uint256(price);
+    }
+
+    /**
+     * @notice Gets the total balance of protocol collateral reserves for an asset
+     * @dev Note: Reverts if collateral reserves are somehow negative, which should not be possible
+     * @param asset The collateral asset
+     */
+    function getCollateralReserves(
+        address asset
+    ) public view override returns (uint) {
+        return
+            IERC20NonStandard(asset).balanceOf(address(this)) -
+            totalsCollateral[asset].totalSupplyAsset;
+    }
+
+    /**
+     * @notice Gets the total amount of protocol reserves of the base asset
+     */
+    function getReserves() public view override returns (int) {
+        (
+            uint64 baseSupplyIndex_,
+            uint64 baseBorrowIndex_
+        ) = accruedInterestIndices(getNowInternal() - lastAccrualTime);
+        uint balance = IERC20NonStandard(baseToken).balanceOf(address(this));
+        uint totalSupply_ = presentValueSupply(
+            baseSupplyIndex_,
+            totalSupplyBase
+        );
+        uint totalBorrow_ = presentValueBorrow(
+            baseBorrowIndex_,
+            totalBorrowBase
+        );
+        return
+            signed256(balance) -
+            signed256(totalSupply_) +
+            signed256(totalBorrow_);
+    }
+
+    /**
+     * @notice Check whether an account has enough collateral to borrow
+     * @param account The address to check
+     * @return Whether the account is minimally collateralized enough to borrow
+     */
+    function isBorrowCollateralized(
+        address account
+    ) public view override returns (bool) {
+        int104 principal = userBasic[account].principal;
+
+        if (principal >= 0) {
+            return true;
+        }
+
+        uint16 assetsIn = userBasic[account].assetsIn;
+        uint8 _reserved = userBasic[account]._reserved;
+        int liquidity = signedMulPrice(
+            presentValue(principal),
+            getPrice(baseTokenPriceFeed),
+            uint64(baseScale)
+        );
+
+        for (uint8 i = 0; i < numAssets; ) {
+            if (isInAsset(assetsIn, i, _reserved)) {
+                if (liquidity >= 0) {
+                    return true;
+                }
+
+                IConfigController.CollateralTokenConfig
+                    memory asset = getAssetInfo(i);
+
+                uint64 scale = uint64(
+                    10 ** uint256(IPriceFeed(asset.priceFeed).decimals())
+                );
+
+                uint newAmount = mulPrice(
+                    userCollateral[account][asset.collateralToken].balance,
+                    getPrice(asset.priceFeed),
+                    scale
+                );
+                liquidity += signed256(
+                    mulFactor(newAmount, asset.borrowCollateralFactor)
+                );
+            }
+            unchecked {
+                i++;
+            }
+        }
+
+        return liquidity >= 0;
+    }
+
+    /**
+     * @notice Check whether an account has enough collateral to not be liquidated
+     * @param account The address to check
+     * @return Whether the account is minimally collateralized enough to not be liquidated
+     */
+    function isLiquidatable(
+        address account
+    ) public view override returns (bool) {
+        int104 principal = userBasic[account].principal;
+
+        if (principal >= 0) {
+            return false;
+        }
+
+        uint16 assetsIn = userBasic[account].assetsIn;
+        uint8 _reserved = userBasic[account]._reserved;
+
+        int liquidity = signedMulPrice(
+            presentValue(principal),
+            getPrice(baseTokenPriceFeed),
+            uint64(baseScale)
+        );
+
+        for (uint8 i = 0; i < numAssets; ) {
+            if (isInAsset(assetsIn, i, _reserved)) {
+                if (liquidity >= 0) {
+                    return false;
+                }
+
+                IConfigController.CollateralTokenConfig
+                    memory asset = getAssetInfo(i);
+
+                uint64 scale = uint64(
+                    10 ** uint256(IPriceFeed(asset.priceFeed).decimals())
+                );
+
+                uint newAmount = mulPrice(
+                    userCollateral[account][asset.collateralToken].balance,
+                    getPrice(asset.priceFeed),
+                    scale
+                );
+
+                liquidity += signed256(
+                    mulFactor(newAmount, asset.liquidateCollateralFactor)
+                );
+            }
+            unchecked {
+                i++;
+            }
+        }
+
+        return liquidity < 0;
+    }
+
+    /**
+     * @notice Set the base tracking supply and borrow speeds
+     * @param baseTrackingSupplySpeed_ The new base tracking supply speed
+     * @param baseTrackingBorrowSpeed_ The new base tracking borrow speed
+     * @param _dao Whether or not set dao speeds
+     */
+    function setSpeeds(
+        uint64 baseTrackingSupplySpeed_,
+        uint64 baseTrackingBorrowSpeed_,
+        bool _dao
+    ) external override {
+        if (_dao) {
+            address dao = ISandboxController(sandboxController).dao();
+            if (msg.sender != dao) revert Unauthorized();
+            daoBaseTrackingSupplySpeed = baseTrackingSupplySpeed_;
+            daoBaseTrackingBorrowSpeed = baseTrackingBorrowSpeed_;
+        } else {
+            if (msg.sender != configController) revert Unauthorized();
+            baseTrackingSupplySpeed = baseTrackingSupplySpeed_;
+            baseTrackingBorrowSpeed = baseTrackingBorrowSpeed_;
+        }
+
+        emit SpeedsChanged(
+            baseTrackingSupplySpeed_,
+            baseTrackingBorrowSpeed_,
+            _dao
+        );
+    }
+
+    /**
+     * @dev The change in principal broken into repay and supply amounts
+     */
+    function repayAndSupplyAmount(
+        int104 oldPrincipal,
+        int104 newPrincipal
+    ) internal pure returns (uint104, uint104) {
+        // If the new principal is less than the old principal, then no amount has been repaid or supplied
+        if (newPrincipal < oldPrincipal) return (0, 0);
+
+        if (newPrincipal <= 0) {
+            return (uint104(newPrincipal - oldPrincipal), 0);
+        } else if (oldPrincipal >= 0) {
+            return (0, uint104(newPrincipal - oldPrincipal));
+        } else {
+            return (uint104(-oldPrincipal), uint104(newPrincipal));
+        }
+    }
+
+    /**
+     * @dev The change in principal broken into withdraw and borrow amounts
+     */
+    function withdrawAndBorrowAmount(
+        int104 oldPrincipal,
+        int104 newPrincipal
+    ) internal pure returns (uint104, uint104) {
+        // If the new principal is greater than the old principal, then no amount has been withdrawn or borrowed
+        if (newPrincipal > oldPrincipal) return (0, 0);
+
+        if (newPrincipal >= 0) {
+            return (uint104(oldPrincipal - newPrincipal), 0);
+        } else if (oldPrincipal <= 0) {
+            return (0, uint104(oldPrincipal - newPrincipal));
+        } else {
+            return (uint104(oldPrincipal), uint104(-newPrincipal));
+        }
+    }
+
+    /**
+     * @notice Pauses different actions within Comet
+     * @param supplyPaused Boolean for pausing supply actions
+     * @param transferPaused Boolean for pausing transfer actions
+     * @param withdrawPaused Boolean for pausing withdraw actions
+     * @param absorbPaused Boolean for pausing absorb actions
+     * @param buyPaused Boolean for pausing buy actions
+     */
+    function pause(
+        bool supplyPaused,
+        bool transferPaused,
+        bool withdrawPaused,
+        bool absorbPaused,
+        bool buyPaused
+    ) external override {
+        address dao = ISandboxController(sandboxController).dao();
+        if (msg.sender != configController && dao != msg.sender)
+            revert Unauthorized();
+
+        pauseFlags =
+            uint8(0) |
+            (toUInt8(supplyPaused) << PAUSE_SUPPLY_OFFSET) |
+            (toUInt8(transferPaused) << PAUSE_TRANSFER_OFFSET) |
+            (toUInt8(withdrawPaused) << PAUSE_WITHDRAW_OFFSET) |
+            (toUInt8(absorbPaused) << PAUSE_ABSORB_OFFSET) |
+            (toUInt8(buyPaused) << PAUSE_BUY_OFFSET);
+
+        emit PauseAction(
+            supplyPaused,
+            transferPaused,
+            withdrawPaused,
+            absorbPaused,
+            buyPaused
+        );
+    }
+
+    /**
+     * @return Whether or not supply actions are paused
+     */
+    function isSupplyPaused() public view override returns (bool) {
+        return toBool(pauseFlags & (uint8(1) << PAUSE_SUPPLY_OFFSET));
+    }
+
+    /**
+     * @return Whether or not transfer actions are paused
+     */
+    function isTransferPaused() public view override returns (bool) {
+        return toBool(pauseFlags & (uint8(1) << PAUSE_TRANSFER_OFFSET));
+    }
+
+    /**
+     * @return Whether or not withdraw actions are paused
+     */
+    function isWithdrawPaused() public view override returns (bool) {
+        return toBool(pauseFlags & (uint8(1) << PAUSE_WITHDRAW_OFFSET));
+    }
+
+    /**
+     * @return Whether or not absorb actions are paused
+     */
+    function isAbsorbPaused() public view override returns (bool) {
+        return toBool(pauseFlags & (uint8(1) << PAUSE_ABSORB_OFFSET));
+    }
+
+    /**
+     * @return Whether or not buy actions are paused
+     */
+    function isBuyPaused() public view override returns (bool) {
+        return toBool(pauseFlags & (uint8(1) << PAUSE_BUY_OFFSET));
+    }
+
+    /**
+     * @dev Multiply a number by a factor
+     */
+    function mulFactor(uint n, uint factor) internal pure returns (uint) {
+        return (n * factor) / FACTOR_SCALE;
+    }
+
+    /**
+     * @dev Divide a number by an amount of base
+     */
+    function divBaseWei(uint n, uint baseWei) internal view returns (uint) {
+        return (n * baseScale) / baseWei;
+    }
+
+    /**
+     * @dev Multiply a `fromScale` quantity by a price, returning a common price quantity
+     */
+    function mulPrice(
+        uint n,
+        uint price,
+        uint64 fromScale
+    ) internal pure returns (uint) {
+        return (n * price) / fromScale;
+    }
+
+    /**
+     * @dev Multiply a signed `fromScale` quantity by a price, returning a common price quantity
+     */
+    function signedMulPrice(
+        int n,
+        uint price,
+        uint64 fromScale
+    ) internal pure returns (int) {
+        return (n * signed256(price)) / int256(uint256(fromScale));
+    }
+
+    /**
+     * @dev Divide a common price quantity by a price, returning a `toScale` quantity
+     */
+    function divPrice(
+        uint n,
+        uint price,
+        uint64 toScale
+    ) internal pure returns (uint) {
+        return (n * toScale) / price;
+    }
+
+    /**
+     * @dev Whether user has a non-zero balance of an asset, given assetsIn flags
+     * @dev _reserved is used to check bits 16-23 of assetsIn
+     */
+    function isInAsset(
+        uint16 assetsIn,
+        uint8 assetOffset,
+        uint8 _reserved
+    ) internal pure returns (bool) {
+        if (assetOffset < 16) {
+            // check bit in assetsIn (for bits 0-15)
+            return (assetsIn & (uint16(1) << assetOffset)) != 0;
+        } else if (assetOffset < 24) {
+            // check bit in reserved (for bits 16-23)
+            return (_reserved & (uint8(1) << (assetOffset - 16))) != 0;
+        }
+        return false; // if assetOffset >= 24 (should not happen)
+    }
+
+    /**
+     * @dev Update assetsIn bit vector if user has entered or exited an asset
+     */
+    function updateAssetsIn(
+        address account,
+        uint8 index,
+        uint128 initialUserBalance,
+        uint128 finalUserBalance
+    ) internal {
+        if (initialUserBalance == 0 && finalUserBalance != 0) {
+            if (index < 16) {
+                // set bit in assetsIn for bits 0-15
+                userBasic[account].assetsIn |= (uint16(1) << index);
+            } else if (index < 24) {
+                // set bit in _reserved for bits 16-23
+                userBasic[account]._reserved |= (uint8(1) << (index - 16));
+            }
+        } else if (initialUserBalance != 0 && finalUserBalance == 0) {
+            // clear bit for asset
+            if (index < 16) {
+                // clear bit in assetsIn for bits 0-15
+                userBasic[account].assetsIn &= ~(uint16(1) << index);
+            } else if (index < 24) {
+                // clear bit in _reserved for bits 16-23
+                userBasic[account]._reserved &= ~(uint8(1) << (index - 16));
+            }
+        }
+    }
+
+    /**
+     * @dev Write updated principal to store and tracking participation
+     */
+    function updateBasePrincipal(
+        address account,
+        UserBasic memory basic,
+        int104 principalNew
+    ) internal {
+        int104 principal = basic.principal;
+        basic.principal = principalNew;
+
+        if (principal >= 0) {
+            uint indexDelta = uint256(
+                trackingSupplyIndex - basic.baseTrackingIndex
+            );
+            basic.baseTrackingAccrued += safe64(
+                (uint104(principal) * indexDelta) /
+                    trackingIndexScale /
+                    accrualDescaleFactor
+            );
+        } else {
+            uint indexDelta = uint256(
+                trackingBorrowIndex - basic.baseTrackingIndex
+            );
+            basic.baseTrackingAccrued += safe64(
+                (uint104(-principal) * indexDelta) /
+                    trackingIndexScale /
+                    accrualDescaleFactor
+            );
+        }
+
+        if (principalNew >= 0) {
+            basic.baseTrackingIndex = trackingSupplyIndex;
+        } else {
+            basic.baseTrackingIndex = trackingBorrowIndex;
+        }
+
+        userBasic[account] = basic;
+    }
+
+    /**
+     * @dev Safe ERC20 transfer in and returns the final amount transferred (taking into account any fees)
+     * @dev Note: Safely handles non-standard ERC-20 tokens that do not return a value. See here: https://medium.com/coinmonks/missing-return-value-bug-at-least-130-tokens-affected-d67bf08521ca
+     */
+    function doTransferIn(
+        address asset,
+        address from,
+        uint amount
+    ) internal returns (uint) {
+        uint256 preTransferBalance = IERC20NonStandard(asset).balanceOf(
+            address(this)
+        );
+        IERC20NonStandard(asset).transferFrom(from, address(this), amount);
+        bool success;
+        assembly ("memory-safe") {
+            switch returndatasize()
+            case 0 {
+                // This is a non-standard ERC-20
+                success := not(0) // set success to true
+            }
+            case 32 {
+                // This is a compliant ERC-20
+                returndatacopy(0, 0, 32)
+                success := mload(0) // Set `success = returndata` of override external call
+            }
+            default {
+                // This is an excessively non-compliant ERC-20, revert.
+                revert(0, 0)
+            }
+        }
+        if (!success) revert TransferInFailed();
+        return
+            IERC20NonStandard(asset).balanceOf(address(this)) -
+            preTransferBalance;
+    }
+
+    /**
+     * @dev Safe ERC20 transfer out
+     * @dev Note: Safely handles non-standard ERC-20 tokens that do not return a value. See here: https://medium.com/coinmonks/missing-return-value-bug-at-least-130-tokens-affected-d67bf08521ca
+     */
+    function doTransferOut(address asset, address to, uint amount) internal {
+        IERC20NonStandard(asset).transfer(to, amount);
+        bool success;
+        assembly ("memory-safe") {
+            switch returndatasize()
+            case 0 {
+                // This is a non-standard ERC-20
+                success := not(0) // set success to true
+            }
+            case 32 {
+                // This is a compliant ERC-20
+                returndatacopy(0, 0, 32)
+                success := mload(0) // Set `success = returndata` of override external call
+            }
+            default {
+                // This is an excessively non-compliant ERC-20, revert.
+                revert(0, 0)
+            }
+        }
+        if (!success) revert TransferOutFailed();
+    }
+
+    /**
+     * @notice Supply an amount of asset to the protocol
+     * @param asset The asset to supply
+     * @param amount The quantity to supply
+     */
+    function supply(address asset, uint amount) external override {
+        return
+            supplyInternal(msg.sender, msg.sender, msg.sender, asset, amount);
+    }
+
+    /**
+     * @notice Supply an amount of asset to dst
+     * @param dst The address which will hold the balance
+     * @param asset The asset to supply
+     * @param amount The quantity to supply
+     */
+    function supplyTo(
+        address dst,
+        address asset,
+        uint amount
+    ) external override {
+        return supplyInternal(msg.sender, msg.sender, dst, asset, amount);
+    }
+
+    /**
+     * @notice Supply an amount of asset from `from` to dst, if allowed
+     * @param from The supplier address
+     * @param dst The address which will hold the balance
+     * @param asset The asset to supply
+     * @param amount The quantity to supply
+     */
+    function supplyFrom(
+        address from,
+        address dst,
+        address asset,
+        uint amount
+    ) external override {
+        return supplyInternal(msg.sender, from, dst, asset, amount);
+    }
+
+    /**
+     * @dev Supply either collateral or base asset, depending on the asset, if operator is allowed
+     * @dev Note: Specifying an `amount` of uint256.max will repay all of `dst`'s accrued base borrow balance
+     */
+    function supplyInternal(
+        address operator,
+        address from,
+        address dst,
+        address asset,
+        uint amount
+    ) internal nonReentrant {
+        if (isSupplyPaused()) revert Paused();
+        if (!hasPermission(from, operator)) revert Unauthorized();
+
+        if (asset == baseToken) {
+            if (amount == type(uint256).max) {
+                amount = borrowBalanceOf(dst);
+            }
+            return supplyBase(from, dst, amount);
+        } else {
+            return supplyCollateral(from, dst, asset, safe128(amount));
+        }
+    }
+
+    /**
+     * @dev Supply an amount of base asset from `from` to dst
+     */
+    function supplyBase(address from, address dst, uint256 amount) internal {
+        amount = doTransferIn(baseToken, from, amount);
+
+        accrueInternal();
+
+        UserBasic memory dstUser = userBasic[dst];
+        int104 dstPrincipal = dstUser.principal;
+        int256 dstBalance = presentValue(dstPrincipal) + signed256(amount);
+        int104 dstPrincipalNew = principalValue(dstBalance);
+
+        (uint104 repayAmount, uint104 supplyAmount) = repayAndSupplyAmount(
+            dstPrincipal,
+            dstPrincipalNew
+        );
+        totalSupplyBase += supplyAmount;
+        totalBorrowBase -= repayAmount;
+
+        updateBasePrincipal(dst, dstUser, dstPrincipalNew);
+
+        _distributeReserves();
+        emit Supply(from, dst, amount);
+
+        if (supplyAmount > 0) {
+            emit Transfer(
+                address(0),
+                dst,
+                presentValueSupply(baseSupplyIndex, supplyAmount)
+            );
+        }
+    }
+
+    /**
+     * @dev Supply an amount of collateral asset from `from` to dst
+     */
+    function supplyCollateral(
+        address from,
+        address dst,
+        address asset,
+        uint128 amount
+    ) internal {
+        amount = safe128(doTransferIn(asset, from, amount));
+
+        (
+            IConfigController.CollateralTokenConfig memory assetInfo,
+            uint8 index
+        ) = getAssetInfoByAddress(asset);
+        TotalsCollateral memory totals = totalsCollateral[asset];
+        totals.totalSupplyAsset += amount;
+        if (totals.totalSupplyAsset > assetInfo.supplyCap)
+            revert SupplyCapExceeded();
+
+        uint128 dstCollateral = userCollateral[dst][asset].balance;
+        uint128 dstCollateralNew = dstCollateral + amount;
+
+        totalsCollateral[asset] = totals;
+        userCollateral[dst][asset].balance = dstCollateralNew;
+
+        updateAssetsIn(dst, index, dstCollateral, dstCollateralNew);
+
+        emit SupplyCollateral(from, dst, asset, amount);
+    }
+
+    /**
+     * @notice ERC20 transfer an amount of base token to dst
+     * @param dst The recipient address
+     * @param amount The quantity to transfer
+     * @return true
+     */
+    function transfer(
+        address dst,
+        uint amount
+    ) external override returns (bool) {
+        transferInternal(msg.sender, msg.sender, dst, baseToken, amount);
+        return true;
+    }
+
+    /**
+     * @notice ERC20 transfer an amount of base token from src to dst, if allowed
+     * @param src The sender address
+     * @param dst The recipient address
+     * @param amount The quantity to transfer
+     * @return true
+     */
+    function transferFrom(
+        address src,
+        address dst,
+        uint amount
+    ) external override returns (bool) {
+        transferInternal(msg.sender, src, dst, baseToken, amount);
+        return true;
+    }
+
+    /**
+     * @notice Transfer an amount of asset to dst
+     * @param dst The recipient address
+     * @param asset The asset to transfer
+     * @param amount The quantity to transfer
+     */
+    function transferAsset(
+        address dst,
+        address asset,
+        uint amount
+    ) external override {
+        return transferInternal(msg.sender, msg.sender, dst, asset, amount);
+    }
+
+    /**
+     * @notice Transfer an amount of asset from src to dst, if allowed
+     * @param src The sender address
+     * @param dst The recipient address
+     * @param asset The asset to transfer
+     * @param amount The quantity to transfer
+     */
+    function transferAssetFrom(
+        address src,
+        address dst,
+        address asset,
+        uint amount
+    ) external override {
+        return transferInternal(msg.sender, src, dst, asset, amount);
+    }
+
+    /**
+     * @dev Transfer either collateral or base asset, depending on the asset, if operator is allowed
+     * @dev Note: Specifying an `amount` of uint256.max will transfer all of `src`'s accrued base balance
+     */
+    function transferInternal(
+        address operator,
+        address src,
+        address dst,
+        address asset,
+        uint amount
+    ) internal nonReentrant {
+        if (isTransferPaused()) revert Paused();
+        if (!hasPermission(src, operator)) revert Unauthorized();
+        if (src == dst) revert NoSelfTransfer();
+
+        if (asset == baseToken) {
+            if (amount == type(uint256).max) {
+                amount = balanceOf(src);
+            }
+            return transferBase(src, dst, amount);
+        } else {
+            return transferCollateral(src, dst, asset, safe128(amount));
+        }
+    }
+
+    /**
+     * @dev Transfer an amount of base asset from src to dst, borrowing if possible/necessary
+     */
+    function transferBase(address src, address dst, uint256 amount) internal {
+        accrueInternal();
+
+        UserBasic memory srcUser = userBasic[src];
+        UserBasic memory dstUser = userBasic[dst];
+
+        int104 srcPrincipal = srcUser.principal;
+        int104 dstPrincipal = dstUser.principal;
+        int256 srcBalance = presentValue(srcPrincipal) - signed256(amount);
+        int256 dstBalance = presentValue(dstPrincipal) + signed256(amount);
+        int104 srcPrincipalNew = principalValue(srcBalance);
+        int104 dstPrincipalNew = principalValue(dstBalance);
+
+        (
+            uint104 withdrawAmount,
+            uint104 borrowAmount
+        ) = withdrawAndBorrowAmount(srcPrincipal, srcPrincipalNew);
+        (uint104 repayAmount, uint104 supplyAmount) = repayAndSupplyAmount(
+            dstPrincipal,
+            dstPrincipalNew
+        );
+
+        // Note: Instead of `total += addAmount - subAmount` to avoid underflow errors.
+        totalSupplyBase = totalSupplyBase + supplyAmount - withdrawAmount;
+        totalBorrowBase = totalBorrowBase + borrowAmount - repayAmount;
+
+        updateBasePrincipal(src, srcUser, srcPrincipalNew);
+        updateBasePrincipal(dst, dstUser, dstPrincipalNew);
+
+        if (srcBalance < 0) {
+            if (uint256(-srcBalance) < baseBorrowMin) revert BorrowTooSmall();
+            if (!isBorrowCollateralized(src)) revert NotCollateralized();
+        }
+
+        if (withdrawAmount > 0) {
+            emit Transfer(
+                src,
+                address(0),
+                presentValueSupply(baseSupplyIndex, withdrawAmount)
+            );
+        }
+
+        if (supplyAmount > 0) {
+            emit Transfer(
+                address(0),
+                dst,
+                presentValueSupply(baseSupplyIndex, supplyAmount)
+            );
+        }
+    }
+
+    /**
+     * @dev Transfer an amount of collateral asset from src to dst
+     */
+    function transferCollateral(
+        address src,
+        address dst,
+        address asset,
+        uint128 amount
+    ) internal {
+        uint128 srcCollateral = userCollateral[src][asset].balance;
+        uint128 dstCollateral = userCollateral[dst][asset].balance;
+        uint128 srcCollateralNew = srcCollateral - amount;
+        uint128 dstCollateralNew = dstCollateral + amount;
+
+        userCollateral[src][asset].balance = srcCollateralNew;
+        userCollateral[dst][asset].balance = dstCollateralNew;
+
+        (, uint8 index) = getAssetInfoByAddress(asset);
+        updateAssetsIn(src, index, srcCollateral, srcCollateralNew);
+        updateAssetsIn(dst, index, dstCollateral, dstCollateralNew);
+
+        // Note: no accrue interest, BorrowCF < LiquidationCF covers small changes
+        if (!isBorrowCollateralized(src)) revert NotCollateralized();
+
+        emit TransferCollateral(src, dst, asset, amount);
+    }
+
+    /**
+     * @notice Withdraw an amount of asset from the protocol
+     * @param asset The asset to withdraw
+     * @param amount The quantity to withdraw
+     */
+    function withdraw(address asset, uint amount) external override {
+        return
+            withdrawInternal(msg.sender, msg.sender, msg.sender, asset, amount);
+    }
+
+    /**
+     * @notice Withdraw an amount of asset to `to`
+     * @param to The recipient address
+     * @param asset The asset to withdraw
+     * @param amount The quantity to withdraw
+     */
+    function withdrawTo(
+        address to,
+        address asset,
+        uint amount
+    ) external override {
+        return withdrawInternal(msg.sender, msg.sender, to, asset, amount);
+    }
+
+    /**
+     * @notice Withdraw an amount of asset from src to `to`, if allowed
+     * @param src The sender address
+     * @param to The recipient address
+     * @param asset The asset to withdraw
+     * @param amount The quantity to withdraw
+     */
+    function withdrawFrom(
+        address src,
+        address to,
+        address asset,
+        uint amount
+    ) external override {
+        return withdrawInternal(msg.sender, src, to, asset, amount);
+    }
+
+    /**
+     * @dev Withdraw either collateral or base asset, depending on the asset, if operator is allowed
+     * @dev Note: Specifying an `amount` of uint256.max will withdraw all of `src`'s accrued base balance
+     */
+    function withdrawInternal(
+        address operator,
+        address src,
+        address to,
+        address asset,
+        uint amount
+    ) internal nonReentrant {
+        if (isWithdrawPaused()) revert Paused();
+        if (!hasPermission(src, operator)) revert Unauthorized();
+
+        if (asset == baseToken) {
+            if (amount == type(uint256).max) {
+                amount = balanceOf(src);
+            }
+            return withdrawBase(src, to, amount);
+        } else {
+            return withdrawCollateral(src, to, asset, safe128(amount));
+        }
+    }
+
+    /**
+     * @dev Withdraw an amount of base asset from src to `to`, borrowing if possible/necessary
+     */
+    function withdrawBase(address src, address to, uint256 amount) internal {
+        accrueInternal();
+
+        if (msg.sender == configController) {
+            require(
+                block.timestamp >= unlockTimestamp,
+                Locked(block.timestamp, unlockTimestamp)
+            );
+            seedReserves -= amount;
+            emit WithdrawReserves(to, amount);
+            return;
+        }
+
+        UserBasic memory srcUser = userBasic[src];
+        int104 srcPrincipal = srcUser.principal;
+        int256 srcBalance = presentValue(srcPrincipal) - signed256(amount);
+        int104 srcPrincipalNew = principalValue(srcBalance);
+
+        (
+            uint104 withdrawAmount,
+            uint104 borrowAmount
+        ) = withdrawAndBorrowAmount(srcPrincipal, srcPrincipalNew);
+
+        totalSupplyBase -= withdrawAmount;
+        totalBorrowBase += borrowAmount;
+
+        updateBasePrincipal(src, srcUser, srcPrincipalNew);
+
+        if (srcBalance < 0) {
+            if (uint256(-srcBalance) < baseBorrowMin) revert BorrowTooSmall();
+            if (!isBorrowCollateralized(src)) revert NotCollateralized();
+        }
+
+        doTransferOut(baseToken, to, amount);
+
+
+        // if (borrowAmount != 0) {
+        //     (baseSupplyIndex, baseBorrowIndex) = accruedInterestIndices(0);
+        //     lastAccrualTime = getNowInternal();
+        // }
+
+        emit Withdraw(src, to, amount);
+
+        if (withdrawAmount > 0) {
+            emit Transfer(
+                src,
+                address(0),
+                presentValueSupply(baseSupplyIndex, withdrawAmount)
+            );
+        }
+    }
+
+    /**
+     * @dev Withdraw an amount of collateral asset from src to `to`
+     */
+    function withdrawCollateral(
+        address src,
+        address to,
+        address asset,
+        uint128 amount
+    ) internal {
+        uint128 srcCollateral = userCollateral[src][asset].balance;
+        uint128 srcCollateralNew = srcCollateral - amount;
+
+        totalsCollateral[asset].totalSupplyAsset -= amount;
+        userCollateral[src][asset].balance = srcCollateralNew;
+
+        (, uint8 index) = getAssetInfoByAddress(asset);
+        updateAssetsIn(src, index, srcCollateral, srcCollateralNew);
+
+        // Note: no accrue interest, BorrowCF < LiquidationCF covers small changes
+        if (!isBorrowCollateralized(src)) revert NotCollateralized();
+
+        doTransferOut(asset, to, amount);
+
+        emit WithdrawCollateral(src, to, asset, amount);
+    }
+
+    /**
+     * @notice Absorb a list of underwater accounts onto the protocol balance sheet
+     * @param absorber The recipient of the incentive paid to the caller of absorb
+     * @param accounts The list of underwater accounts to absorb
+     */
+    function absorb(
+        address absorber,
+        address[] calldata accounts
+    ) external override {
+        if (isAbsorbPaused()) revert Paused();
+        accrueInternal();
+        for (uint i = 0; i < accounts.length; ) {
+            absorbInternal(absorber, accounts[i]);
+            unchecked {
+                i++;
+            }
+        }
+    }
+
+    /**
+     * @dev Transfer user's collateral and debt to the protocol itself.
+     */
+    function absorbInternal(address absorber, address account) internal {
+        if (!isLiquidatable(account)) revert NotLiquidatable();
+
+        UserBasic memory accountUser = userBasic[account];
+        int104 oldPrincipal = accountUser.principal;
+        int256 oldBalance = presentValue(oldPrincipal);
+        uint16 assetsIn = accountUser.assetsIn;
+        uint8 _reserved = accountUser._reserved;
+
+        uint256 basePrice = getPrice(baseTokenPriceFeed);
+        uint256 deltaValue = 0;
+
+        for (uint8 i = 0; i < numAssets; ) {
+            if (isInAsset(assetsIn, i, _reserved)) {
+                IConfigController.CollateralTokenConfig
+                    memory assetInfo = getAssetInfo(i);
+                address asset = assetInfo.collateralToken;
+                uint128 seizeAmount = userCollateral[account][asset].balance;
+                userCollateral[account][asset].balance = 0;
+                totalsCollateral[asset].totalSupplyAsset -= seizeAmount;
+
+                uint256 value = mulPrice(
+                    seizeAmount,
+                    getPrice(assetInfo.priceFeed),
+                    uint64(
+                        10 **
+                            IERC20NonStandard(assetInfo.collateralToken)
+                                .decimals()
+                    )
+                );
+                deltaValue += mulFactor(value, assetInfo.liquidationFactor);
+
+                emit AbsorbCollateral(
+                    absorber,
+                    account,
+                    asset,
+                    seizeAmount,
+                    value
+                );
+            }
+            unchecked {
+                i++;
+            }
+        }
+
+        uint256 deltaBalance = divPrice(
+            deltaValue,
+            basePrice,
+            uint64(baseScale)
+        );
+        int256 newBalance = oldBalance + signed256(deltaBalance);
+        // New balance will not be negative, all excess debt absorbed by reserves
+        if (newBalance < 0) {
+            newBalance = 0;
+        }
+
+        int104 newPrincipal = principalValue(newBalance);
+        updateBasePrincipal(account, accountUser, newPrincipal);
+
+        // reset assetsIn
+        userBasic[account].assetsIn = 0;
+        userBasic[account]._reserved = 0;
+
+        (uint104 repayAmount, uint104 supplyAmount) = repayAndSupplyAmount(
+            oldPrincipal,
+            newPrincipal
+        );
+
+        // Reserves are decreased by increasing total supply and decreasing borrows
+        //  the amount of debt repaid by reserves is `newBalance - oldBalance`
+        totalSupplyBase += supplyAmount;
+        totalBorrowBase -= repayAmount;
+        console.logInt(newBalance);
+        console.logInt(oldBalance);
+
+        uint256 basePaidOut = unsigned256(newBalance - oldBalance);
+
+        uint256 valueOfBasePaidOut = mulPrice(
+            basePaidOut,
+            basePrice,
+            uint64(baseScale)
+        );
+        emit AbsorbDebt(absorber, account, basePaidOut, valueOfBasePaidOut);
+
+        if (newPrincipal > 0) {
+            emit Transfer(
+                address(0),
+                account,
+                presentValueSupply(baseSupplyIndex, unsigned104(newPrincipal))
+            );
+        }
+    }
+
+    /**
+     * @notice Buy collateral from the protocol using base tokens, increasing protocol reserves
+       A minimum collateral amount should be specified to indicate the maximum slippage acceptable for the buyer.
+     * @param asset The asset to buy
+     * @param minAmount The minimum amount of collateral tokens that should be received by the buyer
+     * @param baseAmount The amount of base tokens used to buy the collateral
+     * @param recipient The recipient address
+     */
+    function buyCollateral(
+        address asset,
+        uint minAmount,
+        uint baseAmount,
+        address recipient
+    ) external override nonReentrant {
+        if (isBuyPaused()) revert Paused();
+        baseAmount = doTransferIn(baseToken, msg.sender, baseAmount);
+
+        uint collateralAmount = quoteCollateral(asset, baseAmount);
+        // Note: Re-entrancy can skip the reserves check above on a second buyCollateral call.
+
+        if (collateralAmount < minAmount) revert TooMuchSlippage();
+
+        if (collateralAmount > getCollateralReserves(asset))
+            revert InsufficientReserves();
+
+        // Note: Pre-transfer hook can re-enter buyCollateral with a stale collateral ERC20 balance.
+        //  Assets should not be listed which allow re-entry from pre-transfer now, as too much collateral could be bought.
+        //  This is also a problem if quoteCollateral derives its discount from the collateral ERC20 balance.
+        doTransferOut(asset, recipient, safe128(collateralAmount));
+
+        emit BuyCollateral(msg.sender, asset, baseAmount, collateralAmount);
+    }
+
+    /**
+     * @notice Gets the quote for a collateral asset in exchange for an amount of base asset
+     * @param asset The collateral asset to get the quote for
+     * @param baseAmount The amount of the base asset to get the quote for
+     * @return The quote in terms of the collateral asset
+     */
+    function quoteCollateral(
+        address asset,
+        uint baseAmount
+    ) public view override returns (uint) {
+        (
+            IConfigController.CollateralTokenConfig memory assetInfo,
+
+        ) = getAssetInfoByAddress(asset);
+        uint256 assetPrice = getPrice(assetInfo.priceFeed);
+        // Store front discount is derived from the collateral asset's liquidationFactor and storeFrontPriceFactor
+        // discount = storeFrontPriceFactor * (1e18 - liquidationFactor)
+        uint256 discountFactor = mulFactor(
+            storeFrontPriceFactor,
+            FACTOR_SCALE - assetInfo.liquidationFactor
+        );
+        uint256 assetPriceDiscounted = mulFactor(
+            assetPrice,
+            FACTOR_SCALE - discountFactor
+        );
+        uint256 basePrice = getPrice(baseTokenPriceFeed);
+        // # of collateral assets
+        // = (TotalValueOfBaseAmount / DiscountedPriceOfCollateralAsset) * assetScale
+        // = ((basePrice * baseAmount / baseScale) / assetPriceDiscounted) * assetScale
+        return
+            // (basePrice * baseAmount * assetInfo.scale) / hardcoded to 1e18
+            (basePrice *
+                baseAmount *
+                10 ** IERC20NonStandard(asset).decimals()) /
+            assetPriceDiscounted /
+            baseScale;
+    }
+
+    /**
+     * @notice Get the total number of tokens in circulation
+     * @dev Note: uses updated interest indices to calculate
+     * @return The supply of tokens
+     **/
+    function totalSupply() external view override returns (uint256) {
+        (uint64 baseSupplyIndex_, ) = accruedInterestIndices(
+            getNowInternal() - lastAccrualTime
+        );
+        return presentValueSupply(baseSupplyIndex_, totalSupplyBase);
+    }
+
+    /**
+     * @notice Get the total amount of debt
+     * @dev Note: uses updated interest indices to calculate
+     * @return The amount of debt
+     **/
+    function totalBorrow() public view override returns (uint256) {
+        (, uint64 baseBorrowIndex_) = accruedInterestIndices(
+            getNowInternal() - lastAccrualTime
+        );
+        return presentValueBorrow(baseBorrowIndex_, totalBorrowBase);
+    }
+
+    /**
+     * @notice Get the target reserves of the protocol
+     * @dev Note: uses updated interest indices to calculate
+     * @return The target reserves
+     **/
+    function targetReserves() public view override returns (uint256) {
+        return (totalBorrow() * targetPercent) / FACTOR_SCALE;
+    }
+
+    /**
+     * @notice Query the current positive base balance of an account or zero
+     * @dev Note: uses updated interest indices to calculate
+     * @param account The account whose balance to query
+     * @return The present day base balance magnitude of the account, if positive
+     */
+    function balanceOf(address account) public view override returns (uint256) {
+        (uint64 baseSupplyIndex_, ) = accruedInterestIndices(
+            getNowInternal() - lastAccrualTime
+        );
+        int104 principal = userBasic[account].principal;
+        return
+            principal > 0
+                ? presentValueSupply(baseSupplyIndex_, unsigned104(principal))
+                : 0;
+    }
+
+    /**
+     * @notice Query the current negative base balance of an account or zero
+     * @dev Note: uses updated interest indices to calculate
+     * @param account The account whose balance to query
+     * @return The present day base balance magnitude of the account, if negative
+     */
+    function borrowBalanceOf(
+        address account
+    ) public view override returns (uint256) {
+        (, uint64 baseBorrowIndex_) = accruedInterestIndices(
+            getNowInternal() - lastAccrualTime
+        );
+        int104 principal = userBasic[account].principal;
+        return
+            principal < 0
+                ? presentValueBorrow(baseBorrowIndex_, unsigned104(-principal))
+                : 0;
+    }
+
+    /// @notice Returns the current configuration of the market
+    /// @return Configuration struct containing all market parameters
+    function getConfiguration() external view returns (Configuration memory) {
+        return
+            Configuration({
+                configController: configController,
+                baseToken: baseToken,
+                baseTokenPriceFeed: baseTokenPriceFeed,
+                extensionDelegate: address(0), // Not implemented in this version
+                supplyKink: uint64(supplyKink),
+                supplyPerYearInterestRateSlopeLow: uint64(
+                    supplyPerSecondInterestRateSlopeLow * SECONDS_PER_YEAR
+                ),
+                supplyPerYearInterestRateSlopeHigh: uint64(
+                    supplyPerSecondInterestRateSlopeHigh * SECONDS_PER_YEAR
+                ),
+                supplyPerYearInterestRateBase: uint64(
+                    supplyPerSecondInterestRateBase * SECONDS_PER_YEAR
+                ),
+                borrowKink: uint64(borrowKink),
+                borrowPerYearInterestRateSlopeLow: uint64(
+                    borrowPerSecondInterestRateSlopeLow * SECONDS_PER_YEAR
+                ),
+                borrowPerYearInterestRateSlopeHigh: uint64(
+                    borrowPerSecondInterestRateSlopeHigh * SECONDS_PER_YEAR
+                ),
+                borrowPerYearInterestRateBase: uint64(
+                    borrowPerSecondInterestRateBase * SECONDS_PER_YEAR
+                ),
+                storeFrontPriceFactor: uint64(storeFrontPriceFactor),
+                trackingIndexScale: uint64(trackingIndexScale),
+                baseTrackingSupplySpeed: uint64(baseTrackingSupplySpeed),
+                baseTrackingBorrowSpeed: uint64(baseTrackingBorrowSpeed),
+                baseMinForRewards: uint104(baseMinForRewards),
+                baseBorrowMin: uint104(baseBorrowMin),
+                targetPercent: uint104(targetPercent),
+                seedReserves: uint104(seedReserves),
+                unlockTimestamp: uint104(unlockTimestamp),
+                assetConfigs: collateralAssets
+            });
+    }
+
+    receive() external payable {}
+
+    /**
+     * @notice Fallback to calling the extension delegate for everything else
+     */
+    fallback() external payable {
+        address delegate = extension;
+        assembly ("memory-safe") {
+            calldatacopy(0, 0, calldatasize())
+            let result := delegatecall(gas(), delegate, 0, calldatasize(), 0, 0)
+            returndatacopy(0, 0, returndatasize())
+            switch result
+            case 0 {
+                revert(0, returndatasize())
+            }
+            default {
+                return(0, returndatasize())
+            }
+        }
+    }
+}

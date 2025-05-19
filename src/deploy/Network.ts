@@ -135,7 +135,7 @@ export async function deployCustomNetworkComet(
   console.log('deply comet ext')
   const cometExt = await deploymentManager.deploy(
     'comet:implementation:implementation',
-    'CometSandbox.sol',
+    'SandboxComet.sol',
     [extConfiguration],
     maybeForce(deploySpec.cometExt)
   );
@@ -352,7 +352,7 @@ export async function deployNetworkComet(
   } else {
     cometExt = await deploymentManager.deploy(
       'comet:implementation:implementation',
-      'CometExt.sol',
+      'CometExtension.sol',
       [extConfiguration],
       maybeForce(deploySpec.cometExt)
     );
@@ -362,7 +362,7 @@ export async function deployNetworkComet(
   if(withAssetList) {
     cometFactory = await deploymentManager.deploy(
       'cometFactory',
-      'CometSandboxFactory.sol',
+      'SandboxCometFactory.sol',
       [],
       maybeForce(deploySpec.cometMain)
     );
@@ -404,7 +404,7 @@ export async function deployNetworkComet(
   if(withAssetList) {
     tmpCometImpl = await deploymentManager.deploy(
       'comet:implementation',
-      'CometSandbox.sol',
+      'SandboxComet.sol',
       [configuration],
       maybeForce()
     );

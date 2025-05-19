@@ -1,21 +1,10 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
-import "./CometConfiguration.sol";
 import "./CometStorage.sol";
 import "./CometMath.sol";
 
-abstract contract CometCore is CometConfiguration, CometStorage, CometMath {
-    struct AssetInfo {
-        uint8 offset;
-        address asset;
-        address priceFeed;
-        uint64 scale;
-        uint64 borrowCollateralFactor;
-        uint64 liquidateCollateralFactor;
-        uint64 liquidationFactor;
-        uint128 supplyCap;
-    }
+abstract contract CometCore is CometStorage, CometMath {
 
     /** Internal constants **/
 
@@ -62,6 +51,7 @@ abstract contract CometCore is CometConfiguration, CometStorage, CometMath {
     /// @dev The reentrancy guard statuses
     uint256 internal constant REENTRANCY_GUARD_NOT_ENTERED = 0;
     uint256 internal constant REENTRANCY_GUARD_ENTERED = 1;
+    uint256 internal constant MIN_TARGET_RESERVES = 1;
 
     /**
      * @notice Determine if the manager has permission to act on behalf of the owner

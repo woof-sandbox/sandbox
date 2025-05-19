@@ -1,14 +1,16 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
-import "./CometCore.sol";
+import "../CometCore.sol";
+import "./IConfigController.sol";
+import "./ISandboxController.sol";
 
 /**
  * @title Compound's Comet Main Interface (without Ext)
  * @notice An efficient monolithic money market protocol
  * @author Compound
  */
-abstract contract CometMainInterface is CometCore {
+abstract contract ISandboxComet is CometCore {
     error Absurd();
     error AlreadyInitialized();
     error BadAsset();
@@ -33,6 +35,7 @@ abstract contract CometMainInterface is CometCore {
     error TransferInFailed();
     error TransferOutFailed();
     error Unauthorized();
+    error Locked(uint256 currrentTimestamp, uint256 unlockTimestamp);
 
     event Supply(address indexed from, address indexed dst, uint amount);
     event Transfer(address indexed from, address indexed to, uint amount);
@@ -57,6 +60,9 @@ abstract contract CometMainInterface is CometCore {
     /// @notice Event emitted when reserves are withdrawn by the governor
     event WithdrawReserves(address indexed to, uint amount);
 
+    event SpeedsChanged(uint  baseTrackingSupplySpeed, uint baseTrackingBorrowSpeed, bool dao_);
+            
+    function setCollateralTokens(IConfigController.CollateralTokenConfig[] memory _collateralTokens) external virtual;
     function supply(address asset, uint amount) virtual external;
     function supplyTo(address dst, address asset, uint amount) virtual external;
     function supplyFrom(address from, address dst, address asset, uint amount) virtual external;
@@ -67,23 +73,28 @@ abstract contract CometMainInterface is CometCore {
     function transferAsset(address dst, address asset, uint amount) virtual external;
     function transferAssetFrom(address src, address dst, address asset, uint amount) virtual external;
 
+    function transferOwnership(address _newConfigController) external virtual;
+    
     function withdraw(address asset, uint amount) virtual external;
     function withdrawTo(address to, address asset, uint amount) virtual external;
     function withdrawFrom(address src, address to, address asset, uint amount) virtual external;
 
-    function approveThis(address manager, address asset, uint amount) virtual external;
-    function withdrawReserves(address to, uint amount) virtual external;
+    function initialize(
+        IConfigController.MarketConfig memory market,
+        ISandboxController.SandboxControllerConfiguration memory config,
+        address configController_,
+        address sandboxController_,
+        address ext_,
+        uint256 baseBorrowMin_
+    ) virtual external;
+
 
     function absorb(address absorber, address[] calldata accounts) virtual external;
     function buyCollateral(address asset, uint minAmount, uint baseAmount, address recipient) virtual external;
     function quoteCollateral(address asset, uint baseAmount) virtual public view returns (uint);
-
-    function getAssetInfo(uint8 i) virtual public view returns (AssetInfo memory);
-    function getAssetInfoByAddress(address asset) virtual public view returns (AssetInfo memory);
     function getCollateralReserves(address asset) virtual public view returns (uint);
     function getReserves() virtual public view returns (int);
     function getPrice(address priceFeed) virtual public view returns (uint);
-
     function isBorrowCollateralized(address account) virtual public view returns (bool);
     function isLiquidatable(address account) virtual public view returns (bool);
 
@@ -91,7 +102,11 @@ abstract contract CometMainInterface is CometCore {
     function totalBorrow() virtual external view returns (uint256);
     function balanceOf(address owner) virtual public view returns (uint256);
     function borrowBalanceOf(address account) virtual public view returns (uint256);
-
+     function setSpeeds(
+        uint64 baseTrackingSupplySpeed_,
+        uint64 baseTrackingBorrowSpeed_,
+        bool _dao
+    ) virtual external;
     function pause(bool supplyPaused, bool transferPaused, bool withdrawPaused, bool absorbPaused, bool buyPaused) virtual external;
     function isSupplyPaused() virtual public view returns (bool);
     function isTransferPaused() virtual public view returns (bool);
@@ -104,11 +119,11 @@ abstract contract CometMainInterface is CometCore {
     function getBorrowRate(uint utilization) virtual public view returns (uint64);
     function getUtilization() virtual public view returns (uint);
 
-    function governor() virtual external view returns (address);
-    function pauseGuardian() virtual external view returns (address);
+    function configController() virtual external view returns (address);
+    function sandboxController() virtual external view returns (address);
     function baseToken() virtual external view returns (address);
     function baseTokenPriceFeed() virtual external view returns (address);
-    function extensionDelegate() virtual external view returns (address);
+    function extension() virtual external view returns (address);
 
     /// @dev uint64
     function supplyKink() virtual external view returns (uint);
@@ -128,7 +143,6 @@ abstract contract CometMainInterface is CometCore {
     function borrowPerSecondInterestRateBase() virtual external view returns (uint);
     /// @dev uint64
     function storeFrontPriceFactor() virtual external view returns (uint);
-
     /// @dev uint64
     function baseScale() virtual external view returns (uint);
     /// @dev uint64
@@ -138,12 +152,22 @@ abstract contract CometMainInterface is CometCore {
     function baseTrackingSupplySpeed() virtual external view returns (uint);
     /// @dev uint64
     function baseTrackingBorrowSpeed() virtual external view returns (uint);
+
+    function daoBaseTrackingSupplySpeed() virtual external view returns (uint);
+
+    function daoBaseTrackingBorrowSpeed() virtual external view returns (uint);
     /// @dev uint104
     function baseMinForRewards() virtual external view returns (uint);
     /// @dev uint104
     function baseBorrowMin() virtual external view returns (uint);
     /// @dev uint104
     function targetReserves() virtual external view returns (uint);
+
+    function targetPercent() virtual external view returns (uint);
+    
+    function seedReserves() virtual external view returns (uint);
+
+    function unlockTimestamp() virtual external view returns (uint);
 
     function numAssets() virtual external view returns (uint8);
     function decimals() virtual external view returns (uint8);

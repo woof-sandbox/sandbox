@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
-interface ISandboxController {
+import "./ISandboxErrors.sol";
+
+abstract contract ISandboxController is ISandboxErrors {
     enum MarketState {
         Low,
         Medium,
@@ -10,18 +12,18 @@ interface ISandboxController {
 
     struct BaseAssetCurve {
         uint64 supplyKink;
+        uint64 supplyPerYearInterestRateBase;
         uint64 supplyPerYearInterestRateSlopeLow;
         uint64 supplyPerYearInterestRateSlopeHigh;
-        uint64 supplyPerYearInterestRateBase;
         uint64 borrowKink;
+        uint64 borrowPerYearInterestRateBase;
         uint64 borrowPerYearInterestRateSlopeLow;
         uint64 borrowPerYearInterestRateSlopeHigh;
-        uint64 borrowPerYearInterestRateBase;
     }
 
     struct BaseAssetConfiguration {
         address priceFeed;
-        uint256 decimals;
+        uint8 decimals;
         uint256 minBorrow;
         BaseAssetCurve[] baseAssetCurves;
     }
@@ -29,7 +31,7 @@ interface ISandboxController {
     struct CollateralAssetConfiguration {
         address collateralToken;
         address priceFeed;
-        uint256 decimals;
+        uint8 decimals;
         uint64 maxBorrowCollateralFactor;
         uint64 minBorrowCollateralFactor;
         uint64 minLiquidateCollateralFactor;
@@ -39,23 +41,12 @@ interface ISandboxController {
     }
 
     struct SandboxControllerConfiguration {
+        uint256 targetPercent;
         uint256 storeFrontPriceFactor;
         uint256 minUpdateTime;
         uint256 suggestedAmountOfSeedReserves;
         uint256 suggestedLockTimeOfSeedReserves;
     }
-
-    error ZeroAddress();
-    error TokenAlreadyWhitelisted();
-    error TokenNotWhitelisted();
-    error PriceFeedAlreadyWhitelisted();
-    error InvalidCurveConfiguration();
-    error InvalidPriceFeed();
-    error InvalidFactors();
-    error NotOwner(address caller);
-    error NotDao(address caller);
-    error NotAuthorized(address caller);
-
     event BaseAssetWhitelisted(
         address indexed token,
         address indexed priceFeed,
@@ -63,7 +54,8 @@ interface ISandboxController {
         BaseAssetCurve baseAssetCurve,
         uint256 minBorrow
     );
-
+    event BaseAssetCurveAdded(address indexed token, BaseAssetCurve baseAssetCurve);
+    event BaseAssetCurveChanged(address indexed token, BaseAssetCurve oldCurve, BaseAssetCurve newCurve);
     event CollateralAssetWhitelisted(
         address indexed token,
         address indexed priceFeed,
@@ -76,124 +68,68 @@ interface ISandboxController {
         uint64 maxLiquidationFactor
     );
 
-    event BaseAssetCurveAdded(
-        address indexed token,
-        BaseAssetCurve baseAssetCurve
-    );
-
-    event BaseAssetCurveChanged(
-        address indexed token,
-        BaseAssetCurve baseAssetCurveOld,
-        BaseAssetCurve baseAssetCurveNew
-    );
-
-    event ConfigurationChanged(
-        SandboxControllerConfiguration oldConfig,
-        SandboxControllerConfiguration newConfig
-    );
-
+    event ThresholdChanged(MarketState state, uint256 oldValue, uint256 newValue);
+    event ReserveCommissionChanged(MarketState state, uint256 oldValue, uint256 newValue);
+    event ProtocolCommissionChanged(MarketState state, uint256 oldValue, uint256 newValue);
     event TreasuryChanged(address oldTreasury, address newTreasury);
-
-    event TargetReservesChanged(uint256 oldReserves, uint256 newReserves);
-
-    event ThresholdChanged(
-        MarketState indexed state,
-        uint256 oldValue,
-        uint256 newValue
-    );
-
-    event ReserveCommissionChanged(
-        MarketState indexed state,
-        uint256 oldValue,
-        uint256 newValue
-    );
-
-    event ProtocolCommissionChanged(
-        MarketState indexed state,
-        uint256 oldValue,
-        uint256 newValue
-    );
-
-    event FeeEnabledSet(bool enabled);
+    event ConfigurationChanged(SandboxControllerConfiguration oldConfig, SandboxControllerConfiguration newConfig);
+    event FeeEnabledSet(bool feeEnabled);
     event OwnerTransferred(address oldOwner, address newOwner);
     event DaoTransferred(address oldDao, address newDao);
 
-    function setTargetReserves(uint256 _targetReserves) external;
-
-    function setThresholds(uint256[3] calldata thresholds) external;
-
-    function setReserveCommissions(
-        uint256[3] calldata reserveCommissions
-    ) external;
-
-    function setProtocolCommissions(
-        uint256[3] calldata protocolCommissions
-    ) external;
-
-    function setTreasury(address _treasury) external;
+    function protocolFactorBorrow() external view virtual returns (uint256);
+    function reserveFactorBorrow() external view virtual returns (uint256);
+    function protocolFactorLiquidation() external view virtual returns (uint256);
+    function reserveFactorLiquidation() external view virtual returns (uint256);
+    function maxCollateralAssets() external view virtual returns (uint256);
+    function baseAssetCount() external view virtual returns (uint256);
+    function collateralAssetCount() external view virtual returns (uint256);
+    function treasury() external view virtual returns (address);
+    function owner() external view virtual returns (address);
+    function dao() external view virtual returns (address);
+    function feeEnabled() external view virtual returns (bool);
+    function controllerConfiguration() external view virtual returns (SandboxControllerConfiguration memory);
+    function baseAssetTokens(uint256) external view virtual returns (address);
+    function collateralAssetTokens(uint256) external view virtual returns (address);
+    function isPriceFeedWhitelisted(address) external view virtual returns (bool);
+    function reserveCommission(MarketState) external view virtual returns (uint256);
+    function protocolCommission(MarketState) external view virtual returns (uint256);
+    function threshold(MarketState) external view virtual returns (uint256);
 
     function whitelistBaseAsset(
         address token,
         address priceFeed,
         BaseAssetCurve memory baseAssetCurve,
         uint256 minBorrow
-    ) external;
+    ) external virtual;
 
     function whitelistCollateralAsset(
         address token,
         address priceFeed,
-        uint64 maxBorrowCollateralFactor,
         uint64 minBorrowCollateralFactor,
+        uint64 maxBorrowCollateralFactor,
         uint64 minLiquidateCollateralFactor,
         uint64 maxLiquidateCollateralFactor,
         uint64 minLiquidationFactor,
         uint64 maxLiquidationFactor
-    ) external;
+    ) external virtual;
 
-    function setConfiguration(
-        SandboxControllerConfiguration memory _config
-    ) external;
+    function addBaseAssetCurve(address token, BaseAssetCurve memory baseAssetCurve) external virtual;
+    function changeBaseAssetCurve(address token, uint256 curveIndex, BaseAssetCurve memory newCurve) external virtual;
+    function setThresholds(uint256[3] calldata thresholds) external virtual;
+    function setReserveCommissions(uint256[3] calldata reserveCommissions) external virtual;
+    function setProtocolCommissions(uint256[3] calldata protocolCommissions) external virtual;
+    function setTreasury(address _treasury) external virtual;
+    function setConfiguration(SandboxControllerConfiguration memory _config) external virtual;
+    function setFeeEnabled(bool _feeEnabled) external virtual;
+    function transferOwner(address newOwner) external virtual;
+    function transferDao(address newDao) external virtual;
+    function isBaseTokenWhitelisted(address token) external view virtual returns (bool);
+    function isCollateralTokenWhitelisted(address token) external view virtual returns (bool);
+    function isCurveConfigurationValid(BaseAssetCurve memory curve) external pure virtual returns (bool);
+    function baseAssets(address token) external view virtual returns (BaseAssetConfiguration memory);
+    function collateralAssets(address token) external view virtual returns (CollateralAssetConfiguration memory);
+    function curves(address token) external view virtual returns (BaseAssetCurve[] memory);
 
-    function setFeeEnabled(bool _feeEnabled) external;
-
-    function addBaseAssetCurve(
-        address token,
-        BaseAssetCurve memory baseAssetCurve
-    ) external;
-
-    function changeBaseAssetCurve(
-        address token,
-        uint256 curveIndex,
-        BaseAssetCurve memory newCurve
-    ) external;
-
-    function transferOwner(address newOwner) external;
-
-    function transferDao(address newDao) external;
-
-    function isCurveConfigurationValid(
-        BaseAssetCurve memory curve
-    ) external pure returns (bool);
-
-    function isBaseTokenWhitelisted(address token) external view returns (bool);
-
-    function isCollateralTokenWhitelisted(
-        address token
-    ) external view returns (bool);
-
-    function isPriceFeedWhitelisted(
-        address priceFeed
-    ) external view returns (bool);
-
-    function getBaseAssetCurves(
-        address token
-    ) external view returns (BaseAssetCurve[] memory);
-
-    function baseAssets(
-        address token
-    ) external view returns (BaseAssetConfiguration memory);
-
-    function collateralAssets(
-        address token
-    ) external view returns (CollateralAssetConfiguration memory);
+    function config() external view virtual returns (SandboxControllerConfiguration memory);
 }

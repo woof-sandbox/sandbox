@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
-import "../CometInterface.sol";
+import "../interfaces/ISandboxComet.sol";
 import "../interfaces/IERC20NonStandard.sol";
 import "../interfaces/IWETH9.sol";
 
@@ -172,7 +172,7 @@ contract BaseBulker {
      * @dev Note: This contract must have permission to manage msg.sender's Comet account
      */
     function supplyTo(address comet, address to, address asset, uint amount) internal {
-        CometInterface(comet).supplyFrom(msg.sender, to, asset, amount);
+        ISandboxComet(comet).supplyFrom(msg.sender, to, asset, amount);
     }
 
     /**
@@ -182,13 +182,13 @@ contract BaseBulker {
      */
     function supplyNativeTokenTo(address comet, address to, uint amount) internal returns (uint256) {
         uint256 supplyAmount = amount;
-        if (wrappedNativeToken == CometInterface(comet).baseToken()) {
+        if (wrappedNativeToken == ISandboxComet(comet).baseToken()) {
             if (amount == type(uint256).max)
-                supplyAmount = CometInterface(comet).borrowBalanceOf(msg.sender);
+                supplyAmount = ISandboxComet(comet).borrowBalanceOf(msg.sender);
         }
         IWETH9(wrappedNativeToken).deposit{ value: supplyAmount }();
         IWETH9(wrappedNativeToken).approve(comet, supplyAmount);
-        CometInterface(comet).supplyFrom(address(this), to, wrappedNativeToken, supplyAmount);
+        ISandboxComet(comet).supplyFrom(address(this), to, wrappedNativeToken, supplyAmount);
         return supplyAmount;
     }
 
@@ -197,7 +197,7 @@ contract BaseBulker {
      * @dev Note: This contract must have permission to manage msg.sender's Comet account
      */
     function transferTo(address comet, address to, address asset, uint amount) internal {
-        CometInterface(comet).transferAssetFrom(msg.sender, to, asset, amount);
+        ISandboxComet(comet).transferAssetFrom(msg.sender, to, asset, amount);
     }
 
     /**
@@ -205,7 +205,7 @@ contract BaseBulker {
      * @dev Note: This contract must have permission to manage msg.sender's Comet account
      */
     function withdrawTo(address comet, address to, address asset, uint amount) internal {
-        CometInterface(comet).withdrawFrom(msg.sender, to, asset, amount);
+        ISandboxComet(comet).withdrawFrom(msg.sender, to, asset, amount);
     }
 
     /**
@@ -215,11 +215,11 @@ contract BaseBulker {
      */
     function withdrawNativeTokenTo(address comet, address to, uint amount) internal {
         uint256 withdrawAmount = amount;
-        if (wrappedNativeToken == CometInterface(comet).baseToken()) {
+        if (wrappedNativeToken == ISandboxComet(comet).baseToken()) {
             if (amount == type(uint256).max)
-                withdrawAmount = CometInterface(comet).balanceOf(msg.sender);
+                withdrawAmount = ISandboxComet(comet).balanceOf(msg.sender);
         }
-        CometInterface(comet).withdrawFrom(msg.sender, address(this), wrappedNativeToken, withdrawAmount);
+        ISandboxComet(comet).withdrawFrom(msg.sender, address(this), wrappedNativeToken, withdrawAmount);
         IWETH9(wrappedNativeToken).withdraw(withdrawAmount);
         (bool success, ) = to.call{ value: withdrawAmount }("");
         if (!success) revert FailedToSendNativeToken();
