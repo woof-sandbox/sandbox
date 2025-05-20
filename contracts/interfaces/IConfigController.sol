@@ -29,8 +29,8 @@ abstract contract IConfigController {
         address baseToken;
         address priceFeed;
         CollateralTokenConfig[] collateralTokens;
-        MarketOptions options;
         uint baseTokenCurveId;
+        MarketOptions options;
     }
 
     struct MarketOptions {

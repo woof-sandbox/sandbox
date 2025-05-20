@@ -474,7 +474,7 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
     sandboxController
   );
 
-  await configControllerFactory.create(
+  await configControllerFactory.createConfigController(
     owner.address,
     curator.address,
     guardian.address,
@@ -526,45 +526,45 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
   };
 }
 
-async function createMarket(
-  opts: ProtocolOpts,
+export async function createMarket(
   configController: ConfigController,
   tokens: Record<string, FaucetToken | NonStandardFaucetFeeToken>,
   baseToken: FaucetToken | NonStandardFaucetFeeToken,
   priceFeeds: Record<string, SimplePriceFeed>
-) {
-  const baseSymbol = await baseToken.symbol();
-
-  const collateralTokens: MarketConfigStruct["collateralTokens"] = [];
-  for (let token of Object.keys(tokens)) {
-    if (token !== baseSymbol) {
-
-      const assetConfig = opts.assets?.[token];
-  
-      collateralTokens.push({
-          collateralToken: tokens[token].address,
-          priceFeed: priceFeeds[token].address,
-          borrowCollateralFactor: assetConfig?.borrowCF ?? exp(0.6, 18),
-          liquidateCollateralFactor: assetConfig?.liquidateCF ?? exp(0.7, 18),
-          liquidationFactor: assetConfig?.liquidationFactor ?? exp(0.8, 18),
-          supplyCap: assetConfig?.supplyCap ?? exp(1e9, 18),
-      });
-    }
+): Promise<string> {
+  let marketConfig: MarketConfigStruct = {
+      baseToken: baseToken.address,
+      priceFeed: priceFeeds[await baseToken.symbol()].address,
+      collateralTokens: [],
+      baseTokenCurveId: 0n,
+      options: {
+          baseTrackingSupplySpeed: 0n,
+          baseTrackingBorrowSpeed: 0n,
+          trackingIndexScale: 0n,
+          baseMinForRewards: 0n
+      }
   }
 
-  const marketConfig: MarketConfigStruct = {
-    baseToken: baseToken.address,
-    priceFeed: priceFeeds[baseSymbol].address,
-    baseTokenCurveId: 0,
-    collateralTokens
-  };
-
+  for (let token in tokens) {
+      if (token != await baseToken.symbol()) {
+          marketConfig.collateralTokens.push(
+              {
+                  collateralToken: tokens[token].address,
+                  priceFeed: priceFeeds[token].address,
+                  borrowCollateralFactor: factor(0.6),
+                  liquidateCollateralFactor: factor(0.7),
+                  liquidationFactor: factor(0.8),
+                  supplyCap: exp(1_000_000, 6)
+              }
+          );
+      }
+  }
+  
   const createMarketTx = await configController.createMarket(marketConfig);
-  const receipt = await createMarketTx.wait();
-  const filter = configController.filters.MarketCreated();
-  const events = await configController.queryFilter(filter, receipt.blockNumber, receipt.blockNumber); 
-
-  return configController.markets(0);
+  const createMarketReceipt = await createMarketTx.wait();
+  const [createMarketEvents] = createMarketReceipt.events?.filter((event) => event.event === 'MarketCreated');
+  const marketAddress = createMarketEvents.args.market;
+  return marketAddress;
 }
 
 export const makeProtocol = async (opts: ProtocolOpts = {}) => {
@@ -572,7 +572,7 @@ export const makeProtocol = async (opts: ProtocolOpts = {}) => {
 
   await baseToken.approve(configController.address, seedReserves);
 
-  const market = await createMarket(opts, configController, tokens, baseToken, priceFeeds);
+  const market = await createMarket(configController, tokens, baseToken, priceFeeds);
 
   const comet = await ethers.getContractAt("CometHarness", market) as CometHarness;
   return {

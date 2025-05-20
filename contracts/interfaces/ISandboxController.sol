@@ -47,6 +47,7 @@ abstract contract ISandboxController is ISandboxErrors {
         uint256 suggestedAmountOfSeedReserves;
         uint256 suggestedLockTimeOfSeedReserves;
     }
+    
     event BaseAssetWhitelisted(
         address indexed token,
         address indexed priceFeed,

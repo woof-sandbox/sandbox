@@ -9,7 +9,8 @@ import {
     makeMarketFactory,
     defaultSandboxControllerOpts,
     makeOnlyConfigController,
-    makeConfigControllerFactory
+    makeConfigControllerFactory,
+    createMarket
 } from './helper/helpers';
 import { 
     MarketConfigStruct, 
@@ -23,53 +24,13 @@ import {
     NonStandardFaucetFeeToken,
     MarketMock,
     SandboxController,
-    MarketFactory__factory
+    SandboxCometFactory__factory
 } from '../build/types';
 import { BigNumber, ContractTransaction, ContractReceipt, Event } from 'ethers';
 
 describe('ConfigController', () => {
-    async function createMarket(
-        configController: ConfigController,
-        tokens: Record<string, FaucetToken | NonStandardFaucetFeeToken>,
-        baseToken: FaucetToken | NonStandardFaucetFeeToken,
-        priceFeeds: Record<string, SimplePriceFeed>
-    ): Promise<string> {
-        let marketConfig: MarketConfigStruct = {
-            baseToken: baseToken.address,
-            priceFeed: priceFeeds[await baseToken.symbol()].address,
-            collateralTokens: [],
-            baseTokenCurveId: 0n,
-            options: {
-                baseTrackingSupplySpeed: 0n,
-                baseTrackingBorrowSpeed: 0n,
-                trackingIndexScale: 0n,
-                baseMinForRewards: 0n
-            }
-        }
 
-        for (let token in tokens) {
-            if (token != await baseToken.symbol()) {
-                marketConfig.collateralTokens.push(
-                    {
-                        collateralToken: tokens[token].address,
-                        priceFeed: priceFeeds[token].address,
-                        borrowCollateralFactor: factor(0.6),
-                        liquidateCollateralFactor: factor(0.7),
-                        liquidationFactor: factor(0.8),
-                        supplyCap: exp(1_000_000, 6)
-                    }
-                );
-            }
-        }
-        
-        const createMarketTx = await configController.createMarket(marketConfig);
-        const createMarketReceipt = await createMarketTx.wait();
-        const [createMarketEvents] = createMarketReceipt.events?.filter((event) => event.event === 'MarketCreated');
-        const marketAddress = createMarketEvents.args.market;
-        return marketAddress;
-    }
-
-    describe.only('Initialize', () => {
+    describe('Initialize', () => {
         it('should initialize with correct values', async () => {
             const {
                 configController,
@@ -121,8 +82,12 @@ describe('ConfigController', () => {
             const market = await makeMockMarket();
             const configControllerImpl = await ConfigController_Factory.deploy();
             const configControllerFactory = await makeConfigControllerFactory(configControllerImpl.address);
-            const MarketFactory = await ethers.getContractFactory('MarketFactory') as MarketFactory__factory;
-            const marketFactory = await MarketFactory.deploy(market.address, configControllerFactory.address, ethers.constants.AddressZero);
+            const MarketFactory = await ethers.getContractFactory('SandboxCometFactory') as SandboxCometFactory__factory;
+            const marketFactory = await MarketFactory.deploy(
+                market.address, 
+                configControllerFactory.address, 
+                ethers.Wallet.createRandom().address
+            );
             await marketFactory.deployed();            
             await expect(
                 configControllerFactory.createConfigController(
@@ -222,8 +187,8 @@ describe('ConfigController', () => {
     
     });
 
-    describe('Create Market', () => {
-        it('should create a market', async () => { 
+    describe.only('Create Market', () => {
+        it.only('should create a market', async () => { 
             const {
                 configController, 
                 tokens, 
@@ -236,9 +201,15 @@ describe('ConfigController', () => {
             
             let marketConfig: MarketConfigStruct = {
                 baseToken: baseToken.address,
-                    priceFeed: priceFeeds[await baseToken.symbol()].address,
-                        collateralTokens: [],
-                        baseTokenCurveId: 0n
+                priceFeed: priceFeeds[await baseToken.symbol()].address,
+                collateralTokens: [],
+                baseTokenCurveId: 0n,
+                options: {
+                    baseTrackingSupplySpeed: 0n,
+                    baseTrackingBorrowSpeed: 0n,
+                    trackingIndexScale: 0n,
+                    baseMinForRewards: 0n
+                }
             }
 
             for (let token in tokens) {
@@ -256,19 +227,38 @@ describe('ConfigController', () => {
                 }
             }
 
+            // Get config before allocating tokens
+            const controllerConfig = await sandboxController.config();
+            const suggestedAmountOfSeedReserves = controllerConfig.suggestedAmountOfSeedReserves;
+
+            // Approve first, then allocate
+            await baseToken.connect(owner).approve(configController.address, suggestedAmountOfSeedReserves);
+            await baseToken.allocateTo(owner.address, suggestedAmountOfSeedReserves);
+            console.log(await baseToken.balanceOf(owner.address).toString(), '- baseToken balance of owner');
+            console.log(await configController.owner(), '- configController owner');
+            // Create market
             const createMarketTx = await configController.connect(owner).createMarket(marketConfig);
             const createMarketReceipt = await createMarketTx.wait();
-            const [createMarketEvents] = createMarketReceipt.events?.filter((event) => event.event === 'MarketCreated');
+            console.log(createMarketReceipt);
+            // Get market created event
+            const marketCreatedEvents = createMarketReceipt.events?.filter((event) => event.event === 'MarketCreated');
+            const createMarketEvents = marketCreatedEvents[0];
+
+            // Verify market creation
             expect(createMarketEvents.args.baseToken).to.equal(baseToken.address);
             expect(createMarketEvents.args.priceFeed).to.equal(priceFeeds[await baseToken.symbol()].address);
             expect(createMarketEvents.args.marketId).to.equal(1);
             expect(createMarketEvents.args.baseTokenCurveId).to.equal(0);
+
+            // Get market contract
             const marketAddress = createMarketEvents.args.market;
             const marketContract: IMarket = <IMarket>await ethers.getContractAt("IMarket", marketAddress);
-            // -- Base token --
+
+            // Verify base token config
             expect(await marketContract.baseToken()).to.eq(tokens[await baseToken.symbol()].address);
             expect(await marketContract.priceFeed()).to.eq(priceFeeds[await baseToken.symbol()].address);
-            // Get base asset configuration from sandbox controller
+
+            // Get base asset configuration
             const baseAssetConfig = await sandboxController.baseAssets(baseToken.address);
             const curve = baseAssetConfig.baseAssetCurves[0];
 
