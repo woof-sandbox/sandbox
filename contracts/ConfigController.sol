@@ -9,7 +9,7 @@ import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 import "./ConfigControllerFactory.sol";
 import "./interfaces/ISandboxCometFactory.sol";
 import "./interfaces/IERC20NonStandard.sol";
-import "hardhat/console.sol";
+
 
 /**
  * @title ConfigController
@@ -369,7 +369,6 @@ contract ConfigController is IConfigController, Initializable {
     function createMarket(
         MarketConfig memory _marketConfig
     ) external override onlyOwner returns (address) {
-        console.log("createMarket");
         if (_marketConfig.baseToken == ZERO_ADDRESS) revert ZeroAddress();
         ISandboxController.BaseAssetConfiguration
             memory baseAssetConfig = ISandboxController(sandboxController)
@@ -393,7 +392,7 @@ contract ConfigController is IConfigController, Initializable {
         ISandboxController.CollateralAssetConfiguration
             memory collateralAssetLimitations;
         address[] memory addedCollateralTokens = new address[](length);
-        console.log("validateCollateralTokens");
+        
         for (uint i; i < length; ) {
             unchecked {
                 collateralTokenConfig = _marketConfig.collateralTokens[i];
@@ -419,10 +418,10 @@ contract ConfigController is IConfigController, Initializable {
         unchecked {
             marketsLength++;
         }
-        console.log("createMarket");
+        
         ISandboxController.SandboxControllerConfiguration
             memory config = ISandboxController(sandboxController).config();
-
+            
         address market = ISandboxCometFactory(marketFactory).createMarket(
             _marketConfig,
             config
@@ -430,20 +429,19 @@ contract ConfigController is IConfigController, Initializable {
         markets.push(market);
         marketId[market] = marketsLength - 1;
 
-        console.log("transferFrom");
         IERC20NonStandard(_marketConfig.baseToken).transferFrom(
             msg.sender,
             address(this),
             config.suggestedAmountOfSeedReserves
         );
-        console.log("transfer");
+        
         IERC20NonStandard(_marketConfig.baseToken).transfer(
             market,
             config.suggestedAmountOfSeedReserves
         );
-        console.log("initializeStorage");
+        
         ISandboxComet(market).initializeStorage();
-        console.log("revenueTokenIndex");
+        
         if (revenueTokenIndex[_marketConfig.baseToken] == 0) {
             revenueTokens.push(_marketConfig.baseToken);
             revenueTokenIndex[_marketConfig.baseToken] = revenueTokens.length;

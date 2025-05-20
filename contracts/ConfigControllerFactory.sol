@@ -91,6 +91,6 @@ contract ConfigControllerFactory is IConfigControllerFactory {
     /// @param _controller The address to check
     /// @return True if the address is a controller, false otherwise
     function isController(address _controller) external view override returns (bool) {
-        return controllerIds[_controller] != 0 && controllerAddresses[controllerIds[_controller]] != address(0);
+        return controllerAddresses[controllerIds[_controller]] != address(0);
     }
 }

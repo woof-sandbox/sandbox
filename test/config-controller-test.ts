@@ -24,7 +24,8 @@ import {
     NonStandardFaucetFeeToken,
     MarketMock,
     SandboxController,
-    SandboxCometFactory__factory
+    SandboxCometFactory__factory,
+    ISandboxComet
 } from '../build/types';
 import { BigNumber, ContractTransaction, ContractReceipt, Event } from 'ethers';
 
@@ -188,7 +189,7 @@ describe('ConfigController', () => {
     });
 
     describe.only('Create Market', () => {
-        it.only('should create a market', async () => { 
+        it('should create a market', async () => { 
             const {
                 configController, 
                 tokens, 
@@ -234,12 +235,11 @@ describe('ConfigController', () => {
             // Approve first, then allocate
             await baseToken.connect(owner).approve(configController.address, suggestedAmountOfSeedReserves);
             await baseToken.allocateTo(owner.address, suggestedAmountOfSeedReserves);
-            console.log(await baseToken.balanceOf(owner.address).toString(), '- baseToken balance of owner');
-            console.log(await configController.owner(), '- configController owner');
+            
             // Create market
             const createMarketTx = await configController.connect(owner).createMarket(marketConfig);
             const createMarketReceipt = await createMarketTx.wait();
-            console.log(createMarketReceipt);
+
             // Get market created event
             const marketCreatedEvents = createMarketReceipt.events?.filter((event) => event.event === 'MarketCreated');
             const createMarketEvents = marketCreatedEvents[0];
@@ -249,33 +249,33 @@ describe('ConfigController', () => {
             expect(createMarketEvents.args.priceFeed).to.equal(priceFeeds[await baseToken.symbol()].address);
             expect(createMarketEvents.args.marketId).to.equal(1);
             expect(createMarketEvents.args.baseTokenCurveId).to.equal(0);
-
+            
             // Get market contract
             const marketAddress = createMarketEvents.args.market;
-            const marketContract: IMarket = <IMarket>await ethers.getContractAt("IMarket", marketAddress);
+            const marketContract: ISandboxComet = <ISandboxComet>await ethers.getContractAt("ISandboxComet", marketAddress);
 
             // Verify base token config
             expect(await marketContract.baseToken()).to.eq(tokens[await baseToken.symbol()].address);
-            expect(await marketContract.priceFeed()).to.eq(priceFeeds[await baseToken.symbol()].address);
+            expect(await marketContract.baseTokenPriceFeed()).to.eq(priceFeeds[await baseToken.symbol()].address);
 
             // Get base asset configuration
             const baseAssetConfig = await sandboxController.baseAssets(baseToken.address);
             const curve = baseAssetConfig.baseAssetCurves[0];
 
             // Verify curve parameters
-            const marketCurveParams = await marketContract.getBaseCurveParams();
-            expect(marketCurveParams.supplyKink).to.equal(curve.supplyKink);
-            expect(marketCurveParams.supplyPerYearInterestRateSlopeLow).to.equal(curve.supplyPerYearInterestRateSlopeLow);
-            expect(marketCurveParams.supplyPerYearInterestRateSlopeHigh).to.equal(curve.supplyPerYearInterestRateSlopeHigh);
-            expect(marketCurveParams.supplyPerYearInterestRateBase).to.equal(curve.supplyPerYearInterestRateBase);
-            expect(marketCurveParams.borrowKink).to.equal(curve.borrowKink);
-            expect(marketCurveParams.borrowPerYearInterestRateSlopeLow).to.equal(curve.borrowPerYearInterestRateSlopeLow);
-            expect(marketCurveParams.borrowPerYearInterestRateSlopeHigh).to.equal(curve.borrowPerYearInterestRateSlopeHigh);
-            expect(marketCurveParams.borrowPerYearInterestRateBase).to.equal(curve.borrowPerYearInterestRateBase);
+            const secondsInYear = 31536000;
+            expect(await marketContract.supplyKink()).to.equal(curve.supplyKink);
+            expect(await marketContract.supplyPerSecondInterestRateSlopeLow()).to.equal(curve.supplyPerYearInterestRateSlopeLow.div(secondsInYear));
+            expect(await marketContract.supplyPerSecondInterestRateSlopeHigh()).to.equal(curve.supplyPerYearInterestRateSlopeHigh.div(secondsInYear));
+            expect(await marketContract.supplyPerSecondInterestRateBase()).to.equal(curve.supplyPerYearInterestRateBase.div(secondsInYear));
+            expect(await marketContract.borrowKink()).to.equal(curve.borrowKink);
+            expect(await marketContract.borrowPerSecondInterestRateSlopeLow()).to.equal(curve.borrowPerYearInterestRateSlopeLow.div(secondsInYear));
+            expect(await marketContract.borrowPerSecondInterestRateSlopeHigh()).to.equal(curve.borrowPerYearInterestRateSlopeHigh.div(secondsInYear));
+            expect(await marketContract.borrowPerSecondInterestRateBase()).to.equal(curve.borrowPerYearInterestRateBase.div(secondsInYear));
 
             // -- Collaterals tokens --
-            expect(await marketContract.collateralTokensCount()).to.eq(Object.keys(tokens).length - 1);
-            const collateralTokens: CollateralTokenConfigStruct[] = await marketContract.getAllCollateralTokenConfigs();
+            expect(await marketContract.numAssets()).to.eq(Object.keys(tokens).length - 1);
+            const collateralTokens: CollateralTokenConfigStruct[] = (await marketContract.getConfiguration()).assetConfigs;
             // -- check whitelisted collaterals --
             const whitelistedCollateralAddresses = Array.from(
                 collateralTokens, token => token.collateralToken);
@@ -309,7 +309,7 @@ describe('ConfigController', () => {
             );
             expect(baseTokenConfig).to.be.undefined;
 
-            expect(await configController.markets(1)).to.eq(marketAddress);
+            expect(await configController.markets(0)).to.eq(marketAddress);
             expect(await configController.marketsLength()).to.eq(1);    
         });
 

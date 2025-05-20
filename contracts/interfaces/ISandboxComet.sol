@@ -114,6 +114,8 @@ abstract contract ISandboxComet is CometCore {
     function isAbsorbPaused() virtual public view returns (bool);
     function isBuyPaused() virtual public view returns (bool);
 
+    function getConfiguration() virtual external view returns (Configuration memory);
+
     function accrueAccount(address account) virtual external;
     function getSupplyRate(uint utilization) virtual public view returns (uint64);
     function getBorrowRate(uint utilization) virtual public view returns (uint64);

@@ -28,13 +28,6 @@ contract SandboxCometFactory is ISandboxCometFactory {
     /// @notice Array of all created market addresses
     address[] public override markets;
 
-    /// @notice Modifier to restrict access to config controllers only
-    modifier onlyConfigController() {
-        if (!IConfigControllerFactory(configControllerFactory).isController(msg.sender))
-            revert Unauthorized();
-        _;
-    }
-
     /**
      * @notice Constructs a new SandboxCometFactory
      * @param _cometImplementation The address of the comet implementation contract to be cloned
@@ -64,12 +57,15 @@ contract SandboxCometFactory is ISandboxCometFactory {
     function createMarket(
         IConfigController.MarketConfig memory _marketConfig,
         ISandboxController.SandboxControllerConfiguration memory _config
-    ) external override onlyConfigController returns (address) {
+    ) external override returns (address) {
+        if (!IConfigControllerFactory(configControllerFactory).isController(msg.sender))
+            revert Unauthorized();
+
         address market = Clones.clone(cometImplementation);
         markets.push(market);
-
+        
         CometExtension ext = new CometExtension(bytes32(0), bytes32(0));
-
+        
         ISandboxComet(market).initialize(
             _marketConfig,
             _config,
@@ -78,7 +74,7 @@ contract SandboxCometFactory is ISandboxCometFactory {
             address(ext),
             ISandboxController(sandboxController).baseAssets(_marketConfig.baseToken).minBorrow
         );
-
+        
         emit MarketCreated(market, _marketConfig.baseToken);
         return market;
     }

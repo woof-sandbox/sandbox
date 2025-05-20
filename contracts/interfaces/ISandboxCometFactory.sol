@@ -30,10 +30,10 @@ abstract contract ISandboxCometFactory {
 
     /// @notice Creates a new market with the specified configuration
     /// @param _marketConfig The configuration for the new market
-    /// @param config The configuration for the sandbox controller
+    /// @param _config The configuration for the sandbox controller
     /// @return The address of the newly created market
     function createMarket(
         IConfigController.MarketConfig memory _marketConfig,
-        ISandboxController.SandboxControllerConfiguration memory config
+        ISandboxController.SandboxControllerConfiguration memory _config
     ) external virtual returns (address);
 }

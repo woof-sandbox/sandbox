@@ -9,7 +9,6 @@ import "./interfaces/IPriceFeed.sol";
 import "./interfaces/IConfigController.sol";
 import "./interfaces/ISandboxController.sol";
 
-import "hardhat/console.sol";
 
 /**
  * @title Compound's Comet Contract
@@ -123,31 +122,6 @@ contract SandboxComet is ISandboxComet, Initializable {
     mapping(address => uint8) public collateralAssetIndex;
     mapping(uint8 => address) public collateralAssetAddress;
     IConfigController.CollateralTokenConfig[] public collateralAssets;
-
-    struct Configuration {
-        address configController;
-        address baseToken;
-        address baseTokenPriceFeed;
-        address extensionDelegate;
-        uint64 supplyKink;
-        uint64 supplyPerYearInterestRateSlopeLow;
-        uint64 supplyPerYearInterestRateSlopeHigh;
-        uint64 supplyPerYearInterestRateBase;
-        uint64 borrowKink;
-        uint64 borrowPerYearInterestRateSlopeLow;
-        uint64 borrowPerYearInterestRateSlopeHigh;
-        uint64 borrowPerYearInterestRateBase;
-        uint64 storeFrontPriceFactor;
-        uint64 trackingIndexScale;
-        uint64 baseTrackingSupplySpeed;
-        uint64 baseTrackingBorrowSpeed;
-        uint104 baseMinForRewards;
-        uint104 baseBorrowMin;
-        uint104 targetPercent;
-        uint104 seedReserves;
-        uint104 unlockTimestamp;
-        IConfigController.CollateralTokenConfig[] assetConfigs;
-    }
 
     constructor() {
         _disableInitializers();
@@ -1580,8 +1554,6 @@ contract SandboxComet is ISandboxComet, Initializable {
         //  the amount of debt repaid by reserves is `newBalance - oldBalance`
         totalSupplyBase += supplyAmount;
         totalBorrowBase -= repayAmount;
-        console.logInt(newBalance);
-        console.logInt(oldBalance);
 
         uint256 basePaidOut = unsigned256(newBalance - oldBalance);
 
@@ -1743,7 +1715,7 @@ contract SandboxComet is ISandboxComet, Initializable {
 
     /// @notice Returns the current configuration of the market
     /// @return Configuration struct containing all market parameters
-    function getConfiguration() external view returns (Configuration memory) {
+    function getConfiguration() external override view returns (Configuration memory) {
         return
             Configuration({
                 configController: configController,
