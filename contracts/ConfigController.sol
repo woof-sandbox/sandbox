@@ -343,6 +343,9 @@ contract ConfigController is IConfigController, Initializable {
         }
     }
 
+    /// @notice Removes a revenue token from the list of revenue tokens
+    /// @dev Only callable by the owner
+    /// @param token The ERC20 token address to remove
     function removeClaimRevenueToken(
         address token
     ) external override onlyOwner {

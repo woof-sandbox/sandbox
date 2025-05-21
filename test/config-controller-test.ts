@@ -188,7 +188,7 @@ describe('ConfigController', () => {
     
     });
 
-    describe.only('Create Market', () => {
+    describe('Create Market', () => {
         it('should create a market', async () => { 
             const {
                 configController, 
@@ -316,9 +316,11 @@ describe('ConfigController', () => {
         it('should emit an event when creating a market', async () => {
             const {
                 configController,
+                sandboxController,
                 tokens, 
                 baseToken,
                 priceFeeds,
+                owner
             } = await makeConfigController();
             
             let marketConfig: MarketConfigStruct = {
@@ -348,10 +350,16 @@ describe('ConfigController', () => {
                     );
                 }
             }
-
-            await expect(configController.createMarket(marketConfig)).to.emit(configController, 'MarketCreated').withArgs(
-                await configController.markets(0), baseToken.address, priceFeeds[await baseToken.symbol()].address, 1, 0
-            );
+            await baseToken.allocateTo(owner.address, (await sandboxController.config()).suggestedAmountOfSeedReserves);
+            await baseToken.connect(owner).approve(configController.address, (await sandboxController.config()).suggestedAmountOfSeedReserves);
+            const tx = await configController.connect(owner).createMarket(marketConfig);
+            const receipt = await tx.wait();
+            const event = receipt.events?.find(e => e.event === 'MarketCreated');
+            expect(event?.args?.market).to.equal(await configController.markets(0));
+            expect(event?.args?.baseToken).to.equal(baseToken.address);
+            expect(event?.args?.priceFeed).to.equal(priceFeeds[await baseToken.symbol()].address);
+            expect(event?.args?.marketId).to.equal(1);
+            expect(event?.args?.baseTokenCurveId).to.equal(0);
         });
 
         it('should revert if the caller is not the owner', async () => {
@@ -1079,6 +1087,8 @@ describe('ConfigController', () => {
                 tokens, 
                 baseToken,
                 priceFeeds,
+                owner,
+                sandboxController,
             } = await makeConfigController();
             
             let marketConfig: MarketConfigStruct = {
@@ -1098,13 +1108,15 @@ describe('ConfigController', () => {
                 {
                     collateralToken: tokens["COMP"].address,
                     priceFeed: priceFeeds["COMP"].address,
-                    borrowCollateralFactor: factor(0.6),
+                    borrowCollateralFactor: factor(0.9),
                     liquidateCollateralFactor: factor(0.7),
                     liquidationFactor: factor(0.91),
                     supplyCap: exp(1_000_000, 6)
                 }
             );
 
+            await baseToken.allocateTo(owner.address, (await sandboxController.config()).suggestedAmountOfSeedReserves);
+            await baseToken.connect(owner).approve(configController.address, (await sandboxController.config()).suggestedAmountOfSeedReserves);
             await expect(configController.createMarket(marketConfig))
                 .to.be.revertedWithCustomError(configController, "WrongCollateralTokenSettings");
         });
@@ -1115,6 +1127,8 @@ describe('ConfigController', () => {
                 tokens, 
                 baseToken,
                 priceFeeds,
+                owner,
+                sandboxController,
             } = await makeConfigController();
             
             let marketConfig: MarketConfigStruct = {
@@ -1144,19 +1158,26 @@ describe('ConfigController', () => {
                     );
                 }
             }
-            let createMarketTx = await configController.createMarket(marketConfig);
+
+            await baseToken.allocateTo(owner.address, (await sandboxController.config()).suggestedAmountOfSeedReserves);
+            await baseToken.connect(owner).approve(configController.address, (await sandboxController.config()).suggestedAmountOfSeedReserves);
+            
+            let createMarketTx = await configController.connect(owner).createMarket(marketConfig);
             let createMarketReceipt = await createMarketTx.wait();
             let [createMarketEvents] = createMarketReceipt.events?.filter((event) => event.event === 'MarketCreated');
             let marketAddress = createMarketEvents.args.market;
-            expect(await configController.markets(1)).to.eq(marketAddress);
+            expect(await configController.markets(0)).to.eq(marketAddress);
             expect(await configController.marketsLength()).to.eq(1);
+            
+            await baseToken.allocateTo(owner.address, (await sandboxController.config()).suggestedAmountOfSeedReserves);
+            await baseToken.connect(owner).approve(configController.address, (await sandboxController.config()).suggestedAmountOfSeedReserves);
 
-            createMarketTx = await configController.createMarket(marketConfig);
+            createMarketTx = await configController.connect(owner).createMarket(marketConfig);
             createMarketReceipt = await createMarketTx.wait();
             [createMarketEvents] = createMarketReceipt.events?.filter((event) => event.event === 'MarketCreated');
             marketAddress = createMarketEvents.args.market;
 
-            expect(await configController.markets(2)).to.eq(marketAddress);
+            expect(await configController.markets(1)).to.eq(marketAddress);
             expect(await configController.marketsLength()).to.eq(2);
         });
     });
@@ -1184,7 +1205,7 @@ describe('ConfigController', () => {
         });
     });
 
-    describe('accumulateRevenue', () => {
+    describe.only('accumulateRevenue', () => {
         it('should accumulate revenue with curator fee', async () => {
             const { configController, tokens, users, owner, baseToken, priceFeeds, marketFactory } = await makeConfigController();
             const token = tokens['USDC'];
