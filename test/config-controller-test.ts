@@ -323,9 +323,15 @@ describe('ConfigController', () => {
             
             let marketConfig: MarketConfigStruct = {
                 baseToken: baseToken.address,
-                    priceFeed: priceFeeds[await baseToken.symbol()].address,
-                        collateralTokens: [],
-                        baseTokenCurveId: 0n
+                priceFeed: priceFeeds[await baseToken.symbol()].address,
+                collateralTokens: [],
+                baseTokenCurveId: 0n,
+                options: {
+                    baseTrackingSupplySpeed: 0n,
+                    baseTrackingBorrowSpeed: 0n,
+                    trackingIndexScale: 0n,
+                    baseMinForRewards: 0n
+                }
             }
 
             for (let token in tokens) {
@@ -344,7 +350,7 @@ describe('ConfigController', () => {
             }
 
             await expect(configController.createMarket(marketConfig)).to.emit(configController, 'MarketCreated').withArgs(
-                await configController.markets(1), baseToken.address, priceFeeds[await baseToken.symbol()].address, 1, 0
+                await configController.markets(0), baseToken.address, priceFeeds[await baseToken.symbol()].address, 1, 0
             );
         });
 
@@ -358,9 +364,15 @@ describe('ConfigController', () => {
             
             let marketConfig: MarketConfigStruct = {
                 baseToken: baseToken.address,
-                    priceFeed: priceFeeds[await baseToken.symbol()].address,
-                        collateralTokens: [],
-                        baseTokenCurveId: 0n
+                priceFeed: priceFeeds[await baseToken.symbol()].address,
+                collateralTokens: [],
+                baseTokenCurveId: 0n,
+                options: {
+                    baseTrackingSupplySpeed: 0n,
+                    baseTrackingBorrowSpeed: 0n,
+                    trackingIndexScale: 0n,
+                    baseMinForRewards: 0n
+                }
             }
 
             for (let token in tokens) {
@@ -392,9 +404,15 @@ describe('ConfigController', () => {
             
             let marketConfig: MarketConfigStruct = {
                 baseToken: ethers.constants.AddressZero,
-                    priceFeed: priceFeeds[await baseToken.symbol()].address,
-                        collateralTokens: [],
-                        baseTokenCurveId: 0n
+                priceFeed: priceFeeds[await baseToken.symbol()].address,
+                collateralTokens: [],
+                baseTokenCurveId: 0n,
+                options: {
+                    baseTrackingSupplySpeed: 0n,
+                    baseTrackingBorrowSpeed: 0n,
+                    trackingIndexScale: 0n,
+                    baseMinForRewards: 0n
+                }
             }
 
             for (let token in tokens) {
@@ -425,9 +443,15 @@ describe('ConfigController', () => {
             
             let marketConfig: MarketConfigStruct = {
                 baseToken: baseToken.address,
-                    priceFeed: ethers.constants.AddressZero,
-                        collateralTokens: [],
-                        baseTokenCurveId: 0n
+                priceFeed: ethers.constants.AddressZero,
+                collateralTokens: [],
+                baseTokenCurveId: 0n,
+                options: {
+                    baseTrackingSupplySpeed: 0n,
+                    baseTrackingBorrowSpeed: 0n,
+                    trackingIndexScale: 0n,
+                    baseMinForRewards: 0n
+                }
             }
 
             for (let token in tokens) {
@@ -459,9 +483,15 @@ describe('ConfigController', () => {
             
             let marketConfig: MarketConfigStruct = {
                 baseToken: baseToken.address,
-                    priceFeed: priceFeeds[await baseToken.symbol()].address,
-                        collateralTokens: [],
-                        baseTokenCurveId: 0n
+                priceFeed: priceFeeds[await baseToken.symbol()].address,
+                collateralTokens: [],
+                baseTokenCurveId: 0n,
+                options: {
+                    baseTrackingSupplySpeed: 0n,
+                    baseTrackingBorrowSpeed: 0n,
+                    trackingIndexScale: 0n,
+                    baseMinForRewards: 0n
+                }
             }
 
             for (let token in tokens) {
@@ -493,9 +523,15 @@ describe('ConfigController', () => {
             
             let marketConfig: MarketConfigStruct = {
                 baseToken: baseToken.address,
-                    priceFeed: priceFeeds[await baseToken.symbol()].address,
-                        collateralTokens: [],
-                        baseTokenCurveId: 0n
+                priceFeed: priceFeeds[await baseToken.symbol()].address,
+                collateralTokens: [],
+                baseTokenCurveId: 0n,
+                options: {
+                    baseTrackingSupplySpeed: 0n,
+                    baseTrackingBorrowSpeed: 0n,
+                    trackingIndexScale: 0n,
+                    baseMinForRewards: 0n
+                }
             }
 
             for (let token in tokens) {
@@ -527,9 +563,15 @@ describe('ConfigController', () => {
             
             let marketConfig: MarketConfigStruct = {
                 baseToken: baseToken.address,
-                    priceFeed: priceFeeds[await baseToken.symbol()].address,
-                        collateralTokens: [],
-                        baseTokenCurveId: 0n
+                priceFeed: priceFeeds[await baseToken.symbol()].address,
+                collateralTokens: [],
+                baseTokenCurveId: 0n,
+                options: {
+                    baseTrackingSupplySpeed: 0n,
+                    baseTrackingBorrowSpeed: 0n,
+                    trackingIndexScale: 0n,
+                    baseMinForRewards: 0n
+                }
             }
 
             for (let token in tokens) {
@@ -561,9 +603,15 @@ describe('ConfigController', () => {
             
             let marketConfig: MarketConfigStruct = {
                 baseToken: baseToken.address,
-                    priceFeed: priceFeeds[await baseToken.symbol()].address,
-                        collateralTokens: [],
-                        baseTokenCurveId: 0n
+                priceFeed: priceFeeds[await baseToken.symbol()].address,
+                collateralTokens: [],
+                baseTokenCurveId: 0n,
+                options: {
+                    baseTrackingSupplySpeed: 0n,
+                    baseTrackingBorrowSpeed: 0n,
+                    trackingIndexScale: 0n,
+                    baseMinForRewards: 0n
+                }
             }
 
             marketConfig.collateralTokens.push(
@@ -602,9 +650,15 @@ describe('ConfigController', () => {
             
             let marketConfig: MarketConfigStruct = {
                 baseToken: baseToken.address,
-                    priceFeed: priceFeeds[await baseToken.symbol()].address,
-                        collateralTokens: [],
-                        baseTokenCurveId: 0n
+                priceFeed: priceFeeds[await baseToken.symbol()].address,
+                collateralTokens: [],
+                baseTokenCurveId: 0n,
+                options: {
+                    baseTrackingSupplySpeed: 0n,
+                    baseTrackingBorrowSpeed: 0n,
+                    trackingIndexScale: 0n,
+                    baseMinForRewards: 0n
+                }
             }
             
             marketConfig.collateralTokens.push(
@@ -633,9 +687,15 @@ describe('ConfigController', () => {
             
             let marketConfig: MarketConfigStruct = {
                 baseToken: baseToken.address,
-                    priceFeed: priceFeeds[await baseToken.symbol()].address,
-                        collateralTokens: [],
-                        baseTokenCurveId: 0n
+                priceFeed: priceFeeds[await baseToken.symbol()].address,
+                collateralTokens: [],
+                baseTokenCurveId: 0n,
+                options: {
+                    baseTrackingSupplySpeed: 0n,
+                    baseTrackingBorrowSpeed: 0n,
+                    trackingIndexScale: 0n,
+                    baseMinForRewards: 0n
+                }
             }
             
             marketConfig.collateralTokens.push(
@@ -663,9 +723,15 @@ describe('ConfigController', () => {
             
             let marketConfig: MarketConfigStruct = {
                 baseToken: baseToken.address,
-                    priceFeed: priceFeeds[await baseToken.symbol()].address,
-                        collateralTokens: [],
-                        baseTokenCurveId: 0n
+                priceFeed: priceFeeds[await baseToken.symbol()].address,
+                collateralTokens: [],
+                baseTokenCurveId: 0n,
+                options: {
+                    baseTrackingSupplySpeed: 0n,
+                    baseTrackingBorrowSpeed: 0n,
+                    trackingIndexScale: 0n,
+                    baseMinForRewards: 0n
+                }
             }
             
             marketConfig.collateralTokens.push(
@@ -693,9 +759,15 @@ describe('ConfigController', () => {
             
             let marketConfig: MarketConfigStruct = {
                 baseToken: baseToken.address,
-                    priceFeed: priceFeeds[await baseToken.symbol()].address,
-                        collateralTokens: [],
-                        baseTokenCurveId: 0n
+                priceFeed: priceFeeds[await baseToken.symbol()].address,
+                collateralTokens: [],
+                baseTokenCurveId: 0n,
+                options: {
+                    baseTrackingSupplySpeed: 0n,
+                    baseTrackingBorrowSpeed: 0n,
+                    trackingIndexScale: 0n,
+                    baseMinForRewards: 0n
+                }
             }
 
             marketConfig.collateralTokens.push(
@@ -723,9 +795,15 @@ describe('ConfigController', () => {
             
             let marketConfig: MarketConfigStruct = {
                 baseToken: baseToken.address,
-                    priceFeed: priceFeeds[await baseToken.symbol()].address,
-                        collateralTokens: [],
-                        baseTokenCurveId: 0n
+                priceFeed: priceFeeds[await baseToken.symbol()].address,
+                collateralTokens: [],
+                baseTokenCurveId: 0n,
+                options: {
+                    baseTrackingSupplySpeed: 0n,
+                    baseTrackingBorrowSpeed: 0n,
+                    trackingIndexScale: 0n,
+                    baseMinForRewards: 0n
+                }
             }
 
             marketConfig.collateralTokens.push(
@@ -753,9 +831,15 @@ describe('ConfigController', () => {
             
             let marketConfig: MarketConfigStruct = {
                 baseToken: baseToken.address,
-                    priceFeed: priceFeeds[await baseToken.symbol()].address,
-                        collateralTokens: [],
-                        baseTokenCurveId: 0n
+                priceFeed: priceFeeds[await baseToken.symbol()].address,
+                collateralTokens: [],
+                baseTokenCurveId: 0n,
+                options: {
+                    baseTrackingSupplySpeed: 0n,
+                    baseTrackingBorrowSpeed: 0n,
+                    trackingIndexScale: 0n,
+                    baseMinForRewards: 0n
+                }
             }
 
             marketConfig.collateralTokens.push(
@@ -783,9 +867,15 @@ describe('ConfigController', () => {
             
             let marketConfig: MarketConfigStruct = {
                 baseToken: baseToken.address,
-                    priceFeed: priceFeeds[await baseToken.symbol()].address,
-                        collateralTokens: [],
-                        baseTokenCurveId: 0n
+                priceFeed: priceFeeds[await baseToken.symbol()].address,
+                collateralTokens: [],
+                baseTokenCurveId: 0n,
+                options: {
+                    baseTrackingSupplySpeed: 0n,
+                    baseTrackingBorrowSpeed: 0n,
+                    trackingIndexScale: 0n,
+                    baseMinForRewards: 0n
+                }
             }
 
             marketConfig.collateralTokens.push(
@@ -814,8 +904,14 @@ describe('ConfigController', () => {
             let marketConfig: MarketConfigStruct = {
                 baseToken: baseToken.address,
                 priceFeed: priceFeeds[await baseToken.symbol()].address,
-                    collateralTokens: [],
-                    baseTokenCurveId: 0n
+                collateralTokens: [],
+                baseTokenCurveId: 0n,
+                options: {
+                    baseTrackingSupplySpeed: 0n,
+                    baseTrackingBorrowSpeed: 0n,
+                    trackingIndexScale: 0n,
+                    baseMinForRewards: 0n
+                }
             }
 
             marketConfig.collateralTokens.push(
@@ -844,8 +940,14 @@ describe('ConfigController', () => {
             let marketConfig: MarketConfigStruct = {
                 baseToken: baseToken.address,
                 priceFeed: priceFeeds[await baseToken.symbol()].address,
-                    collateralTokens: [],
-                    baseTokenCurveId: 0n
+                collateralTokens: [],
+                baseTokenCurveId: 0n,
+                options: {
+                    baseTrackingSupplySpeed: 0n,
+                    baseTrackingBorrowSpeed: 0n,
+                    trackingIndexScale: 0n,
+                    baseMinForRewards: 0n
+                }
             }
 
             marketConfig.collateralTokens.push(
@@ -874,8 +976,14 @@ describe('ConfigController', () => {
             let marketConfig: MarketConfigStruct = {
                 baseToken: baseToken.address,
                 priceFeed: priceFeeds[await baseToken.symbol()].address,
-                    collateralTokens: [],
-                    baseTokenCurveId: 0n
+                collateralTokens: [],
+                baseTokenCurveId: 0n,
+                options: {
+                    baseTrackingSupplySpeed: 0n,
+                    baseTrackingBorrowSpeed: 0n,
+                    trackingIndexScale: 0n,
+                    baseMinForRewards: 0n
+                }
             }
 
             marketConfig.collateralTokens.push(
@@ -904,8 +1012,14 @@ describe('ConfigController', () => {
             let marketConfig: MarketConfigStruct = {
                 baseToken: baseToken.address,
                 priceFeed: priceFeeds[await baseToken.symbol()].address,
-                    collateralTokens: [],
-                    baseTokenCurveId: 0n
+                collateralTokens: [],
+                baseTokenCurveId: 0n,
+                options: {
+                    baseTrackingSupplySpeed: 0n,
+                    baseTrackingBorrowSpeed: 0n,
+                    trackingIndexScale: 0n,
+                    baseMinForRewards: 0n
+                }
             }
 
             marketConfig.collateralTokens.push(
@@ -934,8 +1048,14 @@ describe('ConfigController', () => {
             let marketConfig: MarketConfigStruct = {
                 baseToken: baseToken.address,
                 priceFeed: priceFeeds[await baseToken.symbol()].address,
-                    collateralTokens: [],
-                    baseTokenCurveId: 0n
+                collateralTokens: [],
+                baseTokenCurveId: 0n,
+                options: {
+                    baseTrackingSupplySpeed: 0n,
+                    baseTrackingBorrowSpeed: 0n,
+                    trackingIndexScale: 0n,
+                    baseMinForRewards: 0n
+                }
             }
 
             marketConfig.collateralTokens.push(
@@ -964,8 +1084,14 @@ describe('ConfigController', () => {
             let marketConfig: MarketConfigStruct = {
                 baseToken: baseToken.address,
                 priceFeed: priceFeeds[await baseToken.symbol()].address,
-                    collateralTokens: [],
-                    baseTokenCurveId: 0n
+                collateralTokens: [],
+                baseTokenCurveId: 0n,
+                options: {
+                    baseTrackingSupplySpeed: 0n,
+                    baseTrackingBorrowSpeed: 0n,
+                    trackingIndexScale: 0n,
+                    baseMinForRewards: 0n
+                }
             }
 
             marketConfig.collateralTokens.push(
@@ -993,9 +1119,15 @@ describe('ConfigController', () => {
             
             let marketConfig: MarketConfigStruct = {
                 baseToken: baseToken.address,
-                    priceFeed: priceFeeds[await baseToken.symbol()].address,
-                        collateralTokens: [],
-                        baseTokenCurveId: 0n
+                priceFeed: priceFeeds[await baseToken.symbol()].address,
+                collateralTokens: [],
+                baseTokenCurveId: 0n,
+                options: {
+                    baseTrackingSupplySpeed: 0n,
+                    baseTrackingBorrowSpeed: 0n,
+                    trackingIndexScale: 0n,
+                    baseMinForRewards: 0n
+                }
             }
 
             for (let token in tokens) {
@@ -1060,9 +1192,15 @@ describe('ConfigController', () => {
             
             let marketConfig: MarketConfigStruct = {
                 baseToken: baseToken.address,
-                    priceFeed: priceFeeds[await baseToken.symbol()].address,
-                        collateralTokens: [],
-                        baseTokenCurveId: 0n
+                priceFeed: priceFeeds[await baseToken.symbol()].address,
+                collateralTokens: [],
+                baseTokenCurveId: 0n,
+                options: {
+                    baseTrackingSupplySpeed: 0n,
+                    baseTrackingBorrowSpeed: 0n,
+                    trackingIndexScale: 0n,
+                    baseMinForRewards: 0n
+                }
             }
             
             marketConfig.collateralTokens.push(
@@ -1104,9 +1242,15 @@ describe('ConfigController', () => {
             const amount = exp(1000, 6); // 1000 USDC
             let marketConfig: MarketConfigStruct = {
                 baseToken: baseToken.address,
-                    priceFeed: priceFeeds[await baseToken.symbol()].address,
-                        collateralTokens: [],
-                        baseTokenCurveId: 0n
+                priceFeed: priceFeeds[await baseToken.symbol()].address,
+                collateralTokens: [],
+                baseTokenCurveId: 0n,
+                options: {
+                    baseTrackingSupplySpeed: 0n,
+                    baseTrackingBorrowSpeed: 0n,
+                    trackingIndexScale: 0n,
+                    baseMinForRewards: 0n
+                }
             }
             
             marketConfig.collateralTokens.push(
@@ -1139,9 +1283,15 @@ describe('ConfigController', () => {
             
             let marketConfig: MarketConfigStruct = {
                 baseToken: baseToken.address,
-                    priceFeed: priceFeeds[await baseToken.symbol()].address,
-                        collateralTokens: [],
-                        baseTokenCurveId: 0n
+                priceFeed: priceFeeds[await baseToken.symbol()].address,
+                collateralTokens: [],
+                baseTokenCurveId: 0n,
+                options: {
+                    baseTrackingSupplySpeed: 0n,
+                    baseTrackingBorrowSpeed: 0n,
+                    trackingIndexScale: 0n,
+                    baseMinForRewards: 0n
+                }
             }
             
             marketConfig.collateralTokens.push(
@@ -1174,9 +1324,15 @@ describe('ConfigController', () => {
 
             let marketConfig: MarketConfigStruct = {
                 baseToken: baseToken.address,
-                    priceFeed: priceFeeds[await baseToken.symbol()].address,
-                        collateralTokens: [],
-                        baseTokenCurveId: 0n
+                priceFeed: priceFeeds[await baseToken.symbol()].address,
+                collateralTokens: [],
+                baseTokenCurveId: 0n,
+                options: {
+                    baseTrackingSupplySpeed: 0n,
+                    baseTrackingBorrowSpeed: 0n,
+                    trackingIndexScale: 0n,
+                    baseMinForRewards: 0n
+                }
             }
             
             marketConfig.collateralTokens.push(
@@ -1219,9 +1375,15 @@ describe('ConfigController', () => {
 
             let marketConfig: MarketConfigStruct = {
                 baseToken: baseToken.address,
-                    priceFeed: priceFeeds[await baseToken.symbol()].address,
-                        collateralTokens: [],
-                        baseTokenCurveId: 0n
+                priceFeed: priceFeeds[await baseToken.symbol()].address,
+                collateralTokens: [],
+                baseTokenCurveId: 0n,
+                options: {
+                    baseTrackingSupplySpeed: 0n,
+                    baseTrackingBorrowSpeed: 0n,
+                    trackingIndexScale: 0n,
+                    baseMinForRewards: 0n
+                }
             }
             
             marketConfig.collateralTokens.push(
@@ -1276,9 +1438,15 @@ describe('ConfigController', () => {
 
             let marketConfig: MarketConfigStruct = {
                 baseToken: baseToken.address,
-                    priceFeed: priceFeeds[await baseToken.symbol()].address,
-                        collateralTokens: [],
-                        baseTokenCurveId: 0n
+                priceFeed: priceFeeds[await baseToken.symbol()].address,
+                collateralTokens: [],
+                baseTokenCurveId: 0n,
+                options: {
+                    baseTrackingSupplySpeed: 0n,
+                    baseTrackingBorrowSpeed: 0n,
+                    trackingIndexScale: 0n,
+                    baseMinForRewards: 0n
+                }
             }
             
             marketConfig.collateralTokens.push(
