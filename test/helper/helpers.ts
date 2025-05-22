@@ -35,8 +35,8 @@ import {
   CometInterface,
   NonStandardFaucetFeeToken,
   NonStandardFaucetFeeToken__factory,
-  MarketFactory,
-  MarketFactory__factory,
+  CometFactory,
+  CometFactory__factory,
   MarketMock,
   MarketMock__factory,
   ISandboxController,
@@ -164,7 +164,7 @@ export type Protocol = {
   configController: ConfigController;
   sandboxController: ISandboxController
   cometImpl: ISandboxMarket
-  marketFactory: ISandboxCometFactory;
+  cometFactory: ISandboxCometFactory;
   owner: SignerWithAddress;
   curator: SignerWithAddress;
   guardian: SignerWithAddress;
@@ -313,19 +313,12 @@ export async function fastForward(seconds: number, ethers_ = ethers): Promise<Bl
   return block;
 }
 
+export async function makeMockComet(): Promise<CometHarness> {
+  const CometHarness_factory: CometHarness__factory = await ethers.getContractFactory('CometHarness') as CometHarness__factory;
+  const cometHarness: CometHarness = await CometHarness_factory.deploy();
+  await cometHarness.deployed();
 
-export async function makeMockMarket(): Promise<MarketMock> {
-  const MarketMock = await ethers.getContractFactory('MarketMock') as MarketMock__factory;
-  const marketMock = await MarketMock.deploy();
-  await marketMock.deployed();
-  return marketMock;
-}
-
-export async function makeMarket(): Promise<ISandboxMarket> {
-  const Market = await ethers.getContractFactory('CometHarness') as CometHarness__factory
-  const market = await Market.deploy();
-  await market.deployed();
-  return market;
+  return cometHarness;
 }
 
 export async function makeConfigControllerFactory(configControllerImpl: string): Promise<ConfigControllerFactory> {
@@ -335,19 +328,20 @@ export async function makeConfigControllerFactory(configControllerImpl: string):
   return configControllerFactory;
 }
 
-export async function makeMarketFactory(
+export async function makeCometFactory(
   cometImpl: Contract,
   configController: Contract,
   sandboxController: Contract
 ): Promise<SandboxCometFactory> {
-  const MarketFactory: SandboxCometFactory__factory = await ethers.getContractFactory('SandboxCometFactory') as SandboxCometFactory__factory;
-  const marketFactory = await MarketFactory.deploy(
+  const CometFactory_factory: SandboxCometFactory__factory = await ethers.getContractFactory('SandboxCometFactory') as SandboxCometFactory__factory;
+  const cometFactory: SandboxCometFactory = await CometFactory_factory.deploy(
     cometImpl.address,
     configController.address,
     sandboxController.address
   );
-  await marketFactory.deployed();
-  return marketFactory;
+  await cometFactory.deployed();
+
+  return cometFactory;
 }
 
 export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Protocol> {
@@ -468,7 +462,7 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
   const configControllerImpl = await ConfigControllerFactory.deploy();
   const configControllerFactory = await ConfigControllerFactoryFactory.deploy(configControllerImpl.address);
 
-  const marketFactory = await makeMarketFactory(
+  const cometFactory = await makeCometFactory(
     cometImpl, 
     configControllerFactory,
     sandboxController
@@ -479,7 +473,7 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
     curator.address,
     guardian.address,
     sandboxController.address,
-    marketFactory.address,
+    cometFactory.address,
     1000,
     "ConfigController",
     7 * 24 * 60 * 60, 
@@ -516,7 +510,7 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
     configController,
     sandboxController,
     cometImpl,
-    marketFactory,
+    cometFactory,
     owner,
     curator,
     guardian,
@@ -526,7 +520,7 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
   };
 }
 
-async function createMarket2(
+async function createComet2(
   opts: ProtocolOpts,
   configController: ConfigController,
   tokens: Record<string, FaucetToken | NonStandardFaucetFeeToken>,
@@ -564,19 +558,19 @@ async function createMarket2(
       }
   }
 
-  const createMarketTx = await configController.createMarket(marketConfig);
-  const receipt = await createMarketTx.wait();
-  const filter = configController.filters.MarketCreated();
+  const createCometTx = await configController.createComet(marketConfig);
+  const receipt = await createCometTx.wait();
+  const filter = configController.filters.CometCreated();
   const events = await configController.queryFilter(
     filter,
     receipt.blockNumber,
     receipt.blockNumber
   );
 
-  return configController.markets(0);
+  return configController.comets(0);
 }
 
-export async function createMarket(
+export async function createComet(
   configController: ConfigController,
   tokens: Record<string, FaucetToken | NonStandardFaucetFeeToken>,
   baseToken: FaucetToken | NonStandardFaucetFeeToken,
@@ -610,19 +604,19 @@ export async function createMarket(
       }
   }
   
-  const createMarketTx = await configController.createMarket(marketConfig);
-  const createMarketReceipt = await createMarketTx.wait();
-  const [createMarketEvents] = createMarketReceipt.events?.filter((event) => event.event === 'MarketCreated');
-  const marketAddress = createMarketEvents.args.market;
+  const createCometTx = await configController.createComet(marketConfig);
+  const createCometReceipt = await createCometTx.wait();
+  const [createCometEvents] = createCometReceipt.events?.filter((event) => event.event === 'MarketCreated');
+  const marketAddress = createCometEvents.args.market;
   return marketAddress;
 }
 
 export const makeProtocol = async (opts: ProtocolOpts = {}) => {
-  const { configController, tokens, baseToken, priceFeeds, dao, sandboxController, seedReserves, users, guardian, owner,unsupportedToken, marketFactory} = await makeConfigController(opts);
+  const { configController, tokens, baseToken, priceFeeds, dao, sandboxController, seedReserves, users, guardian, owner,unsupportedToken, cometFactory} = await makeConfigController(opts);
 
   await baseToken.approve(configController.address, seedReserves);
 
-  const market = await createMarket2(opts, configController, tokens, baseToken, priceFeeds);
+  const market = await createComet2(opts, configController, tokens, baseToken, priceFeeds);
 
   const comet = await ethers.getContractAt("CometHarness", market) as CometHarness;
   return {
@@ -717,7 +711,7 @@ export async function makeOnlyConfigController(
     curator,
     guardian,
     sandboxController,
-    marketFactory,
+    cometFactory,
     configControllerFactory
   ): Promise<string> {
     const ConfigControllerFactory = await ethers.getContractAt(
@@ -730,7 +724,7 @@ export async function makeOnlyConfigController(
         curator,
         guardian,
         sandboxController,
-        marketFactory,
+        cometFactory,
         1000,
         "ConfigController",
         7 * 24 * 60 * 60, 

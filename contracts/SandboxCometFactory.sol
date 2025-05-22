@@ -12,11 +12,11 @@ import "./CometExtension.sol";
 
 /**
  * @title SandboxCometFactory
- * @notice Factory contract for creating new market instances using the clone pattern
- * @dev This contract uses OpenZeppelin's Clones library to create gas-efficient market instances
+ * @notice Factory contract for creating new comet instances using the clone pattern
+ * @dev This contract uses OpenZeppelin's Clones library to create gas-efficient comet instances
  */
 contract SandboxCometFactory is ISandboxCometFactory {
-    /// @notice The implementation address used for cloning new markets
+    /// @notice The implementation address used for cloning new comets
     address public immutable override cometImplementation;
 
     /// @notice The address of the config controller factory
@@ -25,8 +25,8 @@ contract SandboxCometFactory is ISandboxCometFactory {
     /// @notice The address of the sandbox controller
     address public immutable override sandboxController;
 
-    /// @notice Array of all created market addresses
-    address[] public override markets;
+    /// @notice Array of all created comet addresses
+    address[] public override comets;
 
     /**
      * @notice Constructs a new SandboxCometFactory
@@ -48,42 +48,42 @@ contract SandboxCometFactory is ISandboxCometFactory {
     }
     
     /**
-     * @notice Creates a new market with the specified configuration
-     * @dev Uses OpenZeppelin's Clones library to create a new market instance
-     * @return The address of the newly created market
-     * @param _marketConfig The configuration for the new market
+     * @notice Creates a new comet with the specified configuration
+     * @dev Uses OpenZeppelin's Clones library to create a new comet instance
+     * @return The address of the newly created comet
+     * @param _cometConfig The configuration for the new comet
      * @param _config The configuration for the sandbox controller
      */
-    function createMarket(
-        IConfigController.MarketConfig memory _marketConfig,
+    function createComet(
+        IConfigController.CometConfig memory _cometConfig,
         ISandboxController.SandboxControllerConfiguration memory _config
     ) external override returns (address) {
         if (!IConfigControllerFactory(configControllerFactory).isController(msg.sender))
             revert Unauthorized();
 
-        address market = Clones.clone(cometImplementation);
-        markets.push(market);
+        address comet = Clones.clone(cometImplementation);
+        comets.push(comet);
         
         CometExtension ext = new CometExtension(bytes32(0), bytes32(0));
         
-        ISandboxComet(market).initialize(
-            _marketConfig,
+        ISandboxComet(comet).initialize(
+            _cometConfig,
             _config,
             msg.sender,
             sandboxController,
             address(ext),
-            ISandboxController(sandboxController).baseAssets(_marketConfig.baseToken).minBorrow
+            ISandboxController(sandboxController).baseAssets(_cometConfig.baseToken).minBorrow
         );
         
-        emit MarketCreated(market, _marketConfig.baseToken);
-        return market;
+        emit CometCreated(comet, _cometConfig.baseToken);
+        return comet;
     }
     
     /**
-     * @notice Returns the number of markets created
-     * @return The number of markets
+     * @notice Returns the number of comets created
+     * @return The number of comets
      */
-    function getMarketsLength() external view override returns (uint256) {
-        return markets.length;
+    function getCometsLength() external view override returns (uint256) {
+        return comets.length;
     }
 }

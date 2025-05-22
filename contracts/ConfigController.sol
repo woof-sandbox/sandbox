@@ -14,12 +14,12 @@ import "./interfaces/IERC20NonStandard.sol";
 /**
  * @title ConfigController
  * @author WOOF Software
- * @notice Manages protocol configuration, market creation, and curator governance
+ * @notice Manages protocol configuration, comet creation, and curator governance
  * @dev This contract handles the core configuration of the protocol, including:
  * - Market creation and management
  * - Curator role management
  * - Revenue distribution
- * - Proposal system for market configuration changes
+ * - Proposal system for comet configuration changes
  * - Market transfer proposals
  */
 contract ConfigController is IConfigController, Initializable {
@@ -35,28 +35,24 @@ contract ConfigController is IConfigController, Initializable {
     /// @notice The address of the SandboxController contract
     address public override sandboxController;
 
-    /// @notice The address of the MarketFactory contract
-    address public override marketFactory;
+    /// @notice The address of the cometFactory contract
+    address public override cometFactory;
 
-    /// @dev This is a more gas efficient way to store the all markets and check if the market address is inside the array.
-    /// @notice The mapping of market address => market Id
-    mapping(address => uint) public marketId;
+    /// @dev This is a more gas efficient way to store the all comets and check if the comet address is inside the array.
+    /// @notice The mapping of comet address => comet Id
+    mapping(address => uint) public cometId;
 
-    /// @notice Array of all markets created by this controller
-    address[] public override markets;
+    /// @notice Array of all comets created by this controller
+    address[] public override comets;
 
-    /// @notice The number of markets created by this controller
-    uint public override marketsLength;
+    /// @notice The number of comets created by this controller
+    uint public override cometsLength;
 
     /// @notice The curator fee in basis points (1% = 100)
     uint public override curatorFee;
 
     /// @notice The name of this controller
     string public override name;
-
-    /// @notice Mapping of market address => proposed base asset curve.
-    mapping(address => MarketBaseTokenCurveProposal)
-        public proposedBaseAssetCurve;
 
     /// @notice The address of the proposed curator
     address public override proposedCurator;
@@ -67,7 +63,7 @@ contract ConfigController is IConfigController, Initializable {
     /// @notice The duration of curator proposals in seconds
     uint public curatorProposalDuration;
 
-    /// @notice The duration of market proposals in seconds
+    /// @notice The duration of comet proposals in seconds
     uint public proposalDuration;
 
     /// @notice The address of the ConfigControllerFactory contract
@@ -99,17 +95,17 @@ contract ConfigController is IConfigController, Initializable {
     /// @param _owner The address of the protocol owner
     /// @param _guardian The address of the protocol guardian
     /// @param _sandboxController The address of the SandboxController contract
-    /// @param _marketFactory The address of the MarketFactory contract
+    /// @param _cometFactory The address of the cometFactory contract
     /// @param _curatorFee Initial curator fee in basis points (1% = 100)
     /// @param _name Name of the controller
     /// @param _curatorProposalDuration Duration of curator proposals in seconds
-    /// @param _proposalDuration Duration of market proposals in seconds
+    /// @param _proposalDuration Duration of comet proposals in seconds
     function initialize(
         address _owner,
         address _curator,
         address _guardian,
         address _sandboxController,
-        address _marketFactory,
+        address _cometFactory,
         uint _curatorFee,
         string memory _name,
         uint _curatorProposalDuration,
@@ -119,7 +115,7 @@ contract ConfigController is IConfigController, Initializable {
         unchecked {
             if (_owner == ZERO_ADDRESS) revert ZeroAddress();
             if (_sandboxController == ZERO_ADDRESS) revert ZeroAddress();
-            if (_marketFactory == ZERO_ADDRESS) revert ZeroAddress();
+            if (_cometFactory == ZERO_ADDRESS) revert ZeroAddress();
             if (_curatorFee > 10000) revert InvalidFeePercentage();
             if (_configControllerFactory == ZERO_ADDRESS) revert ZeroAddress();
             uint minUpdateTime = ISandboxController(_sandboxController)
@@ -130,44 +126,46 @@ contract ConfigController is IConfigController, Initializable {
                 _proposalDuration < minUpdateTime
             ) revert ProposalDurationTooShort();
         }
+
         owner = _owner;
         guardian = _guardian;
         sandboxController = _sandboxController;
-        marketFactory = _marketFactory;
+        cometFactory = _cometFactory;
         curatorFee = _curatorFee;
         name = _name;
         curatorProposalDuration = _curatorProposalDuration;
         proposalDuration = _proposalDuration;
         configControllerFactory = _configControllerFactory;
+        
         proposeCurator(_curator);
     }
 
-    /// @notice Creates a new market with the specified configuration
+    /// @notice Creates a new comet with the specified configuration
     /// @dev Only callable by the owner
-    /// @param _marketConfig The configuration parameters for the new market
-    /// @return The address of the newly created market
-    function createMarket(
-        MarketConfig memory _marketConfig
+    /// @param _cometConfig The configuration parameters for the new comet
+    /// @return The address of the newly created comet
+    function createComet(
+        CometConfig memory _cometConfig
     ) external override onlyOwner returns (address) {
-        if (_marketConfig.baseToken == ZERO_ADDRESS) revert ZeroAddress();
+        if (_cometConfig.baseToken == ZERO_ADDRESS) revert ZeroAddress();
         ISandboxController.BaseAssetConfiguration
             memory baseAssetConfig = ISandboxController(sandboxController)
-                .baseAssets(_marketConfig.baseToken);
+                .baseAssets(_cometConfig.baseToken);
         if (baseAssetConfig.priceFeed == ZERO_ADDRESS)
             revert BaseTokenNotWhitelisted();
         if (
             !ISandboxController(sandboxController).isPriceFeedWhitelisted(
-                _marketConfig.priceFeed
+                _cometConfig.priceFeed
             )
         ) revert WrongPriceFeed();
-        if (_marketConfig.collateralTokens.length == 0)
+        if (_cometConfig.collateralTokens.length == 0)
             revert ZeroCollateralAssets();
 
         if (
-            _marketConfig.baseTokenCurveId >=
+            _cometConfig.baseTokenCurveId >=
             baseAssetConfig.baseAssetCurves.length
         ) revert WrongCurveParams();
-        uint length = _marketConfig.collateralTokens.length;
+        uint length = _cometConfig.collateralTokens.length;
         CollateralTokenConfig memory collateralTokenConfig;
         ISandboxController.CollateralAssetConfiguration
             memory collateralAssetLimitations;
@@ -175,14 +173,14 @@ contract ConfigController is IConfigController, Initializable {
         
         for (uint i; i < length; ) {
             unchecked {
-                collateralTokenConfig = _marketConfig.collateralTokens[i];
+                collateralTokenConfig = _cometConfig.collateralTokens[i];
                 collateralAssetLimitations = ISandboxController(
                     sandboxController
                 ).collateralAssets(collateralTokenConfig.collateralToken);
 
                 if (
                     collateralTokenConfig.collateralToken ==
-                    _marketConfig.baseToken
+                    _cometConfig.baseToken
                 ) revert WrongCollateralTokenSettings();
                 _validateCollateralTokenConfig(
                     collateralTokenConfig,
@@ -199,36 +197,36 @@ contract ConfigController is IConfigController, Initializable {
         ISandboxController.SandboxControllerConfiguration
             memory config = ISandboxController(sandboxController).config();
             
-        address market = ISandboxCometFactory(marketFactory).createMarket(
-            _marketConfig,
+        address comet = ISandboxCometFactory(cometFactory).createComet(
+            _cometConfig,
             config
         );
-        markets.push(market);
-        marketsLength++;
-        marketId[market] = marketsLength - 1;
+        comets.push(comet);
+        cometsLength++;
+        cometId[comet] = cometsLength - 1;
         
-        IERC20NonStandard(_marketConfig.baseToken).transferFrom(
+        IERC20NonStandard(_cometConfig.baseToken).transferFrom(
             msg.sender,
             address(this),
             config.suggestedAmountOfSeedReserves
         );
         
-        IERC20NonStandard(_marketConfig.baseToken).transfer(
-            market,
+        IERC20NonStandard(_cometConfig.baseToken).transfer(
+            comet,
             config.suggestedAmountOfSeedReserves
         );
         
-        ISandboxComet(market).initializeStorage();
+        ISandboxComet(comet).initializeStorage();
 
-        emit MarketCreated(
-            market,
-            _marketConfig.baseToken,
-            _marketConfig.priceFeed,
-            marketsLength,
-            _marketConfig.baseTokenCurveId
+        emit CometCreated(
+            comet,
+            _cometConfig.baseToken,
+            _cometConfig.priceFeed,
+            cometsLength,
+            _cometConfig.baseTokenCurveId
         );
 
-        return markets[marketsLength - 1];
+        return comets[cometsLength - 1];
     }
 
     /// @notice Transfers ownership of the protocol to a new address
@@ -299,10 +297,10 @@ contract ConfigController is IConfigController, Initializable {
         emit GuardianUpdated(oldGuardian, _newGuardian);
     }
 
-    /// @notice Sets the duration for curator and market configuration proposals
+    /// @notice Sets the duration for curator and comet configuration proposals
     /// @dev Only callable by the owner
     /// @param _curatorProposalDuration New duration for curator proposals in seconds
-    /// @param _proposalDuration New duration for market configuration proposals in seconds
+    /// @param _proposalDuration New duration for comet configuration proposals in seconds
     function setProposalDurations(
         uint _curatorProposalDuration,
         uint _proposalDuration
@@ -329,7 +327,7 @@ contract ConfigController is IConfigController, Initializable {
         );
     }
 
-    /// @notice Validates market collateral token configuration
+    /// @notice Validates comet collateral token configuration
     /// @dev Internal function to validate collateral token parameters
     /// @param collateralTokenConfig The collateral token configuration to validate
     /// @param collateralAssetLimitations The limitations from sandbox controller
@@ -382,12 +380,12 @@ contract ConfigController is IConfigController, Initializable {
         ) revert WrongCollateralTokenSettings();
     }
 
-    /// @notice Internal function to check if a market is owned by this controller
-    /// @param market The address of the market
-    /// @return True if the market is owned by this controller
-    function _isMarketOwned(address market) internal view returns (bool) {
-        if (marketsLength == 0) return false;
-        return markets[marketId[market]] != address(0);
+    /// @notice Internal function to check if a comet is owned by this controller
+    /// @param comet The address of the comet
+    /// @return True if the comet is owned by this controller
+    function _isCometOwned(address comet) internal view returns (bool) {
+        if (cometsLength == 0) return false;
+        return comets[cometId[comet]] != address(0);
     }
 
 }
