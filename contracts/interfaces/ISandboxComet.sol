@@ -59,10 +59,7 @@ abstract contract ISandboxComet is CometCore {
 
     /// @notice Event emitted when reserves are withdrawn by the governor
     event WithdrawReserves(address indexed to, uint amount);
-
-    event SpeedsChanged(uint  baseTrackingSupplySpeed, uint baseTrackingBorrowSpeed, bool dao_);
             
-    function setCollateralTokens(IConfigController.CollateralTokenConfig[] memory _collateralTokens) external virtual;
     function supply(address asset, uint amount) virtual external;
     function supplyTo(address dst, address asset, uint amount) virtual external;
     function supplyFrom(address from, address dst, address asset, uint amount) virtual external;
@@ -72,8 +69,6 @@ abstract contract ISandboxComet is CometCore {
 
     function transferAsset(address dst, address asset, uint amount) virtual external;
     function transferAssetFrom(address src, address dst, address asset, uint amount) virtual external;
-
-    function transferOwnership(address _newConfigController) external virtual;
     
     function withdraw(address asset, uint amount) virtual external;
     function withdrawTo(address to, address asset, uint amount) virtual external;
@@ -102,11 +97,7 @@ abstract contract ISandboxComet is CometCore {
     function totalBorrow() virtual external view returns (uint256);
     function balanceOf(address owner) virtual public view returns (uint256);
     function borrowBalanceOf(address account) virtual public view returns (uint256);
-     function setSpeeds(
-        uint64 baseTrackingSupplySpeed_,
-        uint64 baseTrackingBorrowSpeed_,
-        bool _dao
-    ) virtual external;
+
     function pause(bool supplyPaused, bool transferPaused, bool withdrawPaused, bool absorbPaused, bool buyPaused) virtual external;
     function isSupplyPaused() virtual public view returns (bool);
     function isTransferPaused() virtual public view returns (bool);

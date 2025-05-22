@@ -40,4 +40,11 @@ interface IERC20NonStandard {
      * @param account The address from which the balance will be retrieved
      */
     function balanceOf(address account) external view returns (uint256);
+
+    /**
+     * @notice Gets the allowance of the specified address
+     * @param owner The address of the account which owns the tokens
+     * @param spender The address of the account which may transfer tokens
+     */
+    function allowance(address owner, address spender) external view returns (uint256);
 }

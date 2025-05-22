@@ -208,33 +208,6 @@ contract SandboxComet is ISandboxComet, Initializable {
         numAssets = uint8(market.collateralTokens.length);
     }
 
-    function transferOwnership(
-        address _newConfigController
-    ) external override onlyConfigController {
-        configController = _newConfigController;
-        IConfigController(_newConfigController).addMarket(address(this));
-    }
-
-    function setCollateralTokens(
-        IConfigController.CollateralTokenConfig[] memory _collateralTokens
-    ) external override onlyConfigController {
-        if (msg.sender != configController) revert Unauthorized();
-
-        for (uint8 i; i < numAssets; i++) {
-            address asset = collateralAssetAddress[i];
-            if (asset != address(0)) {
-                delete collateralAssetIndex[asset];
-                delete collateralAssets[i];
-            }
-        }
-        for (uint8 i; i < _collateralTokens.length; i++) {
-            collateralAssets.push(_collateralTokens[i]);
-            collateralAssetAddress[i] = _collateralTokens[i].collateralToken;
-            collateralAssetIndex[_collateralTokens[i].collateralToken] = i;
-        }
-        numAssets = uint8(_collateralTokens.length);
-    }
-
     /**
      * @dev Prevents marked functions from being reentered
      * Note: this restrict contracts from calling comet functions in their hooks.
@@ -350,56 +323,6 @@ contract SandboxComet is ISandboxComet, Initializable {
         return (baseSupplyIndex_, baseBorrowIndex_);
     }
 
-    uint256 public lastReserveBalance;
-
-    function _marketState(
-        uint256 reserves
-    ) internal view returns (ISandboxController.MarketState) {
-        ISandboxController sc = ISandboxController(sandboxController);
-
-        uint256 tRes = targetReserves();
-        uint256 ratio = tRes == 0 ? 0 : (reserves * 1e18) / tRes;
-
-        if (ratio < sc.threshold(ISandboxController.MarketState.Low))
-            return ISandboxController.MarketState.Low;
-        if (ratio < sc.threshold(ISandboxController.MarketState.Medium))
-            return ISandboxController.MarketState.Medium;
-        return ISandboxController.MarketState.High;
-    }
-
-    function _distributeReserves() internal {
-        if (totalBorrowBase != 0) return;
-
-        int256 signed = getReserves();
-        if (signed <= 0) return;
-
-        uint256 current = uint256(signed);
-
-        if (current < targetReserves()) return;
-        if (current <= lastReserveBalance) return;
-
-        uint256 delta = current - lastReserveBalance;
-
-        ISandboxController sc = ISandboxController(sandboxController);
-        ISandboxController.MarketState s = _marketState(current);
-
-        uint256 reserveFactor = sc.reserveCommission(s);
-        uint256 protocolFactor = sc.feeEnabled() ? sc.protocolCommission(s) : 0;
-
-        uint256 protocolPart = (delta * protocolFactor) / 1e18;
-        uint256 controllerPart = delta -
-            (delta * reserveFactor) /
-            1e18 -
-            protocolPart;
-
-        if (protocolPart != 0)
-            doTransferOut(baseToken, sc.treasury(), protocolPart);
-        if (controllerPart != 0)
-            doTransferOut(baseToken, configController, controllerPart);
-
-        lastReserveBalance = current;
-    }
-
     function accrueInternal() internal {
         uint40 now_ = getNowInternal();
         uint timeElapsed = uint256(now_ - lastAccrualTime);
@@ -426,8 +349,6 @@ contract SandboxComet is ISandboxComet, Initializable {
             }
             lastAccrualTime = now_;
         }
-
-        _distributeReserves();
     }
 
     /**
@@ -683,35 +604,6 @@ contract SandboxComet is ISandboxComet, Initializable {
         }
 
         return liquidity < 0;
-    }
-
-    /**
-     * @notice Set the base tracking supply and borrow speeds
-     * @param baseTrackingSupplySpeed_ The new base tracking supply speed
-     * @param baseTrackingBorrowSpeed_ The new base tracking borrow speed
-     * @param _dao Whether or not set dao speeds
-     */
-    function setSpeeds(
-        uint64 baseTrackingSupplySpeed_,
-        uint64 baseTrackingBorrowSpeed_,
-        bool _dao
-    ) external override {
-        if (_dao) {
-            address dao = ISandboxController(sandboxController).dao();
-            if (msg.sender != dao) revert Unauthorized();
-            daoBaseTrackingSupplySpeed = baseTrackingSupplySpeed_;
-            daoBaseTrackingBorrowSpeed = baseTrackingBorrowSpeed_;
-        } else {
-            if (msg.sender != configController) revert Unauthorized();
-            baseTrackingSupplySpeed = baseTrackingSupplySpeed_;
-            baseTrackingBorrowSpeed = baseTrackingBorrowSpeed_;
-        }
-
-        emit SpeedsChanged(
-            baseTrackingSupplySpeed_,
-            baseTrackingBorrowSpeed_,
-            _dao
-        );
     }
 
     /**
@@ -1106,7 +998,6 @@ contract SandboxComet is ISandboxComet, Initializable {
 
         updateBasePrincipal(dst, dstUser, dstPrincipalNew);
 
-        _distributeReserves();
         emit Supply(from, dst, amount);
 
         if (supplyAmount > 0) {
@@ -1385,15 +1276,6 @@ contract SandboxComet is ISandboxComet, Initializable {
     function withdrawBase(address src, address to, uint256 amount) internal {
         accrueInternal();
 
-        if (msg.sender == configController) {
-            require(
-                block.timestamp >= unlockTimestamp,
-                Locked(block.timestamp, unlockTimestamp)
-            );
-            seedReserves -= amount;
-            emit WithdrawReserves(to, amount);
-            return;
-        }
 
         UserBasic memory srcUser = userBasic[src];
         int104 srcPrincipal = srcUser.principal;

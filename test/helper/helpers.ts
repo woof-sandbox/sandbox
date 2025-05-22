@@ -662,6 +662,36 @@ export function defaultSandboxControllerOpts(partial?: Partial<SandboxController
   };
 }
 
+export async function makeOnlyConfigController(
+    owner,
+    curator,
+    guardian,
+    sandboxController,
+    marketFactory,
+    configControllerFactory
+  ): Promise<string> {
+    const ConfigControllerFactory = await ethers.getContractAt(
+      'ConfigControllerFactory', 
+      configControllerFactory
+    )
+    
+    const tx = await ConfigControllerFactory.createConfigController(
+        owner,
+        curator,
+        guardian,
+        sandboxController,
+        marketFactory,
+        1000,
+        "ConfigController",
+        7 * 24 * 60 * 60, 
+        7 * 24 * 60 * 60,
+    )
+    const receipt = await tx.wait();
+    const [createConfigControllerEvent] = receipt.events?.filter((event) => event.event === 'ConfigControllerCreated');
+    const configControllerAddress = createConfigControllerEvent.args.controller;
+    
+    return configControllerAddress;
+}
 
 export async function makeSandboxController(
   opts: SandboxControllerOpts
