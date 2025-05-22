@@ -27,7 +27,6 @@ contract SandboxController is ISandboxController {
     mapping(address => bool) public override isPriceFeedWhitelisted;
     mapping(MarketState => uint256) public override reserveCommission;
     mapping(MarketState => uint256) public override protocolCommission;
-    mapping(MarketState => uint256) public override threshold;
     mapping(address => BaseAssetConfiguration) private _baseAssets;
     mapping(address => CollateralAssetConfiguration) private _collateralAssets;
 
@@ -125,22 +124,6 @@ contract SandboxController is ISandboxController {
             _suggestedAmountOfSeedReserves,
             _suggestedLockTimeOfSeedReserves
         );
-    }
-
-    /**
-     * @notice Sets the threshold factors for each market state.
-     * @param thresholds The new threshold factors, scaled by 1e18.
-     */
-    function setThresholds(uint256[3] calldata thresholds) external override onlyOwner {
-        for (uint256 i = 0; i < 3; i++) {
-            if (thresholds[i] >= 1e18) {
-                revert InvalidFactors();
-            }
-            MarketState state = MarketState(i);
-            uint256 oldValue = threshold[state];
-            threshold[state] = thresholds[i];
-            emit ThresholdChanged(state, oldValue, thresholds[i]);
-        }
     }
 
     /**
