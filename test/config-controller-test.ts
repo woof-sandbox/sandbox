@@ -5,12 +5,12 @@ import {
     factor, 
     makeConfigController,
     makeSandboxController,
-    makeMockMarket,
-    makeMarketFactory,
+    makeMockComet,
+    makeCometFactory,
     defaultSandboxControllerOpts,
     makeOnlyConfigController,
     makeConfigControllerFactory,
-    createMarket
+    createComet
 } from './helper/helpers';
 import { 
     MarketConfigStruct, 
@@ -39,14 +39,14 @@ describe('ConfigController', () => {
                 curator,
                 guardian,
                 sandboxController,
-                marketFactory
+                cometFactory
             } = await makeConfigController();
 
             expect(await configController.owner()).to.equal(owner.address);
             expect(await configController.curator()).to.equal(curator.address);
             expect(await configController.guardian()).to.equal(guardian.address);
             expect(await configController.sandboxController()).to.equal(sandboxController.address);
-            expect(await configController.marketFactory()).to.equal(marketFactory.address);
+            expect(await configController.cometFactory()).to.equal(cometFactory.address);
             expect(await configController.curatorFee()).to.equal(1000); // 10%
             expect(await configController.name()).to.equal("ConfigController");
             expect(await configController.curatorProposalDuration()).to.equal(7 * 24 * 60 * 60); // 7 days
@@ -57,18 +57,18 @@ describe('ConfigController', () => {
             const ConfigController_Factory = await ethers.getContractFactory('ConfigController');
             const [guardian, curator] = await ethers.getSigners();
             const sandboxController = (await makeSandboxController(defaultSandboxControllerOpts())).sandboxController;
-            const market = await makeMockMarket();
+            const comet = await makeMockComet();
             const configControllerImpl = await ConfigController_Factory.deploy();
             const configControllerFactory = await makeConfigControllerFactory(configControllerImpl.address);
         
-            const marketFactory = await makeMarketFactory(market, configControllerFactory, sandboxController);
+            const cometFactory = await makeCometFactory(comet, configControllerFactory, sandboxController);
             await expect(
                 configControllerFactory.createConfigController(
                     ethers.constants.AddressZero,
                     curator.address,
                     guardian.address,
                     sandboxController.address,
-                    marketFactory.address,
+                    cometFactory.address,
                     1000,
                     "ConfigController",
                     7 * 24 * 60 * 60, // 7 days for curator proposal duration
@@ -80,23 +80,23 @@ describe('ConfigController', () => {
         it('should revert if sandbox controller is zero address', async () => {
             const ConfigController_Factory = await ethers.getContractFactory('ConfigController');
             const [owner, guardian, curator] = await ethers.getSigners();
-            const market = await makeMockMarket();
+            const comet = await makeMockComet();
             const configControllerImpl = await ConfigController_Factory.deploy();
             const configControllerFactory = await makeConfigControllerFactory(configControllerImpl.address);
             const MarketFactory = await ethers.getContractFactory('SandboxCometFactory') as SandboxCometFactory__factory;
-            const marketFactory = await MarketFactory.deploy(
-                market.address, 
+            const cometFactory = await MarketFactory.deploy(
+                comet.address, 
                 configControllerFactory.address, 
                 ethers.Wallet.createRandom().address
             );
-            await marketFactory.deployed();            
+            await cometFactory.deployed();            
             await expect(
                 configControllerFactory.createConfigController(
                     owner.address,
                     curator.address,
                     guardian.address,
                     ethers.constants.AddressZero,
-                    marketFactory.address,
+                    cometFactory.address,
                     1000,
                     "ConfigController",
                     7 * 24 * 60 * 60, // 7 days for curator proposal duration
@@ -105,7 +105,7 @@ describe('ConfigController', () => {
             ).to.be.revertedWithCustomError(configControllerImpl, 'ZeroAddress');
         });
 
-        it('should revert if market factory is zero address', async () => {
+        it('should revert if comet factory is zero address', async () => {
             const ConfigController_Factory = await ethers.getContractFactory('ConfigController');
             const [owner, guardian, curator] = await ethers.getSigners();
             const sandboxController = (await makeSandboxController(defaultSandboxControllerOpts())).sandboxController;
@@ -130,17 +130,17 @@ describe('ConfigController', () => {
             const ConfigController_Factory = await ethers.getContractFactory('ConfigController');
             const [owner, guardian, curator] = await ethers.getSigners();
             const sandboxController = (await makeSandboxController(defaultSandboxControllerOpts())).sandboxController;
-            const market = await makeMockMarket();
+            const comet = await makeMockComet();
             const configControllerImpl = await ConfigController_Factory.deploy();
             const configControllerFactory = await makeConfigControllerFactory(configControllerImpl.address);
-            const marketFactory = await makeMarketFactory(market, configControllerFactory, sandboxController);
+            const cometFactory = await makeCometFactory(comet, configControllerFactory, sandboxController);
             await expect(
                 configControllerFactory.createConfigController(
                     owner.address,
                     curator.address,
                     guardian.address,
                     sandboxController.address,
-                    marketFactory.address,
+                    cometFactory.address,
                     10001,
                     "ConfigController",
                     7 * 24 * 60 * 60, // 7 days for curator proposal duration
@@ -151,7 +151,7 @@ describe('ConfigController', () => {
 
         it('should revert if curator proposal duration is less than min update time', async () => {
             const {
-                owner, guardian, curator, sandboxController, marketFactory, configControllerFactory, configController
+                owner, guardian, curator, sandboxController, cometFactory, configControllerFactory, configController
             } = await makeConfigController();
 
             await expect(
@@ -160,7 +160,7 @@ describe('ConfigController', () => {
                     curator.address,
                     guardian.address,
                     sandboxController.address,
-                    marketFactory.address,
+                    cometFactory.address,
                     1000,
                     "ConfigController",
                     1, 
@@ -189,7 +189,7 @@ describe('ConfigController', () => {
     });
 
     describe('Create Market', () => {
-        it('should create a market', async () => { 
+        it('should create a comet', async () => { 
             const {
                 configController, 
                 tokens, 
@@ -200,7 +200,7 @@ describe('ConfigController', () => {
                 sandboxController
             } = await makeConfigController();
             
-            let marketConfig: MarketConfigStruct = {
+            let cometConfig: MarketConfigStruct = {
                 baseToken: baseToken.address,
                 priceFeed: priceFeeds[await baseToken.symbol()].address,
                 collateralTokens: [],
@@ -215,7 +215,7 @@ describe('ConfigController', () => {
 
             for (let token in tokens) {
                 if (token != await baseToken.symbol()) {
-                    marketConfig.collateralTokens.push(
+                    cometConfig.collateralTokens.push(
                         {
                             collateralToken: tokens[token].address,
                             priceFeed: priceFeeds[token].address,
@@ -236,27 +236,27 @@ describe('ConfigController', () => {
             await baseToken.connect(owner).approve(configController.address, suggestedAmountOfSeedReserves);
             await baseToken.allocateTo(owner.address, suggestedAmountOfSeedReserves);
             
-            // Create market
-            const createMarketTx = await configController.connect(owner).createMarket(marketConfig);
-            const createMarketReceipt = await createMarketTx.wait();
+            // Create comet
+            const createCometTx = await configController.connect(owner).createComet(cometConfig);
+            const createCometReceipt = await createCometTx.wait();
 
-            // Get market created event
-            const marketCreatedEvents = createMarketReceipt.events?.filter((event) => event.event === 'MarketCreated');
-            const createMarketEvents = marketCreatedEvents[0];
+            // Get comet created event
+            const cometCreatedEvents = createCometReceipt.events?.filter((event) => event.event === 'CometCreated');
+            const createCometEvents = cometCreatedEvents[0];
 
-            // Verify market creation
-            expect(createMarketEvents.args.baseToken).to.equal(baseToken.address);
-            expect(createMarketEvents.args.priceFeed).to.equal(priceFeeds[await baseToken.symbol()].address);
-            expect(createMarketEvents.args.marketId).to.equal(1);
-            expect(createMarketEvents.args.baseTokenCurveId).to.equal(0);
+            // Verify comet creation
+            expect(createCometEvents.args.baseToken).to.equal(baseToken.address);
+            expect(createCometEvents.args.priceFeed).to.equal(priceFeeds[await baseToken.symbol()].address);
+            expect(createCometEvents.args.cometId).to.equal(1);
+            expect(createCometEvents.args.baseTokenCurveId).to.equal(0);
             
-            // Get market contract
-            const marketAddress = createMarketEvents.args.market;
-            const marketContract: ISandboxComet = <ISandboxComet>await ethers.getContractAt("ISandboxComet", marketAddress);
+            // Get comet contract
+            const cometAddress = createCometEvents.args.comet;
+            const cometContract: ISandboxComet = <ISandboxComet>await ethers.getContractAt("ISandboxComet", cometAddress);
 
             // Verify base token config
-            expect(await marketContract.baseToken()).to.eq(tokens[await baseToken.symbol()].address);
-            expect(await marketContract.baseTokenPriceFeed()).to.eq(priceFeeds[await baseToken.symbol()].address);
+            expect(await cometContract.baseToken()).to.eq(tokens[await baseToken.symbol()].address);
+            expect(await cometContract.baseTokenPriceFeed()).to.eq(priceFeeds[await baseToken.symbol()].address);
 
             // Get base asset configuration
             const baseAssetConfig = await sandboxController.baseAssets(baseToken.address);
@@ -264,18 +264,18 @@ describe('ConfigController', () => {
 
             // Verify curve parameters
             const secondsInYear = 31536000;
-            expect(await marketContract.supplyKink()).to.equal(curve.supplyKink);
-            expect(await marketContract.supplyPerSecondInterestRateSlopeLow()).to.equal(curve.supplyPerYearInterestRateSlopeLow.div(secondsInYear));
-            expect(await marketContract.supplyPerSecondInterestRateSlopeHigh()).to.equal(curve.supplyPerYearInterestRateSlopeHigh.div(secondsInYear));
-            expect(await marketContract.supplyPerSecondInterestRateBase()).to.equal(curve.supplyPerYearInterestRateBase.div(secondsInYear));
-            expect(await marketContract.borrowKink()).to.equal(curve.borrowKink);
-            expect(await marketContract.borrowPerSecondInterestRateSlopeLow()).to.equal(curve.borrowPerYearInterestRateSlopeLow.div(secondsInYear));
-            expect(await marketContract.borrowPerSecondInterestRateSlopeHigh()).to.equal(curve.borrowPerYearInterestRateSlopeHigh.div(secondsInYear));
-            expect(await marketContract.borrowPerSecondInterestRateBase()).to.equal(curve.borrowPerYearInterestRateBase.div(secondsInYear));
+            expect(await cometContract.supplyKink()).to.equal(curve.supplyKink);
+            expect(await cometContract.supplyPerSecondInterestRateSlopeLow()).to.equal(curve.supplyPerYearInterestRateSlopeLow.div(secondsInYear));
+            expect(await cometContract.supplyPerSecondInterestRateSlopeHigh()).to.equal(curve.supplyPerYearInterestRateSlopeHigh.div(secondsInYear));
+            expect(await cometContract.supplyPerSecondInterestRateBase()).to.equal(curve.supplyPerYearInterestRateBase.div(secondsInYear));
+            expect(await cometContract.borrowKink()).to.equal(curve.borrowKink);
+            expect(await cometContract.borrowPerSecondInterestRateSlopeLow()).to.equal(curve.borrowPerYearInterestRateSlopeLow.div(secondsInYear));
+            expect(await cometContract.borrowPerSecondInterestRateSlopeHigh()).to.equal(curve.borrowPerYearInterestRateSlopeHigh.div(secondsInYear));
+            expect(await cometContract.borrowPerSecondInterestRateBase()).to.equal(curve.borrowPerYearInterestRateBase.div(secondsInYear));
 
             // -- Collaterals tokens --
-            expect(await marketContract.numAssets()).to.eq(Object.keys(tokens).length - 1);
-            const collateralTokens: CollateralTokenConfigStruct[] = (await marketContract.getConfiguration()).assetConfigs;
+            expect(await cometContract.numAssets()).to.eq(Object.keys(tokens).length - 1);
+            const collateralTokens: CollateralTokenConfigStruct[] = (await cometContract.getConfiguration()).assetConfigs;
             // -- check whitelisted collaterals --
             const whitelistedCollateralAddresses = Array.from(
                 collateralTokens, token => token.collateralToken);
@@ -288,12 +288,12 @@ describe('ConfigController', () => {
                     // Check that token is whitelisted only one time.
                     expect(whitelistedCollateralAddresses.filter(addr => addr === tokens[token].address).length).to.equal(1);
                     // Default check for collateral token config.
-                    expect(marketConfig.collateralTokens[index].collateralToken).to.eq(tokens[token].address);
-                    expect(marketConfig.collateralTokens[index].priceFeed).to.eq(priceFeeds[token].address);
-                    expect(marketConfig.collateralTokens[index].borrowCollateralFactor).to.eq(factor(0.6));
-                    expect(marketConfig.collateralTokens[index].liquidateCollateralFactor).to.eq(factor(0.7));
-                    expect(marketConfig.collateralTokens[index].liquidationFactor).to.eq(factor(0.8));
-                    expect(marketConfig.collateralTokens[index].supplyCap).to.eq(exp(1_000_000, 6));
+                    expect(cometConfig.collateralTokens[index].collateralToken).to.eq(tokens[token].address);
+                    expect(cometConfig.collateralTokens[index].priceFeed).to.eq(priceFeeds[token].address);
+                    expect(cometConfig.collateralTokens[index].borrowCollateralFactor).to.eq(factor(0.6));
+                    expect(cometConfig.collateralTokens[index].liquidateCollateralFactor).to.eq(factor(0.7));
+                    expect(cometConfig.collateralTokens[index].liquidationFactor).to.eq(factor(0.8));
+                    expect(cometConfig.collateralTokens[index].supplyCap).to.eq(exp(1_000_000, 6));
                     index++;
                 }
             }
@@ -309,11 +309,11 @@ describe('ConfigController', () => {
             );
             expect(baseTokenConfig).to.be.undefined;
 
-            expect(await configController.markets(0)).to.eq(marketAddress);
-            expect(await configController.marketsLength()).to.eq(1);    
+            expect(await configController.comets(0)).to.eq(cometAddress);
+            expect(await configController.cometsLength()).to.eq(1);    
         });
 
-        it('should emit an event when creating a market', async () => {
+        it('should emit an event when creating a comet', async () => {
             const {
                 configController,
                 sandboxController,
@@ -323,7 +323,7 @@ describe('ConfigController', () => {
                 owner
             } = await makeConfigController();
             
-            let marketConfig: MarketConfigStruct = {
+            let cometConfig: MarketConfigStruct = {
                 baseToken: baseToken.address,
                 priceFeed: priceFeeds[await baseToken.symbol()].address,
                 collateralTokens: [],
@@ -338,7 +338,7 @@ describe('ConfigController', () => {
 
             for (let token in tokens) {
                 if (token != await baseToken.symbol()) {
-                    marketConfig.collateralTokens.push(
+                    cometConfig.collateralTokens.push(
                         {
                             collateralToken: tokens[token].address,
                             priceFeed: priceFeeds[token].address,
@@ -352,13 +352,13 @@ describe('ConfigController', () => {
             }
             await baseToken.allocateTo(owner.address, (await sandboxController.config()).suggestedAmountOfSeedReserves);
             await baseToken.connect(owner).approve(configController.address, (await sandboxController.config()).suggestedAmountOfSeedReserves);
-            const tx = await configController.connect(owner).createMarket(marketConfig);
+            const tx = await configController.connect(owner).createComet(cometConfig);
             const receipt = await tx.wait();
-            const event = receipt.events?.find(e => e.event === 'MarketCreated');
-            expect(event?.args?.market).to.equal(await configController.markets(0));
+            const event = receipt.events?.find(e => e.event === 'CometCreated');
+            expect(event?.args?.comet).to.equal(await configController.comets(0));
             expect(event?.args?.baseToken).to.equal(baseToken.address);
             expect(event?.args?.priceFeed).to.equal(priceFeeds[await baseToken.symbol()].address);
-            expect(event?.args?.marketId).to.equal(1);
+            expect(event?.args?.cometId).to.equal(1);
             expect(event?.args?.baseTokenCurveId).to.equal(0);
         });
 
@@ -370,7 +370,7 @@ describe('ConfigController', () => {
                 priceFeeds,
             } = await makeConfigController();
             
-            let marketConfig: MarketConfigStruct = {
+            let cometConfig: MarketConfigStruct = {
                 baseToken: baseToken.address,
                 priceFeed: priceFeeds[await baseToken.symbol()].address,
                 collateralTokens: [],
@@ -385,7 +385,7 @@ describe('ConfigController', () => {
 
             for (let token in tokens) {
                 if (token != await baseToken.symbol()) {
-                    marketConfig.collateralTokens.push(
+                    cometConfig.collateralTokens.push(
                         {
                             collateralToken: tokens[token].address,
                             priceFeed: priceFeeds[token].address,
@@ -398,7 +398,7 @@ describe('ConfigController', () => {
                 }
             }
 
-            await expect(configController.connect(ethers.provider.getSigner(2)).createMarket(marketConfig))
+            await expect(configController.connect(ethers.provider.getSigner(2)).createComet(cometConfig))
                 .to.be.revertedWithCustomError(configController, "Unauthorized");
         });
 
@@ -410,7 +410,7 @@ describe('ConfigController', () => {
                 priceFeeds,
             } = await makeConfigController();
             
-            let marketConfig: MarketConfigStruct = {
+            let cometConfig: MarketConfigStruct = {
                 baseToken: ethers.constants.AddressZero,
                 priceFeed: priceFeeds[await baseToken.symbol()].address,
                 collateralTokens: [],
@@ -425,7 +425,7 @@ describe('ConfigController', () => {
 
             for (let token in tokens) {
                 if (token != await baseToken.symbol()) {
-                    marketConfig.collateralTokens.push(
+                    cometConfig.collateralTokens.push(
                         {
                             collateralToken: tokens[token].address,
                             priceFeed: priceFeeds[token].address,
@@ -438,7 +438,7 @@ describe('ConfigController', () => {
                 }
             }
 
-            await expect(configController.createMarket(marketConfig))
+            await expect(configController.createComet(cometConfig))
                 .to.be.revertedWithCustomError(configController, "ZeroAddress");
         });
 
@@ -449,7 +449,7 @@ describe('ConfigController', () => {
                 baseToken,
             } = await makeConfigController();
             
-            let marketConfig: MarketConfigStruct = {
+            let cometConfig: MarketConfigStruct = {
                 baseToken: baseToken.address,
                 priceFeed: ethers.constants.AddressZero,
                 collateralTokens: [],
@@ -464,7 +464,7 @@ describe('ConfigController', () => {
 
             for (let token in tokens) {
                 if (token != await baseToken.symbol()) {
-                    marketConfig.collateralTokens.push(
+                    cometConfig.collateralTokens.push(
                         {
                             collateralToken: tokens[token].address,
                             priceFeed: ethers.constants.AddressZero,
@@ -477,7 +477,7 @@ describe('ConfigController', () => {
                 }
             }
 
-            await expect(configController.createMarket(marketConfig))
+            await expect(configController.createComet(cometConfig))
                 .to.be.revertedWithCustomError(configController, "WrongPriceFeed");
         });
 
@@ -489,7 +489,7 @@ describe('ConfigController', () => {
                 priceFeeds,
             } = await makeConfigController();
             
-            let marketConfig: MarketConfigStruct = {
+            let cometConfig: MarketConfigStruct = {
                 baseToken: baseToken.address,
                 priceFeed: priceFeeds[await baseToken.symbol()].address,
                 collateralTokens: [],
@@ -504,7 +504,7 @@ describe('ConfigController', () => {
 
             for (let token in tokens) {
                 if (token != await baseToken.symbol()) {
-                    marketConfig.collateralTokens.push(
+                    cometConfig.collateralTokens.push(
                         {
                             collateralToken: ethers.constants.AddressZero,
                             priceFeed: priceFeeds[token].address,
@@ -517,7 +517,7 @@ describe('ConfigController', () => {
                 }
             }
 
-            await expect(configController.createMarket(marketConfig))
+            await expect(configController.createComet(cometConfig))
                 .to.be.revertedWithCustomError(configController, "ZeroAddress");
         });
 
@@ -529,7 +529,7 @@ describe('ConfigController', () => {
                 priceFeeds,
             } = await makeConfigController();
             
-            let marketConfig: MarketConfigStruct = {
+            let cometConfig: MarketConfigStruct = {
                 baseToken: baseToken.address,
                 priceFeed: priceFeeds[await baseToken.symbol()].address,
                 collateralTokens: [],
@@ -544,7 +544,7 @@ describe('ConfigController', () => {
 
             for (let token in tokens) {
                 if (token != await baseToken.symbol()) {
-                    marketConfig.collateralTokens.push(
+                    cometConfig.collateralTokens.push(
                         {
                             collateralToken: baseToken.address,
                             priceFeed: priceFeeds[token].address,
@@ -557,7 +557,7 @@ describe('ConfigController', () => {
                 }
             }
 
-            await expect(configController.createMarket(marketConfig))
+            await expect(configController.createComet(cometConfig))
                 .to.be.revertedWithCustomError(configController, "WrongCollateralTokenSettings");
         });
 
@@ -569,7 +569,7 @@ describe('ConfigController', () => {
                 priceFeeds,
             } = await makeConfigController();
             
-            let marketConfig: MarketConfigStruct = {
+            let cometConfig: MarketConfigStruct = {
                 baseToken: baseToken.address,
                 priceFeed: priceFeeds[await baseToken.symbol()].address,
                 collateralTokens: [],
@@ -584,7 +584,7 @@ describe('ConfigController', () => {
 
             for (let token in tokens) {
                 if (token != await baseToken.symbol()) {
-                    marketConfig.collateralTokens.push(
+                    cometConfig.collateralTokens.push(
                         {
                             collateralToken: tokens[token].address,
                             priceFeed: ethers.constants.AddressZero,
@@ -597,7 +597,7 @@ describe('ConfigController', () => {
                 }
             }
 
-            await expect(configController.createMarket(marketConfig))
+            await expect(configController.createComet(cometConfig))
                 .to.be.revertedWithCustomError(configController, "WrongPriceFeed");
         });
 
@@ -609,7 +609,7 @@ describe('ConfigController', () => {
                 priceFeeds,
             } = await makeConfigController();
             
-            let marketConfig: MarketConfigStruct = {
+            let cometConfig: MarketConfigStruct = {
                 baseToken: baseToken.address,
                 priceFeed: priceFeeds[await baseToken.symbol()].address,
                 collateralTokens: [],
@@ -622,7 +622,7 @@ describe('ConfigController', () => {
                 }
             }
 
-            marketConfig.collateralTokens.push(
+            cometConfig.collateralTokens.push(
                 {
                     collateralToken: tokens["COMP"].address,
                     priceFeed: priceFeeds["COMP"].address,
@@ -632,7 +632,7 @@ describe('ConfigController', () => {
                     supplyCap: exp(1_000_000, 6)
                 }
             );
-            marketConfig.collateralTokens.push(
+            cometConfig.collateralTokens.push(
                 {
                     collateralToken: tokens["COMP"].address,
                     priceFeed: priceFeeds["COMP"].address,
@@ -643,7 +643,7 @@ describe('ConfigController', () => {
                 }
             );
 
-            await expect(configController.createMarket(marketConfig))
+            await expect(configController.createComet(cometConfig))
                 .to.be.revertedWithCustomError(configController, "CollateralTokenAlreadyAdded");
         });
 
@@ -656,7 +656,7 @@ describe('ConfigController', () => {
                 unsupportedToken
             } = await makeConfigController();
             
-            let marketConfig: MarketConfigStruct = {
+            let cometConfig: MarketConfigStruct = {
                 baseToken: baseToken.address,
                 priceFeed: priceFeeds[await baseToken.symbol()].address,
                 collateralTokens: [],
@@ -669,7 +669,7 @@ describe('ConfigController', () => {
                 }
             }
             
-            marketConfig.collateralTokens.push(
+            cometConfig.collateralTokens.push(
                 {
                     collateralToken: unsupportedToken.address,
                     priceFeed: priceFeeds[await unsupportedToken.symbol()].address,
@@ -680,7 +680,7 @@ describe('ConfigController', () => {
                 }
             );
 
-            await expect(configController.createMarket(marketConfig))
+            await expect(configController.createComet(cometConfig))
                 .to.be.revertedWithCustomError(configController, "CollateralTokenNotWhitelisted");
         });
 
@@ -693,7 +693,7 @@ describe('ConfigController', () => {
                 unsupportedToken
             } = await makeConfigController();
             
-            let marketConfig: MarketConfigStruct = {
+            let cometConfig: MarketConfigStruct = {
                 baseToken: baseToken.address,
                 priceFeed: priceFeeds[await baseToken.symbol()].address,
                 collateralTokens: [],
@@ -706,7 +706,7 @@ describe('ConfigController', () => {
                 }
             }
             
-            marketConfig.collateralTokens.push(
+            cometConfig.collateralTokens.push(
                 {
                     collateralToken: tokens["COMP"].address,
                     priceFeed: priceFeeds["COMP"].address,
@@ -717,7 +717,7 @@ describe('ConfigController', () => {
                 }
             );
 
-            await expect(configController.createMarket(marketConfig))
+            await expect(configController.createComet(cometConfig))
                 .to.be.revertedWithCustomError(configController, "WrongCollateralTokenSettings");
         });
 
@@ -729,7 +729,7 @@ describe('ConfigController', () => {
                 priceFeeds,
             } = await makeConfigController();
             
-            let marketConfig: MarketConfigStruct = {
+            let cometConfig: MarketConfigStruct = {
                 baseToken: baseToken.address,
                 priceFeed: priceFeeds[await baseToken.symbol()].address,
                 collateralTokens: [],
@@ -742,7 +742,7 @@ describe('ConfigController', () => {
                 }
             }
             
-            marketConfig.collateralTokens.push(
+            cometConfig.collateralTokens.push(
                 {
                     collateralToken: tokens["COMP"].address,
                     priceFeed: priceFeeds["COMP"].address,
@@ -753,7 +753,7 @@ describe('ConfigController', () => {
                 }
             );
 
-            await expect(configController.createMarket(marketConfig))
+            await expect(configController.createComet(cometConfig))
                 .to.be.revertedWithCustomError(configController, "WrongCollateralTokenSettings");
         });
         
@@ -765,7 +765,7 @@ describe('ConfigController', () => {
                 priceFeeds,
             } = await makeConfigController();
             
-            let marketConfig: MarketConfigStruct = {
+            let cometConfig: MarketConfigStruct = {
                 baseToken: baseToken.address,
                 priceFeed: priceFeeds[await baseToken.symbol()].address,
                 collateralTokens: [],
@@ -778,7 +778,7 @@ describe('ConfigController', () => {
                 }
             }
 
-            marketConfig.collateralTokens.push(
+            cometConfig.collateralTokens.push(
                 {
                     collateralToken: tokens["COMP"].address,
                     priceFeed: priceFeeds["COMP"].address,
@@ -789,7 +789,7 @@ describe('ConfigController', () => {
                 }
             );
 
-            await expect(configController.createMarket(marketConfig))
+            await expect(configController.createComet(cometConfig))
                 .to.be.revertedWithCustomError(configController, "WrongCollateralTokenSettings");
         });
 
@@ -801,7 +801,7 @@ describe('ConfigController', () => {
                 priceFeeds,
             } = await makeConfigController();
             
-            let marketConfig: MarketConfigStruct = {
+            let cometConfig: MarketConfigStruct = {
                 baseToken: baseToken.address,
                 priceFeed: priceFeeds[await baseToken.symbol()].address,
                 collateralTokens: [],
@@ -814,7 +814,7 @@ describe('ConfigController', () => {
                 }
             }
 
-            marketConfig.collateralTokens.push(
+            cometConfig.collateralTokens.push(
                 {
                     collateralToken: tokens["COMP"].address,
                     priceFeed: priceFeeds["COMP"].address,
@@ -825,7 +825,7 @@ describe('ConfigController', () => {
                 }
             );
 
-            await expect(configController.createMarket(marketConfig))
+            await expect(configController.createComet(cometConfig))
                 .to.be.revertedWithCustomError(configController, "WrongCollateralTokenSettings");
         });
 
@@ -837,7 +837,7 @@ describe('ConfigController', () => {
                 priceFeeds,
             } = await makeConfigController();
             
-            let marketConfig: MarketConfigStruct = {
+            let cometConfig: MarketConfigStruct = {
                 baseToken: baseToken.address,
                 priceFeed: priceFeeds[await baseToken.symbol()].address,
                 collateralTokens: [],
@@ -850,7 +850,7 @@ describe('ConfigController', () => {
                 }
             }
 
-            marketConfig.collateralTokens.push(
+            cometConfig.collateralTokens.push(
                 {
                     collateralToken: tokens["COMP"].address,
                     priceFeed: priceFeeds["COMP"].address,
@@ -861,7 +861,7 @@ describe('ConfigController', () => {
                 }
             );
 
-            await expect(configController.createMarket(marketConfig))
+            await expect(configController.createComet(cometConfig))
                 .to.be.revertedWithCustomError(configController, "WrongCollateralTokenSettings");
         });
 
@@ -873,7 +873,7 @@ describe('ConfigController', () => {
                 priceFeeds,
             } = await makeConfigController();
             
-            let marketConfig: MarketConfigStruct = {
+            let cometConfig: MarketConfigStruct = {
                 baseToken: baseToken.address,
                 priceFeed: priceFeeds[await baseToken.symbol()].address,
                 collateralTokens: [],
@@ -886,7 +886,7 @@ describe('ConfigController', () => {
                 }
             }
 
-            marketConfig.collateralTokens.push(
+            cometConfig.collateralTokens.push(
                 {
                     collateralToken: tokens["COMP"].address,
                     priceFeed: priceFeeds["COMP"].address,
@@ -897,7 +897,7 @@ describe('ConfigController', () => {
                 }
             );
 
-            await expect(configController.createMarket(marketConfig))
+            await expect(configController.createComet(cometConfig))
                 .to.be.revertedWithCustomError(configController, "WrongCollateralTokenSettings");
         });
 
@@ -909,7 +909,7 @@ describe('ConfigController', () => {
                 priceFeeds,
             } = await makeConfigController();
             
-            let marketConfig: MarketConfigStruct = {
+            let cometConfig: MarketConfigStruct = {
                 baseToken: baseToken.address,
                 priceFeed: priceFeeds[await baseToken.symbol()].address,
                 collateralTokens: [],
@@ -922,7 +922,7 @@ describe('ConfigController', () => {
                 }
             }
 
-            marketConfig.collateralTokens.push(
+            cometConfig.collateralTokens.push(
                 {
                     collateralToken: tokens["COMP"].address,
                     priceFeed: priceFeeds["COMP"].address,
@@ -933,7 +933,7 @@ describe('ConfigController', () => {
                 }
             );
 
-            await expect(configController.createMarket(marketConfig))
+            await expect(configController.createComet(cometConfig))
                 .to.be.revertedWithCustomError(configController, "WrongCollateralTokenSettings");
         });
 
@@ -945,7 +945,7 @@ describe('ConfigController', () => {
                 priceFeeds,
             } = await makeConfigController();
             
-            let marketConfig: MarketConfigStruct = {
+            let cometConfig: MarketConfigStruct = {
                 baseToken: baseToken.address,
                 priceFeed: priceFeeds[await baseToken.symbol()].address,
                 collateralTokens: [],
@@ -958,7 +958,7 @@ describe('ConfigController', () => {
                 }
             }
 
-            marketConfig.collateralTokens.push(
+            cometConfig.collateralTokens.push(
                 {
                     collateralToken: tokens["COMP"].address,
                     priceFeed: priceFeeds["COMP"].address,
@@ -969,7 +969,7 @@ describe('ConfigController', () => {
                 }
             );
 
-            await expect(configController.createMarket(marketConfig))
+            await expect(configController.createComet(cometConfig))
                 .to.be.revertedWithCustomError(configController, "WrongCollateralTokenSettings");
         });
 
@@ -981,7 +981,7 @@ describe('ConfigController', () => {
                 priceFeeds,
             } = await makeConfigController();
             
-            let marketConfig: MarketConfigStruct = {
+            let cometConfig: MarketConfigStruct = {
                 baseToken: baseToken.address,
                 priceFeed: priceFeeds[await baseToken.symbol()].address,
                 collateralTokens: [],
@@ -994,7 +994,7 @@ describe('ConfigController', () => {
                 }
             }
 
-            marketConfig.collateralTokens.push(
+            cometConfig.collateralTokens.push(
                 {
                     collateralToken: tokens["COMP"].address,
                     priceFeed: priceFeeds["COMP"].address,
@@ -1005,7 +1005,7 @@ describe('ConfigController', () => {
                 }
             );
 
-            await expect(configController.createMarket(marketConfig))
+            await expect(configController.createComet(cometConfig))
                 .to.be.revertedWithCustomError(configController, "WrongCollateralTokenSettings");
         });
 
@@ -1017,7 +1017,7 @@ describe('ConfigController', () => {
                 priceFeeds,
             } = await makeConfigController();
             
-            let marketConfig: MarketConfigStruct = {
+            let cometConfig: MarketConfigStruct = {
                 baseToken: baseToken.address,
                 priceFeed: priceFeeds[await baseToken.symbol()].address,
                 collateralTokens: [],
@@ -1030,7 +1030,7 @@ describe('ConfigController', () => {
                 }
             }
 
-            marketConfig.collateralTokens.push(
+            cometConfig.collateralTokens.push(
                 {
                     collateralToken: tokens["COMP"].address,
                     priceFeed: priceFeeds["COMP"].address,
@@ -1041,7 +1041,7 @@ describe('ConfigController', () => {
                 }
             );
 
-            await expect(configController.createMarket(marketConfig))
+            await expect(configController.createComet(cometConfig))
                 .to.be.revertedWithCustomError(configController, "WrongCollateralTokenSettings");
         });
 
@@ -1053,7 +1053,7 @@ describe('ConfigController', () => {
                 priceFeeds,
             } = await makeConfigController();
             
-            let marketConfig: MarketConfigStruct = {
+            let cometConfig: MarketConfigStruct = {
                 baseToken: baseToken.address,
                 priceFeed: priceFeeds[await baseToken.symbol()].address,
                 collateralTokens: [],
@@ -1066,7 +1066,7 @@ describe('ConfigController', () => {
                 }
             }
 
-            marketConfig.collateralTokens.push(
+            cometConfig.collateralTokens.push(
                 {
                     collateralToken: tokens["COMP"].address,
                     priceFeed: priceFeeds["COMP"].address,
@@ -1077,7 +1077,7 @@ describe('ConfigController', () => {
                 }
             );
 
-            await expect(configController.createMarket(marketConfig))
+            await expect(configController.createComet(cometConfig))
                 .to.be.revertedWithCustomError(configController, "WrongCollateralTokenSettings");
         });
 
@@ -1091,7 +1091,7 @@ describe('ConfigController', () => {
                 sandboxController,
             } = await makeConfigController();
             
-            let marketConfig: MarketConfigStruct = {
+            let cometConfig: MarketConfigStruct = {
                 baseToken: baseToken.address,
                 priceFeed: priceFeeds[await baseToken.symbol()].address,
                 collateralTokens: [],
@@ -1104,7 +1104,7 @@ describe('ConfigController', () => {
                 }
             }
 
-            marketConfig.collateralTokens.push(
+            cometConfig.collateralTokens.push(
                 {
                     collateralToken: tokens["COMP"].address,
                     priceFeed: priceFeeds["COMP"].address,
@@ -1117,11 +1117,11 @@ describe('ConfigController', () => {
 
             await baseToken.allocateTo(owner.address, (await sandboxController.config()).suggestedAmountOfSeedReserves);
             await baseToken.connect(owner).approve(configController.address, (await sandboxController.config()).suggestedAmountOfSeedReserves);
-            await expect(configController.createMarket(marketConfig))
+            await expect(configController.createComet(cometConfig))
                 .to.be.revertedWithCustomError(configController, "WrongCollateralTokenSettings");
         });
         
-        it('it should be possible to create two markets with the same configuration', async () => {
+        it('it should be possible to create two comets with the same configuration', async () => {
             const {
                 configController,
                 tokens, 
@@ -1131,7 +1131,7 @@ describe('ConfigController', () => {
                 sandboxController,
             } = await makeConfigController();
             
-            let marketConfig: MarketConfigStruct = {
+            let cometConfig: MarketConfigStruct = {
                 baseToken: baseToken.address,
                 priceFeed: priceFeeds[await baseToken.symbol()].address,
                 collateralTokens: [],
@@ -1146,7 +1146,7 @@ describe('ConfigController', () => {
 
             for (let token in tokens) {
                 if (token != await baseToken.symbol()) {
-                    marketConfig.collateralTokens.push(
+                    cometConfig.collateralTokens.push(
                         {
                             collateralToken: tokens[token].address,
                             priceFeed: priceFeeds[token].address,
@@ -1162,23 +1162,23 @@ describe('ConfigController', () => {
             await baseToken.allocateTo(owner.address, (await sandboxController.config()).suggestedAmountOfSeedReserves);
             await baseToken.connect(owner).approve(configController.address, (await sandboxController.config()).suggestedAmountOfSeedReserves);
             
-            let createMarketTx = await configController.connect(owner).createMarket(marketConfig);
-            let createMarketReceipt = await createMarketTx.wait();
-            let [createMarketEvents] = createMarketReceipt.events?.filter((event) => event.event === 'MarketCreated');
-            let marketAddress = createMarketEvents.args.market;
-            expect(await configController.markets(0)).to.eq(marketAddress);
-            expect(await configController.marketsLength()).to.eq(1);
+            let createCometTx = await configController.connect(owner).createComet(cometConfig);
+            let createCometReceipt = await createCometTx.wait();
+            let [createCometEvents] = createCometReceipt.events?.filter((event) => event.event === 'CometCreated');
+            let cometAddress = createCometEvents.args.comet;
+            expect(await configController.comets(0)).to.eq(cometAddress);
+            expect(await configController.cometsLength()).to.eq(1);
             
             await baseToken.allocateTo(owner.address, (await sandboxController.config()).suggestedAmountOfSeedReserves);
             await baseToken.connect(owner).approve(configController.address, (await sandboxController.config()).suggestedAmountOfSeedReserves);
 
-            createMarketTx = await configController.connect(owner).createMarket(marketConfig);
-            createMarketReceipt = await createMarketTx.wait();
-            [createMarketEvents] = createMarketReceipt.events?.filter((event) => event.event === 'MarketCreated');
-            marketAddress = createMarketEvents.args.market;
+            createCometTx = await configController.connect(owner).createComet(cometConfig);
+            createCometReceipt = await createCometTx.wait();
+            [createCometEvents] = createCometReceipt.events?.filter((event) => event.event === 'CometCreated');
+            cometAddress = createCometEvents.args.comet;
 
-            expect(await configController.markets(1)).to.eq(marketAddress);
-            expect(await configController.marketsLength()).to.eq(2);
+            expect(await configController.comets(1)).to.eq(cometAddress);
+            expect(await configController.cometsLength()).to.eq(2);
         });
     });
     
@@ -1207,11 +1207,11 @@ describe('ConfigController', () => {
 
     // describe('accumulateRevenue', () => {
     //     it('should accumulate revenue with curator fee', async () => {
-    //         const { configController, tokens, users, owner, baseToken, priceFeeds, marketFactory } = await makeConfigController();
+    //         const { configController, tokens, users, owner, baseToken, priceFeeds, cometFactory } = await makeConfigController();
     //         const token = tokens['USDC'];
     //         const amount = exp(1000, 6); // 1000 USDC
             
-    //         let marketConfig: MarketConfigStruct = {
+    //         let cometConfig: MarketConfigStruct = {
     //             baseToken: baseToken.address,
     //             priceFeed: priceFeeds[await baseToken.symbol()].address,
     //             collateralTokens: [],
@@ -1224,7 +1224,7 @@ describe('ConfigController', () => {
     //             }
     //         }
             
-    //         marketConfig.collateralTokens.push(
+    //         cometConfig.collateralTokens.push(
     //             {
     //                 collateralToken: tokens["COMP"].address,
     //                 priceFeed: priceFeeds["COMP"].address,
@@ -1235,16 +1235,16 @@ describe('ConfigController', () => {
     //             }
     //         );
 
-    //         const createMarketTx = await configController.connect(owner).createMarket(marketConfig);
-    //         const createMarketReceipt = await createMarketTx.wait();
-    //         const [createMarketEvents] = createMarketReceipt.events?.filter((event) => event.event === 'MarketCreated');
-    //         const marketAddress = createMarketEvents.args.market;
+    //         const createCometTx = await configController.connect(owner).createComet(cometConfig);
+    //         const createCometReceipt = await createCometTx.wait();
+    //         const [createCometEvents] = createCometReceipt.events?.filter((event) => event.event === 'CometCreated');
+    //         const cometAddress = createCometEvents.args.comet;
 
-    //         const marketContract: CometHarness = <CometHarness>await ethers.getContractAt(
-    //             "CometHarness", marketAddress);
+    //         const cometContract: CometHarness = <CometHarness>await ethers.getContractAt(
+    //             "CometHarness", cometAddress);
 
-    //         await token.allocateTo(marketAddress, amount);
-    //         await expect(marketContract.accumulateRevenue(token.address, amount))
+    //         await token.allocateTo(cometAddress, amount);
+    //         await expect(cometContract.accumulateRevenue(token.address, amount))
     //             .to.emit(configController, 'RevenueAccumulated')
     //             .withArgs(token.address, amount);
 
@@ -1263,7 +1263,7 @@ describe('ConfigController', () => {
             
     //         const token = tokens['USDC'];
     //         const amount = exp(1000, 6); // 1000 USDC
-    //         let marketConfig: MarketConfigStruct = {
+    //         let cometConfig: MarketConfigStruct = {
     //             baseToken: baseToken.address,
     //             priceFeed: priceFeeds[await baseToken.symbol()].address,
     //             collateralTokens: [],
@@ -1276,7 +1276,7 @@ describe('ConfigController', () => {
     //             }
     //         }
             
-    //         marketConfig.collateralTokens.push(
+    //         cometConfig.collateralTokens.push(
     //             {
     //                 collateralToken: tokens["COMP"].address,
     //                 priceFeed: priceFeeds["COMP"].address,
@@ -1287,14 +1287,14 @@ describe('ConfigController', () => {
     //             }
     //         );
 
-    //         const createMarketTx = await configController.connect(owner).createMarket(marketConfig);
-    //         const createMarketReceipt = await createMarketTx.wait();
-    //         const [createMarketEvents] = createMarketReceipt.events?.filter((event) => event.event === 'MarketCreated');
-    //         const marketAddress = createMarketEvents.args.market;
-    //         const marketContract: MarketMock = <MarketMock>await ethers.getContractAt("MarketMock", marketAddress);
+    //         const createCometTx = await configController.connect(owner).createComet(cometConfig);
+    //         const createCometReceipt = await createCometTx.wait();
+    //         const [createCometEvents] = createCometReceipt.events?.filter((event) => event.event === 'CometCreated');
+    //         const cometAddress = createCometEvents.args.comet;
+    //         const cometContract: MarketMock = <MarketMock>await ethers.getContractAt("MarketMock", cometAddress);
 
-    //         await token.allocateTo(marketAddress, amount);
-    //         await marketContract.accumulateRevenue(token.address, amount);
+    //         await token.allocateTo(cometAddress, amount);
+    //         await cometContract.accumulateRevenue(token.address, amount);
     //         expect(await configController.getUnclaimedRevenue(token.address, await configController.owner()))
     //             .to.equal(amount);
     //         expect(await configController.getUnclaimedRevenue(token.address, await configController.curator()))
@@ -1304,7 +1304,7 @@ describe('ConfigController', () => {
     //     it('should revert if amount is zero', async () => {
     //         const { configController, tokens, owner, baseToken, priceFeeds } = await makeConfigController();
             
-    //         let marketConfig: MarketConfigStruct = {
+    //         let cometConfig: MarketConfigStruct = {
     //             baseToken: baseToken.address,
     //             priceFeed: priceFeeds[await baseToken.symbol()].address,
     //             collateralTokens: [],
@@ -1317,7 +1317,7 @@ describe('ConfigController', () => {
     //             }
     //         }
             
-    //         marketConfig.collateralTokens.push(
+    //         cometConfig.collateralTokens.push(
     //             {
     //                 collateralToken: tokens["COMP"].address,
     //                 priceFeed: priceFeeds["COMP"].address,
@@ -1328,13 +1328,13 @@ describe('ConfigController', () => {
     //             }
     //         );
 
-    //         const createMarketTx = await configController.connect(owner).createMarket(marketConfig);
-    //         const createMarketReceipt = await createMarketTx.wait();
-    //         const [createMarketEvents] = createMarketReceipt.events?.filter((event) => event.event === 'MarketCreated');
-    //         const marketAddress = createMarketEvents.args.market;
-    //         const marketContract: MarketMock = <MarketMock>await ethers.getContractAt("MarketMock", marketAddress);
+    //         const createCometTx = await configController.connect(owner).createComet(cometConfig);
+    //         const createCometReceipt = await createCometTx.wait();
+    //         const [createCometEvents] = createCometReceipt.events?.filter((event) => event.event === 'CometCreated');
+    //         const cometAddress = createCometEvents.args.comet;
+    //         const cometContract: MarketMock = <MarketMock>await ethers.getContractAt("MarketMock", cometAddress);
 
-    //         await expect(marketContract.accumulateRevenue(tokens['USDC'].address, 0))
+    //         await expect(cometContract.accumulateRevenue(tokens['USDC'].address, 0))
     //             .to.be.revertedWithCustomError(configController, 'ZeroAmount');
     //     });
     // });
@@ -1345,7 +1345,7 @@ describe('ConfigController', () => {
     //         const token = tokens['USDC'];
     //         const amount = exp(1000, 6); // 1000 USDC
 
-    //         let marketConfig: MarketConfigStruct = {
+    //         let cometConfig: MarketConfigStruct = {
     //             baseToken: baseToken.address,
     //             priceFeed: priceFeeds[await baseToken.symbol()].address,
     //             collateralTokens: [],
@@ -1358,7 +1358,7 @@ describe('ConfigController', () => {
     //             }
     //         }
             
-    //         marketConfig.collateralTokens.push(
+    //         cometConfig.collateralTokens.push(
     //             {
     //                 collateralToken: tokens["COMP"].address,
     //                 priceFeed: priceFeeds["COMP"].address,
@@ -1369,14 +1369,14 @@ describe('ConfigController', () => {
     //             }
     //         );
 
-    //         const createMarketTx = await configController.connect(owner).createMarket(marketConfig);
-    //         const createMarketReceipt = await createMarketTx.wait();
-    //         const [createMarketEvents] = createMarketReceipt.events?.filter((event) => event.event === 'MarketCreated');
-    //         const marketAddress = createMarketEvents.args.market;
-    //         const marketContract: MarketMock = <MarketMock>await ethers.getContractAt("MarketMock", marketAddress);
+    //         const createCometTx = await configController.connect(owner).createComet(cometConfig);
+    //         const createCometReceipt = await createCometTx.wait();
+    //         const [createCometEvents] = createCometReceipt.events?.filter((event) => event.event === 'CometCreated');
+    //         const cometAddress = createCometEvents.args.comet;
+    //         const cometContract: MarketMock = <MarketMock>await ethers.getContractAt("MarketMock", cometAddress);
 
-    //         await token.allocateTo(marketAddress, amount);
-    //         await expect(marketContract.accumulateRevenue(token.address, amount))
+    //         await token.allocateTo(cometAddress, amount);
+    //         await expect(cometContract.accumulateRevenue(token.address, amount))
     //             .to.emit(configController, 'RevenueAccumulated')
     //             .withArgs(token.address, amount);
 
@@ -1396,7 +1396,7 @@ describe('ConfigController', () => {
     //         const token = tokens['USDC'];
     //         const amount = exp(1000, 6); // 1000 USDC
 
-    //         let marketConfig: MarketConfigStruct = {
+    //         let cometConfig: MarketConfigStruct = {
     //             baseToken: baseToken.address,
     //             priceFeed: priceFeeds[await baseToken.symbol()].address,
     //             collateralTokens: [],
@@ -1409,7 +1409,7 @@ describe('ConfigController', () => {
     //             }
     //         }
             
-    //         marketConfig.collateralTokens.push(
+    //         cometConfig.collateralTokens.push(
     //             {
     //                 collateralToken: tokens["COMP"].address,
     //                 priceFeed: priceFeeds["COMP"].address,
@@ -1420,14 +1420,14 @@ describe('ConfigController', () => {
     //             }
     //         );
 
-    //         const createMarketTx = await configController.connect(owner).createMarket(marketConfig);
-    //         const createMarketReceipt = await createMarketTx.wait();
-    //         const [createMarketEvents] = createMarketReceipt.events?.filter((event) => event.event === 'MarketCreated');
-    //         const marketAddress = createMarketEvents.args.market;
-    //         const marketContract: MarketMock = <MarketMock>await ethers.getContractAt("MarketMock", marketAddress);
+    //         const createCometTx = await configController.connect(owner).createComet(cometConfig);
+    //         const createCometReceipt = await createCometTx.wait();
+    //         const [createCometEvents] = createCometReceipt.events?.filter((event) => event.event === 'CometCreated');
+    //         const cometAddress = createCometEvents.args.comet;
+    //         const cometContract: MarketMock = <MarketMock>await ethers.getContractAt("MarketMock", cometAddress);
 
-    //         await token.allocateTo(marketAddress, amount);
-    //         await expect(marketContract.accumulateRevenue(token.address, amount))
+    //         await token.allocateTo(cometAddress, amount);
+    //         await expect(cometContract.accumulateRevenue(token.address, amount))
     //             .to.emit(configController, 'RevenueAccumulated')
     //             .withArgs(token.address, amount);
 
@@ -1459,7 +1459,7 @@ describe('ConfigController', () => {
     //         const token = tokens['USDC'];
     //         const amount = exp(1000, 6); // 1000 USDC
 
-    //         let marketConfig: MarketConfigStruct = {
+    //         let cometConfig: MarketConfigStruct = {
     //             baseToken: baseToken.address,
     //             priceFeed: priceFeeds[await baseToken.symbol()].address,
     //             collateralTokens: [],
@@ -1472,7 +1472,7 @@ describe('ConfigController', () => {
     //             }
     //         }
             
-    //         marketConfig.collateralTokens.push(
+    //         cometConfig.collateralTokens.push(
     //             {
     //                 collateralToken: tokens["COMP"].address,
     //                 priceFeed: priceFeeds["COMP"].address,
@@ -1483,14 +1483,14 @@ describe('ConfigController', () => {
     //             }
     //         );
 
-    //         const createMarketTx = await configController.connect(owner).createMarket(marketConfig);
-    //         const createMarketReceipt = await createMarketTx.wait();
-    //         const [createMarketEvents] = createMarketReceipt.events?.filter((event) => event.event === 'MarketCreated');
-    //         const marketAddress = createMarketEvents.args.market;
-    //         const marketContract: MarketMock = <MarketMock>await ethers.getContractAt("MarketMock", marketAddress);
+    //         const createCometTx = await configController.connect(owner).createComet(cometConfig);
+    //         const createCometReceipt = await createCometTx.wait();
+    //         const [createCometEvents] = createCometReceipt.events?.filter((event) => event.event === 'CometCreated');
+    //         const cometAddress = createCometEvents.args.comet;
+    //         const cometContract: MarketMock = <MarketMock>await ethers.getContractAt("MarketMock", cometAddress);
 
-    //         await token.allocateTo(marketAddress, amount);
-    //         await expect(marketContract.accumulateRevenue(token.address, amount))
+    //         await token.allocateTo(cometAddress, amount);
+    //         await expect(cometContract.accumulateRevenue(token.address, amount))
     //             .to.emit(configController, 'RevenueAccumulated')
     //             .withArgs(token.address, amount);
 
@@ -1695,7 +1695,7 @@ describe('ConfigController', () => {
     //         await baseToken.allocateTo(owner.address, (await sandboxController.config()).suggestedAmountOfSeedReserves);
     //         await baseToken.connect(owner).approve(configController.address, (await sandboxController.config()).suggestedAmountOfSeedReserves);
             
-    //         const marketAddress: string = await createMarket(
+    //         const cometAddress: string = await createComet(
     //             configController, tokens, baseToken, priceFeeds
     //         );
 
@@ -1707,11 +1707,11 @@ describe('ConfigController', () => {
     //             liquidationFactor: factor(0.8),
     //             supplyCap: exp(1_000_000, 6)
     //         }]; 
-    //         const tx: ContractTransaction = await configController.connect(owner).proposeMarketCollateralTokens(marketAddress, collateralTokens);
+    //         const tx: ContractTransaction = await configController.connect(owner).proposeMarketCollateralTokens(cometAddress, collateralTokens);
     //         const receipt: ContractReceipt = await tx.wait();
     //         const events: Event[] = receipt.events?.filter((event) => event.event === 'MarketConfigProposed');
             
-    //         expect(events[0].args.market).to.equal(marketAddress);
+    //         expect(events[0].args.comet).to.equal(cometAddress);
     //         expect(events[0].args.proposer).to.equal(owner.address);
             
     //         const block = await ethers.provider.getBlock(receipt.blockNumber);
@@ -1725,7 +1725,7 @@ describe('ConfigController', () => {
     //         await baseToken.allocateTo(owner.address, (await sandboxController.config()).suggestedAmountOfSeedReserves);
     //         await baseToken.connect(owner).approve(configController.address, (await sandboxController.config()).suggestedAmountOfSeedReserves);
             
-    //         const market = await createMarket(configController, tokens, baseToken, priceFeeds);
+    //         const comet = await createComet(configController, tokens, baseToken, priceFeeds);
             
     //         const collateralTokens = [{
     //             collateralToken: tokens["COMP"].address,
@@ -1737,20 +1737,20 @@ describe('ConfigController', () => {
     //         }];
 
             
-    //         const tx = await configController.connect(curator).proposeMarketCollateralTokens(market, collateralTokens);
+    //         const tx = await configController.connect(curator).proposeMarketCollateralTokens(comet, collateralTokens);
     //         const receipt = await tx.wait();
             
-    //         const proposal = await configController.marketProposals(market);
+    //         const proposal = await configController.cometProposals(comet);
             
     //         const events = receipt.events?.filter((event) => event.event === 'MarketConfigProposed');
-    //         expect(events[0].args.market).to.equal(market);
+    //         expect(events[0].args.comet).to.equal(comet);
     //         expect(events[0].args.proposer).to.equal(curator.address);
     //         expect(events[0].args.revertTime).to.equal(proposal.revertTime);
     //         const block = await ethers.provider.getBlock(receipt.blockNumber);
     //         expect(events[0].args.revertTime).to.equal(block.timestamp + 7 * 24 * 60 * 60);
 
     //         expect(proposal.proposer).to.equal(curator.address);
-    //         expect(proposal.market).to.equal(market);
+    //         expect(proposal.comet).to.equal(comet);
     //         expect(proposal.collateralTokens[0].collateralToken).to.equal(
     //             collateralTokens[0].collateralToken);
     //         expect(proposal.collateralTokens[0].priceFeed).to.equal(
@@ -1766,7 +1766,7 @@ describe('ConfigController', () => {
     //         await baseToken.allocateTo(owner.address, (await sandboxController.config()).suggestedAmountOfSeedReserves);
     //         await baseToken.connect(owner).approve(configController.address, (await sandboxController.config()).suggestedAmountOfSeedReserves);
             
-    //         const market = await createMarket(configController, tokens, baseToken, priceFeeds);
+    //         const comet = await createComet(configController, tokens, baseToken, priceFeeds);
             
     //         const collateralTokens = [{
     //             collateralToken: tokens["COMP"].address,
@@ -1777,7 +1777,7 @@ describe('ConfigController', () => {
     //             supplyCap: exp(1_000_000, 6)
     //         }];
 
-    //         await expect(configController.connect(guardian).proposeMarketCollateralTokens(market, collateralTokens))
+    //         await expect(configController.connect(guardian).proposeMarketCollateralTokens(comet, collateralTokens))
     //             .to.be.revertedWithCustomError(configController, 'Unauthorized');
     //     });
 
@@ -1786,7 +1786,7 @@ describe('ConfigController', () => {
     //         await baseToken.allocateTo(owner.address, (await sandboxController.config()).suggestedAmountOfSeedReserves);
     //         await baseToken.connect(owner).approve(configController.address, (await sandboxController.config()).suggestedAmountOfSeedReserves);
             
-    //         const market = await createMarket(configController, tokens, baseToken, priceFeeds);
+    //         const comet = await createComet(configController, tokens, baseToken, priceFeeds);
             
     //         const collateralTokens = [{
     //             collateralToken: tokens["COMP"].address,
@@ -1797,7 +1797,7 @@ describe('ConfigController', () => {
     //             supplyCap: exp(1_000_000, 6)
     //         }];
 
-    //         await expect(configController.connect(users[4]).proposeMarketCollateralTokens(market, collateralTokens))
+    //         await expect(configController.connect(users[4]).proposeMarketCollateralTokens(comet, collateralTokens))
     //             .to.be.revertedWithCustomError(configController, 'Unauthorized');
     //     });
     // });
@@ -1850,7 +1850,7 @@ describe('ConfigController', () => {
     // });
 
     // describe('Market Transfer Proposals', () => {
-    //     it('should allow owner to propose market transfer', async () => {
+    //     it('should allow owner to propose comet transfer', async () => {
     //         const { 
     //             configControllerFactory, 
     //             configController, 
@@ -1858,7 +1858,7 @@ describe('ConfigController', () => {
     //             curator, 
     //             guardian, 
     //             sandboxController, 
-    //             marketFactory, 
+    //             cometFactory, 
     //             tokens, 
     //             baseToken, 
     //             priceFeeds 
@@ -1872,8 +1872,8 @@ describe('ConfigController', () => {
     //             (await sandboxController.config()).suggestedAmountOfSeedReserves
     //         );
             
-    //         // Create a market
-    //         const marketAdress: string = await createMarket(
+    //         // Create a comet
+    //         const cometAdress: string = await createComet(
     //             configController,
     //             tokens,
     //             baseToken,
@@ -1884,33 +1884,33 @@ describe('ConfigController', () => {
     //             curator.address,
     //             guardian.address,
     //             sandboxController.address,
-    //             marketFactory.address,
+    //             cometFactory.address,
     //             configControllerFactory.address
     //         );
     //         const tx = await configController.connect(owner).proposeMarketTransfer(
-    //             marketAdress, 
+    //             cometAdress, 
     //             newControllerAddress
     //         );
     //         const receipt = await tx.wait();
     //         const events = receipt.events?.filter((event) => event.event === 'MarketTransferProposed');
-    //         const proposal = await configController.marketTransferProposals(marketAdress);
+    //         const proposal = await configController.cometTransferProposals(cometAdress);
 
-    //         expect(events[0].args.market).to.equal(marketAdress);
+    //         expect(events[0].args.comet).to.equal(cometAdress);
     //         expect(events[0].args.newController).to.equal(newControllerAddress);
     //         expect(events[0].args.expiration).to.equal(proposal.expiration);
 
-    //         expect(proposal.market).to.equal(marketAdress);
+    //         expect(proposal.comet).to.equal(cometAdress);
     //         expect(proposal.newController).to.equal(newControllerAddress);
     //     });
 
-    //     it('should not allow non-owner to propose market transfer', async () => {
-    //         const { users, configControllerFactory, configController, owner, curator, guardian, dao, sandboxController, marketFactory, tokens, baseToken, priceFeeds } = await makeConfigController();
+    //     it('should not allow non-owner to propose comet transfer', async () => {
+    //         const { users, configControllerFactory, configController, owner, curator, guardian, dao, sandboxController, cometFactory, tokens, baseToken, priceFeeds } = await makeConfigController();
     //         const nonOwner = users[0];
     //         await baseToken.allocateTo(owner.address, (await sandboxController.config()).suggestedAmountOfSeedReserves);
     //         await baseToken.connect(owner).approve(configController.address, (await sandboxController.config()).suggestedAmountOfSeedReserves);
             
-    //         // Create a market
-    //         const marketAdress: string = await createMarket(
+    //         // Create a comet
+    //         const cometAdress: string = await createComet(
     //             configController,
     //             tokens,
     //             baseToken,
@@ -1922,15 +1922,15 @@ describe('ConfigController', () => {
     //             curator.address,
     //             guardian.address,
     //             sandboxController.address,
-    //             marketFactory.address,
+    //             cometFactory.address,
     //             configControllerFactory.address
     //         );
-    //         await expect(configController.connect(nonOwner).proposeMarketTransfer(marketAdress, newControllerAddress))
+    //         await expect(configController.connect(nonOwner).proposeMarketTransfer(cometAdress, newControllerAddress))
     //             .to.be.revertedWithCustomError(configController, 'Unauthorized');
     //     });
 
-    //     it('should not allow proposing transfer of non-owned market', async () => {
-    //         const { configControllerFactory, configController, owner, curator, guardian, dao, sandboxController, marketFactory, tokens, baseToken, priceFeeds } = await makeConfigController();
+    //     it('should not allow proposing transfer of non-owned comet', async () => {
+    //         const { configControllerFactory, configController, owner, curator, guardian, dao, sandboxController, cometFactory, tokens, baseToken, priceFeeds } = await makeConfigController();
 
     //         // Deploy a new controller for testing transfers
     //         const newControllerAddress: string = await makeOnlyConfigController(
@@ -1938,21 +1938,21 @@ describe('ConfigController', () => {
     //             curator.address,
     //             guardian.address,
     //             sandboxController.address,
-    //             marketFactory.address,
+    //             cometFactory.address,
     //             configControllerFactory.address
     //         );
     //         const newController = <ConfigController>(await ethers.getContractAt('ConfigController', newControllerAddress));
-    //             // Create a market in the new controller
+    //             // Create a comet in the new controller
     //         await baseToken.allocateTo(owner.address, (await sandboxController.config()).suggestedAmountOfSeedReserves);
     //         await baseToken.connect(owner).approve(newController.address, (await sandboxController.config()).suggestedAmountOfSeedReserves);
-    //         const otherMarketAdress: string = await createMarket(
+    //         const otherMarketAdress: string = await createComet(
     //             newController,
     //             tokens,
     //             baseToken,
     //             priceFeeds
     //         );
             
-    //         console.log(await configController.markets(await configController.marketId(otherMarketAdress)));
+    //         console.log(await configController.comets(await configController.cometId(otherMarketAdress)));
     //         await expect(configController.connect(owner).proposeMarketTransfer(otherMarketAdress, newControllerAddress))
     //             .to.be.revertedWithCustomError(configController, 'MarketNotOwned');
     //     });
@@ -1962,19 +1962,19 @@ describe('ConfigController', () => {
     //         await baseToken.allocateTo(owner.address, (await sandboxController.config()).suggestedAmountOfSeedReserves);
     //         await baseToken.connect(owner).approve(configController.address, (await sandboxController.config()).suggestedAmountOfSeedReserves);
             
-    //         // Create a market
-    //         const marketAdress: string = await createMarket(
+    //         // Create a comet
+    //         const cometAdress: string = await createComet(
     //             configController,
     //             tokens,
     //             baseToken,
     //             priceFeeds
     //         );
 
-    //         await expect(configController.connect(owner).proposeMarketTransfer(marketAdress, ethers.constants.AddressZero))
+    //         await expect(configController.connect(owner).proposeMarketTransfer(cometAdress, ethers.constants.AddressZero))
     //             .to.be.revertedWithCustomError(configController, 'NonConfigController');
     //     });
 
-    //     it('should not allow proposing transfer of zero address market', async () => {
+    //     it('should not allow proposing transfer of zero address comet', async () => {
     //         const { configController, owner } = await makeConfigController();
 
     //         // Deploy a new controller for testing transfers
@@ -1985,10 +1985,10 @@ describe('ConfigController', () => {
     //     });
 
     //     it('should not allow duplicate proposals', async () => {
-    //         const { configControllerFactory, configController, owner, curator, guardian, dao, sandboxController, marketFactory, tokens, baseToken, priceFeeds } = await makeConfigController();
+    //         const { configControllerFactory, configController, owner, curator, guardian, dao, sandboxController, cometFactory, tokens, baseToken, priceFeeds } = await makeConfigController();
 
-    //         // Create a market
-    //         const marketAdress: string = await createMarket(
+    //         // Create a comet
+    //         const cometAdress: string = await createComet(
     //             configController,
     //             tokens,
     //             baseToken,
@@ -2002,22 +2002,22 @@ describe('ConfigController', () => {
     //                 guardian: guardian,
     //                 dao: dao,
     //                 sandboxController: sandboxController.address,
-    //                 marketFactory: marketFactory.address,
+    //                 cometFactory: cometFactory.address,
     //                 configControllerFactory: configControllerFactory.address
     //             }
     //         );
 
-    //         await configController.connect(owner).proposeMarketTransfer(marketAdress, newControllerAddress);
+    //         await configController.connect(owner).proposeMarketTransfer(cometAdress, newControllerAddress);
             
-    //         await expect(configController.connect(owner).proposeMarketTransfer(marketAdress, newControllerAddress))
+    //         await expect(configController.connect(owner).proposeMarketTransfer(cometAdress, newControllerAddress))
     //             .to.be.revertedWithCustomError(configController, 'ProposalExists');
     //     });
 
-    //     it('should allow owner to cancel market transfer proposal', async () => {
-    //         const { configControllerFactory, configController, owner, curator, guardian, dao, sandboxController, marketFactory, tokens, baseToken, priceFeeds } = await makeConfigController();
+    //     it('should allow owner to cancel comet transfer proposal', async () => {
+    //         const { configControllerFactory, configController, owner, curator, guardian, dao, sandboxController, cometFactory, tokens, baseToken, priceFeeds } = await makeConfigController();
 
-    //         // Create a market
-    //         const marketAdress: string = await createMarket(
+    //         // Create a comet
+    //         const cometAdress: string = await createComet(
     //             configController,
     //             tokens,
     //             baseToken,
@@ -2031,26 +2031,26 @@ describe('ConfigController', () => {
     //                 guardian: guardian,
     //                 dao: dao,
     //                 sandboxController: sandboxController.address,
-    //                 marketFactory: marketFactory.address,
+    //                 cometFactory: cometFactory.address,
     //                 configControllerFactory: configControllerFactory.address
     //             }
     //         );
-    //         await configController.connect(owner).proposeMarketTransfer(marketAdress, newControllerAddress);
+    //         await configController.connect(owner).proposeMarketTransfer(cometAdress, newControllerAddress);
             
-    //         await expect(configController.connect(owner).cancelMarketTransferProposal(marketAdress))
+    //         await expect(configController.connect(owner).cancelMarketTransferProposal(cometAdress))
     //             .to.emit(configController, 'MarketTransferProposalCancelled')
-    //             .withArgs(marketAdress, owner.address);
+    //             .withArgs(cometAdress, owner.address);
 
-    //         const proposal = await configController.marketTransferProposals(marketAdress);
+    //         const proposal = await configController.cometTransferProposals(cometAdress);
     //         expect(proposal.expiration).to.equal(0);
     //     });
 
-    //     it('should not allow non-owner to cancel market transfer proposal', async () => {
-    //         const { users, configControllerFactory, configController, owner, curator, guardian, dao, sandboxController, marketFactory, tokens, baseToken, priceFeeds } = await makeConfigController();
+    //     it('should not allow non-owner to cancel comet transfer proposal', async () => {
+    //         const { users, configControllerFactory, configController, owner, curator, guardian, dao, sandboxController, cometFactory, tokens, baseToken, priceFeeds } = await makeConfigController();
     //         const nonOwner = users[0];
 
-    //         // Create a market
-    //         const marketAdress: string = await createMarket(
+    //         // Create a comet
+    //         const cometAdress: string = await createComet(
     //             configController,
     //             tokens,
     //             baseToken,
@@ -2064,37 +2064,37 @@ describe('ConfigController', () => {
     //                 guardian: guardian,
     //                 dao: dao,
     //                 sandboxController: sandboxController.address,
-    //                 marketFactory: marketFactory.address,
+    //                 cometFactory: cometFactory.address,
     //                 configControllerFactory: configControllerFactory.address
     //             }
     //         ); 
 
-    //         await configController.connect(owner).proposeMarketTransfer(marketAdress, newControllerAddress);
+    //         await configController.connect(owner).proposeMarketTransfer(cometAdress, newControllerAddress);
             
-    //         await expect(configController.connect(nonOwner).cancelMarketTransferProposal(marketAdress))
+    //         await expect(configController.connect(nonOwner).cancelMarketTransferProposal(cometAdress))
     //             .to.be.revertedWithCustomError(configController, 'Unauthorized');
     //     });
 
     //     it('should not allow canceling non-existent proposal', async () => {
     //         const { configController, owner, tokens, baseToken, priceFeeds } = await makeConfigController();
 
-    //         // Create a market
-    //         const marketAdress: string = await createMarket(
+    //         // Create a comet
+    //         const cometAdress: string = await createComet(
     //             configController,
     //             tokens,
     //             baseToken,
     //             priceFeeds
     //         );
 
-    //         await expect(configController.connect(owner).cancelMarketTransferProposal(marketAdress))
+    //         await expect(configController.connect(owner).cancelMarketTransferProposal(cometAdress))
     //             .to.be.revertedWithCustomError(configController, 'NoActiveProposal');
     //     });
 
-    //     it('should allow owner to accept market transfer proposal', async () => {
-    //         const { users, configControllerFactory, configController, owner, curator, guardian, dao, sandboxController, marketFactory, tokens, baseToken, priceFeeds } = await makeConfigController();
+    //     it('should allow owner to accept comet transfer proposal', async () => {
+    //         const { users, configControllerFactory, configController, owner, curator, guardian, dao, sandboxController, cometFactory, tokens, baseToken, priceFeeds } = await makeConfigController();
     //         const newConfigControllerOwner = users[0];
-    //         // Create a market
-    //         const marketAdress: string = await createMarket(
+    //         // Create a comet
+    //         const cometAdress: string = await createComet(
     //             configController,
     //             tokens,
     //             baseToken,
@@ -2107,32 +2107,32 @@ describe('ConfigController', () => {
     //             guardian.address,
     //             dao,
     //             sandboxController.address,
-    //             marketFactory.address,
+    //             cometFactory.address,
     //             configControllerFactory.address
     //         );
     //         const newConfigController = <ConfigController>(await ethers.getContractAt('ConfigController', newConfigControllerAddress));
-    //         await configController.connect(owner).proposeMarketTransfer(marketAdress, newConfigControllerAddress);
+    //         await configController.connect(owner).proposeMarketTransfer(cometAdress, newConfigControllerAddress);
 
-    //         await expect(configController.connect(newConfigControllerOwner).acceptMarketTransferProposal(marketAdress))
+    //         await expect(configController.connect(newConfigControllerOwner).acceptMarketTransferProposal(cometAdress))
     //             .to.emit(configController, 'MarketTransferProposalAccepted')
-    //             .withArgs(marketAdress, configController.address, newConfigControllerAddress);
+    //             .withArgs(cometAdress, configController.address, newConfigControllerAddress);
 
-    //         // Verify market ownership was transferred
-    //         const market = <MarketMock>(await ethers.getContractAt('MarketMock', marketAdress));
+    //         // Verify comet ownership was transferred
+    //         const comet = <MarketMock>(await ethers.getContractAt('MarketMock', cometAdress));
         
-    //         expect(await market.configControllerAddress()).to.equal(newConfigControllerAddress);
-    //         // Verify market was removed from old controller
-    //         const marketsLength = await configController.marketsLength();
-    //         expect(marketsLength).to.equal(0); 
-    //         expect(await newConfigController.marketsLength()).to.equal(1);
-    //         expect(await newConfigController.markets(0)).to.equal(marketAdress);
+    //         expect(await comet.configControllerAddress()).to.equal(newConfigControllerAddress);
+    //         // Verify comet was removed from old controller
+    //         const cometsLength = await configController.cometsLength();
+    //         expect(cometsLength).to.equal(0); 
+    //         expect(await newConfigController.cometsLength()).to.equal(1);
+    //         expect(await newConfigController.comets(0)).to.equal(cometAdress);
     //     });
 
-    //     it('should not allow non-owner to accept market transfer proposal', async () => {
-    //         const { users, configControllerFactory, configController, owner, curator, guardian, dao, sandboxController, marketFactory, tokens, baseToken, priceFeeds } = await makeConfigController();
+    //     it('should not allow non-owner to accept comet transfer proposal', async () => {
+    //         const { users, configControllerFactory, configController, owner, curator, guardian, dao, sandboxController, cometFactory, tokens, baseToken, priceFeeds } = await makeConfigController();
     //         const nonOwner = users[0];
-    //         // Create a market
-    //         const marketAdress: string = await createMarket(
+    //         // Create a comet
+    //         const cometAdress: string = await createComet(
     //             configController,
     //             tokens,
     //             baseToken,
@@ -2145,19 +2145,19 @@ describe('ConfigController', () => {
     //             guardian.address,
     //             dao,
     //             sandboxController.address,
-    //             marketFactory.address,
+    //             cometFactory.address,
     //             configControllerFactory.address
     //         );
-    //         await configController.connect(owner).proposeMarketTransfer(marketAdress, newConfigControllerAddress);
+    //         await configController.connect(owner).proposeMarketTransfer(cometAdress, newConfigControllerAddress);
             
-    //         await expect(configController.connect(nonOwner).acceptMarketTransferProposal(marketAdress))
+    //         await expect(configController.connect(nonOwner).acceptMarketTransferProposal(cometAdress))
     //             .to.be.revertedWithCustomError(configController, 'Unauthorized');
     //     });
 
     //     it('should not allow accepting non-existent proposal', async () => {
-    //         const { configControllerFactory, configController, owner, curator, guardian, dao, sandboxController, marketFactory, tokens, baseToken, priceFeeds } = await makeConfigController();
-    //         // Create a market
-    //         const marketAdress: string = await createMarket(
+    //         const { configControllerFactory, configController, owner, curator, guardian, dao, sandboxController, cometFactory, tokens, baseToken, priceFeeds } = await makeConfigController();
+    //         // Create a comet
+    //         const cometAdress: string = await createComet(
     //             configController,
     //             tokens,
     //             baseToken,
@@ -2170,24 +2170,24 @@ describe('ConfigController', () => {
     //             guardian.address,
     //             dao,
     //             sandboxController.address,
-    //             marketFactory.address,
+    //             cometFactory.address,
     //             configControllerFactory.address
     //         );
-    //         await configController.connect(owner).proposeMarketTransfer(marketAdress, newConfigControllerAddress);
-    //         const marketAdress2: string = await createMarket(
+    //         await configController.connect(owner).proposeMarketTransfer(cometAdress, newConfigControllerAddress);
+    //         const cometAdress2: string = await createComet(
     //             configController,
     //             tokens,
     //             baseToken,
     //             priceFeeds
     //         );
-    //         await expect(configController.connect(owner).acceptMarketTransferProposal(marketAdress2))
+    //         await expect(configController.connect(owner).acceptMarketTransferProposal(cometAdress2))
     //             .to.be.revertedWithCustomError(configController, 'NoActiveProposal');
     //     });
 
     //     it('should not allow accepting expired proposal', async () => {
-    //         const { configControllerFactory, configController, owner, curator, guardian, dao, sandboxController, marketFactory, tokens, baseToken, priceFeeds } = await makeConfigController();
-    //         // Create a market
-    //         const marketAdress: string = await createMarket(
+    //         const { configControllerFactory, configController, owner, curator, guardian, dao, sandboxController, cometFactory, tokens, baseToken, priceFeeds } = await makeConfigController();
+    //         // Create a comet
+    //         const cometAdress: string = await createComet(
     //             configController,
     //             tokens,
     //             baseToken,
@@ -2200,19 +2200,19 @@ describe('ConfigController', () => {
     //             guardian.address,
     //             dao,
     //             sandboxController.address,
-    //             marketFactory.address,
+    //             cometFactory.address,
     //             configControllerFactory.address
     //         );
-    //         await configController.connect(owner).proposeMarketTransfer(marketAdress, newConfigControllerAddress);
+    //         await configController.connect(owner).proposeMarketTransfer(cometAdress, newConfigControllerAddress);
             
     //         // Fast forward past proposal duration
-    //         const proposal = await configController.marketTransferProposals(marketAdress);
+    //         const proposal = await configController.cometTransferProposals(cometAdress);
     //         const block = await ethers.provider.getBlock('latest');
     //         const timeToFastForward = Number(proposal.expiration) - block.timestamp + 1;
     //         await ethers.provider.send('evm_increaseTime', [timeToFastForward]);
     //         await ethers.provider.send('evm_mine', []);
             
-    //         await expect(configController.connect(owner).acceptMarketTransferProposal(marketAdress))
+    //         await expect(configController.connect(owner).acceptMarketTransferProposal(cometAdress))
     //             .to.be.revertedWithCustomError(configController, 'ProposalExpired');
     //     });
     // });
@@ -2220,7 +2220,7 @@ describe('ConfigController', () => {
     // describe('Base Token Curve Proposal', () => {
     //     it('should allow owner to propose base token curve', async () => {
     //         const { configController, dao, sandboxController, owner, tokens, baseToken, priceFeeds } = await makeConfigController();
-    //         const marketAdress: string = await createMarket(
+    //         const cometAdress: string = await createComet(
     //             configController,
     //             tokens,
     //             baseToken,
@@ -2241,8 +2241,8 @@ describe('ConfigController', () => {
     //                 borrowPerYearInterestRateSlopeHigh: BigNumber.from(factor(0.01)),
     //             }
     //         );
-    //         await configController.connect(owner).proposeUpdateBaseTokenCurve(marketAdress, 0);
-    //         const proposal = await configController.baseAssetsCurvesProposals(marketAdress);
+    //         await configController.connect(owner).proposeUpdateBaseTokenCurve(cometAdress, 0);
+    //         const proposal = await configController.baseAssetsCurvesProposals(cometAdress);
     //         const block = await ethers.provider.getBlock('latest');
 
     //         expect(proposal.revertTime).to.equal(block.timestamp + 7 * 24 * 60 * 60);
@@ -2252,7 +2252,7 @@ describe('ConfigController', () => {
 
     //     it('should allow curator to propose base token curve', async () => {
     //         const { configController, dao, sandboxController, curator, tokens, baseToken, priceFeeds } = await makeConfigController();
-    //         const marketAdress: string = await createMarket(
+    //         const cometAdress: string = await createComet(
     //             configController,
     //             tokens,
     //             baseToken,
@@ -2273,8 +2273,8 @@ describe('ConfigController', () => {
     //                 borrowPerYearInterestRateSlopeHigh: BigNumber.from(factor(0.01)),
     //             }
     //         );
-    //         await configController.connect(curator).proposeUpdateBaseTokenCurve(marketAdress, 0);
-    //         const proposal = await configController.baseAssetsCurvesProposals(marketAdress);
+    //         await configController.connect(curator).proposeUpdateBaseTokenCurve(cometAdress, 0);
+    //         const proposal = await configController.baseAssetsCurvesProposals(cometAdress);
     //         const block = await ethers.provider.getBlock('latest');
     //         expect(proposal.revertTime).to.equal(block.timestamp + 7 * 24 * 60 * 60);
     //         expect(proposal.proposer).to.equal(curator.address);
@@ -2283,7 +2283,7 @@ describe('ConfigController', () => {
 
     //     it('should revert when non-owner/curator tries to propose', async () => {
     //         const { configController, dao, sandboxController, users, tokens, baseToken, priceFeeds } = await makeConfigController();
-    //         const marketAdress: string = await createMarket(
+    //         const cometAdress: string = await createComet(
     //             configController,
     //             tokens,
     //             baseToken,
@@ -2304,11 +2304,11 @@ describe('ConfigController', () => {
     //                 borrowPerYearInterestRateSlopeHigh: BigNumber.from(factor(0.01)),
     //             }
     //         );
-    //         await expect(configController.connect(users[0]).proposeUpdateBaseTokenCurve(marketAdress, 0))
+    //         await expect(configController.connect(users[0]).proposeUpdateBaseTokenCurve(cometAdress, 0))
     //             .to.be.revertedWithCustomError(configController, 'Unauthorized');
     //     });
 
-    //     it('should revert when market is not owned', async () => {
+    //     it('should revert when comet is not owned', async () => {
     //         const { configController, owner } = await makeConfigController();
     //         const randomAddress = ethers.Wallet.createRandom().address;
     //         await expect(configController.connect(owner).proposeUpdateBaseTokenCurve(randomAddress, 0))
@@ -2317,7 +2317,7 @@ describe('ConfigController', () => {
 
     //     it('should revert when curve id is invalid', async () => {
     //         const { configController, dao, sandboxController, owner, tokens, baseToken, priceFeeds } = await makeConfigController();
-    //         const marketAdress: string = await createMarket(
+    //         const cometAdress: string = await createComet(
     //             configController,
     //             tokens,
     //             baseToken,
@@ -2338,34 +2338,34 @@ describe('ConfigController', () => {
     //                 borrowPerYearInterestRateSlopeHigh: BigNumber.from(factor(0.01)),
     //             }
     //         );
-    //         await expect(configController.connect(owner).proposeUpdateBaseTokenCurve(marketAdress, 1))
+    //         await expect(configController.connect(owner).proposeUpdateBaseTokenCurve(cometAdress, 1))
     //             .to.be.revertedWithCustomError(configController, 'InvalidCurveId');
     //     });
 
     //     it('should revert when proposing same curve', async () => {
     //         const { configController, owner, tokens, baseToken, priceFeeds } = await makeConfigController();
-    //         const marketAdress: string = await createMarket(
+    //         const cometAdress: string = await createComet(
     //             configController,
     //             tokens,
     //             baseToken,
     //             priceFeeds
     //         );  
                         
-    //         await expect(configController.connect(owner).proposeUpdateBaseTokenCurve(marketAdress, 0))
+    //         await expect(configController.connect(owner).proposeUpdateBaseTokenCurve(cometAdress, 0))
     //             .to.be.revertedWithCustomError(configController, 'SameCurve');
     //     });
 
     //     it('should allow owner to execute base token curve proposal', async () => {
     //         const { configController, dao, sandboxController, owner, tokens, baseToken, priceFeeds } = await makeConfigController();
-    //         const marketAdress: string = await createMarket(
+    //         const cometAdress: string = await createComet(
     //             configController,
     //             tokens,
     //             baseToken,
     //             priceFeeds
     //         );  
             
-    //         // Verify market is owned by controller
-    //         expect(await configController.marketId(marketAdress)).to.not.equal(0);
+    //         // Verify comet is owned by controller
+    //         expect(await configController.cometId(cometAdress)).to.not.equal(0);
             
     //         /// Update the base token curve
     //         await sandboxController.connect(dao).changeBaseAssetCurve(
@@ -2384,10 +2384,10 @@ describe('ConfigController', () => {
     //         );
             
     //         // Propose the update
-    //         await configController.connect(owner).proposeUpdateBaseTokenCurve(marketAdress, 0);
+    //         await configController.connect(owner).proposeUpdateBaseTokenCurve(cometAdress, 0);
             
     //         // Verify proposal exists
-    //         const proposal = await configController.baseAssetsCurvesProposals(marketAdress);
+    //         const proposal = await configController.baseAssetsCurvesProposals(cometAdress);
     //         expect(proposal.revertTime).to.not.equal(0);
             
     //         // Fast forward time to after proposal period
@@ -2395,24 +2395,24 @@ describe('ConfigController', () => {
     //         await ethers.provider.send('evm_mine', []);
             
     //         // Execute the proposal
-    //         const tx = await configController.connect(owner).executeBaseTokenCurveProposal(marketAdress);
+    //         const tx = await configController.connect(owner).executeBaseTokenCurveProposal(cometAdress);
     //         const receipt = await tx.wait();
     //         const events = receipt.events?.filter((event) => event.event === 'MarketBaseTokenCurveProposalExecuted');
             
-    //         expect(events[0].args.market).to.equal(marketAdress);
+    //         expect(events[0].args.comet).to.equal(cometAdress);
     //         expect(events[0].args.executedBy).to.equal(owner.address);
             
     //         // Verify proposal is deleted after execution
-    //         const updatedProposal = await configController.baseAssetsCurvesProposals(marketAdress);
+    //         const updatedProposal = await configController.baseAssetsCurvesProposals(cometAdress);
     //         expect(updatedProposal.revertTime).to.equal(0);
             
-    //         // Verify market's base token curve ID is updated
-    //         expect(await configController.marketBaseTokenCurveId(marketAdress)).to.equal(0);
+    //         // Verify comet's base token curve ID is updated
+    //         expect(await configController.cometBaseTokenCurveId(cometAdress)).to.equal(0);
     //     });
 
     //     it('should allow curator to execute base token curve proposal', async () => {
     //         const { configController, dao, sandboxController, curator, tokens, baseToken, priceFeeds } = await makeConfigController();
-    //         const marketAdress: string = await createMarket(
+    //         const cometAdress: string = await createComet(
     //             configController,
     //             tokens,
     //             baseToken,
@@ -2433,20 +2433,20 @@ describe('ConfigController', () => {
     //                 borrowPerYearInterestRateSlopeHigh: BigNumber.from(factor(0.01)),
     //             }
     //         );
-    //         await configController.connect(curator).proposeUpdateBaseTokenCurve(marketAdress, 0);
+    //         await configController.connect(curator).proposeUpdateBaseTokenCurve(cometAdress, 0);
             
     //         // Fast forward time to after proposal period
     //         await ethers.provider.send('evm_increaseTime', [7 * 24 * 60 * 60 + 1]);
     //         await ethers.provider.send('evm_mine', []);
             
-    //         await configController.connect(curator).executeBaseTokenCurveProposal(marketAdress);
-    //         const proposal = await configController.baseAssetsCurvesProposals(marketAdress);
+    //         await configController.connect(curator).executeBaseTokenCurveProposal(cometAdress);
+    //         const proposal = await configController.baseAssetsCurvesProposals(cometAdress);
     //         expect(proposal.revertTime).to.equal(0); // Proposal should be deleted after execution
     //     });
 
     //     it('should revert when non-owner/curator tries to execute', async () => {
     //         const { configController, dao, sandboxController, owner, users, tokens, baseToken, priceFeeds } = await makeConfigController();
-    //         const marketAdress: string = await createMarket(
+    //         const cometAdress: string = await createComet(
     //             configController,
     //             tokens,
     //             baseToken,
@@ -2467,32 +2467,32 @@ describe('ConfigController', () => {
     //                 borrowPerYearInterestRateSlopeHigh: BigNumber.from(factor(0.01)),
     //             }
     //         );
-    //         await configController.connect(owner).proposeUpdateBaseTokenCurve(marketAdress, 0);
+    //         await configController.connect(owner).proposeUpdateBaseTokenCurve(cometAdress, 0);
             
     //         // Fast forward time to after proposal period
     //         await ethers.provider.send('evm_increaseTime', [7 * 24 * 60 * 60 + 1]);
     //         await ethers.provider.send('evm_mine', []);
             
-    //         await expect(configController.connect(users[0]).executeBaseTokenCurveProposal(marketAdress))
+    //         await expect(configController.connect(users[0]).executeBaseTokenCurveProposal(cometAdress))
     //             .to.be.revertedWithCustomError(configController, 'Unauthorized');
     //     });
 
     //     it('should revert when no active proposal exists', async () => {
     //         const { configController, owner, tokens, baseToken, priceFeeds } = await makeConfigController();
-    //         const marketAdress: string = await createMarket(
+    //         const cometAdress: string = await createComet(
     //             configController,
     //             tokens,
     //             baseToken,
     //             priceFeeds
     //         );  
             
-    //         await expect(configController.connect(owner).executeBaseTokenCurveProposal(marketAdress))
+    //         await expect(configController.connect(owner).executeBaseTokenCurveProposal(cometAdress))
     //             .to.be.revertedWithCustomError(configController, 'NoActiveProposal');
     //     });
 
     //     it('should revert when trying to execute before proposal period ends', async () => {
     //         const { configController, dao, sandboxController, owner, tokens, baseToken, priceFeeds } = await makeConfigController();
-    //         const marketAdress: string = await createMarket(
+    //         const cometAdress: string = await createComet(
     //             configController,
     //             tokens,
     //             baseToken,
@@ -2513,15 +2513,15 @@ describe('ConfigController', () => {
     //                 borrowPerYearInterestRateSlopeHigh: BigNumber.from(factor(0.01)),
     //             }
     //         );
-    //         await configController.connect(owner).proposeUpdateBaseTokenCurve(marketAdress, 0);
+    //         await configController.connect(owner).proposeUpdateBaseTokenCurve(cometAdress, 0);
             
-    //         await expect(configController.connect(owner).executeBaseTokenCurveProposal(marketAdress))
+    //         await expect(configController.connect(owner).executeBaseTokenCurveProposal(cometAdress))
     //             .to.be.revertedWithCustomError(configController, 'ProposalNotReady');
     //     });
 
     //     it('should allow owner to cancel base token curve proposal', async () => {
     //         const { configController, dao, sandboxController, owner, tokens, baseToken, priceFeeds } = await makeConfigController();
-    //         const marketAdress: string = await createMarket(
+    //         const cometAdress: string = await createComet(
     //             configController,
     //             tokens,
     //             baseToken, 
@@ -2542,21 +2542,21 @@ describe('ConfigController', () => {
     //                 borrowPerYearInterestRateSlopeHigh: BigNumber.from(factor(0.01)),
     //             }
     //         );
-    //         await configController.connect(owner).proposeUpdateBaseTokenCurve(marketAdress, 0);
-    //         const tx = await configController.connect(owner).cancelBaseTokenCurveProposal(marketAdress);
+    //         await configController.connect(owner).proposeUpdateBaseTokenCurve(cometAdress, 0);
+    //         const tx = await configController.connect(owner).cancelBaseTokenCurveProposal(cometAdress);
     //         const receipt = await tx.wait();
     //         const events = receipt.events?.filter((event) => event.event === 'MarketBaseTokenCurveProposalCancelled');
             
-    //         expect(events[0].args.market).to.equal(marketAdress);
+    //         expect(events[0].args.comet).to.equal(cometAdress);
     //         expect(events[0].args.cancelledBy).to.equal(owner.address);
             
-    //         const proposal = await configController.baseAssetsCurvesProposals(marketAdress);
+    //         const proposal = await configController.baseAssetsCurvesProposals(cometAdress);
     //         expect(proposal.revertTime).to.equal(0);
     //     });
 
     //     it('should revert when non-owner tries to cancel', async () => {
     //         const { configController, dao, sandboxController, owner, users, tokens, baseToken, priceFeeds } = await makeConfigController();
-    //         const marketAdress: string = await createMarket(
+    //         const cometAdress: string = await createComet(
     //             configController,
     //             tokens,
     //             baseToken, 
@@ -2577,27 +2577,27 @@ describe('ConfigController', () => {
     //                 borrowPerYearInterestRateSlopeHigh: BigNumber.from(factor(0.01)),
     //             }
     //         );
-    //         await configController.connect(owner).proposeUpdateBaseTokenCurve(marketAdress, 0);
-    //         await expect(configController.connect(users[0]).cancelBaseTokenCurveProposal(marketAdress))
+    //         await configController.connect(owner).proposeUpdateBaseTokenCurve(cometAdress, 0);
+    //         await expect(configController.connect(users[0]).cancelBaseTokenCurveProposal(cometAdress))
     //             .to.be.revertedWithCustomError(configController, 'Unauthorized');
     //     });
 
     //     it('should revert when no proposal exists', async () => {
     //         const { configController, owner, tokens, baseToken, priceFeeds } = await makeConfigController();
-    //         const marketAdress: string = await createMarket(
+    //         const cometAdress: string = await createComet(
     //             configController,
     //             tokens,
     //             baseToken,  
     //             priceFeeds
     //         );  
             
-    //         await expect(configController.connect(owner).cancelBaseTokenCurveProposal(marketAdress))
+    //         await expect(configController.connect(owner).cancelBaseTokenCurveProposal(cometAdress))
     //             .to.be.revertedWithCustomError(configController, 'NoActiveProposal');
     //     });
 
     //     it('should allow guardian to cancel proposal', async () => {
     //         const { configController, dao, owner, sandboxController, guardian, tokens, baseToken, priceFeeds } = await makeConfigController();
-    //         const marketAdress: string = await createMarket(
+    //         const cometAdress: string = await createComet(
     //             configController,
     //             tokens,
     //             baseToken,   
@@ -2618,16 +2618,16 @@ describe('ConfigController', () => {
     //                 borrowPerYearInterestRateSlopeHigh: BigNumber.from(factor(0.01)),
     //             }
     //         );
-    //         await configController.connect(owner).proposeUpdateBaseTokenCurve(marketAdress, 0);
+    //         await configController.connect(owner).proposeUpdateBaseTokenCurve(cometAdress, 0);
 
-    //         await configController.connect(guardian).cancelBaseTokenCurveProposal(marketAdress);
-    //         const proposal = await configController.baseAssetsCurvesProposals(marketAdress);
+    //         await configController.connect(guardian).cancelBaseTokenCurveProposal(cometAdress);
+    //         const proposal = await configController.baseAssetsCurvesProposals(cometAdress);
     //         expect(proposal.revertTime).to.equal(0);
     //     });
 
     //     it('should revert when guardian tries to cancel after proposal period ends', async () => {
     //         const { configController, dao, owner, sandboxController, guardian, tokens, baseToken, priceFeeds } = await makeConfigController();
-    //         const marketAdress: string = await createMarket(
+    //         const cometAdress: string = await createComet(
     //             configController,
     //             tokens,
     //             baseToken,     
@@ -2648,18 +2648,18 @@ describe('ConfigController', () => {
     //                 borrowPerYearInterestRateSlopeHigh: BigNumber.from(factor(0.01)),
     //             }
     //         );
-    //         await configController.connect(owner).proposeUpdateBaseTokenCurve(marketAdress, 0);
+    //         await configController.connect(owner).proposeUpdateBaseTokenCurve(cometAdress, 0);
     //         // Fast forward time to after proposal period
     //         await ethers.provider.send('evm_increaseTime', [7 * 24 * 60 * 60 + 1]);
     //         await ethers.provider.send('evm_mine', []);
 
-    //         await expect(configController.connect(guardian).cancelBaseTokenCurveProposal(marketAdress))
+    //         await expect(configController.connect(guardian).cancelBaseTokenCurveProposal(cometAdress))
     //             .to.be.revertedWithCustomError(configController, 'ProposalNotRevertable');
     //     });
 
     //     it('should allow curator to cancel proposal if curator is proposer', async () => {
     //         const { configController, dao, curator, sandboxController, guardian, tokens, baseToken, priceFeeds } = await makeConfigController();
-    //         const marketAdress: string = await createMarket(
+    //         const cometAdress: string = await createComet(
     //             configController,
     //             tokens,
     //             baseToken,     
@@ -2680,16 +2680,16 @@ describe('ConfigController', () => {
     //                 borrowPerYearInterestRateSlopeHigh: BigNumber.from(factor(0.01)),
     //             }
     //         );
-    //         await configController.connect(curator).proposeUpdateBaseTokenCurve(marketAdress, 0);
+    //         await configController.connect(curator).proposeUpdateBaseTokenCurve(cometAdress, 0);
 
-    //         await configController.connect(curator).cancelBaseTokenCurveProposal(marketAdress);
-    //         const proposal = await configController.baseAssetsCurvesProposals(marketAdress);
+    //         await configController.connect(curator).cancelBaseTokenCurveProposal(cometAdress);
+    //         const proposal = await configController.baseAssetsCurvesProposals(cometAdress);
     //         expect(proposal.revertTime).to.equal(0);
     //     });
 
     //     it('should revert when curator is not proposer and tries to cancel', async () => {
     //         const { configController, dao, owner, curator, sandboxController, guardian, tokens, baseToken, priceFeeds } = await makeConfigController();
-    //         const marketAdress: string = await createMarket(
+    //         const cometAdress: string = await createComet(
     //             configController,
     //             tokens,
     //             baseToken,     
@@ -2710,10 +2710,10 @@ describe('ConfigController', () => {
     //                 borrowPerYearInterestRateSlopeHigh: BigNumber.from(factor(0.01)),
     //             }
     //         );
-    //         await configController.connect(owner).proposeUpdateBaseTokenCurve(marketAdress, 0);
+    //         await configController.connect(owner).proposeUpdateBaseTokenCurve(cometAdress, 0);
 
-    //         await configController.connect(curator).cancelBaseTokenCurveProposal(marketAdress);
-    //         const proposal = await configController.baseAssetsCurvesProposals(marketAdress);
+    //         await configController.connect(curator).cancelBaseTokenCurveProposal(cometAdress);
+    //         const proposal = await configController.baseAssetsCurvesProposals(cometAdress);
     //         expect(proposal.revertTime).to.equal(0);
     //     });
     // });

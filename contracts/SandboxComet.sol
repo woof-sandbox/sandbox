@@ -11,8 +11,8 @@ import "./interfaces/ISandboxController.sol";
 
 /**
  * @title Compound's Comet Contract
- * @notice An efficient monolithic money market protocol
- * @author Compound
+ * @notice An efficient monolithic money comet protocol
+ * @author WOOF! Software
  */
 contract SandboxComet is ISandboxComet, Initializable {
     /** General configuration constants **/
@@ -120,32 +120,32 @@ contract SandboxComet is ISandboxComet, Initializable {
 
     /// @notice replaces your old constructor
     function initialize(
-        IConfigController.MarketConfig memory market,
+        IConfigController.CometConfig memory comet,
         ISandboxController.SandboxControllerConfiguration memory config,
         address configController_,
         address sandboxController_,
         address ext,
         uint256 baseBorrowMin_
     ) external override initializer {
-        uint8 decimals_ = IERC20NonStandard(market.baseToken).decimals();
+        uint8 decimals_ = IERC20NonStandard(comet.baseToken).decimals();
         if (decimals_ > MAX_BASE_DECIMALS) revert BadDecimals();
-        if (IPriceFeed(market.priceFeed).decimals() != PRICE_FEED_DECIMALS)
+        if (IPriceFeed(comet.priceFeed).decimals() != PRICE_FEED_DECIMALS)
             revert BadDecimals();
 
         configController = configController_;
         sandboxController = sandboxController_;
 
-        baseToken = market.baseToken;
-        baseTokenPriceFeed = market.priceFeed;
+        baseToken = comet.baseToken;
+        baseTokenPriceFeed = comet.priceFeed;
 
         extension = ext;
-        trackingIndexScale = market.options.trackingIndexScale;
+        trackingIndexScale = comet.options.trackingIndexScale;
 
-        baseTrackingSupplySpeed = market.options.baseTrackingSupplySpeed;
-        baseTrackingBorrowSpeed = market.options.baseTrackingBorrowSpeed;
+        baseTrackingSupplySpeed = comet.options.baseTrackingSupplySpeed;
+        baseTrackingBorrowSpeed = comet.options.baseTrackingBorrowSpeed;
         storeFrontPriceFactor = config.storeFrontPriceFactor;
 
-        baseMinForRewards = market.options.baseMinForRewards;
+        baseMinForRewards = comet.options.baseMinForRewards;
 
         decimals = decimals_;
         baseScale = uint64(10 ** decimals_);
@@ -162,15 +162,15 @@ contract SandboxComet is ISandboxComet, Initializable {
 
         ISandboxController.BaseAssetCurve memory curve = ISandboxController(
             sandboxController
-        ).baseAssets(market.baseToken).baseAssetCurves[market.baseTokenCurveId];
+        ).baseAssets(comet.baseToken).baseAssetCurves[comet.baseTokenCurveId];
 
-        for (uint8 i; i < market.collateralTokens.length; i++) {
-            collateralAssets.push(market.collateralTokens[i]);
-            collateralAssetAddress[i] = market
+        for (uint8 i; i < comet.collateralTokens.length; i++) {
+            collateralAssets.push(comet.collateralTokens[i]);
+            collateralAssetAddress[i] = comet
                 .collateralTokens[i]
                 .collateralToken;
             collateralAssetIndex[
-                market.collateralTokens[i].collateralToken
+                comet.collateralTokens[i].collateralToken
             ] = i;
         }
 
@@ -197,7 +197,7 @@ contract SandboxComet is ISandboxComet, Initializable {
                 curve.borrowPerYearInterestRateBase /
                 SECONDS_PER_YEAR;
         }
-        numAssets = uint8(market.collateralTokens.length);
+        numAssets = uint8(comet.collateralTokens.length);
     }
 
     /**
@@ -1578,8 +1578,8 @@ contract SandboxComet is ISandboxComet, Initializable {
                 : 0;
     }
 
-    /// @notice Returns the current configuration of the market
-    /// @return Configuration struct containing all market parameters
+    /// @notice Returns the current configuration of the comet
+    /// @return Configuration struct containing all comet parameters
     function getConfiguration() external override view returns (Configuration memory) {
         return
             Configuration({

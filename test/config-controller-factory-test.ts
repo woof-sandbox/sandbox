@@ -5,8 +5,8 @@ import {
     factor, 
     makeConfigController,
     makeSandboxController,
-    makeMockMarket,
-    cmakeMarketFactory,
+    makeMockComet,
+    cmakeCometFactory,
     defaultSandboxControllerOpts,
     makeOnlyConfigController,
     makeConfigControllerFactory
@@ -53,10 +53,10 @@ describe('ConfigControllerFactory', () => {
             const ConfigController_Factory = await ethers.getContractFactory('ConfigController');
             const [owner, curator, guardian] = await ethers.getSigners();
             const sandboxController = (await makeSandboxController(defaultSandboxControllerOpts())).sandboxController;
-            const market = await makeMockMarket();
+            const market = await makeMockComet();
             const configControllerImpl = await ConfigController_Factory.deploy();
             const configControllerFactory = await makeConfigControllerFactory(configControllerImpl.address);
-            const marketFactory = await cmakeMarketFactory({});
+            const marketFactory = await cmakeCometFactory({});
 
             const tx = await configControllerFactory.createConfigController(
                 owner.address,
@@ -91,10 +91,10 @@ describe('ConfigControllerFactory', () => {
             const ConfigController_Factory = await ethers.getContractFactory('ConfigController');
             const [guardian, curator] = await ethers.getSigners();
             const sandboxController = (await makeSandboxController(defaultSandboxControllerOpts())).sandboxController;
-            const market = await makeMockMarket();
+            const market = await makeMockComet();
             const configControllerImpl = await ConfigController_Factory.deploy();
             const configControllerFactory = await makeConfigControllerFactory(configControllerImpl.address);
-            const marketFactory = await cmakeMarketFactory({});
+            const marketFactory = await cmakeCometFactory({});
 
             await expect(
                 configControllerFactory.createConfigController(
@@ -114,10 +114,10 @@ describe('ConfigControllerFactory', () => {
         it('should revert if sandbox controller is zero address', async () => {
             const ConfigController_Factory = await ethers.getContractFactory('ConfigController');
             const [owner, guardian, curator] = await ethers.getSigners();
-            const market = await makeMockMarket();
+            const market = await makeMockComet();
             const configControllerImpl = await ConfigController_Factory.deploy();
             const configControllerFactory = await makeConfigControllerFactory(configControllerImpl.address);
-            const marketFactory = await cmakeMarketFactory({});
+            const marketFactory = await cmakeCometFactory({});
 
             await expect(
                 configControllerFactory.createConfigController(
@@ -160,10 +160,10 @@ describe('ConfigControllerFactory', () => {
             const ConfigController_Factory = await ethers.getContractFactory('ConfigController');
             const [owner, guardian, curator] = await ethers.getSigners();
             const sandboxController = (await makeSandboxController(defaultSandboxControllerOpts())).sandboxController;
-            const market = await makeMockMarket();
+            const market = await makeMockComet();
             const configControllerImpl = await ConfigController_Factory.deploy();
             const configControllerFactory = await makeConfigControllerFactory(configControllerImpl.address);
-            const marketFactory = await cmakeMarketFactory({});
+            const marketFactory = await cmakeCometFactory({});
 
             await expect(
                 configControllerFactory.createConfigController(
@@ -184,10 +184,10 @@ describe('ConfigControllerFactory', () => {
             const ConfigController_Factory = await ethers.getContractFactory('ConfigController');
             const [owner, guardian, curator] = await ethers.getSigners();
             const sandboxController = (await makeSandboxController(defaultSandboxControllerOpts())).sandboxController;
-            const market = await makeMockMarket();
+            const market = await makeMockComet();
             const configControllerImpl = await ConfigController_Factory.deploy();
             const configControllerFactory = await makeConfigControllerFactory(configControllerImpl.address);
-            const marketFactory = await cmakeMarketFactory({});
+            const marketFactory = await cmakeCometFactory({});
 
             await expect(
                 configControllerFactory.createConfigController(
@@ -210,10 +210,10 @@ describe('ConfigControllerFactory', () => {
             const ConfigController_Factory = await ethers.getContractFactory('ConfigController');
             const [owner, curator, guardian] = await ethers.getSigners();
             const sandboxController = (await makeSandboxController(defaultSandboxControllerOpts())).sandboxController;
-            const market = await makeMockMarket();
+            const market = await makeMockComet();
             const configControllerImpl = await ConfigController_Factory.deploy();
             const configControllerFactory = await makeConfigControllerFactory(configControllerImpl.address);
-            const marketFactory = await cmakeMarketFactory({});
+            const marketFactory = await cmakeCometFactory({});
 
             const tx = await configControllerFactory.createConfigController(
                 owner.address,
@@ -247,10 +247,10 @@ describe('ConfigControllerFactory', () => {
             const ConfigController_Factory = await ethers.getContractFactory('ConfigController');
             const [owner, curator, guardian] = await ethers.getSigners();
             const sandboxController = (await makeSandboxController(defaultSandboxControllerOpts())).sandboxController;
-            const market = await makeMockMarket();
+            const market = await makeMockComet();
             const configControllerImpl = await ConfigController_Factory.deploy();
             const configControllerFactory = await makeConfigControllerFactory(configControllerImpl.address);
-            const marketFactory = await cmakeMarketFactory({});
+            const marketFactory = await cmakeCometFactory({});
 
             const tx = await configControllerFactory.createConfigController(
                 owner.address,

@@ -4,36 +4,36 @@ pragma solidity 0.8.28;
 import "./ISandboxController.sol";
 
 abstract contract IConfigController {
-    /// @notice Market transfer proposal
-    struct MarketTransferProposal {
-        address market;
+    /// @notice Comet transfer proposal
+    struct CometTransferProposal {
+        address comet;
         address newController;
         uint256 expiration;
     }
     
-    struct MarketConfigProposal {
-        address market;
+    struct CometConfigProposal {
+        address comet;
         IConfigController.CollateralTokenConfig[] collateralTokens;
         uint256 revertTime;
         address proposer;
     }
 
-    struct MarketBaseTokenCurveProposal {
-        address market;
+    struct CometBaseTokenCurveProposal {
+        address comet;
         uint curveId;
         uint256 revertTime;
         address proposer;
     }
     
-    struct MarketConfig {
+    struct CometConfig {
         address baseToken;
         address priceFeed;
         CollateralTokenConfig[] collateralTokens;
         uint baseTokenCurveId;
-        MarketOptions options;
+        CometOptions options;
     }
 
-    struct MarketOptions {
+    struct CometOptions {
         uint256 baseTrackingSupplySpeed;
         uint256 baseTrackingBorrowSpeed;
         uint256 trackingIndexScale;
@@ -75,35 +75,35 @@ abstract contract IConfigController {
     error ProposalNotReady();
     error ProposalDurationTooShort();
     error TokenNotRevenue();
-    error MarketAlreadyAdded();
+    error CometAlreadyAdded();
     error NonConfigController();
-    error MarketNotOwned();
+    error CometNotOwned();
     error InvalidCurveId();
     error SameCurve();
     error ProposalNotRevertable();
 
-    event MarketBaseTokenCurveProposed(
-        address indexed market,
+    event CometBaseTokenCurveProposed(
+        address indexed comet,
         address indexed proposer,
         uint256 revertTime,
         uint256 curveId
     );
 
-    event MarketBaseTokenCurveProposalExecuted(
-        address indexed market,
+    event CometBaseTokenCurveProposalExecuted(
+        address indexed comet,
         address indexed executedBy
     );
 
-    event MarketBaseTokenCurveProposalCancelled(
-        address indexed market,
+    event CometBaseTokenCurveProposalCancelled(
+        address indexed comet,
         address indexed cancelledBy
     );
 
-    event MarketCreated(
-        address market,
+    event CometCreated(
+        address comet,
         address baseToken,
         address priceFeed,
-        uint marketId,
+        uint cometId,
         uint baseTokenCurveId
     );
     event AddedCollateralTokenConfig(
@@ -150,17 +150,17 @@ abstract contract IConfigController {
     event GuardianUpdated(address indexed oldGuardian, address indexed newGuardian);
     
     /// @notice Events for proposal system
-    event MarketConfigProposed(
-        address indexed market,
+    event CometConfigProposed(
+        address indexed comet,
         address indexed proposer,
         uint256 revertTime
     );
-    event MarketConfigProposalCancelled(
-        address indexed market,
+    event CometConfigProposalCancelled(
+        address indexed comet,
         address indexed cancelledBy
     );
-    event MarketConfigProposalExecuted(
-        address indexed market,
+    event CometConfigProposalExecuted(
+        address indexed comet,
         address indexed executedBy
     );
     event ProposalDurationsUpdated(
@@ -170,18 +170,18 @@ abstract contract IConfigController {
         uint newProposalDuration
     );
     
-    /// @notice Events for market transfer proposal system
-    event MarketTransferProposed(
-        address indexed market,
+    /// @notice Events for comet transfer proposal system
+    event CometTransferProposed(
+        address indexed comet,
         address indexed newController,
         uint256 expiration
     );
-    event MarketTransferProposalCancelled(
-        address indexed market,
+    event CometTransferProposalCancelled(
+        address indexed comet,
         address indexed cancelledBy
     );
-    event MarketTransferProposalAccepted(
-        address indexed market,
+    event CometTransferProposalAccepted(
+        address indexed comet,
         address indexed oldController,
         address indexed newController
     );
@@ -196,9 +196,9 @@ abstract contract IConfigController {
     function owner() virtual external view returns (address);
     function guardian() virtual external view returns (address);
     function sandboxController() virtual external view returns (address);
-    function marketFactory() virtual external view returns (address);
-    function markets(uint) virtual external view returns (address);
-    function marketsLength() virtual external view returns (uint);
+    function cometFactory() virtual external view returns (address);
+    function comets(uint) virtual external view returns (address);
+    function cometsLength() virtual external view returns (uint);
     function proposedCurator() virtual external view returns (address);
     function curatorProposalExpiry() virtual external view returns (uint);
     function name() virtual external view returns (string memory);
@@ -212,28 +212,27 @@ abstract contract IConfigController {
     /// @param _newGuardian The address of the new guardian
     function setGuardian(address _newGuardian) virtual external;
 
-    /// @notice Creates a new market with the specified configuration
+    /// @notice Creates a new comet with the specified configuration
     /// @dev Only callable by the owner
-    /// @param _marketConfig The configuration parameters for the new market
-    /// @return The address of the newly created market
-    function createMarket(MarketConfig memory _marketConfig) virtual external returns(address);
+    /// @param _cometConfig The configuration parameters for the new comet
+    /// @return The address of the newly created comet
+    function createComet(CometConfig memory _cometConfig) virtual external returns(address);
     
     /// @notice Initializes the ConfigController contract
-    /// @param owner_ The address of the protocol owner
-    /// @param guardian_ The address of the protocol guardian
+    /// @param _owner The address of the protocol owner
+    /// @param _guardian The address of the protocol guardian
     /// @param _sandboxController The address of the SandboxController contract
-    /// @param _marketFactory The address of the MarketFactory contract
+    /// @param _cometFactory The address of the cometFactory contract
     /// @param _curatorFee Initial curator fee in basis points (1% = 100)
     /// @param _name Name of the controller
     /// @param _curatorProposalDuration Duration of curator proposals in seconds
-    /// @param _proposalDuration Duration of market proposals in seconds
-    /// @param _configControllerFactory The address of the ConfigControllerFactory contract
+    /// @param _proposalDuration Duration of comet proposals in seconds
     function initialize(
-        address owner_,
+        address _owner,
         address _curator,
-        address guardian_,
+        address _guardian,
         address _sandboxController,
-        address _marketFactory,
+        address _cometFactory,
         uint _curatorFee,
         string memory _name,
         uint _curatorProposalDuration,
