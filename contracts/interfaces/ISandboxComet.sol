@@ -146,9 +146,6 @@ abstract contract ISandboxComet is CometCore {
     /// @dev uint64
     function baseTrackingBorrowSpeed() virtual external view returns (uint);
 
-    function daoBaseTrackingSupplySpeed() virtual external view returns (uint);
-
-    function daoBaseTrackingBorrowSpeed() virtual external view returns (uint);
     /// @dev uint104
     function baseMinForRewards() virtual external view returns (uint);
     /// @dev uint104

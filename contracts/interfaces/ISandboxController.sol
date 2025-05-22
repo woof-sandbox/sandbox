@@ -95,7 +95,6 @@ abstract contract ISandboxController is ISandboxErrors {
     function isPriceFeedWhitelisted(address) external view virtual returns (bool);
     function reserveCommission(MarketState) external view virtual returns (uint256);
     function protocolCommission(MarketState) external view virtual returns (uint256);
-    function threshold(MarketState) external view virtual returns (uint256);
 
     function whitelistBaseAsset(
         address token,
@@ -117,7 +116,6 @@ abstract contract ISandboxController is ISandboxErrors {
 
     function addBaseAssetCurve(address token, BaseAssetCurve memory baseAssetCurve) external virtual;
     function changeBaseAssetCurve(address token, uint256 curveIndex, BaseAssetCurve memory newCurve) external virtual;
-    function setThresholds(uint256[3] calldata thresholds) external virtual;
     function setReserveCommissions(uint256[3] calldata reserveCommissions) external virtual;
     function setProtocolCommissions(uint256[3] calldata protocolCommissions) external virtual;
     function setTreasury(address _treasury) external virtual;

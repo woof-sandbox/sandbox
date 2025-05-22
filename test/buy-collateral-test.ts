@@ -28,21 +28,29 @@ describe('buyCollateral', function () {
     await comet.connect(signer).withdraw(base.address, amountBaseWei);
   }
 
-  it('allows buying collateral when reserves < target reserves', async () => {
+  it("allows buying collateral when reserves < target reserves", async () => {
     const protocol = await makeProtocol({
-      base: 'USDC',
+      base: "USDC",
       storeFrontPriceFactor: exp(0.5, 18),
       targetPercent: 0.5,
       assets: {
         USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
         COMP: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
-        }
-      }
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
+        },
+      },
     });
 
-    const { comet, tokens, owner, users: [alice, bob], seedReserves } = protocol;
+    const {
+      comet,
+      tokens,
+      owner,
+      users: [alice, bob],
+      seedReserves,
+    } = protocol;
     const { USDC, COMP } = tokens;
 
     await COMP.allocateTo(owner.address, exp(60, 18));
@@ -51,7 +59,7 @@ describe('buyCollateral', function () {
     await USDC.allocateTo(owner.address, 200e6);
     await USDC.connect(owner).approve(comet.address, 200e6);
     await comet.connect(owner).supply(USDC.address, 200e6);
-
+    
     await COMP.allocateTo(bob.address, 10n * 10n ** 18n);
     await COMP.connect(bob).approve(comet.address, exp(10, 18));
     await comet.connect(bob).supply(COMP.address, exp(10, 18));
@@ -64,14 +72,15 @@ describe('buyCollateral', function () {
 
     await USDC.connect(alice).approve(comet.address, 50e6);
     const txn = await wait(
-      comet.connect(alice)
+      comet
+        .connect(alice)
         .buyCollateral(COMP.address, exp(50, 18), 50e6, alice.address)
     );
 
     const r1 = await comet.getReserves();
     const p1 = await portfolio(protocol, alice.address);
 
-    expect(r0).to.equal(BigInt(1)-BigInt("200000000"));
+    expect(r0).to.equal(BigInt(1));
     expect(r0).to.be.lt(await comet.targetReserves());
 
     expect(p0.internal).to.deep.equal({ USDC: 0n, COMP: 0n });
@@ -80,27 +89,28 @@ describe('buyCollateral', function () {
     expect(p1.internal).to.deep.equal({ USDC: 0n, COMP: 0n });
     expect(p1.external).to.deep.equal({
       USDC: exp(50, 6),
-      COMP: 55555555555555555555n
+      COMP: 55555555555555555555n,
     });
 
-    expect(r1).to.equal(exp(50, 6) + 1n -BigInt("200000000"));
+    expect(r1).to.equal(exp(50, 6) + 1n);
 
     expect(event(txn, 0)).to.deep.equal({
-      Transfer: { from: alice.address, to: comet.address, amount: exp(50, 6) }
+      Transfer: { from: alice.address, to: comet.address, amount: exp(50, 6) },
     });
     expect(event(txn, 1)).to.deep.equal({
       Transfer: {
-        from: comet.address, to: alice.address,
-        amount: 55555555555555555555n
-      }
+        from: comet.address,
+        to: alice.address,
+        amount: 55555555555555555555n,
+      },
     });
-    expect(event(txn, 2)).to.deep.equal({
+    expect(event(txn, 3)).to.deep.equal({
       BuyCollateral: {
         buyer: alice.address,
         asset: COMP.address,
         baseAmount: exp(50, 6),
-        collateralAmount: 55555555555555555555n
-      }
+        collateralAmount: 55555555555555555555n,
+      },
     });
   });
 
@@ -324,7 +334,6 @@ describe('buyCollateral', function () {
 
     const cometAsA = comet.connect(alice);
     const baseAsA = USDT.connect(alice);
-
     // Reserves are at 0 wei
 
     // Set up token balances and accounting

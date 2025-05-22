@@ -526,6 +526,56 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
   };
 }
 
+async function createMarket2(
+  opts: ProtocolOpts,
+  configController: ConfigController,
+  tokens: Record<string, FaucetToken | NonStandardFaucetFeeToken>,
+  baseToken: FaucetToken | NonStandardFaucetFeeToken,
+  priceFeeds: Record<string, SimplePriceFeed>
+) {
+  const baseSymbol = await baseToken.symbol();
+
+  const collateralTokens: MarketConfigStruct["collateralTokens"] = [];
+  for (let token of Object.keys(tokens)) {
+    if (token !== baseSymbol) {
+      const assetConfig = opts.assets?.[token];
+
+      collateralTokens.push({
+        collateralToken: tokens[token].address,
+        priceFeed: priceFeeds[token].address,
+        borrowCollateralFactor: assetConfig?.borrowCF ?? exp(0.6, 18),
+        liquidateCollateralFactor: assetConfig?.liquidateCF ?? exp(0.7, 18),
+        liquidationFactor: assetConfig?.liquidationFactor ?? exp(0.8, 18),
+        supplyCap: assetConfig?.supplyCap ?? exp(1e9, 18),
+      });
+    }
+  }
+
+  let marketConfig: MarketConfigStruct = {
+      baseToken: baseToken.address,
+      priceFeed: priceFeeds[await baseToken.symbol()].address,
+      collateralTokens: collateralTokens,
+      baseTokenCurveId: 0n,
+      options: {
+          baseTrackingSupplySpeed: 1e15,
+          baseTrackingBorrowSpeed: 1e15,
+          trackingIndexScale: 1e15,
+          baseMinForRewards: 1e15
+      }
+  }
+
+  const createMarketTx = await configController.createMarket(marketConfig);
+  const receipt = await createMarketTx.wait();
+  const filter = configController.filters.MarketCreated();
+  const events = await configController.queryFilter(
+    filter,
+    receipt.blockNumber,
+    receipt.blockNumber
+  );
+
+  return configController.markets(0);
+}
+
 export async function createMarket(
   configController: ConfigController,
   tokens: Record<string, FaucetToken | NonStandardFaucetFeeToken>,
@@ -538,10 +588,10 @@ export async function createMarket(
       collateralTokens: [],
       baseTokenCurveId: 0n,
       options: {
-          baseTrackingSupplySpeed: 0n,
-          baseTrackingBorrowSpeed: 0n,
-          trackingIndexScale: 0n,
-          baseMinForRewards: 0n
+          baseTrackingSupplySpeed: 1e15,
+          baseTrackingBorrowSpeed: 1e15,
+          trackingIndexScale: 1e15,
+          baseMinForRewards: 1e15
       }
   }
 
@@ -554,7 +604,7 @@ export async function createMarket(
                   borrowCollateralFactor: factor(0.6),
                   liquidateCollateralFactor: factor(0.7),
                   liquidationFactor: factor(0.8),
-                  supplyCap: exp(1_000_000, 6)
+                  supplyCap: exp(1e9, 18)
               }
           );
       }
@@ -572,7 +622,7 @@ export const makeProtocol = async (opts: ProtocolOpts = {}) => {
 
   await baseToken.approve(configController.address, seedReserves);
 
-  const market = await createMarket(configController, tokens, baseToken, priceFeeds);
+  const market = await createMarket2(opts, configController, tokens, baseToken, priceFeeds);
 
   const comet = await ethers.getContractAt("CometHarness", market) as CometHarness;
   return {

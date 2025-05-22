@@ -9,7 +9,6 @@ import "./interfaces/IPriceFeed.sol";
 import "./interfaces/IConfigController.sol";
 import "./interfaces/ISandboxController.sol";
 
-
 /**
  * @title Compound's Comet Contract
  * @notice An efficient monolithic money market protocol
@@ -84,14 +83,6 @@ contract SandboxComet is ISandboxComet, Initializable {
     /// @dev uint64
     uint public override baseTrackingBorrowSpeed;
 
-    /// @notice The speed at which supply rewards are tracked (in trackingIndexScale)
-    /// @dev uint64
-    uint public override daoBaseTrackingSupplySpeed;
-
-    /// @notice The speed at which borrow rewards are tracked (in trackingIndexScale)
-    /// @dev uint64
-    uint public override daoBaseTrackingBorrowSpeed;
-
     /// @notice The minimum amount of base principal wei for rewards to accrue
     /// @dev This must be large enough so as to prevent division by base wei from overflowing the 64 bit indices
     /// @dev uint104
@@ -152,6 +143,7 @@ contract SandboxComet is ISandboxComet, Initializable {
 
         baseTrackingSupplySpeed = market.options.baseTrackingSupplySpeed;
         baseTrackingBorrowSpeed = market.options.baseTrackingBorrowSpeed;
+        storeFrontPriceFactor = config.storeFrontPriceFactor;
 
         baseMinForRewards = market.options.baseMinForRewards;
 
@@ -981,7 +973,6 @@ contract SandboxComet is ISandboxComet, Initializable {
      */
     function supplyBase(address from, address dst, uint256 amount) internal {
         amount = doTransferIn(baseToken, from, amount);
-
         accrueInternal();
 
         UserBasic memory dstUser = userBasic[dst];
@@ -1276,7 +1267,6 @@ contract SandboxComet is ISandboxComet, Initializable {
     function withdrawBase(address src, address to, uint256 amount) internal {
         accrueInternal();
 
-
         UserBasic memory srcUser = userBasic[src];
         int104 srcPrincipal = srcUser.principal;
         int256 srcBalance = presentValue(srcPrincipal) - signed256(amount);
@@ -1298,12 +1288,6 @@ contract SandboxComet is ISandboxComet, Initializable {
         }
 
         doTransferOut(baseToken, to, amount);
-
-
-        // if (borrowAmount != 0) {
-        //     (baseSupplyIndex, baseBorrowIndex) = accruedInterestIndices(0);
-        //     lastAccrualTime = getNowInternal();
-        // }
 
         emit Withdraw(src, to, amount);
 
@@ -1474,7 +1458,6 @@ contract SandboxComet is ISandboxComet, Initializable {
 
         uint collateralAmount = quoteCollateral(asset, baseAmount);
         // Note: Re-entrancy can skip the reserves check above on a second buyCollateral call.
-
         if (collateralAmount < minAmount) revert TooMuchSlippage();
 
         if (collateralAmount > getCollateralReserves(asset))
