@@ -155,7 +155,7 @@ contract SandboxComet is ISandboxComet, Initializable {
         baseBorrowMin = baseBorrowMin_;
         targetPercent = config.targetPercent;
         seedReserves = config.suggestedAmountOfSeedReserves;
-        totalSupplyBase = uint104(seedReserves);
+        
         unlockTimestamp =
             block.timestamp +
             config.suggestedLockTimeOfSeedReserves;
