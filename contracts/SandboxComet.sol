@@ -524,7 +524,7 @@ contract SandboxComet is ISandboxComet, Initializable {
                     memory asset = getAssetInfo(i);
 
                 uint64 scale = uint64(
-                    10 ** uint256(IPriceFeed(asset.priceFeed).decimals())
+                    10 ** uint256(IERC20NonStandard(asset.collateralToken).decimals())
                 );
 
                 uint newAmount = mulPrice(
@@ -577,7 +577,7 @@ contract SandboxComet is ISandboxComet, Initializable {
                     memory asset = getAssetInfo(i);
 
                 uint64 scale = uint64(
-                    10 ** uint256(IPriceFeed(asset.priceFeed).decimals())
+                    10 ** uint256(IERC20NonStandard(asset.collateralToken).decimals())
                 );
 
                 uint newAmount = mulPrice(
