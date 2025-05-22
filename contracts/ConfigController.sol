@@ -10,6 +10,7 @@ import "./ConfigControllerFactory.sol";
 import "./interfaces/ISandboxCometFactory.sol";
 import "./interfaces/IERC20NonStandard.sol";
 
+
 /**
  * @title ConfigController
  * @author WOOF Software
@@ -53,21 +54,9 @@ contract ConfigController is IConfigController, Initializable {
     /// @notice The name of this controller
     string public override name;
 
-    /// @notice Mapping of token => address => unclaimed revenue
-    mapping(address => mapping(address => uint)) public unclaimedRevenue;
-
-    /// @notice Mapping of market address => base token curve Id.
-    mapping(address => uint) public override marketBaseTokenCurveId;
-
     /// @notice Mapping of market address => proposed base asset curve.
     mapping(address => MarketBaseTokenCurveProposal)
         public proposedBaseAssetCurve;
-
-    /// @notice The list of revenue tokens
-    address[] public override revenueTokens;
-
-    /// @notice The mapping of revenue token => index
-    mapping(address => uint) public revenueTokenIndex;
 
     /// @notice The address of the proposed curator
     address public override proposedCurator;
@@ -84,12 +73,6 @@ contract ConfigController is IConfigController, Initializable {
     /// @notice The address of the ConfigControllerFactory contract
     address public override configControllerFactory;
 
-    /// @notice Mapping of market => active market configuration proposal
-    mapping(address => MarketConfigProposal) public _marketProposals;
-
-    /// @notice Mapping of market => active market transfer proposal
-    mapping(address => MarketTransferProposal) public _marketTransferProposals;
-
     /// @notice Modifier to restrict access to owner only
     modifier onlyOwner() {
         if (msg.sender != owner) revert Unauthorized();
@@ -105,12 +88,6 @@ contract ConfigController is IConfigController, Initializable {
     /// @notice Modifier to restrict access to guardian only
     modifier onlyGuardian() {
         if (msg.sender != guardian) revert Unauthorized();
-        _;
-    }
-
-    /// @notice Modifier to check if proposal exists and is active
-    modifier proposalExists(address market) {
-        if (_marketProposals[market].revertTime == 0) revert NoActiveProposal();
         _;
     }
 
@@ -144,6 +121,7 @@ contract ConfigController is IConfigController, Initializable {
             if (_sandboxController == ZERO_ADDRESS) revert ZeroAddress();
             if (_marketFactory == ZERO_ADDRESS) revert ZeroAddress();
             if (_curatorFee > 10000) revert InvalidFeePercentage();
+            if (_configControllerFactory == ZERO_ADDRESS) revert ZeroAddress();
             uint minUpdateTime = ISandboxController(_sandboxController)
                 .controllerConfiguration()
                 .minUpdateTime;
@@ -162,202 +140,6 @@ contract ConfigController is IConfigController, Initializable {
         proposalDuration = _proposalDuration;
         configControllerFactory = _configControllerFactory;
         proposeCurator(_curator);
-    }
-
-    /// @notice Returns the proposed base token curve for a market
-    /// @param market The address of the market
-    /// @return The proposed base token curve
-    function baseAssetsCurvesProposals(
-        address market
-    ) external view override returns (MarketBaseTokenCurveProposal memory) {
-        return proposedBaseAssetCurve[market];
-    }
-
-    /// @notice Proposes a new base token curve for a market
-    /// @dev Only callable by owner or curator
-    /// @param market The address of the market
-    /// @param curveId The index of the new base token curve
-    function proposeUpdateBaseTokenCurve(
-        address market,
-        uint256 curveId
-    ) external override onlyOwnerOrCurator {
-        if (!_isMarketOwned(market)) revert MarketNotOwned();
-        ISandboxComet marketContract = ISandboxComet(market);
-        if (
-            curveId >=
-            ISandboxController(sandboxController)
-                .curves(marketContract.baseToken())
-                .length
-        ) revert InvalidCurveId();
-
-        proposedBaseAssetCurve[market] = MarketBaseTokenCurveProposal({
-            market: market,
-            curveId: curveId,
-            revertTime: block.timestamp + proposalDuration,
-            proposer: msg.sender
-        });
-
-        emit MarketBaseTokenCurveProposed(
-            market,
-            msg.sender,
-            block.timestamp + proposalDuration,
-            curveId
-        );
-    }
-
-    /// @notice Executes the base token curve proposal for a market
-    /// @param market The address of the market
-    function executeBaseTokenCurveProposal(address market) external override {
-        if (proposedBaseAssetCurve[market].revertTime == 0)
-            revert NoActiveProposal();
-
-        if (msg.sender != owner && msg.sender != curator) revert Unauthorized();
-        if (block.timestamp < proposedBaseAssetCurve[market].revertTime)
-            revert ProposalNotReady();
-
-        marketBaseTokenCurveId[market] = proposedBaseAssetCurve[market].curveId;
-
-        delete proposedBaseAssetCurve[market];
-        emit MarketBaseTokenCurveProposalExecuted(market, msg.sender);
-    }
-
-    /// @notice Cancels the base token curve proposal for a market
-    /// @param market The address of the market
-    function cancelBaseTokenCurveProposal(address market) external override {
-        if (proposedBaseAssetCurve[market].revertTime == 0)
-            revert NoActiveProposal();
-        if (msg.sender == guardian) {
-            if (block.timestamp > proposedBaseAssetCurve[market].revertTime)
-                revert ProposalNotRevertable();
-        } else {
-            if (
-                msg.sender != owner &&
-                (msg.sender != curator &&
-                    msg.sender != proposedBaseAssetCurve[market].proposer)
-            ) revert Unauthorized();
-        }
-
-        delete proposedBaseAssetCurve[market];
-        emit MarketBaseTokenCurveProposalCancelled(market, msg.sender);
-    }
-
-    /// @notice Returns the market configuration proposal for a given market
-    /// @param market The address of the market
-    /// @return The market configuration proposal
-    function marketProposals(
-        address market
-    ) external view override returns (MarketConfigProposal memory) {
-        return _marketProposals[market];
-    }
-
-    /// @notice Returns the market transfer proposal for a given market
-    /// @param market The address of the market
-    /// @return The market transfer proposal
-    function marketTransferProposals(
-        address market
-    ) external view returns (MarketTransferProposal memory) {
-        return _marketTransferProposals[market];
-    }
-
-    /// @notice Sets a new curator fee
-    /// @dev Only callable by the owner. Emits a CuratorFeeUpdated event
-    /// @param _curatorFee New curator fee in basis points (1% = 100). Must not exceed 10000 (100%)
-    function setCuratorFee(uint _curatorFee) external override onlyOwner {
-        if (_curatorFee > 10000) revert InvalidFeePercentage();
-
-        uint oldFee = curatorFee;
-        curatorFee = _curatorFee;
-
-        emit CuratorFeeUpdated(oldFee, _curatorFee);
-    }
-
-    /// @notice Returns the number of revenue tokens
-    /// @return The number of revenue tokens
-    function revenueTokensLength() external view override returns (uint) {
-        return revenueTokens.length;
-    }
-
-    /// @notice Accumulates revenue in the contract
-    /// @dev Anyone can call this function to add revenue
-    /// @param token The ERC20 token address to accumulate
-    /// @param amount The amount of tokens to accumulate
-    function accumulateRevenue(address token, uint amount) external override {
-        if (marketId[msg.sender] == 0) revert Unauthorized();
-        if (amount == 0) revert ZeroAmount();
-
-        IERC20(token).transferFrom(msg.sender, address(this), amount);
-
-        if (curatorFee == 0) {
-            unclaimedRevenue[token][owner] += amount;
-            emit RevenueAccumulated(token, amount);
-            return;
-        }
-
-        uint curatorAmount = (amount * curatorFee) / 10000;
-        uint ownerAmount = amount - curatorAmount;
-
-        if (curatorAmount > 0) {
-            unclaimedRevenue[token][curator] += curatorAmount;
-        }
-        if (ownerAmount > 0) {
-            unclaimedRevenue[token][owner] += ownerAmount;
-        }
-
-        emit RevenueAccumulated(token, amount);
-    }
-
-    /// @notice Claims accumulated revenue for the caller
-    /// @dev Can be called by anyone to claim their share
-    /// @param token The ERC20 token address to claim
-    function claimRevenue(address token) external override {
-        if (token == ZERO_ADDRESS) revert ZeroAddress();
-
-        uint amount = unclaimedRevenue[token][msg.sender];
-        if (amount == 0) revert InsufficientBalance();
-
-        unclaimedRevenue[token][msg.sender] = 0;
-        IERC20(token).transfer(msg.sender, amount);
-
-        emit RevenueClaimed(token, msg.sender, amount);
-    }
-
-    /// @notice Claims accumulated revenue for all tokens for the caller
-    /// @dev Can be called by anyone to claim their share of all revenue tokens
-    function claimAllRevenue() external override {
-        uint length = revenueTokens.length;
-
-        for (uint i; i < length; ) {
-            address token = revenueTokens[i];
-            uint amount = unclaimedRevenue[token][msg.sender];
-            if (amount > 0) {
-                unclaimedRevenue[token][msg.sender] = 0;
-
-                IERC20(token).transfer(msg.sender, amount);
-                emit RevenueClaimed(token, msg.sender, amount);
-            }
-            unchecked {
-                ++i;
-            }
-        }
-    }
-
-    function removeClaimRevenueToken(
-        address token
-    ) external override onlyOwner {
-        if (revenueTokenIndex[token] == 0) revert TokenNotRevenue();
-        delete revenueTokens[revenueTokenIndex[token]];
-        delete revenueTokenIndex[token];
-    }
-
-    /// @notice Returns the unclaimed revenue balance for a specific token and address
-    /// @param token The ERC20 token address
-    /// @param account The address to check balance for
-    /// @return The unclaimed balance
-    function getUnclaimedRevenue(
-        address token,
-        address account
-    ) external view override returns (uint) {
-        return unclaimedRevenue[token][account];
     }
 
     /// @notice Creates a new market with the specified configuration
@@ -390,6 +172,7 @@ contract ConfigController is IConfigController, Initializable {
         ISandboxController.CollateralAssetConfiguration
             memory collateralAssetLimitations;
         address[] memory addedCollateralTokens = new address[](length);
+        
         for (uint i; i < length; ) {
             unchecked {
                 collateralTokenConfig = _marketConfig.collateralTokens[i];
@@ -412,39 +195,30 @@ contract ConfigController is IConfigController, Initializable {
                 i++;
             }
         }
-        unchecked {
-            marketsLength++;
-        }
-
+        
         ISandboxController.SandboxControllerConfiguration
             memory config = ISandboxController(sandboxController).config();
-
+            
         address market = ISandboxCometFactory(marketFactory).createMarket(
             _marketConfig,
             config
         );
         markets.push(market);
+        marketsLength++;
         marketId[market] = marketsLength - 1;
-
+        
         IERC20NonStandard(_marketConfig.baseToken).transferFrom(
             msg.sender,
             address(this),
             config.suggestedAmountOfSeedReserves
         );
-
+        
         IERC20NonStandard(_marketConfig.baseToken).transfer(
             market,
             config.suggestedAmountOfSeedReserves
         );
-
+        
         ISandboxComet(market).initializeStorage();
-        if (revenueTokenIndex[_marketConfig.baseToken] == 0) {
-            revenueTokens.push(_marketConfig.baseToken);
-            revenueTokenIndex[_marketConfig.baseToken] = revenueTokens.length;
-        }
-
-        marketBaseTokenCurveId[markets[marketsLength - 1]] = _marketConfig
-            .baseTokenCurveId;
 
         emit MarketCreated(
             market,
@@ -455,20 +229,6 @@ contract ConfigController is IConfigController, Initializable {
         );
 
         return markets[marketsLength - 1];
-    }
-
-    /// @notice Withdraws base tokens from the market
-    /// @dev Only callable by the owner
-    /// @param market The address of the market
-    /// @param amount The amount of base tokens to withdraw
-    function withdraw(address market, uint256 amount) external override {
-        if (market == ZERO_ADDRESS) revert ZeroAddress();
-        if (msg.sender != owner) revert Unauthorized();
-        ISandboxComet comet = ISandboxComet(market);
-        address baseToken = comet.baseToken();
-        comet.withdraw(baseToken, amount);
-        IERC20(baseToken).transfer(msg.sender, amount);
-        emit Withdrawn(baseToken, msg.sender, amount);
     }
 
     /// @notice Transfers ownership of the protocol to a new address
@@ -539,92 +299,6 @@ contract ConfigController is IConfigController, Initializable {
         emit GuardianUpdated(oldGuardian, _newGuardian);
     }
 
-    /// @notice Proposes new collateral tokens configuration for a market
-    /// @dev Only callable by owner or curator
-    /// @param market The address of the market
-    /// @param _collateralTokens The new collateral tokens configuration
-    function proposeMarketCollateralTokens(
-        address market,
-        IConfigController.CollateralTokenConfig[] memory _collateralTokens
-    ) external {
-        if (market == ZERO_ADDRESS) revert ZeroAddress();
-        if (_collateralTokens.length == 0) revert ZeroCollateralAssets();
-        if (msg.sender != owner && msg.sender != curator) revert Unauthorized();
-        if (_marketProposals[market].revertTime > 0) revert ProposalExists();
-
-        uint length = _collateralTokens.length;
-        IConfigController.CollateralTokenConfig memory collateralTokenConfig;
-        ISandboxController.CollateralAssetConfiguration
-            memory collateralAssetLimitations;
-        address[] memory addedCollateralTokens = new address[](length);
-        for (uint i; i < length; ) {
-            unchecked {
-                collateralTokenConfig = _collateralTokens[i];
-                collateralAssetLimitations = ISandboxController(
-                    sandboxController
-                ).collateralAssets(collateralTokenConfig.collateralToken);
-
-                _validateCollateralTokenConfig(
-                    collateralTokenConfig,
-                    collateralAssetLimitations,
-                    addedCollateralTokens
-                );
-
-                addedCollateralTokens[i] = collateralTokenConfig
-                    .collateralToken;
-                i++;
-            }
-        }
-
-        _marketProposals[market] = MarketConfigProposal({
-            market: market,
-            collateralTokens: _collateralTokens,
-            revertTime: block.timestamp + proposalDuration,
-            proposer: msg.sender
-        });
-        emit MarketConfigProposed(
-            market,
-            msg.sender,
-            block.timestamp + proposalDuration
-        );
-    }
-
-    /// @notice Cancels an active proposal
-    /// @dev Can be called by owner, guardian, or curator (only their own proposals)
-    /// @param market The address of the market
-    function cancelMarketConfigProposal(
-        address market
-    ) external proposalExists(market) {
-        MarketConfigProposal memory proposal = _marketProposals[market];
-        if (proposal.revertTime == 0) revert NoActiveProposal();
-        if (msg.sender == guardian) {
-            if (block.timestamp > proposal.revertTime)
-                revert ProposalNotRevertable();
-        } else {
-            if (
-                msg.sender != owner ||
-                (msg.sender != curator && msg.sender != proposal.proposer)
-            ) revert Unauthorized();
-        }
-
-        delete _marketProposals[market];
-        emit MarketConfigProposalCancelled(market, msg.sender);
-    }
-
-    /// @notice Executes an active proposal
-    /// @dev Can be called by anyone after proposal period
-    /// @param market The address of the market
-    function executeMarketConfigProposal(
-        address market
-    ) external proposalExists(market) onlyOwnerOrCurator {
-        MarketConfigProposal memory proposal = _marketProposals[market];
-        if (block.timestamp <= proposal.revertTime) revert ProposalNotReady();
-
-        ISandboxComet(market).setCollateralTokens(proposal.collateralTokens);
-        delete _marketProposals[market];
-        emit MarketConfigProposalExecuted(market, msg.sender);
-    }
-
     /// @notice Sets the duration for curator and market configuration proposals
     /// @dev Only callable by the owner
     /// @param _curatorProposalDuration New duration for curator proposals in seconds
@@ -653,79 +327,6 @@ contract ConfigController is IConfigController, Initializable {
             oldProposalDuration,
             _proposalDuration
         );
-    }
-
-    /// @notice Proposes to transfer a market to a new controller
-    /// @dev Only callable by the owner
-    /// @param market The address of the market to transfer
-    /// @param newController The address of the new controller
-    function proposeMarketTransfer(
-        address market,
-        address newController
-    ) external onlyOwner {
-        if (market == ZERO_ADDRESS) revert ZeroAddress();
-        if (
-            !ConfigControllerFactory(configControllerFactory).isController(
-                newController
-            )
-        ) revert NonConfigController();
-        if (_marketTransferProposals[market].expiration > 0)
-            revert ProposalExists();
-        if (!_isMarketOwned(market)) revert MarketNotOwned();
-
-        _marketTransferProposals[market] = MarketTransferProposal({
-            market: market,
-            newController: newController,
-            expiration: block.timestamp + proposalDuration
-        });
-
-        emit MarketTransferProposed(
-            market,
-            newController,
-            block.timestamp + proposalDuration
-        );
-    }
-
-    /// @notice Cancels an active market transfer proposal
-    /// @dev Only callable by the owner
-    /// @param market The address of the market
-    function cancelMarketTransferProposal(address market) external onlyOwner {
-        if (_marketTransferProposals[market].expiration == 0)
-            revert NoActiveProposal();
-
-        delete _marketTransferProposals[market];
-        emit MarketTransferProposalCancelled(market, msg.sender);
-    }
-
-    /// @notice Accepts a market transfer proposal
-    /// @dev Only callable by the new controller
-    /// @param market The address of the market
-    function acceptMarketTransferProposal(address market) external {
-        MarketTransferProposal memory proposal = _marketTransferProposals[
-            market
-        ];
-        if (proposal.newController == ZERO_ADDRESS) revert NoActiveProposal();
-        if (msg.sender != IConfigController(proposal.newController).owner())
-            revert Unauthorized();
-        if (block.timestamp > proposal.expiration) revert ProposalExpired();
-
-        _removeMarket(market);
-        ISandboxComet(market).transferOwnership(proposal.newController);
-
-        delete _marketTransferProposals[market];
-        emit MarketTransferProposalAccepted(
-            market,
-            address(this),
-            proposal.newController
-        );
-    }
-
-    function addMarket(address market) external override {
-        if (marketId[market] != 0) revert MarketAlreadyAdded();
-
-        markets.push(market);
-        marketId[market] = markets.length;
-        marketsLength++;
     }
 
     /// @notice Validates market collateral token configuration
@@ -785,16 +386,8 @@ contract ConfigController is IConfigController, Initializable {
     /// @param market The address of the market
     /// @return True if the market is owned by this controller
     function _isMarketOwned(address market) internal view returns (bool) {
-        return marketId[market] != 0;
+        if (marketsLength == 0) return false;
+        return markets[marketId[market]] != address(0);
     }
 
-    /// @notice Internal function to remove a market from the controller
-    /// @param market The address of the market to remove
-    function _removeMarket(address market) internal {
-        uint id = marketId[market];
-        markets[id] = markets[marketsLength];
-        marketId[markets[id]] = id;
-        markets.pop();
-        marketsLength--;
-    }
 }

@@ -30,6 +30,14 @@ abstract contract IConfigController {
         address priceFeed;
         CollateralTokenConfig[] collateralTokens;
         uint baseTokenCurveId;
+        MarketOptions options;
+    }
+
+    struct MarketOptions {
+        uint256 baseTrackingSupplySpeed;
+        uint256 baseTrackingBorrowSpeed;
+        uint256 trackingIndexScale;
+        uint256 baseMinForRewards;
     }
 
     struct CollateralTokenConfig {
@@ -177,76 +185,12 @@ abstract contract IConfigController {
         address indexed oldController,
         address indexed newController
     );
-
-    event Withdrawn(
-        address indexed baseToken,
-        address indexed sender,
-        uint256 amount
-    );
     
     address constant ZERO_ADDRESS = 0x0000000000000000000000000000000000000000;
-
-    /// @notice Executes the base token curve proposal for a market
-    /// @param market The address of the market
-    function executeBaseTokenCurveProposal(address market) virtual external;
-
-    /// @notice Cancels the base token curve proposal for a market
-    /// @param market The address of the market
-    function cancelBaseTokenCurveProposal(address market) virtual external;
-
-    /// @notice Proposes an update to the base token curve for a market
-    /// @param market The address of the market
-    /// @param curveId The id of the new base token curve
-    function proposeUpdateBaseTokenCurve(address market, uint256 curveId) virtual external;
-    
-    /// @notice Returns the proposed base token curve for a market
-    /// @param market The address of the market
-    /// @return The proposed base token curve
-    function baseAssetsCurvesProposals(address market) virtual external view returns (MarketBaseTokenCurveProposal memory);
-
-    /// @notice Returns the base token curve id for a given market
-    /// @param market The address of the market
-    /// @return The base token curve id
-    function marketBaseTokenCurveId(address market) virtual external view returns (uint);
-
-    /// @notice Returns the address of a revenue token by its index
-    function revenueTokens(uint) virtual external view returns (address);
-    /// @notice Returns the number of revenue tokens
-    function revenueTokensLength() virtual external view returns (uint);
 
     /// @notice Returns the current curator fee in basis points (1% = 100)
     /// @return The curator fee value
     function curatorFee() virtual external view returns (uint);
-
-    /// @notice Sets a new curator fee
-    /// @dev Only callable by the owner
-    /// @param _curatorFee New curator fee in basis points (1% = 100). Must not exceed 10000 (100%)
-    function setCuratorFee(uint _curatorFee) virtual external;
-    /// @notice Accumulates revenue in the contract
-    /// @dev Anyone can call this function to add revenue
-    /// @param token The ERC20 token address to accumulate
-    /// @param amount The amount of tokens to accumulate
-    function accumulateRevenue(address token, uint amount) virtual external;
-
-    /// @notice Claims accumulated revenue for the caller
-    /// @dev Can be called by owner or curator to claim their share
-    /// @param token The ERC20 token address to claim
-    function claimRevenue(address token) virtual external;
-
-    /// @notice Claims accumulated revenue for all tokens for the caller
-    /// @dev Can be called by anyone to claim their share of all revenue tokens
-    function claimAllRevenue() virtual external;
-
-    /// @notice Removes a revenue token from the list of revenue tokens
-    /// @dev Only callable by the owner
-    /// @param token The ERC20 token address to remove
-    function removeClaimRevenueToken(address token) virtual external;
-
-    /// @notice Returns the unclaimed revenue balance for a specific token and address
-    /// @param token The ERC20 token address
-    /// @param account The address to check balance for
-    /// @return The unclaimed balance
-    function getUnclaimedRevenue(address token, address account) virtual external view returns (uint);
 
     function curator() virtual external view returns (address);
     function owner() virtual external view returns (address);
@@ -258,11 +202,6 @@ abstract contract IConfigController {
     function proposedCurator() virtual external view returns (address);
     function curatorProposalExpiry() virtual external view returns (uint);
     function name() virtual external view returns (string memory);
-    
-    /// @notice Returns the market configuration proposal for a given market
-    /// @param market The address of the market
-    /// @return The market configuration proposal
-    function marketProposals(address market) virtual external view returns (MarketConfigProposal memory);
     
     /// @notice Removes the current curator
     /// @dev Only callable by the owner
@@ -279,13 +218,6 @@ abstract contract IConfigController {
     /// @return The address of the newly created market
     function createMarket(MarketConfig memory _marketConfig) virtual external returns(address);
     
-    /// @notice Withdraws base tokens from the market
-    /// @dev Only callable by the owner
-    /// @param market The address of the market
-    /// @param amount The amount of base tokens to withdraw
-    function withdraw(address market, uint256 amount) virtual external;
-
-
     /// @notice Initializes the ConfigController contract
     /// @param owner_ The address of the protocol owner
     /// @param guardian_ The address of the protocol guardian
@@ -312,6 +244,4 @@ abstract contract IConfigController {
     /// @notice Returns the address of the ConfigControllerFactory
     /// @return The address of the ConfigControllerFactory
     function configControllerFactory() external view virtual returns (address);
-
-    function addMarket(address market) external virtual;
 }

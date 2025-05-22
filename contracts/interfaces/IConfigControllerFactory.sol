@@ -31,10 +31,11 @@ abstract contract IConfigControllerFactory {
         uint proposalDuration,
         uint controllerId
     );
+    error InvalidAddress();
 
     /// @notice Returns the implementation address used for cloning
     /// @return The address of the implementation contract
-    function implementation() external view virtual returns (address);
+    function configControllerImplementation() external view virtual returns (address);
 
     /// @notice Returns the controller ID for a given config controller address
     /// @param configController The address of the config controller
@@ -45,25 +46,25 @@ abstract contract IConfigControllerFactory {
     /// @param index The index of the controller
     /// @return The address of the controller
     function controllerAddresses(uint index) external view virtual returns (address);
-
+    
     /// @notice Returns the last controller ID
     /// @return The ID of the last controller
-    function lastController() external view virtual returns (uint);
-
-    /// @notice Creates a new ConfigController with the specified parameters
-    /// @param owner_ The address of the controller owner
-    /// @param guardian_ The address of the controller guardian
-    /// @param _sandboxController The address of the sandbox controller
-    /// @param _marketFactory The address of the market factory
-    /// @param _curatorFee The curator fee in basis points
-    /// @param _name The name of the controller
-    /// @param _curatorProposalDuration The duration of curator proposals in seconds
-    /// @param _proposalDuration The duration of market proposals in seconds
-    /// @return The address of the newly created controller
-    function create(
-        address owner_,
+    function getLastControllerLength() external view virtual returns (uint);
+    
+    /// @notice Creates a new ConfigController instance with unique configuration
+    /// @param _owner The address of the protocol owner
+    /// @param _guardian The address of the protocol guardian
+    /// @param _sandboxController The address of the SandboxController contract
+    /// @param _marketFactory The address of the MarketFactory contract
+    /// @param _curatorFee Initial curator fee in basis points (1% = 100)
+    /// @param _name Name of the controller
+    /// @param _curatorProposalDuration Duration of curator proposals in seconds
+    /// @param _proposalDuration Duration of market proposals in seconds
+    /// @return The address of the newly created ConfigController
+    function createConfigController(
+        address _owner,
         address _curator,
-        address guardian_,
+        address _guardian,
         address _sandboxController,
         address _marketFactory,
         uint _curatorFee,
@@ -71,11 +72,6 @@ abstract contract IConfigControllerFactory {
         uint _curatorProposalDuration,
         uint _proposalDuration
     ) external virtual returns (address);
-
-    /// @notice Gets a ConfigController by its index
-    /// @param _controllerId The index of the controller
-    /// @return The address of the ConfigController
-    function getController(uint _controllerId) external view virtual returns (address);
 
     /// @notice Checks if an address is a valid controller
     /// @param _controller The address to check

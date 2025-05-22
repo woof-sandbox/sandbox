@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
+import "./interfaces/IConfigController.sol";
+
 /**
  * @title Compound's Comet Storage Interface
  * @dev Versions can enforce append-only storage slots via inheritance.
@@ -25,6 +27,31 @@ contract CometStorage {
     struct TotalsCollateral {
         uint128 totalSupplyAsset;
         uint128 _reserved;
+    }
+
+    struct Configuration {
+        address configController;
+        address baseToken;
+        address baseTokenPriceFeed;
+        address extensionDelegate;
+        uint64 supplyKink;
+        uint64 supplyPerYearInterestRateSlopeLow;
+        uint64 supplyPerYearInterestRateSlopeHigh;
+        uint64 supplyPerYearInterestRateBase;
+        uint64 borrowKink;
+        uint64 borrowPerYearInterestRateSlopeLow;
+        uint64 borrowPerYearInterestRateSlopeHigh;
+        uint64 borrowPerYearInterestRateBase;
+        uint64 storeFrontPriceFactor;
+        uint64 trackingIndexScale;
+        uint64 baseTrackingSupplySpeed;
+        uint64 baseTrackingBorrowSpeed;
+        uint104 baseMinForRewards;
+        uint104 baseBorrowMin;
+        uint104 targetPercent;
+        uint104 seedReserves;
+        uint104 unlockTimestamp;
+        IConfigController.CollateralTokenConfig[] assetConfigs;
     }
 
     struct UserBasic {
