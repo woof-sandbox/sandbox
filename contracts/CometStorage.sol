@@ -74,6 +74,10 @@ contract CometStorage {
         uint32 _reserved;
     }
 
+
+    /// @notice Suggested reserves
+    uint public suggestedReserves;
+
     /// @dev Aggregate variables tracked for the entire market
     uint64 internal baseSupplyIndex;
     uint64 internal baseBorrowIndex;

@@ -155,7 +155,7 @@ contract SandboxComet is ISandboxComet, Initializable {
         baseBorrowMin = baseBorrowMin_;
         targetPercent = config.targetPercent;
         seedReserves = config.suggestedAmountOfSeedReserves;
-        
+
         unlockTimestamp =
             block.timestamp +
             config.suggestedLockTimeOfSeedReserves;
@@ -1456,57 +1456,88 @@ contract SandboxComet is ISandboxComet, Initializable {
         if (isBuyPaused()) revert Paused();
         baseAmount = doTransferIn(baseToken, msg.sender, baseAmount);
 
-        uint collateralAmount = quoteCollateral(asset, baseAmount);
-        // Note: Re-entrancy can skip the reserves check above on a second buyCollateral call.
-        if (collateralAmount < minAmount) revert TooMuchSlippage();
+        (
+            uint256 amountOut,
+            uint256 feeController,
+            uint256 feeProtocol
+        ) = quoteCollateral(asset, baseAmount);
 
-        if (collateralAmount > getCollateralReserves(asset))
+        // Note: Re-entrancy can skip the reserves check above on a second buyCollateral call.
+
+        if (amountOut < minAmount) revert TooMuchSlippage();
+
+        if (amountOut > getCollateralReserves(asset))
             revert InsufficientReserves();
 
         // Note: Pre-transfer hook can re-enter buyCollateral with a stale collateral ERC20 balance.
         //  Assets should not be listed which allow re-entry from pre-transfer now, as too much collateral could be bought.
         //  This is also a problem if quoteCollateral derives its discount from the collateral ERC20 balance.
-        doTransferOut(asset, recipient, safe128(collateralAmount));
+        doTransferOut(asset, recipient, safe128(amountOut));
 
-        emit BuyCollateral(msg.sender, asset, baseAmount, collateralAmount);
+        if (feeProtocol > 0) {
+            _creditCollateral(
+                ISandboxController(sandboxController).treasury(),
+                asset,
+                safe128(feeProtocol)
+            );
+        }
+        if (feeController > 0) {
+            _creditCollateral(configController, asset, safe128(feeController));
+        }
+
+        emit BuyCollateral(msg.sender, asset, baseAmount, amountOut);
     }
 
     /**
-     * @notice Gets the quote for a collateral asset in exchange for an amount of base asset
      * @param asset The collateral asset to get the quote for
      * @param baseAmount The amount of the base asset to get the quote for
-     * @return The quote in terms of the collateral asset
      */
     function quoteCollateral(
         address asset,
-        uint baseAmount
-    ) public view override returns (uint) {
+        uint256 baseAmount
+    )
+        public
+        view
+        override
+        returns (uint256 amountOut, uint256 feeController, uint256 feeProtocol)
+    {
         (
-            IConfigController.CollateralTokenConfig memory assetInfo,
+            IConfigController.CollateralTokenConfig memory info,
 
         ) = getAssetInfoByAddress(asset);
-        uint256 assetPrice = getPrice(assetInfo.priceFeed);
-        // Store front discount is derived from the collateral asset's liquidationFactor and storeFrontPriceFactor
-        // discount = storeFrontPriceFactor * (1e18 - liquidationFactor)
-        uint256 discountFactor = mulFactor(
-            storeFrontPriceFactor,
-            FACTOR_SCALE - assetInfo.liquidationFactor
-        );
-        uint256 assetPriceDiscounted = mulFactor(
-            assetPrice,
-            FACTOR_SCALE - discountFactor
-        );
+
         uint256 basePrice = getPrice(baseTokenPriceFeed);
-        // # of collateral assets
-        // = (TotalValueOfBaseAmount / DiscountedPriceOfCollateralAsset) * assetScale
-        // = ((basePrice * baseAmount / baseScale) / assetPriceDiscounted) * assetScale
-        return
-            // (basePrice * baseAmount * assetInfo.scale) / hardcoded to 1e18
-            (basePrice *
-                baseAmount *
-                10 ** IERC20NonStandard(asset).decimals()) /
-            assetPriceDiscounted /
+        uint256 assetPrice = getPrice(info.priceFeed);
+        uint256 assetScale = 10 ** IERC20NonStandard(asset).decimals();
+
+        uint256 discount = mulFactor(
+            storeFrontPriceFactor,
+            FACTOR_SCALE - info.liquidationFactor
+        );
+        uint256 discountedPrice = mulFactor(
+            assetPrice,
+            FACTOR_SCALE - discount
+        );
+
+        amountOut =
+            (basePrice * baseAmount * assetScale) /
+            discountedPrice /
             baseScale;
+
+        uint256 notDiscounted = (basePrice * baseAmount) / baseScale;
+        uint256 discounted = (amountOut * discountedPrice) / assetScale;
+        uint256 delta = notDiscounted - discounted;
+
+        (uint256 reservesFeeFactor, uint256 protocolFeeFactor) = _commissions(
+            getCollateralReserves(asset)
+        );
+
+        uint256 reservesBase = mulFactor(delta, reservesFeeFactor);
+        uint256 protocolBase = mulFactor(delta, protocolFeeFactor);
+        uint256 controllerBase = delta - reservesBase - protocolBase;
+
+        feeProtocol = (protocolBase * assetScale) / discountedPrice;
+        feeController = (controllerBase * assetScale) / discountedPrice;
     }
 
     /**
@@ -1576,6 +1607,57 @@ contract SandboxComet is ISandboxComet, Initializable {
             principal < 0
                 ? presentValueBorrow(baseBorrowIndex_, unsigned104(-principal))
                 : 0;
+    }
+
+    function _marketState(
+        uint256 reserves
+    ) internal view returns (ISandboxController.MarketState) {
+        if (reserves < suggestedReserves)
+            return ISandboxController.MarketState.Low;
+        if (reserves < targetReserves())
+            return ISandboxController.MarketState.Medium;
+        return ISandboxController.MarketState.High;
+    }
+
+    function _commissions(
+        uint256 curRes
+    ) internal view returns (uint256, uint256) {
+        ISandboxController sc = ISandboxController(sandboxController);
+        ISandboxController.MarketState state = _marketState(curRes);
+        return (
+            ISandboxController(sandboxController).reserveCommission(state),
+            sc.feeEnabled() ? sc.protocolCommission(state) : 0
+        );
+    }
+
+     /**
+     * @dev Credits amount of asset to recipients internal collateral
+     * balance **without** moving tokens out of the contract.
+     * Reuses the normal collateral-accounting path so that
+     * supply-caps and assetsIn flags stay consistent.
+     */
+    function _creditCollateral(
+        address recipient,
+        address asset,
+        uint128 amount
+    ) internal {
+        (
+            IConfigController.CollateralTokenConfig memory info,
+            uint8 index
+        ) = getAssetInfoByAddress(asset);
+
+        TotalsCollateral memory totals = totalsCollateral[asset];
+        totals.totalSupplyAsset += amount;
+        if (totals.totalSupplyAsset > info.supplyCap)
+            revert SupplyCapExceeded();
+        totalsCollateral[asset] = totals;
+        uint128 balBefore = userCollateral[recipient][asset].balance;
+        uint128 balAfter = balBefore + amount;
+        userCollateral[recipient][asset].balance = balAfter;
+
+        updateAssetsIn(recipient, index, balBefore, balAfter);
+
+        emit SupplyCollateral(address(this), recipient, asset, amount);
     }
 
     /// @notice Returns the current configuration of the comet

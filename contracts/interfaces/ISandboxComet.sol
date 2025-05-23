@@ -86,7 +86,7 @@ abstract contract ISandboxComet is CometCore {
 
     function absorb(address absorber, address[] calldata accounts) virtual external;
     function buyCollateral(address asset, uint minAmount, uint baseAmount, address recipient) virtual external;
-    function quoteCollateral(address asset, uint baseAmount) virtual public view returns (uint);
+    function quoteCollateral(address asset, uint baseAmount) virtual public view returns (uint, uint, uint);
     function getCollateralReserves(address asset) virtual public view returns (uint);
     function getReserves() virtual public view returns (int);
     function getPrice(address priceFeed) virtual public view returns (uint);
