@@ -155,15 +155,6 @@ contract CometExtension is ICometExtension {
     }
 
     /**
-     * @notice Allow or disallow another address to withdraw, or transfer from the sender
-     * @param manager The account which will be allowed or disallowed
-     * @param isAllowed_ Whether to allow or disallow
-     */
-    function allow(address manager, bool isAllowed_) override external {
-        allowInternal(msg.sender, manager, isAllowed_);
-    }
-
-    /**
      * @dev Stores the flag marking whether the manager is allowed to act on behalf of owner
      */
     function allowInternal(address owner, address manager, bool isAllowed_) internal {
@@ -204,5 +195,48 @@ contract CometExtension is ICometExtension {
         if (nonce != userNonce[signatory]++) revert BadNonce();
         if (block.timestamp >= expiry) revert SignatureExpired();
         allowInternal(signatory, manager, isAllowed_);
+    }
+
+
+    /// @notice Returns the current configuration of the market
+    /// @return Configuration struct containing all market parameters
+    function getConfiguration() external view returns (Configuration memory) {
+        return
+            Configuration({
+                configController: configController,
+                baseToken: baseToken,
+                baseTokenPriceFeed: baseTokenPriceFeed,
+                extensionDelegate: address(0), // Not implemented in this version
+                supplyKink: uint64(supplyKink),
+                supplyPerYearInterestRateSlopeLow: uint64(
+                    supplyPerSecondInterestRateSlopeLow * SECONDS_PER_YEAR
+                ),
+                supplyPerYearInterestRateSlopeHigh: uint64(
+                    supplyPerSecondInterestRateSlopeHigh * SECONDS_PER_YEAR
+                ),
+                supplyPerYearInterestRateBase: uint64(
+                    supplyPerSecondInterestRateBase * SECONDS_PER_YEAR
+                ),
+                borrowKink: uint64(borrowKink),
+                borrowPerYearInterestRateSlopeLow: uint64(
+                    borrowPerSecondInterestRateSlopeLow * SECONDS_PER_YEAR
+                ),
+                borrowPerYearInterestRateSlopeHigh: uint64(
+                    borrowPerSecondInterestRateSlopeHigh * SECONDS_PER_YEAR
+                ),
+                borrowPerYearInterestRateBase: uint64(
+                    borrowPerSecondInterestRateBase * SECONDS_PER_YEAR
+                ),
+                storeFrontPriceFactor: uint64(storeFrontPriceFactor),
+                trackingIndexScale: uint64(trackingIndexScale),
+                baseTrackingSupplySpeed: uint64(baseTrackingSupplySpeed),
+                baseTrackingBorrowSpeed: uint64(baseTrackingBorrowSpeed),
+                baseMinForRewards: uint104(baseMinForRewards),
+                baseBorrowMin: uint104(baseBorrowMin),
+                targetPercent: uint104(targetPercent),
+                seedReserves: uint104(seedReserves),
+                unlockTimestamp: uint104(unlockTimestamp),
+                assetConfigs: collateralAssets
+            });
     }
 }

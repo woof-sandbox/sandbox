@@ -15,105 +15,6 @@ import "./interfaces/ISandboxController.sol";
  * @author WOOF! Software
  */
 contract SandboxComet is ISandboxComet, Initializable {
-    /** General configuration constants **/
-    /// @notice Config Controller address
-    address public override configController;
-
-    /// @notice Sandbox Controller address
-    address public override sandboxController;
-
-    /// @notice The address of the extension contract
-    address public override extension;
-
-    /// @notice The address of the base token contract
-    address public override baseToken;
-
-    /// @notice The address of the price feed for the base token
-    address public override baseTokenPriceFeed;
-
-    /// @notice The point in the supply rates separating the low interest rate slope and the high interest rate slope (factor)
-    /// @dev uint64
-    uint public override supplyKink;
-
-    /// @notice Per second supply interest rate slope applied when utilization is below kink (factor)
-    /// @dev uint64
-    uint public override supplyPerSecondInterestRateSlopeLow;
-
-    /// @notice Per secollateralTokenscond supply interest rate slope applied when utilization is above kink (factor)
-    /// @dev uint64
-    uint public override supplyPerSecondInterestRateSlopeHigh;
-
-    /// @notice Per second supply base interest rate (factor)
-    /// @dev uint64
-    uint public override supplyPerSecondInterestRateBase;
-
-    /// @notice The point in the borrow rate separating the low interest rate slope and the high interest rate slope (factor)
-    /// @dev uint64
-    uint public override borrowKink;
-
-    /// @notice Per second borrow interest rate slope applied when utilization is below kink (factor)
-    /// @dev uint64
-    uint public override borrowPerSecondInterestRateSlopeLow;
-
-    /// @notice Per second borrow interest rate slope applied when utilization is above kink (factor)
-    /// @dev uint64
-    uint public override borrowPerSecondInterestRateSlopeHigh;
-
-    /// @notice Per second borrow base interest rate (factor)
-    /// @dev uint64
-    uint public override borrowPerSecondInterestRateBase;
-
-    /// @notice The fraction of the liquidation penalty that goes to buyers of collateral instead of the protocol
-    /// @dev uint64
-    uint public override storeFrontPriceFactor;
-
-    /// @notice The scale for base token (must be less than 18 decimals)
-    /// @dev uint64
-    uint public override baseScale;
-
-    /// @notice The scale for reward tracking
-    /// @dev uint64
-    uint public override trackingIndexScale;
-
-    /// @notice The speed at which supply rewards are tracked (in trackingIndexScale)
-    /// @dev uint64
-    uint public override baseTrackingSupplySpeed;
-
-    /// @notice The speed at which borrow rewards are tracked (in trackingIndexScale)
-    /// @dev uint64
-    uint public override baseTrackingBorrowSpeed;
-
-    /// @notice The minimum amount of base principal wei for rewards to accrue
-    /// @dev This must be large enough so as to prevent division by base wei from overflowing the 64 bit indices
-    /// @dev uint104
-    uint public override baseMinForRewards;
-
-    /// @notice The minimum base amount required to initiate a borrow
-    uint public override baseBorrowMin;
-
-    /// @notice The minimum base token reserves which must be held before collateral is hodled
-    uint public override targetPercent;
-
-    /// @notice Seed reserves
-    uint public override seedReserves;
-
-    uint public override unlockTimestamp;
-
-    /// @notice The number of decimals for wrapped base token
-    uint8 public override decimals;
-
-    /// @notice The number of assets this contract actually supports
-    uint8 public override numAssets;
-
-    /// @notice Factor to divide by when accruing rewards in order to preserve 6 decimals (i.e. baseScale / 1e6)
-    uint internal accrualDescaleFactor;
-
-    bool private _initialized;
-
-    mapping(address => uint8) public collateralAssetIndex;
-    mapping(uint8 => address) public collateralAssetAddress;
-    IConfigController.CollateralTokenConfig[] public collateralAssets;
-
     constructor() {
         _disableInitializers();
     }
@@ -257,6 +158,35 @@ contract SandboxComet is ISandboxComet, Initializable {
         // Implicit initialization (not worth increasing contract size)
         // trackingSupplyIndex = 0;
         // trackingBorrowIndex = 0;
+    }
+
+     /**
+     * @notice Set the base tracking supply and borrow speeds
+     * @param baseTrackingSupplySpeed_ The new base tracking supply speed
+     * @param baseTrackingBorrowSpeed_ The new base tracking borrow speed
+     * @param _dao Whether or not set dao speeds
+     */
+    function setSpeeds(
+        uint64 baseTrackingSupplySpeed_,
+        uint64 baseTrackingBorrowSpeed_,
+        bool _dao
+    ) external override {
+        if (_dao) {
+            address dao = ISandboxController(sandboxController).dao();
+            if (msg.sender != dao) revert Unauthorized();
+            daoBaseTrackingSupplySpeed = baseTrackingSupplySpeed_;
+            daoBaseTrackingBorrowSpeed = baseTrackingBorrowSpeed_;
+        } else {
+            if (msg.sender != configController) revert Unauthorized();
+            baseTrackingSupplySpeed = baseTrackingSupplySpeed_;
+            baseTrackingBorrowSpeed = baseTrackingBorrowSpeed_;
+        }
+
+        emit SpeedsChanged(
+            baseTrackingSupplySpeed_,
+            baseTrackingBorrowSpeed_,
+            _dao
+        );
     }
 
     /**
@@ -1576,48 +1506,6 @@ contract SandboxComet is ISandboxComet, Initializable {
             principal < 0
                 ? presentValueBorrow(baseBorrowIndex_, unsigned104(-principal))
                 : 0;
-    }
-
-    /// @notice Returns the current configuration of the comet
-    /// @return Configuration struct containing all comet parameters
-    function getConfiguration() external override view returns (Configuration memory) {
-        return
-            Configuration({
-                configController: configController,
-                baseToken: baseToken,
-                baseTokenPriceFeed: baseTokenPriceFeed,
-                extensionDelegate: address(0), // Not implemented in this version
-                supplyKink: uint64(supplyKink),
-                supplyPerYearInterestRateSlopeLow: uint64(
-                    supplyPerSecondInterestRateSlopeLow * SECONDS_PER_YEAR
-                ),
-                supplyPerYearInterestRateSlopeHigh: uint64(
-                    supplyPerSecondInterestRateSlopeHigh * SECONDS_PER_YEAR
-                ),
-                supplyPerYearInterestRateBase: uint64(
-                    supplyPerSecondInterestRateBase * SECONDS_PER_YEAR
-                ),
-                borrowKink: uint64(borrowKink),
-                borrowPerYearInterestRateSlopeLow: uint64(
-                    borrowPerSecondInterestRateSlopeLow * SECONDS_PER_YEAR
-                ),
-                borrowPerYearInterestRateSlopeHigh: uint64(
-                    borrowPerSecondInterestRateSlopeHigh * SECONDS_PER_YEAR
-                ),
-                borrowPerYearInterestRateBase: uint64(
-                    borrowPerSecondInterestRateBase * SECONDS_PER_YEAR
-                ),
-                storeFrontPriceFactor: uint64(storeFrontPriceFactor),
-                trackingIndexScale: uint64(trackingIndexScale),
-                baseTrackingSupplySpeed: uint64(baseTrackingSupplySpeed),
-                baseTrackingBorrowSpeed: uint64(baseTrackingBorrowSpeed),
-                baseMinForRewards: uint104(baseMinForRewards),
-                baseBorrowMin: uint104(baseBorrowMin),
-                targetPercent: uint104(targetPercent),
-                seedReserves: uint104(seedReserves),
-                unlockTimestamp: uint104(unlockTimestamp),
-                assetConfigs: collateralAssets
-            });
     }
 
     receive() external payable {}

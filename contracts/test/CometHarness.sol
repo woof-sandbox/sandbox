@@ -2,9 +2,6 @@
 pragma solidity 0.8.28;
 
 import "../SandboxComet.sol";
-import "../interfaces/IConfigController.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-
 
 contract CometHarness is SandboxComet {
     uint public nowOverride;
@@ -101,7 +98,7 @@ contract CometHarness is SandboxComet {
 
         return result;
     }
-    
+
     function updateAssetsInExternal(
         address account,
         address asset,

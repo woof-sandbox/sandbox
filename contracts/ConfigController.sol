@@ -297,6 +297,20 @@ contract ConfigController is IConfigController, Initializable {
         emit GuardianUpdated(oldGuardian, _newGuardian);
     }
 
+    /// @notice Set speeds for a specific comet
+    /// @dev Only callable by the owner
+    /// @param market The address of the comet
+    /// @param baseTrackingSupplySpeed_ The new base tracking supply speed
+    /// @param baseTrackingBorrowSpeed_ The new base tracking borrow speed
+    function setSpeeds(
+        address market,
+         uint64 baseTrackingSupplySpeed_,
+        uint64 baseTrackingBorrowSpeed_
+    ) external onlyOwner {
+        if (!_isCometOwned(market)) revert CometNotOwned();
+        ISandboxComet(market).setSpeeds(baseTrackingSupplySpeed_, baseTrackingBorrowSpeed_, false);
+    }
+
     /// @notice Sets the duration for curator and comet configuration proposals
     /// @dev Only callable by the owner
     /// @param _curatorProposalDuration New duration for curator proposals in seconds

@@ -29,31 +29,6 @@ contract CometStorage {
         uint128 _reserved;
     }
 
-    struct Configuration {
-        address configController;
-        address baseToken;
-        address baseTokenPriceFeed;
-        address extensionDelegate;
-        uint64 supplyKink;
-        uint64 supplyPerYearInterestRateSlopeLow;
-        uint64 supplyPerYearInterestRateSlopeHigh;
-        uint64 supplyPerYearInterestRateBase;
-        uint64 borrowKink;
-        uint64 borrowPerYearInterestRateSlopeLow;
-        uint64 borrowPerYearInterestRateSlopeHigh;
-        uint64 borrowPerYearInterestRateBase;
-        uint64 storeFrontPriceFactor;
-        uint64 trackingIndexScale;
-        uint64 baseTrackingSupplySpeed;
-        uint64 baseTrackingBorrowSpeed;
-        uint104 baseMinForRewards;
-        uint104 baseBorrowMin;
-        uint104 targetPercent;
-        uint104 seedReserves;
-        uint104 unlockTimestamp;
-        IConfigController.CollateralTokenConfig[] assetConfigs;
-    }
-
     struct UserBasic {
         int104 principal;
         uint64 baseTrackingIndex;
@@ -74,6 +49,109 @@ contract CometStorage {
         uint32 _reserved;
     }
 
+          /** General configuration constants **/
+    /// @notice Config Controller address
+    address public configController;
+
+    /// @notice Sandbox Controller address
+    address public sandboxController;
+
+    /// @notice The address of the extension contract
+    address public extension;
+
+    /// @notice The address of the base token contract
+    address public baseToken;
+
+    /// @notice The address of the price feed for the base token
+    address public baseTokenPriceFeed;
+
+    /// @notice The point in the supply rates separating the low interest rate slope and the high interest rate slope (factor)
+    /// @dev uint64
+    uint public supplyKink;
+
+    /// @notice Per second supply interest rate slope applied when utilization is below kink (factor)
+    /// @dev uint64
+    uint public supplyPerSecondInterestRateSlopeLow;
+
+    /// @notice Per secollateralTokenscond supply interest rate slope applied when utilization is above kink (factor)
+    /// @dev uint64
+    uint public supplyPerSecondInterestRateSlopeHigh;
+
+    /// @notice Per second supply base interest rate (factor)
+    /// @dev uint64
+    uint public supplyPerSecondInterestRateBase;
+
+    /// @notice The point in the borrow rate separating the low interest rate slope and the high interest rate slope (factor)
+    /// @dev uint64
+    uint public borrowKink;
+
+    /// @notice Per second borrow interest rate slope applied when utilization is below kink (factor)
+    /// @dev uint64
+    uint public borrowPerSecondInterestRateSlopeLow;
+
+    /// @notice Per second borrow interest rate slope applied when utilization is above kink (factor)
+    /// @dev uint64
+    uint public borrowPerSecondInterestRateSlopeHigh;
+
+    /// @notice Per second borrow base interest rate (factor)
+    /// @dev uint64
+    uint public borrowPerSecondInterestRateBase;
+
+    /// @notice The fraction of the liquidation penalty that goes to buyers of collateral instead of the protocol
+    /// @dev uint64
+    uint public storeFrontPriceFactor;
+
+    /// @notice The scale for base token (must be less than 18 decimals)
+    /// @dev uint64
+    uint public baseScale;
+
+    /// @notice The scale for reward tracking
+    /// @dev uint64
+    uint public trackingIndexScale;
+
+    /// @notice The speed at which supply rewards are tracked (in trackingIndexScale)
+    /// @dev uint64
+    uint public baseTrackingSupplySpeed;
+
+    /// @notice The speed at which borrow rewards are tracked (in trackingIndexScale)
+    /// @dev uint64
+    uint public baseTrackingBorrowSpeed;
+
+    /// @notice The speed at which supply rewards are tracked (in trackingIndexScale)
+    /// @dev uint64
+    uint public daoBaseTrackingSupplySpeed;
+
+    /// @notice The speed at which borrow rewards are tracked (in trackingIndexScale)
+    /// @dev uint64
+    uint public daoBaseTrackingBorrowSpeed;
+
+    /// @notice The minimum amount of base principal wei for rewards to accrue
+    /// @dev This must be large enough so as to prevent division by base wei from overflowing the 64 bit indices
+    /// @dev uint104
+    uint public baseMinForRewards;
+
+    /// @notice The minimum base amount required to initiate a borrow
+    uint public baseBorrowMin;
+
+    /// @notice The minimum base token reserves which must be held before collateral is hodled
+    uint public targetPercent;
+
+    /// @notice Seed reserves
+    uint public seedReserves;
+
+    /// @notice Suggested reserves
+    uint public suggestedReserves;
+
+    /// @notice Unlock timestamp
+    uint public unlockTimestamp;
+
+    /// @notice Last reserve balance
+    uint public lastReserveBalance;
+
+    /// @notice Factor to divide by when accruing rewards in order to preserve 6 decimals (i.e. baseScale / 1e6)
+    uint internal accrualDescaleFactor;
+
+
     /// @dev Aggregate variables tracked for the entire market
     uint64 internal baseSupplyIndex;
     uint64 internal baseBorrowIndex;
@@ -83,6 +161,14 @@ contract CometStorage {
     uint104 internal totalBorrowBase;
     uint40 internal lastAccrualTime;
     uint8 internal pauseFlags;
+    uint8 public decimals;
+
+    /// @notice The number of assets this contract actually supports
+    uint8 public numAssets;
+
+    bool internal _closed;
+
+    bool private _initialized;
 
     /// @notice Aggregate variables tracked for each collateral asset
     mapping(address => TotalsCollateral) public totalsCollateral;
@@ -100,6 +186,10 @@ contract CometStorage {
     mapping(address => mapping(address => UserCollateral))
         public userCollateral;
 
-     /// @notice Mapping of magic liquidator points
-    mapping(address => LiquidatorPoints) public liquidatorPoints;
+    mapping(address => uint8) public collateralAssetIndex;
+    mapping(uint8 => address) public collateralAssetAddress;
+    IConfigController.CollateralTokenConfig[] public collateralAssets;
 }
+  
+
+    
