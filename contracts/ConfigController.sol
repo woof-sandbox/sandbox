@@ -136,7 +136,7 @@ contract ConfigController is IConfigController, Initializable {
         curatorProposalDuration = _curatorProposalDuration;
         proposalDuration = _proposalDuration;
         configControllerFactory = _configControllerFactory;
-        
+
         proposeCurator(_curator);
     }
 
@@ -170,7 +170,7 @@ contract ConfigController is IConfigController, Initializable {
         ISandboxController.CollateralAssetConfiguration
             memory collateralAssetLimitations;
         address[] memory addedCollateralTokens = new address[](length);
-        
+
         for (uint i; i < length; ) {
             unchecked {
                 collateralTokenConfig = _cometConfig.collateralTokens[i];
@@ -193,10 +193,10 @@ contract ConfigController is IConfigController, Initializable {
                 i++;
             }
         }
-        
+
         ISandboxController.SandboxControllerConfiguration
             memory config = ISandboxController(sandboxController).config();
-            
+
         address comet = ISandboxCometFactory(cometFactory).createComet(
             _cometConfig,
             config
@@ -204,18 +204,18 @@ contract ConfigController is IConfigController, Initializable {
         comets.push(comet);
         cometsLength++;
         cometId[comet] = cometsLength - 1;
-        
+
         IERC20NonStandard(_cometConfig.baseToken).transferFrom(
             msg.sender,
             address(this),
             config.suggestedAmountOfSeedReserves
         );
-        
+
         IERC20NonStandard(_cometConfig.baseToken).transfer(
             comet,
             config.suggestedAmountOfSeedReserves
         );
-        
+
         ISandboxComet(comet).initializeStorage();
 
         emit CometCreated(
@@ -227,6 +227,31 @@ contract ConfigController is IConfigController, Initializable {
         );
 
         return comets[cometsLength - 1];
+    }
+
+    /// @notice Close the market
+    /// @dev Only callable by the owner
+    /// @param market The address of the market to close
+    function closeMarket(address market) external onlyOwner {
+        if (market == ZERO_ADDRESS) revert ZeroAddress();
+        if (!_isCometOwned(market)) revert CometNotOwned();
+
+        ISandboxComet comet = ISandboxComet(market);
+        comet.closeMarket();
+    }
+
+    /// @notice Withdraws base tokens from the market
+    /// @dev Only callable by the owner
+    /// @param market The address of the market
+    /// @param amount The amount of base tokens to withdraw
+    function withdraw(address market, uint256 amount) external override {
+        if (market == ZERO_ADDRESS) revert ZeroAddress();
+        if (msg.sender != owner) revert Unauthorized();
+        ISandboxComet comet = ISandboxComet(market);
+        address baseToken = comet.baseToken();
+        comet.withdraw(baseToken, amount);
+        IERC20(baseToken).transfer(msg.sender, amount);
+        emit Withdrawn(baseToken, msg.sender, amount);
     }
 
     /// @notice Transfers ownership of the protocol to a new address
@@ -387,5 +412,5 @@ contract ConfigController is IConfigController, Initializable {
         if (cometsLength == 0) return false;
         return comets[cometId[comet]] != address(0);
     }
-
+    
 }

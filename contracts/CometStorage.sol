@@ -83,6 +83,8 @@ contract CometStorage {
     uint104 internal totalBorrowBase;
     uint40 internal lastAccrualTime;
     uint8 internal pauseFlags;
+    
+    bool internal _closed;
 
     /// @notice Aggregate variables tracked for each collateral asset
     mapping(address => TotalsCollateral) public totalsCollateral;

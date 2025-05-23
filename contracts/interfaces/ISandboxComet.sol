@@ -36,6 +36,7 @@ abstract contract ISandboxComet is CometCore {
     error TransferOutFailed();
     error Unauthorized();
     error Locked(uint256 currrentTimestamp, uint256 unlockTimestamp);
+    error Closed();
 
     event Supply(address indexed from, address indexed dst, uint amount);
     event Transfer(address indexed from, address indexed to, uint amount);
@@ -59,6 +60,9 @@ abstract contract ISandboxComet is CometCore {
 
     /// @notice Event emitted when reserves are withdrawn by the governor
     event WithdrawReserves(address indexed to, uint amount);
+
+    /// @notice Event emitted when market is closed
+    event Closure(address indexed payback, uint amount);
             
     function supply(address asset, uint amount) virtual external;
     function supplyTo(address dst, address asset, uint amount) virtual external;
@@ -92,7 +96,7 @@ abstract contract ISandboxComet is CometCore {
     function getPrice(address priceFeed) virtual public view returns (uint);
     function isBorrowCollateralized(address account) virtual public view returns (bool);
     function isLiquidatable(address account) virtual public view returns (bool);
-
+    function closeMarket() virtual external;
     function totalSupply() virtual external view returns (uint256);
     function totalBorrow() virtual external view returns (uint256);
     function balanceOf(address owner) virtual public view returns (uint256);

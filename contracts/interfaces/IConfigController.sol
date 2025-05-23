@@ -81,7 +81,7 @@ abstract contract IConfigController {
     error InvalidCurveId();
     error SameCurve();
     error ProposalNotRevertable();
-
+    
     event CometBaseTokenCurveProposed(
         address indexed comet,
         address indexed proposer,
@@ -185,13 +185,16 @@ abstract contract IConfigController {
         address indexed oldController,
         address indexed newController
     );
-    
+    event Withdrawn(
+        address indexed baseToken,
+        address indexed sender,
+        uint256 amount
+    );
     address constant ZERO_ADDRESS = 0x0000000000000000000000000000000000000000;
 
     /// @notice Returns the current curator fee in basis points (1% = 100)
     /// @return The curator fee value
     function curatorFee() virtual external view returns (uint);
-
     function curator() virtual external view returns (address);
     function owner() virtual external view returns (address);
     function guardian() virtual external view returns (address);
@@ -202,7 +205,13 @@ abstract contract IConfigController {
     function proposedCurator() virtual external view returns (address);
     function curatorProposalExpiry() virtual external view returns (uint);
     function name() virtual external view returns (string memory);
-    
+
+    /// @notice Withdraws base tokens from the market
+    /// @dev Only callable by the owner
+    /// @param market The address of the market
+    /// @param amount The amount of base tokens to withdraw
+    function withdraw(address market, uint256 amount) virtual external;
+
     /// @notice Removes the current curator
     /// @dev Only callable by the owner
     function removeCurator() virtual external;

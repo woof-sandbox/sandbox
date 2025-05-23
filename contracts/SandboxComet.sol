@@ -155,7 +155,7 @@ contract SandboxComet is ISandboxComet, Initializable {
         baseBorrowMin = baseBorrowMin_;
         targetPercent = config.targetPercent;
         seedReserves = config.suggestedAmountOfSeedReserves;
-        
+
         unlockTimestamp =
             block.timestamp +
             config.suggestedLockTimeOfSeedReserves;
@@ -257,6 +257,29 @@ contract SandboxComet is ISandboxComet, Initializable {
         // Implicit initialization (not worth increasing contract size)
         // trackingSupplyIndex = 0;
         // trackingBorrowIndex = 0;
+    }
+
+    /**
+     * @notice Close the market
+     * @dev Only callable by the config controller
+     */
+    function closeMarket() external override {
+        if (msg.sender != configController) revert Unauthorized();
+        if (_closed) revert Closed();
+
+        _closed = true;
+
+        uint256 baseBalance = IERC20NonStandard(baseToken).balanceOf(
+            address(this)
+        );
+
+        if (baseBalance > seedReserves) {
+            uint256 excess = baseBalance - seedReserves;
+            doTransferOut(baseToken, address(0), excess);
+            emit Closure(address(0), excess);
+        } else {
+            emit Closure(address(0), 0);
+        }
     }
 
     /**
@@ -1266,6 +1289,18 @@ contract SandboxComet is ISandboxComet, Initializable {
      */
     function withdrawBase(address src, address to, uint256 amount) internal {
         accrueInternal();
+
+        if (msg.sender == configController) {
+            require(
+                block.timestamp >= unlockTimestamp || _closed,
+                Locked(block.timestamp, unlockTimestamp)
+            );
+            seedReserves -= amount;
+
+            doTransferOut(baseToken, to, amount);
+            emit WithdrawReserves(to, amount);
+            return;
+        }
 
         UserBasic memory srcUser = userBasic[src];
         int104 srcPrincipal = srcUser.principal;
