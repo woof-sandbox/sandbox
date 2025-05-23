@@ -216,7 +216,6 @@ contract ConfigController is IConfigController, Initializable {
             config.suggestedAmountOfSeedReserves
         );
         
-        ISandboxComet(comet).initializeStorage();
 
         emit CometCreated(
             comet,

@@ -169,9 +169,7 @@ contract SandboxComet is ISandboxComet, Initializable {
             collateralAssetAddress[i] = comet
                 .collateralTokens[i]
                 .collateralToken;
-            collateralAssetIndex[
-                comet.collateralTokens[i].collateralToken
-            ] = i;
+            collateralAssetIndex[comet.collateralTokens[i].collateralToken] = i;
         }
 
         unchecked {
@@ -198,6 +196,10 @@ contract SandboxComet is ISandboxComet, Initializable {
                 SECONDS_PER_YEAR;
         }
         numAssets = uint8(comet.collateralTokens.length);
+
+        lastAccrualTime = getNowInternal();
+        baseSupplyIndex = BASE_INDEX_SCALE;
+        baseBorrowIndex = BASE_INDEX_SCALE;
     }
 
     /**
@@ -241,22 +243,6 @@ contract SandboxComet is ISandboxComet, Initializable {
         assembly ("memory-safe") {
             sstore(slot, REENTRANCY_GUARD_NOT_ENTERED)
         }
-    }
-
-    /**
-     * @notice Initialize storage for the contract
-     * @dev Can be used from constructor or proxy
-     */
-    function initializeStorage() external override {
-        if (lastAccrualTime != 0) revert AlreadyInitialized();
-
-        // Initialize aggregates
-        lastAccrualTime = getNowInternal();
-        baseSupplyIndex = BASE_INDEX_SCALE;
-        baseBorrowIndex = BASE_INDEX_SCALE;
-        // Implicit initialization (not worth increasing contract size)
-        // trackingSupplyIndex = 0;
-        // trackingBorrowIndex = 0;
     }
 
     /**
@@ -524,7 +510,10 @@ contract SandboxComet is ISandboxComet, Initializable {
                     memory asset = getAssetInfo(i);
 
                 uint64 scale = uint64(
-                    10 ** uint256(IERC20NonStandard(asset.collateralToken).decimals())
+                    10 **
+                        uint256(
+                            IERC20NonStandard(asset.collateralToken).decimals()
+                        )
                 );
 
                 uint newAmount = mulPrice(
@@ -577,7 +566,10 @@ contract SandboxComet is ISandboxComet, Initializable {
                     memory asset = getAssetInfo(i);
 
                 uint64 scale = uint64(
-                    10 ** uint256(IERC20NonStandard(asset.collateralToken).decimals())
+                    10 **
+                        uint256(
+                            IERC20NonStandard(asset.collateralToken).decimals()
+                        )
                 );
 
                 uint newAmount = mulPrice(
@@ -1630,7 +1622,7 @@ contract SandboxComet is ISandboxComet, Initializable {
         );
     }
 
-     /**
+    /**
      * @dev Credits amount of asset to recipients internal collateral
      * balance **without** moving tokens out of the contract.
      * Reuses the normal collateral-accounting path so that
@@ -1662,7 +1654,12 @@ contract SandboxComet is ISandboxComet, Initializable {
 
     /// @notice Returns the current configuration of the comet
     /// @return Configuration struct containing all comet parameters
-    function getConfiguration() external override view returns (Configuration memory) {
+    function getConfiguration()
+        external
+        view
+        override
+        returns (Configuration memory)
+    {
         return
             Configuration({
                 configController: configController,

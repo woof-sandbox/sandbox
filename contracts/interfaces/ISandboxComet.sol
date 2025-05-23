@@ -161,6 +161,4 @@ abstract contract ISandboxComet is CometCore {
 
     function numAssets() virtual external view returns (uint8);
     function decimals() virtual external view returns (uint8);
-
-    function initializeStorage() virtual external;
 }
