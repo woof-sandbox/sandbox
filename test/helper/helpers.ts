@@ -516,7 +516,7 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
     guardian,
     dao,
     curve,
-    seedReserves: sandboxControllerOpts.suggestedAmountOfSeedReserves
+    seedReserves: BigInt(sandboxControllerOpts.suggestedAmountOfSeedReserves)
   };
 }
 
@@ -632,7 +632,8 @@ export const makeProtocol = async (opts: ProtocolOpts = {}) => {
     guardian,
     owner,
     unsupportedToken,
-    seedReserves
+    seedReserves,
+    sandboxController
   };
 }
 
