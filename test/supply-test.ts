@@ -551,9 +551,9 @@ describe('supplyTo', function () {
 
     const configSigner = await ethers.getImpersonatedSigner(configController.address);
 
-    await hre.network.provider.send("hardhat_setBalance", [
+    await hre.network.provider.send('hardhat_setBalance', [
       configController.address,
-      ethers.utils.hexValue(ethers.utils.parseEther("1")),
+      ethers.utils.hexValue(ethers.utils.parseEther('1')),
     ]);
 
     await wait(comet.connect(configSigner).pause(true, false, false, false, false));
@@ -819,9 +819,9 @@ describe('supply', function () {
     const cometAsB = comet.connect(bob);
 
     const configSigner = await ethers.getImpersonatedSigner(configController.address);
-    await hre.network.provider.send("hardhat_setBalance", [
+    await hre.network.provider.send('hardhat_setBalance', [
       configController.address,
-      ethers.utils.hexValue(ethers.utils.parseEther("5")),
+      ethers.utils.hexValue(ethers.utils.parseEther('5')),
     ]);
 
     // Pause supply
@@ -944,9 +944,9 @@ describe('supplyFrom', function () {
 
     // Pause supply
     const configSigner = await ethers.getImpersonatedSigner(configController.address);
-    await hre.network.provider.send("hardhat_setBalance", [
+    await hre.network.provider.send('hardhat_setBalance', [
       configController.address,
-      ethers.utils.hexValue(ethers.utils.parseEther("5")),
+      ethers.utils.hexValue(ethers.utils.parseEther('5')),
     ]);
 
     await wait(comet.connect(configSigner).pause(true, false, false, false, false));

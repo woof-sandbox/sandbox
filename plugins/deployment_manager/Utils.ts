@@ -88,7 +88,7 @@ export function getPrimaryContract(buildFile: BuildFile): [string, ContractMetad
 
 export async function getEthersContract<C extends Contract>(address: string, buildFile: BuildFile, hre: HRE): Promise<C> {
   if (!isContract(address, hre)) {
-    throw new Error(`${address} is not the contract.`)
+    throw new Error(`${address} is not the contract.`);
   } 
   const [_, metadata] = getPrimaryContract(buildFile);
   return new hre.ethers.Contract(address, metadata.abi, hre.ethers.provider) as C;

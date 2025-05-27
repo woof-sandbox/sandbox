@@ -9,7 +9,6 @@ import "./interfaces/ISandboxController.sol";
 import "./interfaces/IConfigController.sol";
 import "./CometExtension.sol";
 
-
 /**
  * @title SandboxCometFactory
  * @notice Factory contract for creating new comet instances using the clone pattern
@@ -35,13 +34,14 @@ contract SandboxCometFactory is ISandboxCometFactory {
      * @param _sandboxController The address of the sandbox controller
      */
     constructor(
-        address _cometImplementation, 
-        address _configControllerFactory, 
+        address _cometImplementation,
+        address _configControllerFactory,
         address _sandboxController
     ) {
-        if (_cometImplementation == address(0) || _configControllerFactory == address(0) || _sandboxController == address(0)) {
+        if (_cometImplementation == address(0) || 
+            _configControllerFactory == address(0) || 
+            _sandboxController == address(0)) 
             revert InvalidAddress();
-        }
         cometImplementation = _cometImplementation;
         configControllerFactory = _configControllerFactory;
         sandboxController = _sandboxController;
@@ -58,8 +58,7 @@ contract SandboxCometFactory is ISandboxCometFactory {
         IConfigController.CometConfig memory _cometConfig,
         ISandboxController.SandboxControllerConfiguration memory _config
     ) external override returns (address) {
-        if (!IConfigControllerFactory(configControllerFactory).isController(msg.sender))
-            revert Unauthorized();
+        if (!IConfigControllerFactory(configControllerFactory).isController(msg.sender)) revert Unauthorized();
 
         address comet = Clones.clone(cometImplementation);
         comets.push(comet);

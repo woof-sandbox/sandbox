@@ -28,9 +28,9 @@ describe('buyCollateral', function () {
     await comet.connect(signer).withdraw(base.address, amountBaseWei);
   }
 
-  it("allows buying collateral when reserves < target reserves", async () => {
+  it('allows buying collateral when reserves < target reserves', async () => {
     const protocol = await makeProtocol({
-      base: "USDC",
+      base: 'USDC',
       storeFrontPriceFactor: exp(0.5, 18),
       targetPercent: 0.5,
       assets: {
@@ -291,9 +291,9 @@ describe('buyCollateral', function () {
 
     const configSigner = await ethers.getImpersonatedSigner(configController.address);
 
-    await hre.network.provider.send("hardhat_setBalance", [
+    await hre.network.provider.send('hardhat_setBalance', [
       configController.address,
-      ethers.utils.hexValue(ethers.utils.parseEther("1")),
+      ethers.utils.hexValue(ethers.utils.parseEther('1')),
     ]);
 
     await wait(comet.connect(configSigner).pause(false, false, false, false, true));
