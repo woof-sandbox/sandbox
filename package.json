@@ -33,6 +33,7 @@
     "cover": "hardhat cover && npx istanbul report --include coverage.json html lcov",
     "gas": "REPORT_GAS=true yarn test",
     "lint": "eslint 'plugins/**/*' 'scenario/**/*' 'scripts/**/*' 'src/**/*' 'tasks/**/*' 'test/**/*' hardhat.config.ts",
+    "lint:fix": "eslint --fix 'plugins/**/*' 'scenario/**/*' 'scripts/**/*' 'src/**/*' 'tasks/**/*' 'test/**/*' hardhat.config.ts",
     "lint-contracts": "solhint 'contracts/**/*.sol'",
     "lint-contracts:fix": "solhint --fix 'contracts/**/*.sol'",
     "scenario": "hardhat scenario",

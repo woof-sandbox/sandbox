@@ -16,6 +16,14 @@ module.exports = {
     '@typescript-eslint'
   ],
   'rules': {
+    'max-len': ['error', { 
+      'code': 140,
+      'ignoreUrls': true,
+      'ignoreStrings': true,
+      'ignoreTemplateLiterals': true,
+      'ignoreComments': true,
+      'ignoreRegExpLiterals': true
+    }],
     'indent': [
       'error',
       2,

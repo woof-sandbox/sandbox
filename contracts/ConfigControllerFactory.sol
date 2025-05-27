@@ -22,7 +22,6 @@ contract ConfigControllerFactory is IConfigControllerFactory {
     /// @param _configControllerImplementation The address of the ConfigController implementation
     constructor(address _configControllerImplementation) {
         if (_configControllerImplementation == address(0)) revert InvalidAddress();
-        
         configControllerImplementation = _configControllerImplementation;
     }
 
@@ -48,7 +47,6 @@ contract ConfigControllerFactory is IConfigControllerFactory {
         uint _proposalDuration
     ) external override returns (address) {
         address configController = Clones.clone(configControllerImplementation);
-        
         controllerIds[configController] = controllerAddresses.length;
         controllerAddresses.push(configController);
 

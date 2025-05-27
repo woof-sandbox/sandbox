@@ -120,7 +120,7 @@ export async function deployCustomNetworkComet(
   } = await getConfiguration(deploymentManager, configOverrides);
 
   /* Deploy contracts */
-  console.log('deploy comet admin')
+  console.log('deploy comet admin');
   const cometAdmin = await deploymentManager.deploy(
     'cometAdmin',
     'CometProxyAdmin.sol',
@@ -132,7 +132,7 @@ export async function deployCustomNetworkComet(
     name32: ethers.utils.formatBytes32String(name),
     symbol32: ethers.utils.formatBytes32String(symbol)
   };
-  console.log('deply comet ext')
+  console.log('deply comet ext');
   const cometExt = await deploymentManager.deploy(
     'comet:implementation:implementation',
     'SandboxComet.sol',
@@ -140,7 +140,7 @@ export async function deployCustomNetworkComet(
     maybeForce(deploySpec.cometExt)
   );
 
-  console.log('deploy comet factory')
+  console.log('deploy comet factory');
   const cometFactory = await deploymentManager.deploy(
     'cometFactory',
     'CometFactory.sol',
@@ -171,21 +171,21 @@ export async function deployCustomNetworkComet(
     targetReserves,
     assetConfigs,
   };
-  console.log('deploy tmp comet impl')
+  console.log('deploy tmp comet impl');
   const tmpCometImpl = await deploymentManager.deploy(
     'comet:implementation',
     'Comet.sol',
     [configuration],
     maybeForce(),
   );
-  console.log('deply comet proxy')
+  console.log('deply comet proxy');
   const cometProxy = await deploymentManager.deploy(
     'comet',
     '../lib/openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol',
     [tmpCometImpl.address, cometAdmin.address, []], // NB: temporary implementation contract
     maybeForce(),
   );
-  console.log('deploy configuration impl')
+  console.log('deploy configuration impl');
   const configuratorImpl = await deploymentManager.deploy(
     'configurator:implementation',
     'Configurator.sol',

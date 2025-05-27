@@ -154,9 +154,7 @@ contract ConfigController is IConfigController, Initializable {
         if (baseAssetConfig.priceFeed == ZERO_ADDRESS)
             revert BaseTokenNotWhitelisted();
         if (
-            !ISandboxController(sandboxController).isPriceFeedWhitelisted(
-                _cometConfig.priceFeed
-            )
+            !ISandboxController(sandboxController).isPriceFeedWhitelisted(_cometConfig.priceFeed)
         ) revert WrongPriceFeed();
         if (_cometConfig.collateralTokens.length == 0)
             revert ZeroCollateralAssets();
@@ -178,10 +176,7 @@ contract ConfigController is IConfigController, Initializable {
                     sandboxController
                 ).collateralAssets(collateralTokenConfig.collateralToken);
 
-                if (
-                    collateralTokenConfig.collateralToken ==
-                    _cometConfig.baseToken
-                ) revert WrongCollateralTokenSettings();
+                if (collateralTokenConfig.collateralToken == _cometConfig.baseToken) revert WrongCollateralTokenSettings();
                 _validateCollateralTokenConfig(
                     collateralTokenConfig,
                     collateralAssetLimitations,
@@ -345,11 +340,7 @@ contract ConfigController is IConfigController, Initializable {
                 .collateralAssets(collateralTokenConfig.collateralToken)
                 .priceFeed == ZERO_ADDRESS
         ) revert CollateralTokenNotWhitelisted();
-        if (
-            !ISandboxController(sandboxController).isPriceFeedWhitelisted(
-                collateralTokenConfig.priceFeed
-            )
-        ) revert WrongPriceFeed();
+        if (!ISandboxController(sandboxController).isPriceFeedWhitelisted(collateralTokenConfig.priceFeed)) revert WrongPriceFeed();
 
         for (uint j; j < addedCollateralTokens.length; j++) {
             if (

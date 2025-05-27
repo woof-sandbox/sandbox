@@ -411,10 +411,7 @@ contract SandboxComet is ISandboxComet, Initializable {
             return
                 safe64(
                     borrowPerSecondInterestRateBase +
-                        mulFactor(
-                            borrowPerSecondInterestRateSlopeLow,
-                            borrowKink
-                        ) +
+                        mulFactor(borrowPerSecondInterestRateSlopeLow, borrowKink) +
                         mulFactor(
                             borrowPerSecondInterestRateSlopeHigh,
                             (utilization - borrowKink)

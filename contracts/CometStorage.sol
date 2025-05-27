@@ -97,9 +97,8 @@ contract CometStorage {
     mapping(address => UserBasic) public userBasic;
 
     /// @notice Mapping of users to collateral data per collateral asset
-    mapping(address => mapping(address => UserCollateral))
-        public userCollateral;
+    mapping(address => mapping(address => UserCollateral)) public userCollateral;
 
-     /// @notice Mapping of magic liquidator points
+    /// @notice Mapping of magic liquidator points
     mapping(address => LiquidatorPoints) public liquidatorPoints;
 }
