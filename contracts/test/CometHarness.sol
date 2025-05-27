@@ -77,11 +77,11 @@ contract CometHarness is SandboxComet {
     function getAssetList(
         address account
     ) external view returns (address[] memory result) {
-        uint16 assetsIn = userBasic[account].assetsIn;
+        uint24 assetsIn = userBasic[account].assetsIn;
 
         uint8 count = 0;
         for (uint8 i = 0; i < numAssets; i++) {
-            if (isInAsset(assetsIn, i, userBasic[account]._reserved)) {
+            if (isInAsset(assetsIn, i)) {
                 count++;
             }
         }
@@ -90,7 +90,7 @@ contract CometHarness is SandboxComet {
 
         uint j = 0;
         for (uint8 i = 0; i < numAssets; i++) {
-            if (isInAsset(assetsIn, i, userBasic[account]._reserved)) {
+            if (isInAsset(assetsIn, i)) {
                 result[j] = getAssetInfo(i).collateralToken;
                 j++;
             }

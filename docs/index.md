@@ -1987,14 +1987,6 @@ function nonReentrantAfter() internal
 
 _Unsets the reentrancy flag_
 
-### initializeStorage
-
-```solidity
-function initializeStorage() external
-```
-
-Initialize storage for the contract
-
 _Can be used from constructor or proxy_
 
 ### getAssetInfo
@@ -2214,14 +2206,6 @@ Check whether an account has enough collateral to not be liquidated
 | Name | Type | Description |
 | ---- | ---- | ----------- |
 | [0] | bool | Whether the account is minimally collateralized enough to not be liquidated |
-
-### setSpeeds
-
-```solidity
-function setSpeeds(uint64 baseTrackingSupplySpeed_, uint64 baseTrackingBorrowSpeed_, bool _dao) external
-```
-
-Set the base tracking supply and borrow speeds
 
 #### Parameters
 
@@ -5832,12 +5816,6 @@ function balanceOf(address owner) public view virtual returns (uint256)
 function borrowBalanceOf(address account) public view virtual returns (uint256)
 ```
 
-### setSpeeds
-
-```solidity
-function setSpeeds(uint64 baseTrackingSupplySpeed_, uint64 baseTrackingBorrowSpeed_, bool _dao) external virtual
-```
-
 ### pause
 
 ```solidity
@@ -6096,12 +6074,6 @@ function numAssets() external view virtual returns (uint8)
 
 ```solidity
 function decimals() external view virtual returns (uint8)
-```
-
-### initializeStorage
-
-```solidity
-function initializeStorage() external virtual
 ```
 
 ## ISandboxCometFactory

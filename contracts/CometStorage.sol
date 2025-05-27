@@ -10,7 +10,7 @@ import "./interfaces/IConfigController.sol";
  */
 contract CometStorage {
     // 512 bits total = 2 slots
-    
+
     struct TotalsBasic {
         // 1st slot
         uint64 baseSupplyIndex;
@@ -33,8 +33,7 @@ contract CometStorage {
         int104 principal;
         uint64 baseTrackingIndex;
         uint64 baseTrackingAccrued;
-        uint16 assetsIn;
-        uint8 _reserved;
+        uint24 assetsIn;
     }
 
     struct UserCollateral {
@@ -49,7 +48,55 @@ contract CometStorage {
         uint32 _reserved;
     }
 
-          /** General configuration constants **/
+    /** Internal constants **/
+
+    /// @dev The max number of assets this contract is hardcoded to support
+    ///  Do not change this variable without updating all the fields throughout the contract,
+    //    including the size of UserBasic.assetsIn and corresponding integer conversions.
+    uint8 internal constant MAX_ASSETS = 24;
+
+    /// @dev The max number of decimals base token can have
+    ///  Note this cannot just be increased arbitrarily.
+    uint8 internal constant MAX_BASE_DECIMALS = 18;
+
+    /// @dev The max value for a collateral factor (1)
+    uint64 internal constant MAX_COLLATERAL_FACTOR = FACTOR_SCALE;
+
+    /// @dev Offsets for specific actions in the pause flag bit array
+    uint8 internal constant PAUSE_SUPPLY_OFFSET = 0;
+    uint8 internal constant PAUSE_TRANSFER_OFFSET = 1;
+    uint8 internal constant PAUSE_WITHDRAW_OFFSET = 2;
+    uint8 internal constant PAUSE_ABSORB_OFFSET = 3;
+    uint8 internal constant PAUSE_BUY_OFFSET = 4;
+
+    /// @dev The decimals required for a price feed
+    uint8 internal constant PRICE_FEED_DECIMALS = 8;
+
+    /// @dev 365 days * 24 hours * 60 minutes * 60 seconds
+    uint64 internal constant SECONDS_PER_YEAR = 31_536_000;
+
+    /// @dev The scale for base tracking accrual
+    uint64 internal constant BASE_ACCRUAL_SCALE = 1e6;
+
+    /// @dev The scale for base index (depends on time/rate scales, not base token)
+    uint64 internal constant BASE_INDEX_SCALE = 1e15;
+
+    /// @dev The scale for prices (in USD)
+    uint64 internal constant PRICE_SCALE = uint64(10 ** PRICE_FEED_DECIMALS);
+
+    /// @dev The scale for factors
+    uint64 internal constant FACTOR_SCALE = 1e18;
+
+    /// @dev The storage slot for reentrancy guard flags
+    bytes32 internal constant REENTRANCY_GUARD_FLAG_SLOT =
+        bytes32(keccak256("comet.reentrancy.guard"));
+
+    /// @dev The reentrancy guard statuses
+    uint256 internal constant REENTRANCY_GUARD_NOT_ENTERED = 0;
+    uint256 internal constant REENTRANCY_GUARD_ENTERED = 1;
+    uint256 internal constant MIN_TARGET_RESERVES = 1;
+
+    /** General configuration constants **/
     /// @notice Config Controller address
     address public configController;
 
@@ -151,7 +198,6 @@ contract CometStorage {
     /// @notice Factor to divide by when accruing rewards in order to preserve 6 decimals (i.e. baseScale / 1e6)
     uint internal accrualDescaleFactor;
 
-
     /// @dev Aggregate variables tracked for the entire market
     uint64 internal baseSupplyIndex;
     uint64 internal baseBorrowIndex;
@@ -167,8 +213,6 @@ contract CometStorage {
     uint8 public numAssets;
 
     bool internal _closed;
-
-    bool private _initialized;
 
     /// @notice Aggregate variables tracked for each collateral asset
     mapping(address => TotalsCollateral) public totalsCollateral;
@@ -190,6 +234,3 @@ contract CometStorage {
     mapping(uint8 => address) public collateralAssetAddress;
     IConfigController.CollateralTokenConfig[] public collateralAssets;
 }
-  
-
-    

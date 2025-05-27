@@ -200,12 +200,6 @@ abstract contract ISandboxComet is CometCore {
         address account
     ) public view virtual returns (uint256);
 
-    function setSpeeds(
-        uint64 baseTrackingSupplySpeed_,
-        uint64 baseTrackingBorrowSpeed_,
-        bool _dao
-    ) external virtual;
-
     function pause(
         bool supplyPaused,
         bool transferPaused,
@@ -238,5 +232,4 @@ abstract contract ISandboxComet is CometCore {
 
     function targetReserves() external view virtual returns (uint);
 
-    function initializeStorage() external virtual;
 }

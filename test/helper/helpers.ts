@@ -432,6 +432,7 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
     },
     baseBorrowMin
   )
+
   // --- Whitelist the collateral assets ---
   for (const asset in assets) {
     const priceFeed = priceFeeds[asset];
@@ -541,6 +542,7 @@ async function createComet2(
         liquidateCollateralFactor: assetConfig?.liquidateCF ?? exp(0.7, 18),
         liquidationFactor: assetConfig?.liquidationFactor ?? exp(0.8, 18),
         supplyCap: assetConfig?.supplyCap ?? exp(1e9, 18),
+        scale: 0n
       });
     }
   }
@@ -614,8 +616,8 @@ export async function createComet(
 export const makeProtocol = async (opts: ProtocolOpts = {}) => {
   const { configController, tokens, baseToken, priceFeeds, dao, sandboxController, seedReserves, users, guardian, owner,unsupportedToken, cometFactory} = await makeConfigController(opts);
 
-  await baseToken.approve(configController.address, seedReserves);
 
+  await baseToken.approve(configController.address, seedReserves);
   const market = await createComet2(opts, configController, tokens, baseToken, priceFeeds);
 
   const comet = await ethers.getContractAt("CometHarness", market) as CometHarness;

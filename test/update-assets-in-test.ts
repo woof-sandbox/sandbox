@@ -24,29 +24,25 @@ describe('updateAssetsIn', function () {
     ]);
   });
 
-  it('works for up to 12 assets', async () => {
-    const { comet, tokens, users } = await makeProtocol({
-      assets: {
-        USDC: {},
-        ASSET1: {},
-        ASSET2: {},
-        ASSET3: {},
-        ASSET4: {},
-        ASSET5: {},
-        ASSET6: {},
-        ASSET7: {},
-        ASSET8: {},
-        ASSET9: {},
-        ASSET10: {},
-        ASSET11: {},
-        ASSET12: {},
-      },
-    });
-    const [user] = users;
-    const asset12address = tokens['ASSET12'].address;
+  function assetsWithInitial(symbols: string[]) {
+    return Object.fromEntries(symbols.map((s) => [s, { initial: 1e6 }]));
+  }
+  
+  it('works for up to 24 assets', async () => {
+    const symbols = [
+      'USDC',
+      ...Array.from({ length: 12 }, (_, i) => `ASSET${i + 1}`),
+    ];
 
-    await comet.updateAssetsInExternal(user.address, asset12address, 0, 1);
-    expect(await comet.getAssetList(user.address)).to.deep.equal([asset12address]);
+    const { comet, tokens, users } = await makeProtocol({
+      assets: assetsWithInitial(symbols),
+    });
+
+    const [user]          = users;
+    const asset12Address  = tokens['ASSET12'].address;
+
+    await comet.updateAssetsInExternal(user.address, asset12Address, 0, 1);
+    expect(await comet.getAssetList(user.address)).to.deep.equal([asset12Address]);
   });
 
   it('does not change state when both initialUserBalance and finalUserBalance are 0', async () => {

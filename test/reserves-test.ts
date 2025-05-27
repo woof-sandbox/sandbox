@@ -1,10 +1,16 @@
 import { expect, makeProtocol, setTotalsBasic } from './helper/helpers';
 
 describe('getReserves', function () {
+  async function netReserves(comet, seedReserves) {
+    const raw = await comet.getReserves();
+    return BigInt(raw.toString()) - BigInt(seedReserves);
+  }
+
   it('calculates 0 reserves', async () => {
-    const protocol = await makeProtocol({base: 'USDC'});
-    const { comet, tokens } = protocol;
+    const protocol = await makeProtocol({ base: 'USDC' });
+    const { comet, tokens, seedReserves } = protocol;
     const { USDC } = tokens;
+
     await USDC.allocateTo(comet.address, 100);
 
     await setTotalsBasic(comet, {
@@ -14,15 +20,14 @@ describe('getReserves', function () {
       totalBorrowBase: 0n,
     });
 
-    const reserves = await comet.getReserves();
-
-    expect(reserves).to.be.equal(0n);
+    expect(await netReserves(comet, seedReserves)).to.equal(0n);
   });
 
   it('calculates positive reserves', async () => {
-    const protocol = await makeProtocol({base: 'USDC'});
-    const { comet, tokens } = protocol;
+    const protocol = await makeProtocol({ base: 'USDC' });
+    const { comet, tokens, seedReserves } = protocol;
     const { USDC } = tokens;
+
     await USDC.allocateTo(comet.address, 100);
 
     await setTotalsBasic(comet, {
@@ -32,16 +37,12 @@ describe('getReserves', function () {
       totalBorrowBase: 10n,
     });
 
-    const reserves = await comet.getReserves();
-
-    expect(reserves).to.be.equal(50n);
+    expect(await netReserves(comet, seedReserves)).to.equal(50n);
   });
 
   it('calculates negative reserves', async () => {
-    const protocol = await makeProtocol({base: 'USDC'});
-    const { comet } = protocol;
-
-    // Protocol holds no USDC
+    const protocol = await makeProtocol({ base: 'USDC' });
+    const { comet, seedReserves } = protocol;
 
     await setTotalsBasic(comet, {
       baseSupplyIndex: 2e15,
@@ -50,8 +51,6 @@ describe('getReserves', function () {
       totalBorrowBase: 0n,
     });
 
-    const reserves = await comet.getReserves();
-
-    expect(reserves).to.be.equal(-100n);
+    expect(await netReserves(comet, seedReserves)).to.equal(-100n);
   });
 });
