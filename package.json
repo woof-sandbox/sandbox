@@ -93,6 +93,8 @@
     "mocha-junit-reporter": "^2.0.2",
     "mocha-multi-reporters": "hayesgm/mocha-multi-reporters#hayesgm/reporter-options-to-option",
     "nock": "^13.2.2",
+    "prettier": "^3.5.3",
+    "prettier-plugin-solidity": "^2.0.0",
     "sc-istanbul": "^0.4.5",
     "solhint": "^3.3.6",
     "solidity-coverage": "^0.8.15",

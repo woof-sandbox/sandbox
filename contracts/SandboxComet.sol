@@ -29,7 +29,7 @@ contract SandboxComet is ISandboxComet, Initializable {
         uint256 baseBorrowMin_
     ) external override initializer {
         uint8 decimals_ = IERC20NonStandard(comet.baseToken).decimals();
-        if(comet.collateralTokens.length > MAX_ASSETS) revert TooManyAssets();
+        if (comet.collateralTokens.length > MAX_ASSETS) revert TooManyAssets();
         if (decimals_ > MAX_BASE_DECIMALS) revert BadDecimals();
         if (IPriceFeed(comet.priceFeed).decimals() != PRICE_FEED_DECIMALS)
             revert BadDecimals();
@@ -167,15 +167,12 @@ contract SandboxComet is ISandboxComet, Initializable {
         public
         view
         returns (IConfigController.CollateralTokenConfig memory, uint8 index)
-    {   
+    {
         index = collateralAssetIndex[asset];
         if (index == 0 && asset != collateralAssets[0].collateralToken) {
             revert BadAsset();
         }
-        return (
-            collateralAssets[index],
-            index
-        );
+        return (collateralAssets[index], index);
     }
 
     /**
@@ -406,7 +403,7 @@ contract SandboxComet is ISandboxComet, Initializable {
         );
 
         for (uint8 i = 0; i < numAssets; ) {
-             if (isInAsset(assetsIn, i)) {  
+            if (isInAsset(assetsIn, i)) {
                 if (liquidity >= 0) {
                     return true;
                 }
@@ -462,17 +459,10 @@ contract SandboxComet is ISandboxComet, Initializable {
                 IConfigController.CollateralTokenConfig
                     memory asset = getAssetInfo(i);
 
-                uint64 scale = uint64(
-                    10 **
-                        uint256(
-                            IERC20NonStandard(asset.collateralToken).decimals()
-                        )
-                );
-
                 uint newAmount = mulPrice(
                     userCollateral[account][asset.collateralToken].balance,
                     getPrice(asset.priceFeed),
-                    scale
+                    asset.scale
                 );
 
                 liquidity += signed256(
@@ -1239,11 +1229,7 @@ contract SandboxComet is ISandboxComet, Initializable {
                 uint256 value = mulPrice(
                     seizeAmount,
                     getPrice(assetInfo.priceFeed),
-                    uint64(
-                        10 **
-                            IERC20NonStandard(assetInfo.collateralToken)
-                                .decimals()
-                    )
+                    assetInfo.scale
                 );
                 deltaValue += mulFactor(value, assetInfo.liquidationFactor);
 
@@ -1368,23 +1354,9 @@ contract SandboxComet is ISandboxComet, Initializable {
         // = ((basePrice * baseAmount / baseScale) / assetPriceDiscounted) * assetScale
         return
             // (basePrice * baseAmount * assetInfo.scale) / hardcoded to 1e18
-            (basePrice *
-                baseAmount *
-                10 ** IERC20NonStandard(asset).decimals()) /
+            (basePrice * baseAmount * assetInfo.scale) /
             assetPriceDiscounted /
             baseScale;
-    }
-
-    /**
-     * @notice Get the total number of tokens in circulation
-     * @dev Note: uses updated interest indices to calculate
-     * @return The supply of tokens
-     **/
-    function totalSupply() external view override returns (uint256) {
-        (uint64 baseSupplyIndex_, ) = accruedInterestIndices(
-            getNowInternal() - lastAccrualTime
-        );
-        return presentValueSupply(baseSupplyIndex_, totalSupplyBase);
     }
 
     /**
@@ -1445,6 +1417,18 @@ contract SandboxComet is ISandboxComet, Initializable {
     }
 
     receive() external payable {}
+
+    /**
+     * @notice Get the total number of tokens in circulation
+     * @dev Note: uses updated interest indices to calculate
+     * @return The supply of tokens
+     **/
+    function totalSupply() external view override returns (uint256) {
+        (uint64 baseSupplyIndex_, ) = accruedInterestIndices(
+            getNowInternal() - lastAccrualTime
+        );
+        return presentValueSupply(baseSupplyIndex_, totalSupplyBase);
+    }
 
     /**
      * @notice Fallback to calling the extension delegate for everything else

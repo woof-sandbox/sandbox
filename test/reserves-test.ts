@@ -1,13 +1,28 @@
-import { expect, makeProtocol, setTotalsBasic } from './helper/helpers';
+import { expect, makeProtocol, setTotalsBasic } from "./helper/helpers";
 
-describe('getReserves', function () {
+describe("getReserves", function() {
   async function netReserves(comet, seedReserves) {
     const raw = await comet.getReserves();
     return BigInt(raw.toString()) - BigInt(seedReserves);
   }
+  it("stores non-zero seedReserves value", async () => {
+    const protocol = await makeProtocol({ base: "USDC" });
+    const { seedReserves } = protocol;
 
-  it('calculates 0 reserves', async () => {
-    const protocol = await makeProtocol({ base: 'USDC' });
+    expect(seedReserves).to.be.gt(0n);
+  });
+
+  it("getReserves equals seedReserves right after deployment", async () => {
+    const protocol = await makeProtocol({ base: "USDC" });
+    const { comet, seedReserves } = protocol;
+
+    const raw = await comet.getReserves();
+    expect(BigInt(raw.toString())).to.equal(seedReserves);
+    expect(await netReserves(comet, seedReserves)).to.equal(0n);
+  });
+
+  it("calculates 0 reserves", async () => {
+    const protocol = await makeProtocol({ base: "USDC" });
     const { comet, tokens, seedReserves } = protocol;
     const { USDC } = tokens;
 
@@ -23,8 +38,8 @@ describe('getReserves', function () {
     expect(await netReserves(comet, seedReserves)).to.equal(0n);
   });
 
-  it('calculates positive reserves', async () => {
-    const protocol = await makeProtocol({ base: 'USDC' });
+  it("calculates positive reserves", async () => {
+    const protocol = await makeProtocol({ base: "USDC" });
     const { comet, tokens, seedReserves } = protocol;
     const { USDC } = tokens;
 
@@ -40,8 +55,8 @@ describe('getReserves', function () {
     expect(await netReserves(comet, seedReserves)).to.equal(50n);
   });
 
-  it('calculates negative reserves', async () => {
-    const protocol = await makeProtocol({ base: 'USDC' });
+  it("calculates negative reserves", async () => {
+    const protocol = await makeProtocol({ base: "USDC" });
     const { comet, seedReserves } = protocol;
 
     await setTotalsBasic(comet, {
