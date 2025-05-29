@@ -48,16 +48,26 @@ describe('isLiquidatable', function () {
       users: [alice],
     } = await makeProtocol({
       assets: {
-        USDC: { decimals: 6 },
+        USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
         COMP: {
           initial: 1e7,
           decimals: 18,
-          initialPrice: 1, // 1 COMP = 1 USDC
+          initialPrice: 1,
+          borrowCF: exp(1, 18),
+          liquidateCF: exp(1, 18),
+          liquidationFactor: exp(0.9, 18),
+          minBorrowCF: exp(0.9, 18),
+          maxBorrowCF: exp(1, 18),
+          minLiquidateCF: exp(1, 18),
+          maxLiquidateCF: exp(1, 18),
+          supplyCap: exp(1_000_000, 18),
         },
       },
     });
     const { COMP } = tokens;
-
+    await COMP.allocateTo(alice.address, exp(100_000, 18));
+    await COMP.connect(alice).approve(comet.address, exp(100_000, 18));
+    await comet.connect(alice).supply(COMP.address, exp(100_000, 18));
     // user owes $100,000
     await comet.setBasePrincipal(alice.address, -100_000_000_000);
     // but has $100,000 in COMP to cover
@@ -73,7 +83,7 @@ describe('isLiquidatable', function () {
       users: [alice],
     } = await makeProtocol({
       assets: {
-        USDC: { decimals: 6 },
+        USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
         COMP: {
           initial: 1e7,
           decimals: 18,
@@ -98,13 +108,17 @@ describe('isLiquidatable', function () {
       users: [alice],
     } = await makeProtocol({
       assets: {
-        USDC: { decimals: 6 },
+        USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
         COMP: {
           initial: 1e7,
           decimals: 18,
           initialPrice: 1, // 1 COMP = 1 USDC
-          borrowCF: exp(0.75, 18),
-          liquidateCF: exp(0.8, 18),
+          borrowCF: exp(0.8, 18),
+          liquidateCF: exp(0.9, 18),
+          minBorrowCF: exp(0.6, 18),
+          maxBorrowCF: exp(0.9, 18),
+          minLiquidateCF: exp(0.7, 18),
+          maxLiquidateCF: exp(0.9, 18),
         },
       },
     });
@@ -126,11 +140,19 @@ describe('isLiquidatable', function () {
       priceFeeds,
     } = await makeProtocol({
       assets: {
-        USDC: { decimals: 6 },
+        USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
         COMP: {
           initial: 1e7,
           decimals: 18,
-          initialPrice: 1, // 1 COMP = 1 USDC
+          initialPrice: 1,
+          borrowCF: exp(1, 18),
+          liquidateCF: exp(1, 18),
+          liquidationFactor: exp(0.9, 18),
+          minBorrowCF: exp(1, 18),
+          maxBorrowCF: exp(1, 18),
+          minLiquidateCF: exp(1, 18),
+          maxLiquidateCF: exp(1, 18),
+          supplyCap: exp(1_000_000, 18),
         },
       },
     });
@@ -145,11 +167,11 @@ describe('isLiquidatable', function () {
 
     // price drops
     await priceFeeds.COMP.setRoundData(
-      0,           // roundId
+      0, // roundId
       exp(0.5, 8), // answer
-      0,           // startedAt
-      0,           // updatedAt
-      0            // answeredInRound
+      0, // startedAt
+      0, // updatedAt
+      0, // answeredInRound
     );
 
     expect(await comet.isLiquidatable(alice.address)).to.be.true;

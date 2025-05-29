@@ -39,20 +39,29 @@ describe('isBorrowCollateralized', function () {
       users: [alice],
     } = await makeProtocol({
       assets: {
-        USDC: { decimals: 6 },
+        USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
         COMP: {
           initial: 1e7,
           decimals: 18,
-          initialPrice: 1, // 1 COMP = 1 USDC
+          initialPrice: 1,
           borrowCF: exp(0.9, 18),
+          liquidateCF: exp(1, 18),
+          liquidationFactor: exp(0.9, 18),
+          minBorrowCF: exp(0.8, 18),
+          maxBorrowCF: exp(1, 18),
+          minLiquidateCF: exp(0.9, 18),
+          maxLiquidateCF: exp(1, 18),
+          supplyCap: exp(1_000_000, 18),
         },
       },
     });
     const { COMP } = tokens;
 
-    // user owes 1 USDC, but has 1.2 COMP collateral
+    await COMP.allocateTo(alice.address, exp(1.2, 18));
+    await COMP.connect(alice).approve(comet.address, exp(1.2, 18));
+    await comet.connect(alice).supply(COMP.address, exp(1.2, 18));
+
     await comet.setBasePrincipal(alice.address, -exp(1, 6));
-    await comet.setCollateralBalance(alice.address, COMP.address, exp(1.2, 18));
 
     expect(await comet.isBorrowCollateralized(alice.address)).to.be.true;
   });
@@ -64,22 +73,29 @@ describe('isBorrowCollateralized', function () {
       users: [alice],
     } = await makeProtocol({
       assets: {
-        USDC: { decimals: 6 },
+        USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
         COMP: {
           initial: 1e7,
           decimals: 18,
-          initialPrice: 1, // 1 COMP = 1 USDC
+          initialPrice: 1,
           borrowCF: exp(0.9, 18),
+          liquidateCF: exp(1, 18),
+          liquidationFactor: exp(0.9, 18),
+          minBorrowCF: exp(0.8, 18),
+          maxBorrowCF: exp(1, 18),
+          minLiquidateCF: exp(0.9, 18),
+          maxLiquidateCF: exp(1, 18),
+          supplyCap: exp(1_000_000, 18),
         },
       },
     });
     const { COMP } = tokens;
 
-    // user owes 1 USDC
-    await comet.setBasePrincipal(alice.address, -1_000_000);
-    // user has 1 COMP collateral, but the borrow collateral factor puts it
-    // below the required collateral amount
-    await comet.setCollateralBalance(alice.address, COMP.address, exp(1, 18));
+    await COMP.allocateTo(alice.address, exp(1, 18));
+    await COMP.connect(alice).approve(comet.address, exp(1, 18));
+    await comet.connect(alice).supply(COMP.address, exp(1, 18));
+
+    await comet.setBasePrincipal(alice.address, -exp(1, 6));
 
     expect(await comet.isBorrowCollateralized(alice.address)).to.be.false;
   });
@@ -92,27 +108,32 @@ describe('isBorrowCollateralized', function () {
       priceFeeds,
     } = await makeProtocol({
       assets: {
-        USDC: { decimals: 6 },
-        COMP: { initial: 1e7, decimals: 18, initialPrice: 1, borrowCF: exp(0.2, 18) },
+        USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
+        COMP: {
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          borrowCF: exp(0.2, 18),
+          liquidateCF: exp(1, 18),
+          liquidationFactor: exp(0.9, 18),
+          minBorrowCF: exp(0.2, 18),
+          maxBorrowCF: exp(1, 18),
+          minLiquidateCF: exp(0.9, 18),
+          maxLiquidateCF: exp(1, 18),
+          supplyCap: exp(1_000_000, 18),
+        },
       },
     });
     const { COMP } = tokens;
 
-    // user owes 1 USDC
-    await comet.setBasePrincipal(alice.address, -exp(1, 6));
-    // ...but has 5 COMP to cover their position
-    await comet.setCollateralBalance(alice.address, COMP.address, exp(5, 18));
+    await COMP.allocateTo(alice.address, exp(5, 18));
+    await COMP.connect(alice).approve(comet.address, exp(5, 18));
+    await comet.connect(alice).supply(COMP.address, exp(5, 18));
 
+    await comet.setBasePrincipal(alice.address, -exp(1, 6));
     expect(await comet.isBorrowCollateralized(alice.address)).to.be.true;
 
-    await priceFeeds.COMP.setRoundData(
-      0,           // roundId
-      exp(0.5, 8), // answer
-      0,           // startedAt
-      0,           // updatedAt
-      0            // answeredInRound
-    );
-
+    await priceFeeds.COMP.setRoundData(0, exp(0.5, 8), 0, 0, 0);
     expect(await comet.isBorrowCollateralized(alice.address)).to.be.false;
   });
 });

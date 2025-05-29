@@ -39,7 +39,7 @@ describe('updateAssetsIn', function () {
     const { comet, tokens, users } = await makeProtocol({ assets: assetsWithInitial(symbols) });
     const [user] = users;
 
-    const asset12Address = tokens['ASSET12'].address;
+    const asset12Address = tokens['ASSET24'].address;
 
     await comet.updateAssetsInExternal(user.address, asset12Address, 0, 1);
     expect(await comet.getAssetList(user.address)).to.deep.equal([asset12Address]);

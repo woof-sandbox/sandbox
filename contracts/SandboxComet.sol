@@ -21,8 +21,8 @@ contract SandboxComet is ISandboxComet, Initializable {
 
     /// @notice replaces your old constructor
     function initialize(
-        IConfigController.CometConfig memory comet,
-        ISandboxController.SandboxControllerConfiguration memory config,
+        IConfigController.CometConfig calldata comet,
+        ISandboxController.SandboxControllerConfiguration calldata config,
         address configController_,
         address sandboxController_,
         address ext,
@@ -33,7 +33,9 @@ contract SandboxComet is ISandboxComet, Initializable {
         if (decimals_ > MAX_BASE_DECIMALS) revert BadDecimals();
         if (IPriceFeed(comet.priceFeed).decimals() != PRICE_FEED_DECIMALS)
             revert BadDecimals();
-
+        
+        baseScale = uint64(10 ** decimals_);
+        if (baseScale < BASE_ACCRUAL_SCALE) revert BadDecimals();
         configController = configController_;
         sandboxController = sandboxController_;
 
@@ -112,11 +114,6 @@ contract SandboxComet is ISandboxComet, Initializable {
         nonReentrantBefore();
         _;
         nonReentrantAfter();
-    }
-
-    modifier onlyConfigController() {
-        if (msg.sender != configController) revert Unauthorized();
-        _;
     }
 
     /**
@@ -1353,7 +1350,6 @@ contract SandboxComet is ISandboxComet, Initializable {
         // = (TotalValueOfBaseAmount / DiscountedPriceOfCollateralAsset) * assetScale
         // = ((basePrice * baseAmount / baseScale) / assetPriceDiscounted) * assetScale
         return
-            // (basePrice * baseAmount * assetInfo.scale) / hardcoded to 1e18
             (basePrice * baseAmount * assetInfo.scale) /
             assetPriceDiscounted /
             baseScale;
@@ -1415,8 +1411,6 @@ contract SandboxComet is ISandboxComet, Initializable {
                 ? presentValueBorrow(baseBorrowIndex_, unsigned104(-principal))
                 : 0;
     }
-
-    receive() external payable {}
 
     /**
      * @notice Get the total number of tokens in circulation
