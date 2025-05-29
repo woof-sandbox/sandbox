@@ -539,6 +539,7 @@ describe('SandboxController', function () {
       const rcpt = await tx.wait();
       const ev = rcpt.events?.find((e: any) => e.event === 'BaseAssetWhitelisted');
       expect(ev, 'Expected BaseAssetWhitelisted event').to.exist;
+      expect(ev.args.curveIndex).to.equal(0);
       expect(ev.args.token).to.equal(token.address);
       expect(ev.args.priceFeed).to.equal(priceFeed.address);
       expect(ev.args.decimals).to.equal(18);
@@ -1147,6 +1148,7 @@ describe('SandboxController', function () {
       let ev = rcpt.events?.find((e: any) => e.event === 'BaseAssetCurveAdded');
       expect(ev).to.exist;
       expect(ev.args.token).to.equal(token.address);
+      expect(ev.args.curveIndex).to.equal(1);
       expect(ev.args.baseAssetCurve.supplyKink).to.equal(newCurve.supplyKink);
       expect(ev.args.baseAssetCurve.supplyPerYearInterestRateSlopeLow).to.equal(newCurve.supplyPerYearInterestRateSlopeLow);
       expect(ev.args.baseAssetCurve.supplyPerYearInterestRateSlopeHigh).to.equal(newCurve.supplyPerYearInterestRateSlopeHigh);
@@ -1282,6 +1284,7 @@ describe('SandboxController', function () {
       const ev = rcpt.events?.find((e: any) => e.event === 'BaseAssetCurveChanged');
       expect(ev).to.exist;
       expect(ev.args.token).to.equal(token.address);
+      expect(ev.args.curveIndex).to.equal(1);
       expect(ev.args.oldCurve.supplyKink).to.equal(oldCurve.supplyKink);
       expect(ev.args.oldCurve.supplyPerYearInterestRateSlopeLow).to.equal(oldCurve.supplyPerYearInterestRateSlopeLow);
       expect(ev.args.oldCurve.supplyPerYearInterestRateSlopeHigh).to.equal(oldCurve.supplyPerYearInterestRateSlopeHigh);

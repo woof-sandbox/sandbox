@@ -230,7 +230,9 @@ contract SandboxController is ISandboxController {
             priceFeed,
             decimals,
             baseAssetCurve,
-            minBorrow
+            minBorrow,
+            baseAssetTokens.length - 1,
+            _baseAssets[token].baseAssetCurves.length - 1
         );
     }
 
@@ -385,7 +387,11 @@ contract SandboxController is ISandboxController {
         }
 
         _baseAssets[token].baseAssetCurves.push(baseAssetCurve);
-        emit BaseAssetCurveAdded(token, baseAssetCurve);
+        emit BaseAssetCurveAdded(
+            token, 
+            baseAssetCurve,
+            _baseAssets[token].baseAssetCurves.length - 1
+        );
     }
 
     /**
@@ -417,7 +423,7 @@ contract SandboxController is ISandboxController {
         ];
 
         _baseAssets[token].baseAssetCurves[curveIndex] = newCurve;
-        emit BaseAssetCurveChanged(token, oldCurve, newCurve);
+        emit BaseAssetCurveChanged(token, oldCurve, newCurve, curveIndex);
     }
 
     /**
