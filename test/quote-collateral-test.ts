@@ -1,26 +1,32 @@
-import { expect, exp, makeProtocol } from './helper/helpers';
+import { expect, exp, makeProtocol } from "./helper/helpers";
 
-describe('quoteCollateral', function () {
-  it('quotes the collateral correctly for a positive base amount', async () => {
-    const protocol = await makeProtocol({
-      base: 'USDC',
+describe("quoteCollateral", function () {
+  it("quotes the collateral correctly for a positive base amount", async () => {
+    const { comet, tokens } = await makeProtocol({
       storeFrontPriceFactor: exp(0.5, 18),
-      targetReserves: 100,
       assets: {
-        USDC: {
-          initial: 1e6,
-          decimals: 6,
-          initialPrice: 1,
-        },
+        USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
         COMP: {
           initial: 1e7,
           decimals: 18,
           initialPrice: 200,
           liquidationFactor: exp(0.6, 18),
+
+          borrowCF: exp(1, 18),
+          liquidateCF: exp(1, 18),
+
+          minBorrowCF: exp(0.9, 18),
+          maxBorrowCF: exp(1, 18),
+          minLiquidateCF: exp(1, 18),
+          maxLiquidateCF: exp(1, 18),
+
+          minLiquidationFactor: exp(0.6, 18),
+          maxLiquidationFactor: exp(0.8, 18),
+
+          supplyCap: exp(1_000_000, 18),
         },
-      }
+      },
     });
-    const { comet, tokens } = protocol;
     const { COMP } = tokens;
 
     const baseAmount = exp(200, 6);
@@ -32,58 +38,64 @@ describe('quoteCollateral', function () {
     const assetPriceDiscounted = exp(160, 8);
     const basePrice = exp(1, 8);
     const assetScale = exp(1, 18);
-    const assetWeiPerUnitBase = assetScale * basePrice / assetPriceDiscounted;
+    const assetWeiPerUnitBase = (assetScale * basePrice) / assetPriceDiscounted;
     const baseScale = exp(1, 6);
-    expect(q0).to.be.equal(assetWeiPerUnitBase * baseAmount / baseScale);
-    expect(q0).to.be.equal(exp(1.25, 18));
+    expect(q0.amountOut.toBigInt()).to.be.equal((assetWeiPerUnitBase * baseAmount) / baseScale);
+    expect(q0.amountOut).to.be.equal(exp(1.25, 18));
   });
 
-  it('quotes the collateral correctly for a zero base amount', async () => {
-    const protocol = await makeProtocol({
-      base: 'USDC',
-      targetReserves: 100,
+  it("quotes the collateral correctly for a zero base amount", async () => {
+    const { comet, tokens } = await makeProtocol({
       assets: {
-        USDC: {
-          initial: 1e6,
-          decimals: 6,
-          initialPrice: 1,
-        },
+        USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
         COMP: {
           initial: 1e7,
           decimals: 18,
           initialPrice: 200,
+
+          borrowCF: exp(1, 18),
+          liquidateCF: exp(1, 18),
+          minBorrowCF: exp(0.9, 18),
+          maxBorrowCF: exp(1, 18),
+          minLiquidateCF: exp(1, 18),
+          maxLiquidateCF: exp(1, 18),
+          minLiquidationFactor: exp(0.8, 18),
+          maxLiquidationFactor: exp(1, 18),
+          supplyCap: exp(1_000_000, 18),
         },
-      }
+      },
     });
-    const { comet, tokens } = protocol;
     const { COMP } = tokens;
 
     const baseAmount = 0n;
     const q0 = await comet.quoteCollateral(COMP.address, baseAmount);
 
-    expect(q0).to.be.equal(0n);
+    expect(q0.amountOut.toBigInt()).to.be.equal(0n);
   });
 
-  it('quotes the collateral at market price when storeFrontPriceFactor is 0%', async () => {
-    const protocol = await makeProtocol({
-      base: 'USDC',
+  it("quotes the collateral at market price when storeFrontPriceFactor is 0%", async () => {
+    const { comet, tokens } = await makeProtocol({
       storeFrontPriceFactor: exp(0, 18),
-      targetReserves: 100,
       assets: {
-        USDC: {
-          initial: 1e6,
-          decimals: 6,
-          initialPrice: 1,
-        },
+        USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
         COMP: {
           initial: 1e7,
           decimals: 18,
           initialPrice: 200,
           liquidationFactor: exp(0.6, 18),
+
+          borrowCF: exp(1, 18),
+          liquidateCF: exp(1, 18),
+          minBorrowCF: exp(0.9, 18),
+          maxBorrowCF: exp(1, 18),
+          minLiquidateCF: exp(1, 18),
+          maxLiquidateCF: exp(1, 18),
+          minLiquidationFactor: exp(0.6, 18),
+          maxLiquidationFactor: exp(0.8, 18),
+          supplyCap: exp(1_000_000, 18),
         },
-      }
+      },
     });
-    const { comet, tokens } = protocol;
     const { COMP } = tokens;
 
     const baseAmount = exp(200, 6);
@@ -95,33 +107,36 @@ describe('quoteCollateral', function () {
     const assetPriceDiscounted = exp(200, 8);
     const basePrice = exp(1, 8);
     const assetScale = exp(1, 18);
-    const assetWeiPerUnitBase = assetScale * basePrice / assetPriceDiscounted;
+    const assetWeiPerUnitBase = (assetScale * basePrice) / assetPriceDiscounted;
     const baseScale = exp(1, 6);
-    expect(q0).to.be.equal(assetWeiPerUnitBase * baseAmount / baseScale);
-    expect(q0).to.be.equal(exp(1, 18));
+    expect(q0.amountOut.toBigInt()).to.be.equal((assetWeiPerUnitBase * baseAmount) / baseScale);
+    expect(q0.amountOut.toBigInt()).to.be.equal(exp(1, 18));
   });
 
   // Should fail before PR 303
-  it('properly calculates price without truncating integer during intermediate calculations', async () => {
-    const protocol = await makeProtocol({
-      base: 'USDC',
+  it("properly calculates price without truncating integer during intermediate calculations", async () => {
+    const { comet, tokens } = await makeProtocol({
       storeFrontPriceFactor: exp(0.5, 18),
-      targetReserves: 100,
       assets: {
-        USDC: {
-          initial: 1e6,
-          decimals: 6,
-          initialPrice: 1,
-        },
+        USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
         COMP: {
           initial: 1e7,
           decimals: 18,
           initialPrice: 9,
           liquidationFactor: exp(0.8, 18),
+
+          borrowCF: exp(1, 18),
+          liquidateCF: exp(1, 18),
+          minBorrowCF: exp(0.9, 18),
+          maxBorrowCF: exp(1, 18),
+          minLiquidateCF: exp(1, 18),
+          maxLiquidateCF: exp(1, 18),
+          minLiquidationFactor: exp(0.8, 18),
+          maxLiquidationFactor: exp(1, 18),
+          supplyCap: exp(1_000_000, 18),
         },
-      }
+      },
     });
-    const { comet, tokens } = protocol;
     const { COMP } = tokens;
 
     const baseAmount = exp(810, 6);
@@ -130,29 +145,31 @@ describe('quoteCollateral', function () {
     // Store front discount is 0.5 * (1 - 0.8) = 0.1 = 10%
     // Discounted COMP price is 9 * 0.9 = 8.1
     // 810 USDC should give 810 / (0.9 * 9) = 100 COMP
-    expect(q0).to.be.equal(exp(100, 18));
+    expect(q0.amountOut.toBigInt()).to.be.equal(exp(100, 18));
   });
 
-  it('does not overflow for large amounts', async () => {
-    const protocol = await makeProtocol({
-      base: 'USDC',
+  it("does not overflow for large amounts", async () => {
+    const { comet, tokens } = await makeProtocol({
       storeFrontPriceFactor: exp(0.8, 18),
-      targetReserves: 100,
       assets: {
-        USDC: {
-          initial: 1e6,
-          decimals: 6,
-          initialPrice: 1,
-        },
+        USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
         COMP: {
           initial: 1e7,
           decimals: 18,
           initialPrice: 200,
           liquidationFactor: exp(0.75, 18),
+          borrowCF: exp(1, 18),
+          liquidateCF: exp(1, 18),
+          minBorrowCF: exp(0.9, 18),
+          maxBorrowCF: exp(1, 18),
+          minLiquidateCF: exp(1, 18),
+          maxLiquidateCF: exp(1, 18),
+          minLiquidationFactor: exp(0.75, 18),
+          maxLiquidationFactor: exp(1, 18),
+          supplyCap: exp(1_000_000, 18),
         },
-      }
+      },
     });
-    const { comet, tokens } = protocol;
     const { COMP } = tokens;
 
     const baseAmount = exp(1e15, 6); // 1 quadrillion USDC
@@ -161,6 +178,6 @@ describe('quoteCollateral', function () {
     // Store front discount is 0.8 * (1 - 0.75) = 0.2 = 20%
     // Discounted COMP price is 200 * 0.8 = 160
     // 1e18 USDC should give 1e15 / (0.8 * 200) = 6.25e12 COMP
-    expect(q0).to.be.equal(exp(6.25, 12 + 18));
+    expect(q0.amountOut.toBigInt()).to.be.equal(exp(6.25, 12 + 18));
   });
 });

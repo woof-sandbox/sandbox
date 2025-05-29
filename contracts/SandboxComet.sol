@@ -8,7 +8,6 @@ import "./interfaces/IERC20NonStandard.sol";
 import "./interfaces/IPriceFeed.sol";
 import "./interfaces/IConfigController.sol";
 import "./interfaces/ISandboxController.sol";
-
 /**
  * @title Compound's Comet Contract
  * @notice An efficient monolithic money comet protocol
@@ -1007,6 +1006,8 @@ contract SandboxComet is ISandboxComet, Initializable {
             IConfigController.CollateralTokenConfig memory assetInfo,
             uint8 index
         ) = getAssetInfoByAddress(asset);
+        if (assetInfo.collateralToken != asset) revert BadAsset();
+
         TotalsCollateral memory totals = totalsCollateral[asset];
         totals.totalSupplyAsset += amount;
         if (totals.totalSupplyAsset > assetInfo.supplyCap)
