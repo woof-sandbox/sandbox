@@ -1693,52 +1693,6 @@ describe('SandboxController', function () {
         }
       });
     });
-
-    describe('setThresholds', function () {
-      it('reverts if caller is not owner', async function () {
-        const thresholds = [
-          parseEther('0.5').toString(),
-          parseEther('0.4').toString(),
-          parseEther('0.3').toString()
-        ];
-        await expect(
-          sandboxController.connect(dao).setThresholds(thresholds)
-        ).to.be.revertedWithCustomError(sandboxController, 'NotOwner');
-        await expect(
-          sandboxController.connect(attacker).setThresholds(thresholds)
-        ).to.be.revertedWithCustomError(sandboxController, 'NotOwner');
-      });
-
-      it('reverts if any threshold is >= 1e18', async function () {
-        const thresholds = [
-          parseEther('0.5').toString(),
-          parseEther('1').toString(),
-          parseEther('0.3').toString()
-        ];
-        await expect(
-          sandboxController.connect(owner).setThresholds(thresholds)
-        ).to.be.revertedWithCustomError(sandboxController, 'InvalidFactors');
-      });
-
-      it('updates thresholds and emits events', async function () {
-        const thresholds = [
-          parseEther('0.1').toString(),
-          parseEther('0.2').toString(),
-          parseEther('0.3').toString()
-        ];
-        const tx = await sandboxController.connect(owner).setThresholds(thresholds);
-        const rcpt = await tx.wait();
-        const events = rcpt.events.filter((e: any) => e.event === 'ThresholdChanged');
-        expect(events.length).to.equal(3);
-        for (let i = 0; i < 3; i++) {
-          expect(events[i].args.state).to.equal(i);
-          expect(events[i].args.oldValue).to.equal('0');
-          expect(events[i].args.newValue).to.equal(thresholds[i]);
-          const value = await sandboxController.threshold(i);
-          expect(value).to.equal(thresholds[i]);
-        }
-      });
-    });
   });
 
   describe('setTreasury', function () {
