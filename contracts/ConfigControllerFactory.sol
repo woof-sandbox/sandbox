@@ -11,6 +11,8 @@ import "./interfaces/IConfigControllerFactory.sol";
  * @dev Factory contract for creating new ConfigController instances with unique configurations
  */
 contract ConfigControllerFactory is IConfigControllerFactory {
+    /// Version of the factory - will be refered as Controller version (via factory address in Controller)
+    uint8 public immutable VERSION;
     /// @notice The implementation address used for cloning
     address public immutable override configControllerImplementation;
     /// @notice The array of controller addresses
@@ -23,6 +25,8 @@ contract ConfigControllerFactory is IConfigControllerFactory {
     constructor(address _configControllerImplementation) {
         if (_configControllerImplementation == address(0)) revert InvalidAddress();
         configControllerImplementation = _configControllerImplementation;
+
+        VERSION = 1;
     }
 
     /// @notice Creates a new ConfigController instance with unique configuration
@@ -59,8 +63,7 @@ contract ConfigControllerFactory is IConfigControllerFactory {
             _curatorFee,
             _name,
             _curatorProposalDuration,
-            _proposalDuration,
-            address(this)
+            _proposalDuration
         );
         
         emit ConfigControllerCreated(
