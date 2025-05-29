@@ -92,7 +92,8 @@ abstract contract ISandboxController is ISandboxErrors {
     function controllerConfiguration() external view virtual returns (SandboxControllerConfiguration memory);
     function baseAssetTokens(uint256) external view virtual returns (address);
     function collateralAssetTokens(uint256) external view virtual returns (address);
-    function isPriceFeedWhitelisted(address) external view virtual returns (bool);
+    function isBasePriceFeedWhitelisted(address) external view virtual returns (bool);
+    function isCollateralPriceFeedWhitelisted(address) external view virtual returns (bool);
     function reserveCommission(MarketState) external view virtual returns (uint256);
     function protocolCommission(MarketState) external view virtual returns (uint256);
 

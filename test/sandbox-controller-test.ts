@@ -8,6 +8,7 @@ import {
   exp
 } from './helper/helpers';
 import { parseEther } from 'ethers/lib/utils';
+import { isIterationStatement } from 'typescript';
 
 function makeValidCurve() {
   return {
@@ -516,8 +517,19 @@ describe('SandboxController', function () {
       const count = await sandboxController.baseAssetCount();
       expect(count).to.equal(1);
       expect(await sandboxController.baseAssetTokens(0)).to.equal(token.address);
-      expect(await sandboxController.isPriceFeedWhitelisted(priceFeed.address)).to.be.true;
+      expect(await sandboxController.isBasePriceFeedWhitelisted(priceFeed.address)).to.be.true;
     });
+
+    it.only('whitelists token for collateral asset and whitelists token for base asset with the same price feed', async function () {
+      const token = await makeMockERC20({ name: 'T6', symbol: 'T6' });
+      const priceFeed = await makePriceFeed({});
+      const curve = makeValidCurve();
+      await sandboxController.whitelistBaseAsset(token.address, priceFeed.address, curve, 777);
+      const collateralToken = await makeMockERC20({ name: 'CT', symbol: 'CT' });
+      await sandboxController.whitelistCollateralAsset(collateralToken.address, priceFeed.address, 1000, 2000, 1500, 2500, 1200, 2800);
+      expect(await sandboxController.isCollateralPriceFeedWhitelisted(priceFeed.address)).to.be.true;
+      expect(await sandboxController.isBasePriceFeedWhitelisted(priceFeed.address)).to.be.true;
+    })
 
     it('whitelists token for base asset with correct state changes and emits BaseAssetWhitelisted', async function () {
       const token = await makeMockERC20({ name: 'T6', symbol: 'T6' });
@@ -830,7 +842,7 @@ describe('SandboxController', function () {
 
       expect(await sandboxController.collateralAssetTokens(0)).to.equal(token.address);
 
-      expect(await sandboxController.isPriceFeedWhitelisted(priceFeed.address)).to.equal(true);
+      expect(await sandboxController.isCollateralPriceFeedWhitelisted(priceFeed.address)).to.equal(true);
     });
 
     it('emits CollateralAssetWhitelisted event with correct args', async function () {

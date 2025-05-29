@@ -24,7 +24,8 @@ contract SandboxController is ISandboxController {
     SandboxControllerConfiguration public _controllerConfiguration;
     address[] public override baseAssetTokens;
     address[] public override collateralAssetTokens;
-    mapping(address => bool) public override isPriceFeedWhitelisted;
+    mapping(address => bool) public override isCollateralPriceFeedWhitelisted;
+    mapping(address => bool) public override isBasePriceFeedWhitelisted;
     mapping(MarketState => uint256) public override reserveCommission;
     mapping(MarketState => uint256) public override protocolCommission;
     mapping(address => BaseAssetConfiguration) private _baseAssets;
@@ -202,7 +203,7 @@ contract SandboxController is ISandboxController {
         if (isBaseTokenWhitelisted(token)) {
             revert BaseTokenAlreadyWhitelisted();
         }
-        if (isPriceFeedWhitelisted[priceFeed]) {
+        if (isBasePriceFeedWhitelisted[priceFeed]) {
             revert PriceFeedAlreadyWhitelisted();
         }
 
@@ -225,7 +226,7 @@ contract SandboxController is ISandboxController {
         baseAssetTokens.push(token);
         baseAssetCount++;
 
-        isPriceFeedWhitelisted[priceFeed] = true;
+        isBasePriceFeedWhitelisted[priceFeed] = true;
 
         emit BaseAssetWhitelisted(
             token,
@@ -264,7 +265,7 @@ contract SandboxController is ISandboxController {
         if (isCollateralTokenWhitelisted(token)) {
             revert CollateralTokenAlreadyWhitelisted();
         }
-        if (isPriceFeedWhitelisted[priceFeed]) {
+        if (isCollateralPriceFeedWhitelisted[priceFeed]) {
             revert PriceFeedAlreadyWhitelisted();
         }
         if (
@@ -305,7 +306,7 @@ contract SandboxController is ISandboxController {
         collateralAssetTokens.push(token);
         collateralAssetCount++;
 
-        isPriceFeedWhitelisted[priceFeed] = true;
+        isCollateralPriceFeedWhitelisted[priceFeed] = true;
 
         emit CollateralAssetWhitelisted(
             token,
