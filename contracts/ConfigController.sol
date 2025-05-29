@@ -16,11 +16,11 @@ import "./interfaces/IERC20NonStandard.sol";
  * @author WOOF Software
  * @notice Manages protocol configuration, comet creation, and curator governance
  * @dev This contract handles the core configuration of the protocol, including:
- * - Market creation and management
+ * - Comet creation and management
  * - Curator role management
  * - Revenue distribution
  * - Proposal system for comet configuration changes
- * - Market transfer proposals
+ * - Comet transfer proposals
  */
 contract ConfigController is IConfigController, Initializable {
     /// @notice The address of the protocol owner
@@ -118,13 +118,9 @@ contract ConfigController is IConfigController, Initializable {
             if (_cometFactory == ZERO_ADDRESS) revert ZeroAddress();
             if (_curatorFee > 10000) revert InvalidFeePercentage();
             if (_configControllerFactory == ZERO_ADDRESS) revert ZeroAddress();
-            uint minUpdateTime = ISandboxController(_sandboxController)
-                .controllerConfiguration()
-                .minUpdateTime;
-            if (
-                _curatorProposalDuration < minUpdateTime ||
-                _proposalDuration < minUpdateTime
-            ) revert ProposalDurationTooShort();
+
+            uint minUpdateTime = ISandboxController(_sandboxController).controllerConfiguration().minUpdateTime;
+            if (_curatorProposalDuration < minUpdateTime || _proposalDuration < minUpdateTime) revert ProposalDurationTooShort();
         }
 
         owner = _owner;
@@ -144,56 +140,42 @@ contract ConfigController is IConfigController, Initializable {
     /// @dev Only callable by the owner
     /// @param _cometConfig The configuration parameters for the new comet
     /// @return The address of the newly created comet
-    function createComet(
-        CometConfig memory _cometConfig
-    ) external override onlyOwner returns (address) {
+    function createComet(CometConfig memory _cometConfig) external override onlyOwner returns (address) {
         if (_cometConfig.baseToken == ZERO_ADDRESS) revert ZeroAddress();
-        ISandboxController.BaseAssetConfiguration
-            memory baseAssetConfig = ISandboxController(sandboxController)
-                .baseAssets(_cometConfig.baseToken);
+        ISandboxController.BaseAssetConfiguration memory baseAssetConfig = ISandboxController(sandboxController).baseAssets(_cometConfig.baseToken);
         if (baseAssetConfig.priceFeed == ZERO_ADDRESS) revert BaseTokenNotWhitelisted();
-        if (
-            !ISandboxController(sandboxController).isBasePriceFeedWhitelisted(_cometConfig.priceFeed)
-        ) revert WrongPriceFeed();
+        if (!ISandboxController(sandboxController).isPriceFeedWhitelisted(_cometConfig.priceFeed)) revert WrongPriceFeed();
         if (_cometConfig.collateralTokens.length == 0) revert ZeroCollateralAssets();
 
-        if (
-            _cometConfig.baseTokenCurveId >=
-            baseAssetConfig.baseAssetCurves.length
-        ) revert WrongCurveParams();
+        if (_cometConfig.baseTokenCurveId >= baseAssetConfig.baseAssetCurves.length) revert WrongCurveParams();
+        
         uint length = _cometConfig.collateralTokens.length;
         CollateralTokenConfig memory collateralTokenConfig;
-        ISandboxController.CollateralAssetConfiguration
-            memory collateralAssetLimitations;
+        ISandboxController.CollateralAssetConfiguration memory collateralAssetLimitations;
         address[] memory addedCollateralTokens = new address[](length);
         
         for (uint i; i < length; ) {
             unchecked {
                 collateralTokenConfig = _cometConfig.collateralTokens[i];
-                collateralAssetLimitations = ISandboxController(
-                    sandboxController
-                ).collateralAssets(collateralTokenConfig.collateralToken);
+                collateralAssetLimitations = ISandboxController(sandboxController).collateralAssets(collateralTokenConfig.collateralToken);
 
                 if (collateralTokenConfig.collateralToken == _cometConfig.baseToken) revert WrongCollateralTokenSettings();
+                
                 _validateCollateralTokenConfig(
                     collateralTokenConfig,
                     collateralAssetLimitations,
                     addedCollateralTokens
                 );
 
-                addedCollateralTokens[i] = collateralTokenConfig
-                    .collateralToken;
+                addedCollateralTokens[i] = collateralTokenConfig.collateralToken;
                 i++;
             }
         }
         
-        ISandboxController.SandboxControllerConfiguration
-            memory config = ISandboxController(sandboxController).config();
+        ISandboxController.SandboxControllerConfiguration memory config = ISandboxController(sandboxController).config();
             
-        address comet = ISandboxCometFactory(cometFactory).createComet(
-            _cometConfig,
-            config
-        );
+        address comet = ISandboxCometFactory(cometFactory).createComet(_cometConfig, config);
+
         comets.push(comet);
         cometsLength++;
         cometId[comet] = cometsLength - 1;
@@ -208,7 +190,7 @@ contract ConfigController is IConfigController, Initializable {
             comet,
             config.suggestedAmountOfSeedReserves
         );
-        
+         
         ISandboxComet(comet).initializeStorage();
 
         emit CometCreated(
@@ -298,13 +280,8 @@ contract ConfigController is IConfigController, Initializable {
         uint _curatorProposalDuration,
         uint _proposalDuration
     ) external onlyOwner {
-        uint256 minUpdateTime = ISandboxController(sandboxController)
-            .controllerConfiguration()
-            .minUpdateTime;
-        if (
-            _curatorProposalDuration < minUpdateTime ||
-            _proposalDuration < minUpdateTime
-        ) revert ProposalDurationTooShort();
+        uint256 minUpdateTime = ISandboxController(sandboxController).controllerConfiguration().minUpdateTime;
+        if (_curatorProposalDuration < minUpdateTime || _proposalDuration < minUpdateTime) revert ProposalDurationTooShort();
 
         uint oldCuratorDuration = curatorProposalDuration;
         uint oldProposalDuration = proposalDuration;
@@ -327,24 +304,17 @@ contract ConfigController is IConfigController, Initializable {
     /// @param addedCollateralTokens Array of already added collateral tokens
     function _validateCollateralTokenConfig(
         IConfigController.CollateralTokenConfig memory collateralTokenConfig,
-        ISandboxController.CollateralAssetConfiguration
-            memory collateralAssetLimitations,
+        ISandboxController.CollateralAssetConfiguration memory collateralAssetLimitations,
         address[] memory addedCollateralTokens
     ) internal view {
-        if (collateralTokenConfig.collateralToken == ZERO_ADDRESS)
-            revert ZeroAddress();
-        if (
-            ISandboxController(sandboxController)
-                .collateralAssets(collateralTokenConfig.collateralToken)
-                .priceFeed == ZERO_ADDRESS
-        ) revert CollateralTokenNotWhitelisted();
-        if (!ISandboxController(sandboxController).isCollateralPriceFeedWhitelisted(collateralTokenConfig.priceFeed)) revert WrongPriceFeed();
+        if (collateralTokenConfig.collateralToken == ZERO_ADDRESS) revert ZeroAddress();
+        if (ISandboxController(sandboxController)
+        .collateralAssets(collateralTokenConfig.collateralToken).priceFeed == ZERO_ADDRESS) revert CollateralTokenNotWhitelisted();
+        if (!ISandboxController(sandboxController)
+        .isPriceFeedWhitelisted(collateralTokenConfig.priceFeed)) revert WrongPriceFeed();
 
         for (uint j; j < addedCollateralTokens.length; j++) {
-            if (
-                addedCollateralTokens[j] ==
-                collateralTokenConfig.collateralToken
-            ) revert CollateralTokenAlreadyAdded();
+            if (addedCollateralTokens[j] == collateralTokenConfig.collateralToken) revert CollateralTokenAlreadyAdded();
         }
 
         if (
@@ -376,5 +346,4 @@ contract ConfigController is IConfigController, Initializable {
         if (cometsLength == 0) return false;
         return comets[cometId[comet]] != address(0);
     }
-
 }
