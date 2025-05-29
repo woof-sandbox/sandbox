@@ -401,8 +401,8 @@ describe('SandboxController', function () {
       expect(await sandboxController.reserveFactorLiquidation()).to.equal(parseEther('0.1').toString());
 
       expect(await sandboxController.maxCollateralAssets()).to.equal(10);
-      expect(await sandboxController.baseAssetCount()).to.equal(0);
-      expect(await sandboxController.collateralAssetCount()).to.equal(0);
+      expect(await sandboxController.getBaseAssetLength()).to.equal(0);
+      expect(await sandboxController.getCollateralAssetLength()).to.equal(0);
       expect((await sandboxController.controllerConfiguration()).storeFrontPriceFactor).to.equal(parseEther('0.1').toString());
       expect((await sandboxController.controllerConfiguration()).minUpdateTime).to.equal(300);
       expect((await sandboxController.controllerConfiguration()).suggestedAmountOfSeedReserves).to.equal('1000');
@@ -514,13 +514,13 @@ describe('SandboxController', function () {
       expect(data.priceFeed).to.equal(priceFeed.address);
       expect(data.decimals).to.equal(18);
       expect(data.minBorrow).to.equal(777);
-      const count = await sandboxController.baseAssetCount();
+      const count = await sandboxController.getBaseAssetLength();
       expect(count).to.equal(1);
       expect(await sandboxController.baseAssetTokens(0)).to.equal(token.address);
       expect(await sandboxController.isBasePriceFeedWhitelisted(priceFeed.address)).to.be.true;
     });
 
-    it.only('whitelists token for collateral asset and whitelists token for base asset with the same price feed', async function () {
+    it('whitelists token for collateral asset and whitelists token for base asset with the same price feed', async function () {
       const token = await makeMockERC20({ name: 'T6', symbol: 'T6' });
       const priceFeed = await makePriceFeed({});
       const curve = makeValidCurve();
@@ -567,7 +567,7 @@ describe('SandboxController', function () {
       const token2 = await makeMockERC20({ name: 'T8', symbol: 'T8' });
       const feed2 = await makePriceFeed({});
       await sandboxController.connect(dao).whitelistBaseAsset(token2.address, feed2.address, makeValidCurve(), 200);
-      expect(await sandboxController.baseAssetCount()).to.equal(2);
+      expect(await sandboxController.getBaseAssetLength()).to.equal(2);
     });
   });
 
@@ -838,7 +838,7 @@ describe('SandboxController', function () {
       expect(data.minLiquidationFactor).to.equal(minLiquidationFactor);
       expect(data.maxLiquidationFactor).to.equal(maxLiquidationFactor);
 
-      expect(await sandboxController.collateralAssetCount()).to.equal(1);
+      expect(await sandboxController.getCollateralAssetLength()).to.equal(1);
 
       expect(await sandboxController.collateralAssetTokens(0)).to.equal(token.address);
 
@@ -900,7 +900,7 @@ describe('SandboxController', function () {
           9000
         );
 
-      expect(await sandboxController.collateralAssetCount()).to.equal(2);
+      expect(await sandboxController.getCollateralAssetLength()).to.equal(2);
     });
   });
 

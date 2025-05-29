@@ -15,8 +15,6 @@ contract SandboxController is ISandboxController {
     uint256 public override protocolFactorLiquidation;
     uint256 public override reserveFactorLiquidation;
     uint256 public override maxCollateralAssets;
-    uint256 public override baseAssetCount;
-    uint256 public override collateralAssetCount;
     address public override treasury;
     address public override owner;
     address public override dao;
@@ -224,7 +222,6 @@ contract SandboxController is ISandboxController {
         _baseAssets[token].baseAssetCurves.push(baseAssetCurve);
 
         baseAssetTokens.push(token);
-        baseAssetCount++;
 
         isBasePriceFeedWhitelisted[priceFeed] = true;
 
@@ -235,6 +232,14 @@ contract SandboxController is ISandboxController {
             baseAssetCurve,
             minBorrow
         );
+    }
+
+    /**
+     * @notice Returns the length of the baseAssetTokens array.
+     * @return The length of the baseAssetTokens array.
+     */
+    function getBaseAssetLength() external override view returns (uint256) {
+        return baseAssetTokens.length;
     }
 
     /**
@@ -265,6 +270,7 @@ contract SandboxController is ISandboxController {
         if (isCollateralTokenWhitelisted(token)) {
             revert CollateralTokenAlreadyWhitelisted();
         }
+        /// @dev the price feed 
         if (isCollateralPriceFeedWhitelisted[priceFeed]) {
             revert PriceFeedAlreadyWhitelisted();
         }
@@ -304,7 +310,6 @@ contract SandboxController is ISandboxController {
         _collateralAssets[token].maxLiquidationFactor = maxLiquidationFactor;
 
         collateralAssetTokens.push(token);
-        collateralAssetCount++;
 
         isCollateralPriceFeedWhitelisted[priceFeed] = true;
 
@@ -319,6 +324,14 @@ contract SandboxController is ISandboxController {
             minLiquidationFactor,
             maxLiquidationFactor
         );
+    }
+
+    /**
+     * @notice Returns the length of the collateralAssetTokens array.
+     * @return The length of the collateralAssetTokens array.
+     */
+    function getCollateralAssetLength() external override view returns (uint256) {
+        return collateralAssetTokens.length;
     }
 
     /**
