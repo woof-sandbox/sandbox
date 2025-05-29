@@ -330,14 +330,12 @@ export async function makeConfigControllerFactory(configControllerImpl: string):
 
 export async function makeCometFactory(
   cometImpl: Contract,
-  configController: Contract,
-  sandboxController: Contract
+  configController: Contract
 ): Promise<SandboxCometFactory> {
   const CometFactory_factory: SandboxCometFactory__factory = await ethers.getContractFactory('SandboxCometFactory') as SandboxCometFactory__factory;
   const cometFactory: SandboxCometFactory = await CometFactory_factory.deploy(
     cometImpl.address,
-    configController.address,
-    sandboxController.address
+    configController.address
   );
   await cometFactory.deployed();
 
@@ -464,8 +462,7 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
 
   const cometFactory = await makeCometFactory(
     cometImpl, 
-    configControllerFactory,
-    sandboxController
+    configControllerFactory
   );
 
   await configControllerFactory.createConfigController(

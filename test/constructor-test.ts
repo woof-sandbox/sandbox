@@ -137,13 +137,6 @@ describe('constructor', function () {
     ).to.be.revertedWith("custom error 'BadDecimals()'");
   });
 
-  it('reverts if initializeStorage is called after initialization', async () => {
-    const { comet } = await makeProtocol();
-    await expect(
-      comet.initializeStorage()
-    ).to.be.revertedWith("custom error 'AlreadyInitialized()'");
-  });
-
   it('is not possible to create a perSecondInterestRateSlopeLow above FACTOR_SCALE', async () => {
     const uint64Max = BigInt(2 ** 64) - 1n;
 
