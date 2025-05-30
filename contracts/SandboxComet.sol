@@ -117,7 +117,7 @@ contract SandboxComet is ISandboxComet {
     /// @param _configController legal address of the config controller which triggered the factory
     /// @param _ext extension deployed by the same factory
     function factoryInit(address _configController, address _ext) external override {
-        if (factory != address(0) || configController != address(0)) revert IncorrectInitialization();
+        if (factory != address(0) || configController != address(0)) revert AlreadyInitialized();
         if (_configController == address(0) || _ext == address(0)) revert IncorrectInitialization();
 
         factory = msg.sender;
@@ -132,10 +132,11 @@ contract SandboxComet is ISandboxComet {
         address sandboxController_,
         uint256 baseBorrowMin_
     ) external override {
-        /// Relies on fact that factory provides correct controller and that it is set by the time of this call
-        if (msg.sender != configController) revert IncorrectInitialization();
         /// Rely on base token as main characteristic of the market and that it was validated in Controller
         if (baseToken != address(0)) revert AlreadyInitialized();
+
+        /// Relies on fact that factory provides correct controller and that it is set by the time of this call
+        if (msg.sender != configController) revert IncorrectInitialization();
 
         uint8 decimals_ = IERC20NonStandard(comet.baseToken).decimals();
         if (decimals_ > MAX_BASE_DECIMALS) revert BadDecimals();
