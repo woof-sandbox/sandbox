@@ -174,7 +174,6 @@ contract ConfigController is IConfigController {
         ISandboxComet(comet).initialize(
             _cometConfig,
             _sandboxConfig,
-            sandboxController,
             ISandboxController(sandboxController).baseAssets(_cometConfig.baseToken).minBorrow
         );
 

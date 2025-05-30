@@ -20,9 +20,6 @@ contract SandboxComet is ISandboxComet {
     /// @notice Config Controller address
     address public override configController;
 
-    /// @notice Sandbox Controller address
-    address public override sandboxController;
-
     /// @notice The address of the extension contract
     address public override extension;
 
@@ -129,7 +126,6 @@ contract SandboxComet is ISandboxComet {
     function initialize(
         IConfigController.CometConfig memory comet,
         ISandboxController.SandboxControllerConfiguration memory config,
-        address sandboxController_,
         uint256 baseBorrowMin_
     ) external override {
         /// Relies on fact that factory provides correct controller and that it is set by the time of this call
@@ -141,8 +137,6 @@ contract SandboxComet is ISandboxComet {
         if (decimals_ > MAX_BASE_DECIMALS) revert BadDecimals();
         if (IPriceFeed(comet.priceFeed).decimals() != PRICE_FEED_DECIMALS)
             revert BadDecimals();
-
-        sandboxController = sandboxController_;
 
         baseToken = comet.baseToken;
         baseTokenPriceFeed = comet.priceFeed;
@@ -168,6 +162,7 @@ contract SandboxComet is ISandboxComet {
             block.timestamp +
             config.suggestedLockTimeOfSeedReserves;
 
+        address sandboxController = IConfigController(configController).sandboxController();
         ISandboxController.BaseAssetCurve memory curve = ISandboxController(
             sandboxController
         ).baseAssets(comet.baseToken).baseAssetCurves[comet.baseTokenCurveId];
@@ -651,6 +646,7 @@ contract SandboxComet is ISandboxComet {
         bool absorbPaused,
         bool buyPaused
     ) external override {
+        address sandboxController = IConfigController(configController).sandboxController();
         address dao = ISandboxController(sandboxController).dao();
         if (msg.sender != configController && dao != msg.sender)
             revert Unauthorized();
