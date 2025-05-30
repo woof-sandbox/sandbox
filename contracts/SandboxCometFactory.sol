@@ -14,8 +14,6 @@ import "./CometExtension.sol";
  * @dev This contract uses OpenZeppelin's Clones library to create gas-efficient comet instances
  */
 contract SandboxCometFactory is ISandboxCometFactory {
-    /// Version of the factory - will be refered as Comet version (via factory address in Comet)
-    uint8 public immutable VERSION;
     /// @notice The implementation address used for cloning new comets
     address public immutable override cometImplementation;
 
@@ -38,8 +36,6 @@ contract SandboxCometFactory is ISandboxCometFactory {
 
         cometImplementation = _cometImplementation;
         configControllerFactory = _configControllerFactory;
-
-        VERSION = 1;
     }
     
     /**
