@@ -264,9 +264,11 @@ contract SandboxComet is ISandboxComet, Initializable {
         public
         view
         returns (IConfigController.CollateralTokenConfig memory, uint8 index)
-    {
+    {   
+        IConfigController.CollateralTokenConfig memory assetInfo = collateralAssets[collateralAssetIndex[asset]];
+        if (assetInfo.collateralToken != asset) revert BadAsset();
         return (
-            collateralAssets[collateralAssetIndex[asset]],
+            assetInfo,
             collateralAssetIndex[asset]
         );
     }
@@ -1006,7 +1008,6 @@ contract SandboxComet is ISandboxComet, Initializable {
             IConfigController.CollateralTokenConfig memory assetInfo,
             uint8 index
         ) = getAssetInfoByAddress(asset);
-        if (assetInfo.collateralToken != asset) revert BadAsset();
 
         TotalsCollateral memory totals = totalsCollateral[asset];
         totals.totalSupplyAsset += amount;
