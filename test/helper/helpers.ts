@@ -404,11 +404,12 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
     for (const asset in assets) {
         const initialPrice = exp(assets[asset].initialPrice || 1, 8);
         const priceFeedDecimals = assets[asset].priceFeedDecimals || 8;
-        const priceFeed = await PriceFeedFactory.deploy(initialPrice, priceFeedDecimals);
+        const priceFeed = await PriceFeedFactory.deploy(initialPrice, priceFeedDecimals, tokens[asset].address);
         await priceFeed.deployed();
         priceFeeds[asset] = priceFeed;
     }
-    const priceFeed = await PriceFeedFactory.deploy(1, 6);
+
+    const priceFeed = await PriceFeedFactory.deploy(1, 6, unsupportedToken.address);
     await priceFeed.deployed();
     priceFeeds["USUP"] = priceFeed;
 
@@ -467,7 +468,7 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
         const priceFeed = priceFeeds[asset];
         // Price feed is not deployed, deploy it
         if (!priceFeed) {
-            priceFeeds[asset] = await PriceFeedFactory.deploy(1, 6);
+            priceFeeds[asset] = await PriceFeedFactory.deploy(1, 6, assets[asset].address);
         }
         // Skip the base token
         if (asset == base) continue;
@@ -716,71 +717,9 @@ export async function makeMockERC20({ name, symbol }: MockERC20Params): Promise<
     return token;
 }
 
-/// TODO: add opts when testing curves
-export async function sandboxListBaseAsset(
-    sandboxController: SandboxController,
-    baseAsset: FaucetToken,
-    priceFeed: string
-) {
-    // --- Parameters ---
-    const supplyKink = exp(0.8, 18);
-    const supplyPerYearInterestRateBase = exp(0.001, 18);
-    const supplyPerYearInterestRateSlopeLow = exp(0.05, 18);
-    const supplyPerYearInterestRateSlopeHigh = exp(2, 18);
-    const borrowKink = exp(0.8, 18);
-    const borrowPerYearInterestRateBase = exp(0.005, 18);
-    const borrowPerYearInterestRateSlopeLow = exp(0.1, 18);
-    const borrowPerYearInterestRateSlopeHigh = exp(3, 18);
-    const baseBorrowMin = exp(1, await baseAsset.decimals());
-
-    // --- Whitelist the base token ---
-    await sandboxController.whitelistBaseAsset(
-        baseAsset.address,
-        priceFeed,
-        {
-            supplyKink,
-            supplyPerYearInterestRateBase,
-            supplyPerYearInterestRateSlopeLow,
-            supplyPerYearInterestRateSlopeHigh,
-            borrowKink,
-            borrowPerYearInterestRateBase,
-            borrowPerYearInterestRateSlopeLow,
-            borrowPerYearInterestRateSlopeHigh,
-        },
-        baseBorrowMin
-    );
-}
-
-/// TODO: add opts when testing curves
-export async function sandboxListCollateralAsset(
-    sandboxController: SandboxController,
-    collateralAsset: FaucetToken,
-    priceFeed: string
-) {
-    const minBorrowCF = exp(0.5, 18);
-    const maxBorrowCF = exp(1, 18);
-    const minLiquidateCF = exp(0.6, 18);
-    const maxLiquidateCF = exp(0.7, 18);
-    const minLiquidationFactor = exp(0.8, 18);
-    const maxLiquidationFactor = exp(1, 18);
-
-    await sandboxController.whitelistCollateralAsset(
-        collateralAsset.address,
-        priceFeed,
-        minBorrowCF,
-        maxBorrowCF,
-        minLiquidateCF,
-        maxLiquidateCF,
-        minLiquidationFactor,
-        maxLiquidationFactor
-    );
-}
-
-export async function makePriceFeed({ amount, decimals }: { amount?: string; decimals?: number } = {}): Promise<
-    SimplePriceFeed
-> {
+export async function makePriceFeed({ amount }, underlyingToken: string): Promise<SimplePriceFeed> {
     const PriceFeedFactory = (await ethers.getContractFactory("SimplePriceFeed")) as SimplePriceFeed__factory;
-    const priceFeed = await PriceFeedFactory.deploy(amount ?? "100000000", decimals ?? 8);
+    const priceFeed = await PriceFeedFactory.deploy(amount ?? "100000000", 8, underlyingToken);
     await priceFeed.deployed();
     return priceFeed;
 }

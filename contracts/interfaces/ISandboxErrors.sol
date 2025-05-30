@@ -14,6 +14,8 @@ interface ISandboxErrors {
 
     error InvalidCurveConfiguration();
     error InvalidPriceFeed();
+    error DifferentPriceFeedAlreadyUsedForToken();
+    error WrongPriceFeedUnderlying();
     error InvalidFactors();
 
     error LiquidateCollateralFactorTooLow();
