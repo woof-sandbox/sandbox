@@ -436,14 +436,15 @@ describe('SandboxController', function () {
 
     it('reverts if caller is not owner or dao', async function () {
       const token = await makeMockERC20({ name: 'TestToken', symbol: 'TT' });
-      const priceFeed = await makePriceFeed({});
+      const priceFeed = await makePriceFeed({}, token.address);
       await expect(
         sandboxController.connect(attacker).whitelistBaseAsset(token.address, priceFeed.address, makeValidCurve(), 10)
       ).to.be.revertedWithCustomError(sandboxController, 'Unauthorized');
     });
 
     it('reverts if token=0', async function () {
-      const priceFeed = await makePriceFeed({});
+      const token = await makeMockERC20({ name: 'TestToken', symbol: 'TT' });
+      const priceFeed = await makePriceFeed({}, token.address);
       await expect(
         sandboxController.whitelistBaseAsset(ethers.constants.AddressZero, priceFeed.address, makeValidCurve(), 100)
       ).to.be.revertedWithCustomError(sandboxController, 'ZeroAddress');
@@ -458,10 +459,10 @@ describe('SandboxController', function () {
 
     it('reverts if token already whitelisted', async function () {
       const token = await makeMockERC20({ name: 'T1', symbol: 'T1' });
-      const priceFeed = await makePriceFeed({});
+      const priceFeed = await makePriceFeed({}, token.address);
       const curve = makeValidCurve();
       await sandboxController.whitelistBaseAsset(token.address, priceFeed.address, curve, 100);
-      const token2Feed = await makePriceFeed({});
+      const token2Feed = await makePriceFeed({}, token.address);
       await expect(
         sandboxController.whitelistBaseAsset(token.address, token2Feed.address, curve, 200)
       ).to.be.revertedWithCustomError(sandboxController, 'BaseTokenAlreadyWhitelisted');
@@ -470,17 +471,17 @@ describe('SandboxController', function () {
     it('reverts if feed already whitelisted by another token', async function () {
       const token1 = await makeMockERC20({ name: 'T2', symbol: 'T2' });
       const token2 = await makeMockERC20({ name: 'T3', symbol: 'T3' });
-      const priceFeed = await makePriceFeed({});
+      const priceFeed = await makePriceFeed({}, token1.address);
       const curve = makeValidCurve();
       await sandboxController.whitelistBaseAsset(token1.address, priceFeed.address, curve, 50);
       await expect(
         sandboxController.whitelistBaseAsset(token2.address, priceFeed.address, curve, 50)
-      ).to.be.revertedWithCustomError(sandboxController, 'PriceFeedAlreadyWhitelisted');
+      ).to.be.revertedWithCustomError(sandboxController, 'DifferentPriceFeed');
     });
 
     it('reverts if curve is invalid', async function () {
       const token = await makeMockERC20({ name: 'T4', symbol: 'T4' });
-      const priceFeed = await makePriceFeed({});
+      const priceFeed = await makePriceFeed({}, token.address);
       await expect(
         sandboxController.whitelistBaseAsset(token.address, priceFeed.address, makeInvalidCurveZeroBase(), 10)
       ).to.be.revertedWithCustomError(sandboxController, 'InvalidCurveConfiguration');
@@ -498,8 +499,8 @@ describe('SandboxController', function () {
     });
 
     it('reverts if invalid price feed', async function () {
-      const priceFeed = await makePriceFeed({ amount: 0 });
       const token = await makeMockERC20({ name: 'T6', symbol: 'T6' });
+      const priceFeed = await makePriceFeed({ amount: 0 }, token.address);
       await expect(
         sandboxController.whitelistBaseAsset(token.address, priceFeed.address, makeValidCurve(), 100)
       ).to.be.revertedWithCustomError(sandboxController, 'InvalidPriceFeed');
@@ -507,7 +508,7 @@ describe('SandboxController', function () {
 
     it('whitelists token for base asset with correct state changes', async function () {
       const token = await makeMockERC20({ name: 'T6', symbol: 'T6' });
-      const priceFeed = await makePriceFeed({});
+      const priceFeed = await makePriceFeed({}, token.address);
       const curve = makeValidCurve();
       await sandboxController.whitelistBaseAsset(token.address, priceFeed.address, curve, 777);
       const data = await sandboxController.baseAssets(token.address);
@@ -517,23 +518,21 @@ describe('SandboxController', function () {
       const count = await sandboxController.getBaseAssetLength();
       expect(count).to.equal(1);
       expect(await sandboxController.baseAssetTokens(0)).to.equal(token.address);
-      expect(await sandboxController.isBasePriceFeedWhitelisted(priceFeed.address)).to.be.true;
+      expect(await sandboxController.isPriceFeedWhitelisted(priceFeed.address)).to.be.true;
     });
 
     it('whitelists token for collateral asset and whitelists token for base asset with the same price feed', async function () {
       const token = await makeMockERC20({ name: 'T6', symbol: 'T6' });
-      const priceFeed = await makePriceFeed({});
+      const priceFeed = await makePriceFeed({}, token.address);
       const curve = makeValidCurve();
       await sandboxController.whitelistBaseAsset(token.address, priceFeed.address, curve, 777);
-      const collateralToken = await makeMockERC20({ name: 'CT', symbol: 'CT' });
-      await sandboxController.whitelistCollateralAsset(collateralToken.address, priceFeed.address, 1000, 2000, 1500, 2500, 1200, 2800);
-      expect(await sandboxController.isCollateralPriceFeedWhitelisted(priceFeed.address)).to.be.true;
-      expect(await sandboxController.isBasePriceFeedWhitelisted(priceFeed.address)).to.be.true;
+      await sandboxController.whitelistCollateralAsset(token.address, priceFeed.address, 1000, 2000, 1500, 2500, 1200, 2800);
+      expect(await sandboxController.isPriceFeedWhitelisted(priceFeed.address)).to.be.true;
     })
 
     it('whitelists token for base asset with correct state changes and emits BaseAssetWhitelisted', async function () {
       const token = await makeMockERC20({ name: 'T6', symbol: 'T6' });
-      const priceFeed = await makePriceFeed({});
+      const priceFeed = await makePriceFeed({}, token.address);
       const curve = makeValidCurve();
       const tx = await sandboxController.whitelistBaseAsset(token.address, priceFeed.address, curve, 777);
       const rcpt = await tx.wait();
@@ -563,10 +562,10 @@ describe('SandboxController', function () {
 
     it('owner can do it, dao can do it', async function () {
       const token1 = await makeMockERC20({ name: 'T7', symbol: 'T7' });
-      const feed1 = await makePriceFeed({});
+      const feed1 = await makePriceFeed({}, token1.address);
       await sandboxController.connect(owner).whitelistBaseAsset(token1.address, feed1.address, makeValidCurve(), 100);
       const token2 = await makeMockERC20({ name: 'T8', symbol: 'T8' });
-      const feed2 = await makePriceFeed({});
+      const feed2 = await makePriceFeed({}, token2.address);
       await sandboxController.connect(dao).whitelistBaseAsset(token2.address, feed2.address, makeValidCurve(), 200);
       expect(await sandboxController.getBaseAssetLength()).to.equal(2);
     });
@@ -597,7 +596,7 @@ describe('SandboxController', function () {
 
     it('reverts if caller is not authorized', async function () {
       const token = await makeMockERC20({ name: 'C1', symbol: 'C1' });
-      const priceFeed = await makePriceFeed({});
+      const priceFeed = await makePriceFeed({}, token.address);
       await expect(
         sandboxController
           .connect(attacker)
@@ -615,7 +614,7 @@ describe('SandboxController', function () {
     });
 
     it('reverts if token=0', async function () {
-      const priceFeed = await makePriceFeed({});
+      const priceFeed = await makePriceFeed({}, ethers.constants.AddressZero);
       await expect(
         sandboxController.whitelistCollateralAsset(
           ethers.constants.AddressZero,
@@ -648,7 +647,7 @@ describe('SandboxController', function () {
 
     it('reverts if token already whitelisted as collateral', async function () {
       const token = await makeMockERC20({ name: 'C3', symbol: 'C3' });
-      const priceFeed = await makePriceFeed({});
+      const priceFeed = await makePriceFeed({}, token.address);
       await sandboxController.whitelistCollateralAsset(
         token.address,
         priceFeed.address,
@@ -659,7 +658,7 @@ describe('SandboxController', function () {
         7000,
         9500
       );
-      const newFeed = await makePriceFeed({});
+      const newFeed = await makePriceFeed({}, token.address);
       await expect(
         sandboxController.whitelistCollateralAsset(
           token.address,
@@ -677,7 +676,7 @@ describe('SandboxController', function () {
     it('reverts if feed is used by another token', async function () {
       const tokenA = await makeMockERC20({ name: 'C4A', symbol: 'C4A' });
       const tokenB = await makeMockERC20({ name: 'C4B', symbol: 'C4B' });
-      const priceFeed = await makePriceFeed({});
+      const priceFeed = await makePriceFeed({}, tokenA.address);
 
       await sandboxController.whitelistCollateralAsset(
         tokenA.address,
@@ -701,7 +700,7 @@ describe('SandboxController', function () {
           7000,
           9500
         )
-      ).to.be.revertedWithCustomError(sandboxController, 'PriceFeedAlreadyWhitelisted');
+      ).to.be.revertedWithCustomError(sandboxController, 'DifferentPriceFeed');
     });
 
     it('reverts if feed not a valid aggregator (mock example)', async function () {
@@ -723,7 +722,7 @@ describe('SandboxController', function () {
 
     it('reverts if invalid price feed (answer=0)', async function () {
       const token = await makeMockERC20({ name: 'T6', symbol: 'T6' });
-      const badPriceFeed = await makePriceFeed({ amount: 0 });
+      const badPriceFeed = await makePriceFeed({ amount: 0 }, token.address);
       await expect(
         sandboxController.whitelistCollateralAsset(
           token.address,
@@ -740,7 +739,7 @@ describe('SandboxController', function () {
 
     it('reverts if any factor is zero', async function () {
       const token = await makeMockERC20({ name: 'CZero', symbol: 'CZero' });
-      const feed = await makePriceFeed({});
+      const feed = await makePriceFeed({}, token.address);
       await expect(
         sandboxController.whitelistCollateralAsset(
           token.address,
@@ -757,7 +756,7 @@ describe('SandboxController', function () {
 
     it('reverts if minBorrowCollateralFactor > maxBorrowCollateralFactor', async function () {
       const token = await makeMockERC20({ name: 'CInv', symbol: 'CInv' });
-      const feed = await makePriceFeed({});
+      const feed = await makePriceFeed({}, token.address);
       await expect(
         sandboxController.whitelistCollateralAsset(
           token.address,
@@ -774,7 +773,7 @@ describe('SandboxController', function () {
 
     it('reverts if minLiquidateCollateralFactor > maxLiquidateCollateralFactor', async function () {
       const token = await makeMockERC20({ name: 'CInv2', symbol: 'CInv2' });
-      const feed = await makePriceFeed({});
+      const feed = await makePriceFeed({}, token.address);
       await expect(
         sandboxController.whitelistCollateralAsset(
           token.address,
@@ -791,7 +790,7 @@ describe('SandboxController', function () {
 
     it('reverts if minLiquidationFactor > maxLiquidationFactor', async function () {
       const token = await makeMockERC20({ name: 'CInv3', symbol: 'CInv3' });
-      const feed = await makePriceFeed({});
+      const feed = await makePriceFeed({}, token.address);
       await expect(
         sandboxController.whitelistCollateralAsset(
           token.address,
@@ -808,7 +807,7 @@ describe('SandboxController', function () {
 
     it('whitelists valid collateral and updates state', async function () {
       const token = await makeMockERC20({ name: 'C6', symbol: 'C6' });
-      const priceFeed = await makePriceFeed({});
+      const priceFeed = await makePriceFeed({}, token.address);
 
       const maxBorrowCollateralFactor = 8000;
       const minBorrowCollateralFactor = 5000;
@@ -843,12 +842,12 @@ describe('SandboxController', function () {
 
       expect(await sandboxController.collateralAssetTokens(0)).to.equal(token.address);
 
-      expect(await sandboxController.isCollateralPriceFeedWhitelisted(priceFeed.address)).to.equal(true);
+      expect(await sandboxController.isPriceFeedWhitelisted(priceFeed.address)).to.equal(true);
     });
 
     it('emits CollateralAssetWhitelisted event with correct args', async function () {
       const token = await makeMockERC20({ name: 'C6', symbol: 'C6' });
-      const priceFeed = await makePriceFeed({});
+      const priceFeed = await makePriceFeed({}, token.address);
 
       const tx = await sandboxController.whitelistCollateralAsset(
         token.address,
@@ -872,7 +871,7 @@ describe('SandboxController', function () {
 
     it('owner can do it, dao can do it', async function () {
       const token1 = await makeMockERC20({ name: 'C7', symbol: 'C7' });
-      const feed1 = await makePriceFeed({});
+      const feed1 = await makePriceFeed({}, token1.address);
       await sandboxController
         .connect(owner)
         .whitelistCollateralAsset(
@@ -887,7 +886,7 @@ describe('SandboxController', function () {
         );
 
       const token2 = await makeMockERC20({ name: 'C8', symbol: 'C8' });
-      const feed2 = await makePriceFeed({});
+      const feed2 = await makePriceFeed({}, token2.address);
       await sandboxController
         .connect(dao)
         .whitelistCollateralAsset(

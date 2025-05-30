@@ -32,12 +32,17 @@ contract EzETHExchangeRatePriceFeed is IPriceFeed {
     /// @notice The amount to upscale or downscale the price by
     int256 internal immutable rescaleFactor;
 
+    /// @notice The underlying token
+    address public immutable override underlyingToken;
+
     /**
      * @notice Construct a new ezETH scaling price feed
      * @param ezETHRateProvider The address of the underlying price feed to fetch prices from
      * @param decimals_ The number of decimals for the returned prices
+     * @param description_ The description of the price feed
+     * @param underlyingToken_ The address of the underlying token
      **/
-    constructor(address ezETHRateProvider, uint8 decimals_, string memory description_) {
+    constructor(address ezETHRateProvider, uint8 decimals_, string memory description_, address underlyingToken_) {
         underlyingPriceFeed = ezETHRateProvider;
         if (decimals_ > 18) revert BadDecimals();
         decimals = decimals_;
@@ -50,6 +55,7 @@ contract EzETHExchangeRatePriceFeed is IPriceFeed {
             ? signed256(10 ** (decimals_ - ezETHRateProviderDecimals))
             : signed256(10 ** (ezETHRateProviderDecimals - decimals_))
         );
+        underlyingToken = underlyingToken_;
     }
 
     /**
