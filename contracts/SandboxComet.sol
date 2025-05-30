@@ -19,6 +19,10 @@ contract SandboxComet is ISandboxComet, Initializable {
         _disableInitializers();
     }
 
+    receive() external payable {
+    }
+
+
     /// @notice replaces your old constructor
     function initialize(
         IConfigController.CometConfig calldata comet,
@@ -52,8 +56,6 @@ contract SandboxComet is ISandboxComet, Initializable {
         baseMinForRewards = comet.options.baseMinForRewards;
 
         decimals = decimals_;
-        baseScale = uint64(10 ** decimals_);
-        if (baseScale < BASE_ACCRUAL_SCALE) revert BadDecimals();
         accrualDescaleFactor = baseScale / BASE_ACCRUAL_SCALE;
 
         baseBorrowMin = baseBorrowMin_;
@@ -68,7 +70,7 @@ contract SandboxComet is ISandboxComet, Initializable {
             sandboxController
         ).baseAssets(comet.baseToken).baseAssetCurves[comet.baseTokenCurveId];
 
-        for (uint8 i; i < comet.collateralTokens.length; i++) {
+        for (uint8 i; i < comet.collateralTokens.length; ++i) {
             collateralAssets.push(comet.collateralTokens[i]);
             collateralAssetAddress[i] = comet
                 .collateralTokens[i]
@@ -387,10 +389,7 @@ contract SandboxComet is ISandboxComet, Initializable {
         address account
     ) public view override returns (bool) {
         int104 principal = userBasic[account].principal;
-
-        if (principal >= 0) {
-            return true;
-        }
+        if (principal >= 0) return true;
 
         uint24 assetsIn = userBasic[account].assetsIn;
         int liquidity = signedMulPrice(
@@ -399,31 +398,25 @@ contract SandboxComet is ISandboxComet, Initializable {
             uint64(baseScale)
         );
 
-        for (uint8 i = 0; i < numAssets; ) {
+        uint8 nAssets = numAssets; 
+        for (uint8 i = 0; i < nAssets; ) {
             if (isInAsset(assetsIn, i)) {
-                if (liquidity >= 0) {
-                    return true;
-                }
+                if (liquidity >= 0) return true;
 
-                IConfigController.CollateralTokenConfig
-                    memory asset = getAssetInfo(i);
-
+                IConfigController.CollateralTokenConfig memory asset = getAssetInfo(i);
                 uint newAmount = mulPrice(
                     userCollateral[account][asset.collateralToken].balance,
                     getPrice(asset.priceFeed),
                     asset.scale
                 );
-                liquidity += signed256(
-                    mulFactor(newAmount, asset.borrowCollateralFactor)
-                );
+                liquidity += signed256(mulFactor(newAmount, asset.borrowCollateralFactor));
             }
-            unchecked {
-                i++;
-            }
+            unchecked { ++i; }
         }
 
         return liquidity >= 0;
     }
+
 
     /**
      * @notice Check whether an account has enough collateral to not be liquidated
@@ -434,41 +427,29 @@ contract SandboxComet is ISandboxComet, Initializable {
         address account
     ) public view override returns (bool) {
         int104 principal = userBasic[account].principal;
-
-        if (principal >= 0) {
-            return false;
-        }
+        if (principal >= 0) return false;
 
         uint24 assetsIn = userBasic[account].assetsIn;
-
         int liquidity = signedMulPrice(
             presentValue(principal),
             getPrice(baseTokenPriceFeed),
             uint64(baseScale)
         );
 
-        for (uint8 i = 0; i < numAssets; ) {
+        uint8 nAssets = numAssets;
+        for (uint8 i = 0; i < nAssets; ) {
             if (isInAsset(assetsIn, i)) {
-                if (liquidity >= 0) {
-                    return false;
-                }
+                if (liquidity >= 0) return false;
 
-                IConfigController.CollateralTokenConfig
-                    memory asset = getAssetInfo(i);
-
+                IConfigController.CollateralTokenConfig memory asset = getAssetInfo(i);
                 uint newAmount = mulPrice(
                     userCollateral[account][asset.collateralToken].balance,
                     getPrice(asset.priceFeed),
                     asset.scale
                 );
-
-                liquidity += signed256(
-                    mulFactor(newAmount, asset.liquidateCollateralFactor)
-                );
+                liquidity += signed256(mulFactor(newAmount, asset.liquidateCollateralFactor));
             }
-            unchecked {
-                i++;
-            }
+            unchecked { ++i; }
         }
 
         return liquidity < 0;
@@ -1239,7 +1220,7 @@ contract SandboxComet is ISandboxComet, Initializable {
                 );
             }
             unchecked {
-                i++;
+                ++i;
             }
         }
 
