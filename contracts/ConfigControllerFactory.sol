@@ -13,6 +13,8 @@ import "./interfaces/IConfigControllerFactory.sol";
 contract ConfigControllerFactory is IConfigControllerFactory {
     /// @notice The implementation address used for cloning
     address public immutable override configControllerImplementation;
+        /// @notice The implementation address used for cloning
+    address public immutable override sandboxController;
     /// @notice The array of controller addresses
     mapping(address => uint) public override controllerIds;
     /// @notice The array of controller addresses
@@ -20,15 +22,17 @@ contract ConfigControllerFactory is IConfigControllerFactory {
     
     /// @notice constructor
     /// @param _configControllerImplementation The address of the ConfigController implementation
-    constructor(address _configControllerImplementation) {
+    constructor(address _sandboxController, address _configControllerImplementation) {
         if (_configControllerImplementation == address(0)) revert InvalidAddress();
+        if (_sandboxController == address(0)) revert InvalidAddress();
+
+        sandboxController = _sandboxController;
         configControllerImplementation = _configControllerImplementation;
     }
 
     /// @notice Creates a new ConfigController instance with unique configuration
-    /// @param _owner The address of the protocol owner
+    /// @notice Sets msg.sender as an owner of the newly created Config Controller
     /// @param _guardian The address of the protocol guardian
-    /// @param _sandboxController The address of the SandboxController contract
     /// @param _marketFactory The address of the MarketFactory contract
     /// @param _curatorFee Initial curator fee in basis points (1% = 100)
     /// @param _name Name of the controller
@@ -36,10 +40,8 @@ contract ConfigControllerFactory is IConfigControllerFactory {
     /// @param _proposalDuration Duration of market proposals in seconds
     /// @return The address of the newly created ConfigController
     function createConfigController(
-        address _owner,
         address _curator,
         address _guardian,
-        address _sandboxController,
         address _marketFactory,
         uint _curatorFee,
         string memory _name,
@@ -51,10 +53,10 @@ contract ConfigControllerFactory is IConfigControllerFactory {
         controllerAddresses.push(configController);
 
         IConfigController(configController).initialize(
-            _owner,
+            msg.sender,
             _curator,
             _guardian,
-            _sandboxController,
+            sandboxController,
             _marketFactory,
             _curatorFee,
             _name,
@@ -64,9 +66,9 @@ contract ConfigControllerFactory is IConfigControllerFactory {
         
         emit ConfigControllerCreated(
             configController,
-            _owner,
+            msg.sender,
             _curator,
-            _sandboxController,
+            sandboxController,
             _marketFactory,
             _curatorFee,
             _name,
