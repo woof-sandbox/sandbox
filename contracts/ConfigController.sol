@@ -22,6 +22,9 @@ import "./interfaces/ISandboxCometFactory.sol";
  */
 contract ConfigController is IConfigController {
     using SafeERC20 for IERC20;
+    uint256 public constant FEE_DIVISOR = 10_000;
+    address public constant ZERO_ADDRESS = 0x0000000000000000000000000000000000000000;
+
     /// @notice The address of the protocol owner
     address public override owner;
 
@@ -107,14 +110,16 @@ contract ConfigController is IConfigController {
         uint _proposalDuration
     ) public override {
         if (configControllerFactory != address(0)) revert AlreadyInitialized();
-        unchecked {
-            if (_owner == ZERO_ADDRESS) revert ZeroAddress();
-            if (_sandboxController == ZERO_ADDRESS) revert ZeroAddress();
-            if (_cometFactory == ZERO_ADDRESS) revert ZeroAddress();
-            if (_curatorFee > 10000) revert InvalidFeePercentage();
 
-            uint minUpdateTime = ISandboxController(_sandboxController).controllerConfiguration().minUpdateTime;
+        /// Addresses of owner, curator, guardian, sandbox controller and factory are validated in the factory
+        /// and it is guaranteed that initialization follows deployment in the same transaction.
+        /// So duplicating checks are omitted (as function relies on checks in the factory)
+        unchecked {
+            if (_curatorFee > FEE_DIVISOR) revert InvalidFeePercentage();
+
+            (uint minUpdateTime, uint maxUpdateTime) = ISandboxController(_sandboxController).proposalBoundaries();
             if (_curatorProposalDuration < minUpdateTime || _proposalDuration < minUpdateTime) revert ProposalDurationTooShort();
+            if (_curatorProposalDuration > maxUpdateTime || _proposalDuration > maxUpdateTime) revert ProposalDurationTooLong();
         }
 
         owner = _owner;

@@ -66,6 +66,7 @@ contract SandboxController is ISandboxController {
      * @param _targetPercent            < 0.5 (50%)
      * @param _storeFrontPriceFactor     < 1e18
      * @param _minUpdateTime             > 0
+     * @param _maxUpdateTime            reasonable time for the proposal duration
      * @param _suggestedAmountOfSeedReserves > 0
      * @param _suggestedLockTimeOfSeedReserves > 0
      */
@@ -81,6 +82,7 @@ contract SandboxController is ISandboxController {
         uint256 _targetPercent,
         uint256 _storeFrontPriceFactor,
         uint256 _minUpdateTime,
+        uint256 _maxUpdateTime,
         uint256 _suggestedAmountOfSeedReserves,
         uint256 _suggestedLockTimeOfSeedReserves
     ) {
@@ -105,7 +107,7 @@ contract SandboxController is ISandboxController {
             _maxCollateralAssets == 0 ||
             _targetPercent > 5e17 ||
             _storeFrontPriceFactor >= 1e18 ||
-            _minUpdateTime == 0 ||
+            _minUpdateTime == 0 || _maxUpdateTime < _minUpdateTime ||
             _suggestedAmountOfSeedReserves == 0 ||
             _suggestedLockTimeOfSeedReserves == 0
         ) {
@@ -121,6 +123,7 @@ contract SandboxController is ISandboxController {
             _targetPercent,
             _storeFrontPriceFactor,
             _minUpdateTime,
+            _maxUpdateTime,
             _suggestedAmountOfSeedReserves,
             _suggestedLockTimeOfSeedReserves
         );
@@ -329,7 +332,7 @@ contract SandboxController is ISandboxController {
     ) external override onlyOwner {
         if (
             _config.storeFrontPriceFactor >= 1e18 ||
-            _config.minUpdateTime == 0 ||
+            _config.minUpdateTime == 0 || _config.maxUpdateTime < _config.minUpdateTime ||
             _config.suggestedAmountOfSeedReserves == 0 ||
             _config.suggestedLockTimeOfSeedReserves == 0 ||
             _config.targetPercent > 5e17
@@ -516,6 +519,13 @@ contract SandboxController is ISandboxController {
     function controllerConfiguration() external view override returns (SandboxControllerConfiguration memory) {
         return _controllerConfiguration;
     }
+
+    function proposalBoundaries() external view override returns (uint,uint) {
+        SandboxControllerConfiguration memory _c = _controllerConfiguration;
+        return (_c.minUpdateTime, _c.maxUpdateTime);
+    }
+
+
     /**
      * @notice Returns the minimum borrow amount for a given base asset token.
      * @param token The address of the base asset token.
