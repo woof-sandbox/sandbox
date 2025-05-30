@@ -1195,7 +1195,8 @@ contract SandboxComet is ISandboxComet, Initializable {
         uint256 basePrice = getPrice(baseTokenPriceFeed);
         uint256 deltaValue = 0;
 
-        for (uint8 i = 0; i < numAssets; ) {
+        uint8 nAssets = numAssets;
+        for (uint8 i = 0; i < nAssets; ) {
             if (isInAsset(assetsIn, i)) {
                 IConfigController.CollateralTokenConfig
                     memory assetInfo = getAssetInfo(i);
