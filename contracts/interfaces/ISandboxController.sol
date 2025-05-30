@@ -44,6 +44,7 @@ abstract contract ISandboxController is ISandboxErrors {
         uint256 targetPercent;
         uint256 storeFrontPriceFactor;
         uint256 minUpdateTime;
+        uint256 maxUpdateTime;
         uint256 suggestedAmountOfSeedReserves;
         uint256 suggestedLockTimeOfSeedReserves;
     }
@@ -92,6 +93,7 @@ abstract contract ISandboxController is ISandboxErrors {
     function dao() external view virtual returns (address);
     function feeEnabled() external view virtual returns (bool);
     function controllerConfiguration() external view virtual returns (SandboxControllerConfiguration memory);
+    function proposalBoundaries() external view virtual returns (uint,uint);
     function baseAssetTokens(uint256) external view virtual returns (address);
     function collateralAssetTokens(uint256) external view virtual returns (address);
     function tokenToPriceFeed(address) external view virtual returns (address);

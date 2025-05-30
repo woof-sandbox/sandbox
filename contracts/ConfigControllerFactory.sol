@@ -5,6 +5,7 @@ import "@openzeppelin/contracts/proxy/Clones.sol";
 import "./ConfigController.sol";
 import "./interfaces/IConfigController.sol";
 import "./interfaces/IConfigControllerFactory.sol";
+import "./interfaces/ISandboxCometFactory.sol";
 
 /**
  * @title ConfigControllerFactory
@@ -23,8 +24,8 @@ contract ConfigControllerFactory is IConfigControllerFactory {
     /// @notice constructor
     /// @param _configControllerImplementation The address of the ConfigController implementation
     constructor(address _sandboxController, address _configControllerImplementation) {
-        if (_configControllerImplementation == address(0)) revert InvalidAddress();
-        if (_sandboxController == address(0)) revert InvalidAddress();
+        if (_configControllerImplementation == address(0)) revert ZeroAddress();
+        if (_sandboxController == address(0)) revert ZeroAddress();
 
         sandboxController = _sandboxController;
         configControllerImplementation = _configControllerImplementation;
@@ -32,6 +33,7 @@ contract ConfigControllerFactory is IConfigControllerFactory {
 
     /// @notice Creates a new ConfigController instance with unique configuration
     /// @notice Sets msg.sender as an owner of the newly created Config Controller
+    /// @param _curator The address of the protocol curator
     /// @param _guardian The address of the protocol guardian
     /// @param _marketFactory The address of the MarketFactory contract
     /// @param _curatorFee Initial curator fee in basis points (1% = 100)
@@ -48,6 +50,12 @@ contract ConfigControllerFactory is IConfigControllerFactory {
         uint _curatorProposalDuration,
         uint _proposalDuration
     ) external override returns (address) {
+        if (ISandboxCometFactory(_marketFactory).configControllerFactory() != address(this)) revert InvalidFactory();
+        if (_curator == address(0) || _guardian == address(0)) revert ZeroAddress();
+        if (_curator == msg.sender || _guardian == msg.sender || _curator == _guardian) revert InvalidAddress();       
+
+
+
         address configController = Clones.clone(configControllerImplementation);
         controllerIds[configController] = controllerAddresses.length;
         controllerAddresses.push(configController);
@@ -68,7 +76,7 @@ contract ConfigControllerFactory is IConfigControllerFactory {
             configController,
             msg.sender,
             _curator,
-            sandboxController,
+            _guardian,
             _marketFactory,
             _curatorFee,
             _name,

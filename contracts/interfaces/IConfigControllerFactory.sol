@@ -12,8 +12,8 @@ abstract contract IConfigControllerFactory {
     /// @notice Event emitted when a new ConfigController is created
     /// @param controller The address of the newly created controller
     /// @param owner The address of the controller owner
+    /// @param curator The address of the controller curator
     /// @param guardian The address of the controller guardian
-    /// @param sandboxController The address of the sandbox controller
     /// @param marketFactory The address of the market factory
     /// @param curatorFee The curator fee in basis points
     /// @param name The name of the controller
@@ -22,8 +22,8 @@ abstract contract IConfigControllerFactory {
     event ConfigControllerCreated(
         address indexed controller,
         address indexed owner,
-        address indexed guardian,
-        address sandboxController,
+        address indexed curator,
+        address guardian,
         address marketFactory,
         uint curatorFee,
         string name,
@@ -32,6 +32,8 @@ abstract contract IConfigControllerFactory {
         uint controllerId
     );
     error InvalidAddress();
+    error ZeroAddress();
+    error InvalidFactory();
 
     /// @notice Returns the implementation address used for cloning
     /// @return The address of the implementation contract
