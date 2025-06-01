@@ -7,8 +7,9 @@ abstract contract ISandboxCometFactory {
 
     /// @notice Emitted when a new comet is created
     /// @param comet The address of the new comet
+    /// @param ext The address of the extension
     /// @param configController The address of the controller responsible for the market
-    event CometCreated(address indexed comet, address indexed configController);
+    event CometCreated(address indexed comet, address indexed ext, address indexed configController);
 
     /// @notice Returns the address of the comet implementation
     function cometImplementation() external view virtual returns (address);

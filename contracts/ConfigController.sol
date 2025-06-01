@@ -109,6 +109,8 @@ contract ConfigController is IConfigController {
         if (configControllerFactory != address(0)) revert AlreadyInitialized();
         unchecked {
             if (_owner == ZERO_ADDRESS) revert ZeroAddress();
+            if (_curator == ZERO_ADDRESS) revert ZeroAddress();
+            if (_guardian == ZERO_ADDRESS) revert ZeroAddress();
             if (_sandboxController == ZERO_ADDRESS) revert ZeroAddress();
             if (_cometFactory == ZERO_ADDRESS) revert ZeroAddress();
             if (_curatorFee > 10000) revert InvalidFeePercentage();
@@ -343,6 +345,6 @@ contract ConfigController is IConfigController {
     /// @return True if the comet is owned by this controller
     function _isCometOwned(address comet) internal view returns (bool) {
         if (cometsLength == 0) return false;
-        return comets[cometId[comet]] != address(0);
+        return comets[cometId[comet]] != comet;
     }
 }
