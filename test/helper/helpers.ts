@@ -77,6 +77,13 @@ export enum ReentryAttack {
   BuyCollateral = 3,
 }
 
+export type TokenOpts = {
+  symbol?: string,
+  name?: string,
+  decimals?: Numeric,
+  initialMint?: string
+}
+
 export type ProtocolOpts = {
   start?: number;
   assets?: {
@@ -330,14 +337,12 @@ export async function makeConfigControllerFactory(configControllerImpl: string):
 
 export async function makeCometFactory(
   cometImpl: Contract,
-  configController: Contract,
-  sandboxController: Contract
+  configController: Contract
 ): Promise<SandboxCometFactory> {
   const CometFactory_factory: SandboxCometFactory__factory = await ethers.getContractFactory('SandboxCometFactory') as SandboxCometFactory__factory;
   const cometFactory: SandboxCometFactory = await CometFactory_factory.deploy(
     cometImpl.address,
-    configController.address,
-    sandboxController.address
+    configController.address
   );
   await cometFactory.deployed();
 
@@ -465,8 +470,7 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
 
   const cometFactory = await makeCometFactory(
     cometImpl, 
-    configControllerFactory,
-    sandboxController
+    configControllerFactory
   );
 
   await configControllerFactory.createConfigController(
@@ -688,6 +692,21 @@ export async function makePriceFeed({ amount }, underlyingToken: string): Promis
   await priceFeed.deployed();
   return priceFeed;
 }
+
+export async function makeToken(opts: TokenOpts = {}): Promise<FaucetToken> {
+    const decimals = opts.decimals || 18;
+    const name = opts.name || "TestToken";
+    const symbol = opts.symbol || "TKN";
+    const initial = opts.initialMint || "0";
+
+    const factory = (await ethers.getContractFactory('FaucetToken')) as FaucetToken__factory;
+    
+    let token = await factory.deploy(initial, name, decimals, symbol);
+    await token.deployed();
+
+    return token;
+}
+
 
 export function defaultSandboxControllerOpts(partial?: Partial<SandboxControllerOpts>): SandboxControllerOpts {
   return {
