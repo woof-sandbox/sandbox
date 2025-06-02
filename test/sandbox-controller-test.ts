@@ -76,7 +76,7 @@ describe('SandboxController', function () {
         maxCollateralAssets: 5,
         suggestedAmountOfSeedReserves: '1000',
         suggestedLockTimeOfSeedReserves: 500,
-        targetReserves: '100'
+        targetPercent: '100'
       });
       const { sandboxController } = await makeSandboxController(opts);
       expect(await sandboxController.owner()).to.equal(owner.address);
