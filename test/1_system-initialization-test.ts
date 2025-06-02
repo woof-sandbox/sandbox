@@ -20,7 +20,7 @@ import {
   CometConfigStruct,
 } from "../build/types/ConfigController";
 
-describe.only("System Initialization", function() {
+describe("System Initialization", function() {
     // Factories
   let _ConfigControllerFactory: ConfigControllerFactory__factory;
   let _ConfigController: ConfigControllerInitializeTest__factory;
