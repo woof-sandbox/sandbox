@@ -223,6 +223,7 @@ export interface SandboxControllerOpts {
     reserveFactorLiquidation?: string;
     targetPercent: string;
     minUpdateTime?: number;
+    maxUpdateTime?: number;
     maxCollateralAssets?: number;
     suggestedAmountOfSeedReserves?: string;
     suggestedLockTimeOfSeedReserves?: number;
@@ -436,6 +437,7 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
         protocolFactorLiquidation: "100000000000000000",
         reserveFactorLiquidation: "100000000000000000",
         minUpdateTime: 300,
+        maxUpdateTime: 7 * 24 * 60 * 60,
         maxCollateralAssets: 10,
         suggestedAmountOfSeedReserves: suggestedAmountOfSeedReserves,
         suggestedLockTimeOfSeedReserves: 3600,
@@ -750,6 +752,7 @@ export function defaultSandboxControllerOpts(partial?: Partial<SandboxController
         reserveFactorLiquidation: partial?.reserveFactorLiquidation ?? ethers.utils.parseEther("0.4").toString(),
         targetPercent: partial?.targetPercent ?? ethers.utils.parseEther("0.5").toString(),
         minUpdateTime: partial?.minUpdateTime ?? 300,
+        maxUpdateTime: partial?.maxUpdateTime ?? 7 * 24 * 60 * 60,
         maxCollateralAssets: partial?.maxCollateralAssets ?? 10,
         suggestedAmountOfSeedReserves:
             partial?.suggestedAmountOfSeedReserves ?? ethers.utils.parseEther("500").toString(),
@@ -758,20 +761,16 @@ export function defaultSandboxControllerOpts(partial?: Partial<SandboxController
 }
 
 export async function makeOnlyConfigController(
-    owner,
     curator,
     guardian,
-    sandboxController,
     cometFactory,
     configControllerFactory
 ): Promise<string> {
     const ConfigControllerFactory = await ethers.getContractAt("ConfigControllerFactory", configControllerFactory);
 
     const tx = await ConfigControllerFactory.createConfigController(
-        owner,
         curator,
         guardian,
-        sandboxController,
         cometFactory,
         1000,
         "ConfigController",
@@ -806,6 +805,7 @@ export async function makeSandboxController(opts: SandboxControllerOpts): Promis
         opts.targetPercent,
         opts.storeFrontPriceFactor,
         opts.minUpdateTime,
+        opts.maxUpdateTime,
         opts.suggestedAmountOfSeedReserves,
         opts.suggestedLockTimeOfSeedReserves
     );
