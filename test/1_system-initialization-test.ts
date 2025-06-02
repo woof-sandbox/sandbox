@@ -653,8 +653,17 @@ describe("System Initialization", function() {
     });
 
     it("should emit event on Comet deployment", async function() {
+      const _cometAddress = await configController.callStatic.createComet(marketConfig);
+      const numOfComets = await configController.cometsLength();
       // deploy config controller
-      expect(await configController.createComet(marketConfig)).to.emit(sandboxCometFactory, "CometCreated");
+      expect(await configController.createComet(marketConfig)).to.emit(sandboxCometFactory, "CometCreated")
+              .withArgs(
+                _cometAddress,
+                marketConfig.baseToken,
+                marketConfig.priceFeed,
+                numOfComets.add(1),
+                marketConfig.baseTokenCurveId
+              );
     });
 
   });

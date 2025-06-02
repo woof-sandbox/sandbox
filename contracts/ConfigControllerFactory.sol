@@ -49,7 +49,7 @@ contract ConfigControllerFactory is IConfigControllerFactory {
         uint _curatorProposalDuration,
         uint _proposalDuration
     ) external override returns (address) {
-        if (_marketFactory == address(0) || _curator == address(0)) revert ZeroAddress();
+        if (_marketFactory == address(0)) revert ZeroAddress();
         /// Check that correct factory is used - to avoid foreign factories
         if (ISandboxCometFactory(_marketFactory).configControllerFactory() != address(this)) revert InvalidFactory();
         /// no check for guardian - guardian may be set as address(0) as market can be run without it
