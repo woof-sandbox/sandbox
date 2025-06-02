@@ -144,7 +144,6 @@ contract ConfigController is IConfigController, Initializable {
         if (_cometConfig.baseToken == ZERO_ADDRESS) revert ZeroAddress();
         ISandboxController.BaseAssetConfiguration memory baseAssetConfig = ISandboxController(sandboxController).baseAssets(_cometConfig.baseToken);
         if (baseAssetConfig.priceFeed == ZERO_ADDRESS) revert BaseTokenNotWhitelisted();
-        if (!ISandboxController(sandboxController).isPriceFeedWhitelisted(_cometConfig.priceFeed)) revert WrongPriceFeed();
         if (_cometConfig.collateralTokens.length == 0) revert ZeroCollateralAssets();
 
         if (_cometConfig.baseTokenCurveId >= baseAssetConfig.baseAssetCurves.length) revert WrongCurveParams();
@@ -196,7 +195,6 @@ contract ConfigController is IConfigController, Initializable {
         emit CometCreated(
             comet,
             _cometConfig.baseToken,
-            _cometConfig.priceFeed,
             cometsLength,
             _cometConfig.baseTokenCurveId
         );
@@ -310,8 +308,6 @@ contract ConfigController is IConfigController, Initializable {
         if (collateralTokenConfig.collateralToken == ZERO_ADDRESS) revert ZeroAddress();
         if (ISandboxController(sandboxController)
         .collateralAssets(collateralTokenConfig.collateralToken).priceFeed == ZERO_ADDRESS) revert CollateralTokenNotWhitelisted();
-        if (!ISandboxController(sandboxController)
-        .isPriceFeedWhitelisted(collateralTokenConfig.priceFeed)) revert WrongPriceFeed();
 
         for (uint j; j < addedCollateralTokens.length; j++) {
             if (addedCollateralTokens[j] == collateralTokenConfig.collateralToken) revert CollateralTokenAlreadyAdded();

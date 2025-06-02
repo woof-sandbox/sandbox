@@ -101,7 +101,6 @@ abstract contract IConfigController {
     event CometCreated(
         address comet,
         address baseToken,
-        address priceFeed,
         uint cometId,
         uint baseTokenCurveId
     );

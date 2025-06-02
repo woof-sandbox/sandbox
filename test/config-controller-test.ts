@@ -246,7 +246,6 @@ describe('ConfigController', () => {
 
       // Verify comet creation
       expect(createCometEvents.args.baseToken).to.equal(baseToken.address);
-      expect(createCometEvents.args.priceFeed).to.equal(priceFeeds[await baseToken.symbol()].address);
       expect(createCometEvents.args.cometId).to.equal(1);
       expect(createCometEvents.args.baseTokenCurveId).to.equal(0);
             
@@ -357,7 +356,6 @@ describe('ConfigController', () => {
       const event = receipt.events?.find(e => e.event === 'CometCreated');
       expect(event?.args?.comet).to.equal(await configController.comets(0));
       expect(event?.args?.baseToken).to.equal(baseToken.address);
-      expect(event?.args?.priceFeed).to.equal(priceFeeds[await baseToken.symbol()].address);
       expect(event?.args?.cometId).to.equal(1);
       expect(event?.args?.baseTokenCurveId).to.equal(0);
     });
@@ -442,45 +440,6 @@ describe('ConfigController', () => {
         .to.be.revertedWithCustomError(configController, 'ZeroAddress');
     });
 
-    it('should revert if the price feed is not whitelisted', async () => {
-      const {
-        configController,
-        tokens, 
-        baseToken,
-      } = await makeConfigController();
-            
-      let cometConfig: MarketConfigStruct = {
-        baseToken: baseToken.address,
-        priceFeed: ethers.constants.AddressZero,
-        collateralTokens: [],
-        baseTokenCurveId: 0n,
-        options: {
-          baseTrackingSupplySpeed: 0n,
-          baseTrackingBorrowSpeed: 0n,
-          trackingIndexScale: 0n,
-          baseMinForRewards: 0n
-        }
-      };
-
-      for (let token in tokens) {
-        if (token != await baseToken.symbol()) {
-          cometConfig.collateralTokens.push(
-            {
-              collateralToken: tokens[token].address,
-              priceFeed: ethers.constants.AddressZero,
-              borrowCollateralFactor: factor(0.6),
-              liquidateCollateralFactor: factor(0.7),
-              liquidationFactor: factor(0.8),
-              supplyCap: exp(1_000_000, 6)
-            }
-          );
-        }
-      }
-
-      await expect(configController.createComet(cometConfig))
-        .to.be.revertedWithCustomError(configController, 'WrongPriceFeed');
-    });
-
     it('should revert if the collateral token is zero address', async () => {
       const {
         configController,
@@ -559,46 +518,6 @@ describe('ConfigController', () => {
 
       await expect(configController.createComet(cometConfig))
         .to.be.revertedWithCustomError(configController, 'WrongCollateralTokenSettings');
-    });
-
-    it('should revert if the collateral token price feed is not whitelisted', async () => {
-      const {
-        configController,
-        tokens, 
-        baseToken,
-        priceFeeds,
-      } = await makeConfigController();
-            
-      let cometConfig: MarketConfigStruct = {
-        baseToken: baseToken.address,
-        priceFeed: priceFeeds[await baseToken.symbol()].address,
-        collateralTokens: [],
-        baseTokenCurveId: 0n,
-        options: {
-          baseTrackingSupplySpeed: 0n,
-          baseTrackingBorrowSpeed: 0n,
-          trackingIndexScale: 0n,
-          baseMinForRewards: 0n
-        }
-      };
-
-      for (let token in tokens) {
-        if (token != await baseToken.symbol()) {
-          cometConfig.collateralTokens.push(
-            {
-              collateralToken: tokens[token].address,
-              priceFeed: ethers.constants.AddressZero,
-              borrowCollateralFactor: factor(0.6),
-              liquidateCollateralFactor: factor(0.7),
-              liquidationFactor: factor(0.8),
-              supplyCap: exp(1_000_000, 6)
-            }
-          );
-        }
-      }
-
-      await expect(configController.createComet(cometConfig))
-        .to.be.revertedWithCustomError(configController, 'WrongPriceFeed');
     });
 
     it('should revert if the collateral token already exists in the config', async () => {
