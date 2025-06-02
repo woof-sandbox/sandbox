@@ -348,6 +348,6 @@ contract ConfigController is IConfigController {
     /// @return True if the comet is owned by this controller
     function _isCometOwned(address comet) internal view returns (bool) {
         if (cometsLength == 0) return false;
-        return comets[cometId[comet]] != address(0);
+        return comets[cometId[comet]] != comet;
     }
 }

@@ -51,9 +51,9 @@ contract ConfigControllerFactory is IConfigControllerFactory {
         uint _proposalDuration
     ) external override returns (address) {
         if (ISandboxCometFactory(_marketFactory).configControllerFactory() != address(this)) revert InvalidFactory();
-        if (_curator == address(0) || _guardian == address(0)) revert ZeroAddress();
+        /// no check for guardian - guardian may be set as address(0) as market can be run without it
+        /// curator is checked in proposeCurator()
         if (_curator == msg.sender || _guardian == msg.sender || _curator == _guardian) revert InvalidAddress();       
-
 
 
         address configController = Clones.clone(configControllerImplementation);
@@ -98,7 +98,7 @@ contract ConfigControllerFactory is IConfigControllerFactory {
     /// @param _controller The address to check
     /// @return True if the address is a controller, false otherwise
     function isController(address _controller) external view override returns (bool) {
-        if (controllerAddresses.length == 0) return false;
-        return controllerAddresses[controllerIds[_controller]] != address(0);
+        if (controllerAddresses.length == 0 || _controller == address(0)) return false;
+        return controllerAddresses[controllerIds[_controller]] == _controller;
     }
 }
