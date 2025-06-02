@@ -27,7 +27,6 @@ abstract contract IConfigController {
     
     struct CometConfig {
         address baseToken;
-        address priceFeed;
         CollateralTokenConfig[] collateralTokens;
         uint baseTokenCurveId;
         CometOptions options;

@@ -542,8 +542,8 @@ describe("System Initialization", function() {
       // deploy comet
       const baseToken = await makeToken({symbol: "BASE", initialMint: ethers.utils.parseEther('50000').toString()});
       const collateralToken = await makeToken({symbol: "COL"});
-      const priceFeedBase = await makePriceFeed();
-      const priceFeedCol = await makePriceFeed();
+      const priceFeedBase = await makePriceFeed({}, baseToken.address);
+      const priceFeedCol = await makePriceFeed({}, collateralToken.address);
 
       await sandboxListBaseAsset(sandboxController, baseToken, priceFeedBase.address);
       await sandboxListCollateralAsset(sandboxController, collateralToken, priceFeedCol.address);

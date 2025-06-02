@@ -382,11 +382,12 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
   for (const asset in assets) {
     const initialPrice = exp(assets[asset].initialPrice || 1, 8);
     const priceFeedDecimals = assets[asset].priceFeedDecimals || 8;
-    const priceFeed = await PriceFeedFactory.deploy(initialPrice, priceFeedDecimals);
+    const priceFeed = await PriceFeedFactory.deploy(initialPrice, priceFeedDecimals, tokens[asset].address);
     await priceFeed.deployed();
     priceFeeds[asset] = priceFeed;
   }
-  const priceFeed = await PriceFeedFactory.deploy(1, 6);
+  
+  const priceFeed = await PriceFeedFactory.deploy(1, 6, unsupportedToken.address);
   await priceFeed.deployed();
   priceFeeds['USUP'] = priceFeed;
 
@@ -444,7 +445,7 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
     const priceFeed = priceFeeds[asset];
     // Price feed is not deployed, deploy it
     if (!priceFeed) {
-      priceFeeds[asset] = await PriceFeedFactory.deploy(1, 6);
+      priceFeeds[asset] = await PriceFeedFactory.deploy(1, 6, assets[asset].address);
     }
     // Skip the base token
     if (asset == base) continue;
@@ -739,9 +740,9 @@ export async function sandboxListCollateralAsset(sandboxController: SandboxContr
     );
 }
 
-export async function makePriceFeed({ amount }: any = {}): Promise<SimplePriceFeed> {
+export async function makePriceFeed({ amount }, underlyingToken: string): Promise<SimplePriceFeed> {
   const PriceFeedFactory = (await ethers.getContractFactory('SimplePriceFeed')) as SimplePriceFeed__factory;
-  const priceFeed = await PriceFeedFactory.deploy(amount ?? '100000000', 8);
+  const priceFeed = await PriceFeedFactory.deploy(amount ?? '100000000', 8, underlyingToken);
   await priceFeed.deployed();
   return priceFeed;
 }
@@ -813,7 +814,6 @@ export async function makeSandboxController(
   const signers = await ethers.getSigners();
   const admin = opts.admin || signers[0];
   const dao = opts.dao || signers[3];
-
 
   const SandboxControllerFactory = (await ethers.getContractFactory(
     'SandboxController'

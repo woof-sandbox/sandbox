@@ -140,13 +140,14 @@ contract SandboxComet is ISandboxComet {
 
         uint8 decimals_ = IERC20NonStandard(comet.baseToken).decimals();
         if (decimals_ > MAX_BASE_DECIMALS) revert BadDecimals();
-        if (IPriceFeed(comet.priceFeed).decimals() != PRICE_FEED_DECIMALS)
-            revert BadDecimals();
-
+        ISandboxController _sandboxController = ISandboxController(sandboxController_);
+        address _baseTokenPriceFeed = _sandboxController.tokenToPriceFeed(comet.baseToken);
+        /// @dev price feed is already checked in config controller
+        if (IPriceFeed(_baseTokenPriceFeed).decimals() != PRICE_FEED_DECIMALS) revert BadDecimals();
         sandboxController = sandboxController_;
 
         baseToken = comet.baseToken;
-        baseTokenPriceFeed = comet.priceFeed;
+        baseTokenPriceFeed = _baseTokenPriceFeed;
 
         trackingIndexScale = comet.options.trackingIndexScale;
 
@@ -165,13 +166,9 @@ contract SandboxComet is ISandboxComet {
         targetPercent = config.targetPercent;
         seedReserves = config.suggestedAmountOfSeedReserves;
         
-        unlockTimestamp =
-            block.timestamp +
-            config.suggestedLockTimeOfSeedReserves;
+        unlockTimestamp = block.timestamp + config.suggestedLockTimeOfSeedReserves;
 
-        ISandboxController.BaseAssetCurve memory curve = ISandboxController(
-            sandboxController
-        ).baseAssets(comet.baseToken).baseAssetCurves[comet.baseTokenCurveId];
+        ISandboxController.BaseAssetCurve memory curve = _sandboxController.baseAssets(comet.baseToken).baseAssetCurves[comet.baseTokenCurveId];
 
         for (uint8 i; i < comet.collateralTokens.length; i++) {
             collateralAssets.push(comet.collateralTokens[i]);
