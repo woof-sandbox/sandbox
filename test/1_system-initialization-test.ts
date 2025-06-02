@@ -4,12 +4,14 @@ import { ethers, exp, expect,
   sandboxListBaseAsset, sandboxListCollateralAsset } from "./helper/helpers";
 import {
   ConfigController,
+  ConfigControllerInitializeTest,
   ConfigControllerFactory,
   SandboxComet,
   SandboxCometFactory,
   
   ConfigControllerFactory__factory,
   ConfigController__factory,
+  ConfigControllerInitializeTest__factory,
   SandboxComet__factory,
   SandboxCometFactory__factory,
 } from "../build/types";
@@ -18,15 +20,18 @@ import {
   CometConfigStruct,
 } from "../build/types/ConfigController";
 
-describe("System Initialization", function() {
+describe.only("System Initialization", function() {
     // Factories
   let _ConfigControllerFactory: ConfigControllerFactory__factory;
-  let _ConfigController: ConfigController__factory;
+  let _ConfigController: ConfigControllerInitializeTest__factory;
   let _Comet: SandboxComet__factory;
   let _SandboxCometFactory: SandboxCometFactory__factory;
 
   let configControllerImpl: ConfigController;
   let sandboxCometImpl: SandboxComet;
+
+  let signers;
+  let owner, curator, guardian;
 
   const _minUpdateTime = 7 * 24 * 60 * 60;
 
@@ -39,45 +44,73 @@ describe("System Initialization", function() {
 
   before(async function() {
     _ConfigControllerFactory = (await ethers.getContractFactory("ConfigControllerFactory")) as ConfigControllerFactory__factory;
-    _ConfigController = (await ethers.getContractFactory("ConfigController")) as ConfigController__factory;
+
+    /// Note: we are deploying the test wrapper over the config controller
+    _ConfigController = (await ethers.getContractFactory("ConfigControllerInitializeTest")) as ConfigControllerInitializeTest__factory;
     _Comet = (await ethers.getContractFactory("SandboxComet")) as SandboxComet__factory;
     _SandboxCometFactory = (await ethers.getContractFactory("SandboxCometFactory")) as SandboxCometFactory__factory;
 
     configControllerImpl = (await _ConfigController.deploy()) as ConfigController;
     sandboxCometImpl = (await _Comet.deploy()) as SandboxComet;
+
+    signers = await ethers.getSigners();
+
+    owner = signers[0];
+    curator = signers[1];
+    guardian = signers[2];
   });
 
   describe("Config Controller Factory deployment",function() {
+    let sandboxControllerTest;
+    
+    before(async function() {
+      sandboxControllerTest = signers[4];
+    });
     it("should allow to deploy ConfigControllerFactory", async function() {
       // deploy config controller factory
-      const configControllerFactory = (await _ConfigControllerFactory.deploy(configControllerImpl.address)) as ConfigControllerFactory;
+      const configControllerFactory = (await _ConfigControllerFactory.deploy(sandboxControllerTest.address, configControllerImpl.address)) as ConfigControllerFactory;
       expect(configControllerFactory).to.have.property("address");
     });
 
     it("should set storage properly after deployment", async function() {
       const configControllerFactory = (await _ConfigControllerFactory.deploy(
-        configControllerImpl.address
+        sandboxControllerTest.address, configControllerImpl.address
       )) as ConfigControllerFactory;
 
       expect(
         await configControllerFactory.configControllerImplementation()
       ).to.eq(configControllerImpl.address);
+
+      expect(
+        await configControllerFactory.sandboxController()
+      ).to.eq(sandboxControllerTest.address);
     });
 
     it("should revert if implementation is zero address", async function() {
       await expect(
-        _ConfigControllerFactory.deploy(ethers.constants.AddressZero)
+        _ConfigControllerFactory.deploy(sandboxControllerTest.address, ethers.constants.AddressZero)
       ).to.be.revertedWithCustomError(
         _ConfigControllerFactory,
-        "InvalidAddress"
+        "ZeroAddress"
+      );
+    });
+
+    it("should revert if sandbox controller is zero address", async function() {
+      await expect(
+        _ConfigControllerFactory.deploy(ethers.constants.AddressZero, configControllerImpl.address)
+      ).to.be.revertedWithCustomError(
+        _ConfigControllerFactory,
+        "ZeroAddress"
       );
     });
   });
 
   describe("Sandbox Comet Factory deployment",function() {
     let configControllerFactory: ConfigControllerFactory;
+    
     before(async function() {
-      configControllerFactory = await _ConfigControllerFactory.deploy(configControllerImpl.address);
+      const sandboxControllerTest = signers[4];
+      configControllerFactory = await _ConfigControllerFactory.deploy(sandboxControllerTest.address, configControllerImpl.address);
     });
 
     it("should allow to deploy SandboxCometFactory", async function() {
@@ -120,30 +153,21 @@ describe("System Initialization", function() {
   describe("Config Controller deployment",function() {
     let configControllerFactory: ConfigControllerFactory;
     let sandboxCometFactory: SandboxCometFactory;
-    let signers;
-    let owner, curator, guardian, sandboxController;
+    let sandboxController;
 
     beforeEach(async function() {
-      configControllerFactory = await _ConfigControllerFactory.deploy(configControllerImpl.address);
+      sandboxController = (await makeSandboxController(defaultSandboxControllerOpts({minUpdateTime: _minUpdateTime}))).sandboxController;
+      configControllerFactory = await _ConfigControllerFactory.deploy(sandboxController.address, configControllerImpl.address);
       sandboxCometFactory = await _SandboxCometFactory.deploy(
         sandboxCometImpl.address,
         configControllerFactory.address
       );
-      signers = await ethers.getSigners();
-
-      owner = signers[0];
-      curator = signers[1];
-      guardian = signers[2];
-
-      sandboxController = (await makeSandboxController(defaultSandboxControllerOpts({minUpdateTime: _minUpdateTime}))).sandboxController;
     });
 
     it("should allow to deploy ConfigController", async function() {
       const configControllerAddress = await configControllerFactory.callStatic.createConfigController(
-        owner.address,
         curator.address,
         guardian.address,
-        sandboxController.address,
         sandboxCometFactory.address,
         configControllerOpts._curatorFee,
         configControllerOpts._name,
@@ -153,10 +177,8 @@ describe("System Initialization", function() {
 
       // deploy config controller
       await configControllerFactory.createConfigController(
-        owner.address,
         curator.address,
         guardian.address,
-        sandboxController.address,
         sandboxCometFactory.address,
         configControllerOpts._curatorFee,
         configControllerOpts._name,
@@ -169,10 +191,8 @@ describe("System Initialization", function() {
 
     it("should emit event on Controller deployment", async function() {
       const configControllerAddress = await configControllerFactory.callStatic.createConfigController(
-        owner.address,
         curator.address,
         guardian.address,
-        sandboxController.address,
         sandboxCometFactory.address,
         configControllerOpts._curatorFee,
         configControllerOpts._name,
@@ -182,10 +202,8 @@ describe("System Initialization", function() {
 
       // deploy config controller
       expect(await configControllerFactory.createConfigController(
-        owner.address,
         curator.address,
         guardian.address,
-        sandboxController.address,
         sandboxCometFactory.address,
         configControllerOpts._curatorFee,
         configControllerOpts._name,
@@ -206,81 +224,104 @@ describe("System Initialization", function() {
         );
     });
 
-    it("should revert on deployment with zero address", async function() {
-      it("owner", async function() {
-        await expect(
-          configControllerFactory.createConfigController(
-            ethers.constants.AddressZero,
-            curator.address,
-            guardian.address,
-            sandboxController.address,
-            sandboxCometFactory.address,
-            configControllerOpts._curatorFee,
-            configControllerOpts._name,
-            configControllerOpts._curatorProposalDuration,
-            configControllerOpts._proposalDuration
-          )
-        ).to.be.revertedWithCustomError(_ConfigController, "ZeroAddress");
-      });
-
-      it("curator", async function() {
-        await expect(
-          configControllerFactory.createConfigController(
-            owner.address,
-            ethers.constants.AddressZero,
-            guardian.address,
-            sandboxController.address,
-            sandboxCometFactory.address,
-            configControllerOpts._curatorFee,
-            configControllerOpts._name,
-            configControllerOpts._curatorProposalDuration,
-            configControllerOpts._proposalDuration
-          )
-        ).to.be.revertedWithCustomError(_ConfigController, "ZeroAddress");
-      });
-
-      it("sandbox controller", async function() {
-        await expect(
-          configControllerFactory.createConfigController(
-            owner.address,
-            curator.address,
-            guardian.address,
-            ethers.constants.AddressZero,
-            sandboxCometFactory.address,
-            configControllerOpts._curatorFee,
-            configControllerOpts._name,
-            configControllerOpts._curatorProposalDuration,
-            configControllerOpts._proposalDuration
-          )
-        ).to.be.revertedWithCustomError(_ConfigController, "ZeroAddress");
-      });
-
-      it("comet factory", async function() {
-        await expect(
-          configControllerFactory.createConfigController(
-            owner.address,
-            curator.address,
-            guardian.address,
-            sandboxController.address,
-            ethers.constants.AddressZero,
-            configControllerOpts._curatorFee,
-            configControllerOpts._name,
-            configControllerOpts._curatorProposalDuration,
-            configControllerOpts._proposalDuration
-          )
-        ).to.be.revertedWithCustomError(_ConfigController, "ZeroAddress");
-      });
-    });
-
-    it("should revert on deployment with invalid fee percentage", async function() {
+    it("should revert on deployment with curator zero address", async function() {
       await expect(
         configControllerFactory.createConfigController(
-        owner.address,
+          ethers.constants.AddressZero,
+          guardian.address,
+          sandboxCometFactory.address,
+          configControllerOpts._curatorFee,
+          configControllerOpts._name,
+          configControllerOpts._curatorProposalDuration,
+          configControllerOpts._proposalDuration
+        )
+      ).to.be.revertedWithCustomError(_ConfigController, "ZeroAddress");
+    });
+
+    it("should revert on deployment with comet factory zero address", async function() {
+      await expect(
+        configControllerFactory.createConfigController(
+          curator.address,
+          guardian.address,
+          ethers.constants.AddressZero,
+          configControllerOpts._curatorFee,
+          configControllerOpts._name,
+          configControllerOpts._curatorProposalDuration,
+          configControllerOpts._proposalDuration
+        )
+      ).to.be.revertedWithCustomError(configControllerFactory, "ZeroAddress");
+    });
+
+    it("should revert on deployment with matching addresses: curator/owner", async function() {
+      await expect(
+        configControllerFactory.createConfigController(
+          owner.address,
+          guardian.address,
+          sandboxCometFactory.address,
+          configControllerOpts._curatorFee,
+          configControllerOpts._name,
+          configControllerOpts._curatorProposalDuration,
+          configControllerOpts._proposalDuration
+        )
+      ).to.be.revertedWithCustomError(configControllerFactory, "InvalidAddress");
+    });
+
+    it("should revert on deployment with matching addresses: guardian/owner", async function() {
+      await expect(
+        configControllerFactory.createConfigController(
+          curator.address,
+          owner.address,
+          sandboxCometFactory.address,
+          configControllerOpts._curatorFee,
+          configControllerOpts._name,
+          configControllerOpts._curatorProposalDuration,
+          configControllerOpts._proposalDuration
+        )
+      ).to.be.revertedWithCustomError(configControllerFactory, "InvalidAddress");
+    });
+
+    it("should revert on deployment with matching addresses: guardian/curator", async function() {
+      await expect(
+        configControllerFactory.createConfigController(
+          curator.address,
+          curator.address,
+          sandboxCometFactory.address,
+          configControllerOpts._curatorFee,
+          configControllerOpts._name,
+          configControllerOpts._curatorProposalDuration,
+          configControllerOpts._proposalDuration
+        )
+      ).to.be.revertedWithCustomError(configControllerFactory, "InvalidAddress");
+    });
+
+    it("should revert on deployment with foreign factory", async function() {
+      const configControllerFactoryForeign = await _ConfigControllerFactory.deploy(sandboxController.address, configControllerImpl.address);
+      const sandboxCometFactoryForeign = await _SandboxCometFactory.deploy(
+        sandboxCometImpl.address,
+        configControllerFactoryForeign.address
+      );
+      await expect(
+        configControllerFactory.createConfigController(
+          curator.address,
+          guardian.address,
+          sandboxCometFactoryForeign.address,
+          configControllerOpts._curatorFee,
+          configControllerOpts._name,
+          configControllerOpts._curatorProposalDuration,
+          configControllerOpts._proposalDuration
+        )
+      ).to.be.revertedWithCustomError(configControllerFactory, "InvalidFactory");
+    });
+
+
+    it("should revert on deployment with invalid fee percentage", async function() {
+      const maxFee = await configControllerImpl.FEE_DIVISOR();
+      await expect(
+        configControllerFactory.createConfigController(
         curator.address,
         guardian.address,
-        sandboxController.address,
         sandboxCometFactory.address,
-        10000 + 1,
+        maxFee.add(1),
         configControllerOpts._name,
         configControllerOpts._curatorProposalDuration,
         configControllerOpts._proposalDuration
@@ -295,10 +336,8 @@ describe("System Initialization", function() {
 
       await expect(
         configControllerFactory.createConfigController(
-          owner.address,
           curator.address,
           guardian.address,
-          sandboxController.address,
           sandboxCometFactory.address,
           configControllerOpts._curatorFee,
           configControllerOpts._name,
@@ -312,10 +351,8 @@ describe("System Initialization", function() {
 
       await expect(
         configControllerFactory.createConfigController(
-          owner.address,
           curator.address,
           guardian.address,
-          sandboxController.address,
           sandboxCometFactory.address,
           configControllerOpts._curatorFee,
           configControllerOpts._name,
@@ -328,6 +365,41 @@ describe("System Initialization", function() {
       );
     });
 
+    it("should revert on deployment with proposals duration is too long", async function() {
+      const minMaxParams = await sandboxController.proposalBoundaries();
+      const maxUpdateTime = minMaxParams[1];
+
+      await expect(
+        configControllerFactory.createConfigController(
+          curator.address,
+          guardian.address,
+          sandboxCometFactory.address,
+          configControllerOpts._curatorFee,
+          configControllerOpts._name,
+          maxUpdateTime.add(1),
+          configControllerOpts._proposalDuration
+        )
+      ).to.be.revertedWithCustomError(
+        _ConfigController,
+        "ProposalDurationTooLong"
+      );
+
+      await expect(
+        configControllerFactory.createConfigController(
+          curator.address,
+          guardian.address,
+          sandboxCometFactory.address,
+          configControllerOpts._curatorFee,
+          configControllerOpts._name,
+          configControllerOpts._curatorProposalDuration,
+          maxUpdateTime.add(1)
+        )
+      ).to.be.revertedWithCustomError(
+        _ConfigController,
+        "ProposalDurationTooLong"
+      );
+    });
+
     
     describe("storage check",function() {
       let configControllerAddress;
@@ -335,10 +407,8 @@ describe("System Initialization", function() {
 
       beforeEach(async function() {
         configControllerAddress = await configControllerFactory.callStatic.createConfigController(
-          owner.address,
           curator.address,
           guardian.address,
-          sandboxController.address,
           sandboxCometFactory.address,
           configControllerOpts._curatorFee,
           configControllerOpts._name,
@@ -348,10 +418,8 @@ describe("System Initialization", function() {
 
         // deploy config controller
         await configControllerFactory.createConfigController(
-          owner.address,
           curator.address,
           guardian.address,
-          sandboxController.address,
           sandboxCometFactory.address,
           configControllerOpts._curatorFee,
           configControllerOpts._name,
@@ -409,7 +477,6 @@ describe("System Initialization", function() {
             owner.address,
             curator.address,
             guardian.address,
-            sandboxController.address,
             sandboxCometFactory.address,
             configControllerOpts._curatorFee,
             configControllerOpts._name,
@@ -424,11 +491,10 @@ describe("System Initialization", function() {
 
 
   describe("Comet deployment",function() {
-    let signers;
-    let owner, curator, guardian, sandboxController;
+    let sandboxController;
 
     let configControllerAddress;
-    let configController: ConfigController;
+    let configController: ConfigControllerInitializeTest;
     let sandboxCometFactory: SandboxCometFactory;
 
     const configControllerOpts = {
@@ -443,23 +509,17 @@ describe("System Initialization", function() {
     let marketConfig: CometConfigStruct;
 
     before(async function() {
-      const configControllerFactory = await _ConfigControllerFactory.deploy(configControllerImpl.address);
+      sandboxController = (await makeSandboxController(defaultSandboxControllerOpts({minUpdateTime: _minUpdateTime}))).sandboxController;
+
+      const configControllerFactory = await _ConfigControllerFactory.deploy(sandboxController.address, configControllerImpl.address);
       sandboxCometFactory = await _SandboxCometFactory.deploy(
         sandboxCometImpl.address,
         configControllerFactory.address
       );
-      signers = await ethers.getSigners();
 
-      owner = signers[0];
-      curator = signers[1];
-      guardian = signers[2];
-      sandboxController = (await makeSandboxController(defaultSandboxControllerOpts({minUpdateTime: _minUpdateTime}))).sandboxController;
-
-      configControllerAddress = await configControllerFactory.callStatic.createConfigController(
-        owner.address,
+      configControllerAddress = await configControllerFactory.connect(owner).callStatic.createConfigController(
         curator.address,
         guardian.address,
-        sandboxController.address,
         sandboxCometFactory.address,
         configControllerOpts._curatorFee,
         configControllerOpts._name,
@@ -468,18 +528,16 @@ describe("System Initialization", function() {
       );
 
       // deploy config controller
-      await configControllerFactory.createConfigController(
-        owner.address,
+      await configControllerFactory.connect(owner).createConfigController(
         curator.address,
         guardian.address,
-        sandboxController.address,
         sandboxCometFactory.address,
         configControllerOpts._curatorFee,
         configControllerOpts._name,
         configControllerOpts._curatorProposalDuration,
         configControllerOpts._proposalDuration
       );
-      configController = (await ethers.getContractAt("ConfigController", configControllerAddress)) as ConfigController;
+      configController = (await ethers.getContractAt("ConfigControllerInitializeTest", configControllerAddress)) as ConfigControllerInitializeTest;
 
       // deploy comet
       const baseToken = await makeToken({symbol: "BASE", initialMint: ethers.utils.parseEther('50000').toString()});
@@ -527,6 +585,11 @@ describe("System Initialization", function() {
     it("should be listed in the factory", async function() {
       expect(await sandboxCometFactory.getCometsLength()).to.eq(1);
       expect(await sandboxCometFactory.comets(0)).to.eq(cometAddress);
+    });
+
+    it("should be listed in the Controller", async function() {
+      expect(await configController.cometsLength()).to.eq(1);
+      expect(await configController.comets(0)).to.eq(cometAddress);
     });
 
     it("should set storage properly after deployment and initialization", async function() {
@@ -583,18 +646,10 @@ describe("System Initialization", function() {
     });
 
     it("should revert if initialize is called twice", async function() {
-      const SandboxComet = await ethers.getContractFactory("SandboxComet");
-      const _comet = (await SandboxComet.deploy()) as SandboxComet;
-
-      await _comet.factoryInit(owner.address, sandboxCometFactory.address);
-      const config = await sandboxController.config();
-      await _comet.connect(owner).initialize(marketConfig, config, sandboxController.address, 1e15);
-      
+      /// call via the test wrapper
       await expect(
-        _comet
-          .connect(owner)
-          .initialize(marketConfig, config, sandboxController.address, 1e15)
-      ).to.be.revertedWithCustomError(_comet, "AlreadyInitialized");
+        configController.reinitializeComet(comet.address, marketConfig)
+      ).to.be.revertedWithCustomError(comet, "AlreadyInitialized");
     });
 
     it("should emit event on Comet deployment", async function() {
