@@ -217,16 +217,6 @@ export async function deployNetworkComet(
   // Also get a handle for Comet, although it may not *actually* support the interface yet
   const comet = await deploymentManager.cast(cometProxy.address, 'contracts/CometInterface.sol:CometInterface');
 
-  // Call initializeStorage if storage not initialized
-  // Note: we now rely on the fact that anyone may call, which helps separate the proposal
-  await deploymentManager.idempotent(
-    async () => (await comet.totalsBasic()).lastAccrualTime == 0,
-    async () => {
-      trace(`Initializing Comet at ${comet.address}`);
-      trace(await wait(comet.connect(admin).initializeStorage()));
-    }
-  );
-
   // If we aren't admin, we'll need proposals to configure things
   const amAdmin = sameAddress(await cometAdmin.owner(), admin.address);
 

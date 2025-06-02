@@ -1,14 +1,12 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "./interfaces/IConfigController.sol";
 import "./interfaces/ISandboxController.sol";
 import "./interfaces/ISandboxComet.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
-import "./ConfigControllerFactory.sol";
 import "./interfaces/ISandboxCometFactory.sol";
-import "./interfaces/IERC20NonStandard.sol";
 
 
 /**
@@ -22,7 +20,8 @@ import "./interfaces/IERC20NonStandard.sol";
  * - Proposal system for comet configuration changes
  * - Comet transfer proposals
  */
-contract ConfigController is IConfigController, Initializable {
+contract ConfigController is IConfigController {
+    using SafeERC20 for IERC20;
     /// @notice The address of the protocol owner
     address public override owner;
 
@@ -87,10 +86,6 @@ contract ConfigController is IConfigController, Initializable {
         _;
     }
 
-    constructor() {
-        _disableInitializers();
-    }
-
     /// @notice Initializes the ConfigController contract
     /// @param _owner The address of the protocol owner
     /// @param _guardian The address of the protocol guardian
@@ -109,15 +104,16 @@ contract ConfigController is IConfigController, Initializable {
         uint _curatorFee,
         string memory _name,
         uint _curatorProposalDuration,
-        uint _proposalDuration,
-        address _configControllerFactory
-    ) public override initializer {
+        uint _proposalDuration
+    ) public override {
+        if (configControllerFactory != address(0)) revert AlreadyInitialized();
         unchecked {
             if (_owner == ZERO_ADDRESS) revert ZeroAddress();
+            /// no check for guardian - guardian may be set as address(0) as market can be run without it
+            /// curator is checked in proposeCurator()
             if (_sandboxController == ZERO_ADDRESS) revert ZeroAddress();
             if (_cometFactory == ZERO_ADDRESS) revert ZeroAddress();
             if (_curatorFee > 10000) revert InvalidFeePercentage();
-            if (_configControllerFactory == ZERO_ADDRESS) revert ZeroAddress();
 
             uint minUpdateTime = ISandboxController(_sandboxController).controllerConfiguration().minUpdateTime;
             if (_curatorProposalDuration < minUpdateTime || _proposalDuration < minUpdateTime) revert ProposalDurationTooShort();
@@ -131,9 +127,10 @@ contract ConfigController is IConfigController, Initializable {
         name = _name;
         curatorProposalDuration = _curatorProposalDuration;
         proposalDuration = _proposalDuration;
-        configControllerFactory = _configControllerFactory;
+        /// it is assumed that can be initialized only via factory - atomically after the deployment
+        configControllerFactory = msg.sender;
         
-        proposeCurator(_curator);
+        _proposeCurator(_curator);
     }
 
     /// @notice Creates a new comet with the specified configuration
@@ -172,27 +169,27 @@ contract ConfigController is IConfigController, Initializable {
             }
         }
         
-        ISandboxController.SandboxControllerConfiguration memory config = ISandboxController(sandboxController).config();
+        ISandboxController.SandboxControllerConfiguration memory _sandboxConfig = ISandboxController(sandboxController).config();
             
-        address comet = ISandboxCometFactory(cometFactory).createComet(_cometConfig, config);
+        address comet = ISandboxCometFactory(cometFactory).createComet();
+
+        ISandboxComet(comet).initialize(
+            _cometConfig,
+            _sandboxConfig,
+            sandboxController,
+            ISandboxController(sandboxController).baseAssets(_cometConfig.baseToken).minBorrow
+        );
 
         comets.push(comet);
         cometsLength++;
         cometId[comet] = cometsLength - 1;
         
-        IERC20NonStandard(_cometConfig.baseToken).transferFrom(
+        IERC20(_cometConfig.baseToken).safeTransferFrom(
             msg.sender,
-            address(this),
-            config.suggestedAmountOfSeedReserves
+            comet,
+            _sandboxConfig.suggestedAmountOfSeedReserves
         );
         
-        IERC20NonStandard(_cometConfig.baseToken).transfer(
-            comet,
-            config.suggestedAmountOfSeedReserves
-        );
-         
-        ISandboxComet(comet).initializeStorage();
-
         emit CometCreated(
             comet,
             _cometConfig.baseToken,
@@ -215,10 +212,14 @@ contract ConfigController is IConfigController, Initializable {
     /// @notice Proposes a new curator
     /// @dev Only callable by the owner. Emits a CuratorProposed event
     /// @param _proposedCurator The address of the proposed curator
-    function proposeCurator(address _proposedCurator) public {
-        if (!_isInitializing()) {
-            if (msg.sender != owner) revert Unauthorized();
-        }
+    function proposeCurator(address _proposedCurator) public onlyOwner {
+        _proposeCurator(_proposedCurator);
+    }
+
+    /// @notice Proposes a new curator
+    /// @dev Only callable by the owner. Emits a CuratorProposed event
+    /// @param _proposedCurator The address of the proposed curator
+    function _proposeCurator(address _proposedCurator) internal {
         if (_proposedCurator == ZERO_ADDRESS) revert ZeroAddress();
         if (_proposedCurator == curator) revert InvalidCurator();
 
@@ -344,6 +345,6 @@ contract ConfigController is IConfigController, Initializable {
     /// @return True if the comet is owned by this controller
     function _isCometOwned(address comet) internal view returns (bool) {
         if (cometsLength == 0) return false;
-        return comets[cometId[comet]] != address(0);
+        return comets[cometId[comet]] != comet;
     }
 }

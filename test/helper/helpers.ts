@@ -77,6 +77,13 @@ export enum ReentryAttack {
   BuyCollateral = 3,
 }
 
+export type TokenOpts = {
+  symbol?: string,
+  name?: string,
+  decimals?: Numeric,
+  initialMint?: string
+}
+
 export type ProtocolOpts = {
   start?: number;
   assets?: {
@@ -330,14 +337,12 @@ export async function makeConfigControllerFactory(configControllerImpl: string):
 
 export async function makeCometFactory(
   cometImpl: Contract,
-  configController: Contract,
-  sandboxController: Contract
+  configController: Contract
 ): Promise<SandboxCometFactory> {
   const CometFactory_factory: SandboxCometFactory__factory = await ethers.getContractFactory('SandboxCometFactory') as SandboxCometFactory__factory;
   const cometFactory: SandboxCometFactory = await CometFactory_factory.deploy(
     cometImpl.address,
-    configController.address,
-    sandboxController.address
+    configController.address
   );
   await cometFactory.deployed();
 
@@ -465,8 +470,7 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
 
   const cometFactory = await makeCometFactory(
     cometImpl, 
-    configControllerFactory,
-    sandboxController
+    configControllerFactory
   );
 
   await configControllerFactory.createConfigController(
@@ -682,12 +686,79 @@ export async function makeMockERC20({ name, symbol }: MockERC20Params): Promise<
   return token;
 }
 
+/// TODO: add opts when testing curves
+export async function sandboxListBaseAsset(sandboxController: SandboxController, baseAsset: FaucetToken, priceFeed: string) {
+    // --- Parameters ---
+  const supplyKink = exp(0.8, 18);
+  const supplyPerYearInterestRateBase = exp(0.001, 18);
+  const supplyPerYearInterestRateSlopeLow = exp(0.05, 18);
+  const supplyPerYearInterestRateSlopeHigh = exp(2, 18);
+  const borrowKink = exp(0.8, 18);
+  const borrowPerYearInterestRateBase = exp(0.005, 18);
+  const borrowPerYearInterestRateSlopeLow = exp(0.1, 18);
+  const borrowPerYearInterestRateSlopeHigh = exp(3, 18);
+  const baseBorrowMin = exp(1, await baseAsset.decimals());
+  
+  // --- Whitelist the base token ---
+  await sandboxController.whitelistBaseAsset(
+    baseAsset.address,
+    priceFeed,
+    {
+      supplyKink,
+      supplyPerYearInterestRateBase,
+      supplyPerYearInterestRateSlopeLow,
+      supplyPerYearInterestRateSlopeHigh,
+      borrowKink,
+      borrowPerYearInterestRateBase,
+      borrowPerYearInterestRateSlopeLow,
+      borrowPerYearInterestRateSlopeHigh
+    },
+    baseBorrowMin
+  );
+}
+
+/// TODO: add opts when testing curves
+export async function sandboxListCollateralAsset(sandboxController: SandboxController, collateralAsset: FaucetToken, priceFeed: string) {
+    const minBorrowCF = exp(0.5, 18);
+    const maxBorrowCF = exp(1, 18);
+    const minLiquidateCF = exp(0.6, 18);
+    const maxLiquidateCF = exp(0.7, 18);
+    const minLiquidationFactor = exp(0.8, 18);
+    const maxLiquidationFactor = exp(1, 18);
+
+    await sandboxController.whitelistCollateralAsset(
+      collateralAsset.address,
+      priceFeed,
+      minBorrowCF,
+      maxBorrowCF,
+      minLiquidateCF,
+      maxLiquidateCF,
+      minLiquidationFactor,
+      maxLiquidationFactor
+    );
+}
+
 export async function makePriceFeed({ amount }, underlyingToken: string): Promise<SimplePriceFeed> {
   const PriceFeedFactory = (await ethers.getContractFactory('SimplePriceFeed')) as SimplePriceFeed__factory;
   const priceFeed = await PriceFeedFactory.deploy(amount ?? '100000000', 8, underlyingToken);
   await priceFeed.deployed();
   return priceFeed;
 }
+
+export async function makeToken(opts: TokenOpts = {}): Promise<FaucetToken> {
+    const decimals = opts.decimals || 18;
+    const name = opts.name || "TestToken";
+    const symbol = opts.symbol || "TKN";
+    const initial = opts.initialMint || "0";
+
+    const factory = (await ethers.getContractFactory('FaucetToken')) as FaucetToken__factory;
+    
+    let token = await factory.deploy(initial, name, decimals, symbol);
+    await token.deployed();
+
+    return token;
+}
+
 
 export function defaultSandboxControllerOpts(partial?: Partial<SandboxControllerOpts>): SandboxControllerOpts {
   return {
