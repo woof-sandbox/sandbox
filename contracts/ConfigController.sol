@@ -188,7 +188,9 @@ contract ConfigController is IConfigController {
 
         IERC20(_cometConfig.baseToken).safeTransferFrom(msg.sender, comet, _sandboxConfig.suggestedAmountOfSeedReserves);
 
-        emit CometCreated(comet, _cometConfig.baseToken, cometsLength, _cometConfig.baseTokenCurveId);
+        emit CometCreated(
+            comet, _cometConfig.baseToken, baseAssetConfig.priceFeed, cometsLength, _cometConfig.baseTokenCurveId
+        );
 
         return comets[cometsLength - 1];
     }
