@@ -220,7 +220,6 @@ abstract contract IConfigController {
     /// @notice Initializes the ConfigController contract
     /// @param _owner The address of the protocol owner
     /// @param _guardian The address of the protocol guardian
-    /// @param _sandboxController The address of the SandboxController contract
     /// @param _cometFactory The address of the cometFactory contract
     /// @param _curatorFee Initial curator fee in basis points (1% = 100)
     /// @param _name Name of the controller
@@ -230,7 +229,6 @@ abstract contract IConfigController {
         address _owner,
         address _curator,
         address _guardian,
-        address _sandboxController,
         address _cometFactory,
         uint _curatorFee,
         string memory _name,

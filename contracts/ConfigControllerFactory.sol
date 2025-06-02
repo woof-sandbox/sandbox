@@ -14,18 +14,17 @@ import "./interfaces/ISandboxCometFactory.sol";
 contract ConfigControllerFactory is IConfigControllerFactory {
     /// @notice The implementation address used for cloning
     address public immutable override configControllerImplementation;
-        /// @notice The implementation address used for cloning
+    /// @notice The implementation address used for cloning
     address public immutable override sandboxController;
     /// @notice The array of controller addresses
-    mapping(address => uint) public override controllerIds;
+    mapping(address => uint256) public override controllerIds;
     /// @notice The array of controller addresses
     address[] public override controllerAddresses;
-    
+
     /// @notice constructor
     /// @param _configControllerImplementation The address of the ConfigController implementation
     constructor(address _sandboxController, address _configControllerImplementation) {
-        if (_configControllerImplementation == address(0)) revert ZeroAddress();
-        if (_sandboxController == address(0)) revert ZeroAddress();
+        if (_configControllerImplementation == address(0) || _sandboxController == address(0)) revert ZeroAddress();
 
         sandboxController = _sandboxController;
         configControllerImplementation = _configControllerImplementation;
@@ -45,16 +44,19 @@ contract ConfigControllerFactory is IConfigControllerFactory {
         address _curator,
         address _guardian,
         address _marketFactory,
-        uint _curatorFee,
+        uint256 _curatorFee,
         string memory _name,
-        uint _curatorProposalDuration,
-        uint _proposalDuration
+        uint256 _curatorProposalDuration,
+        uint256 _proposalDuration
     ) external override returns (address) {
+        if (_marketFactory == address(0) || _curator == address(0)) revert ZeroAddress();
+        /// Check that correct factory is used - to avoid foreign factories
         if (ISandboxCometFactory(_marketFactory).configControllerFactory() != address(this)) revert InvalidFactory();
-        if (_curator == address(0) || _guardian == address(0)) revert ZeroAddress();
-        if (_curator == msg.sender || _guardian == msg.sender || _curator == _guardian) revert InvalidAddress();       
+        /// no check for guardian - guardian may be set as address(0) as market can be run without it
+        /// curator is checked in proposeCurator()
 
-
+        /// check that roles are assigned to different actors
+        if (_curator == msg.sender || _guardian == msg.sender || _curator == _guardian) revert InvalidAddress();
 
         address configController = Clones.clone(configControllerImplementation);
         controllerIds[configController] = controllerAddresses.length;
@@ -64,14 +66,13 @@ contract ConfigControllerFactory is IConfigControllerFactory {
             msg.sender,
             _curator,
             _guardian,
-            sandboxController,
             _marketFactory,
             _curatorFee,
             _name,
             _curatorProposalDuration,
             _proposalDuration
         );
-        
+
         emit ConfigControllerCreated(
             configController,
             msg.sender,
@@ -90,7 +91,7 @@ contract ConfigControllerFactory is IConfigControllerFactory {
 
     /// @notice Returns the last controller ID
     /// @return The last controller ID
-    function getLastControllerLength() external view override returns (uint) {
+    function getLastControllerLength() external view override returns (uint256) {
         return controllerAddresses.length;
     }
 
