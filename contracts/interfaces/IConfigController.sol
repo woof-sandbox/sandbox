@@ -49,6 +49,7 @@ abstract contract IConfigController {
         uint128 supplyCap;
     }
 
+    error AlreadyInitialized();
     error ZeroAddress();
     error Unauthorized();
     error WrongPriceFeed();
@@ -236,8 +237,7 @@ abstract contract IConfigController {
         uint _curatorFee,
         string memory _name,
         uint _curatorProposalDuration,
-        uint _proposalDuration,
-        address _configControllerFactory
+        uint _proposalDuration
     ) external virtual;
 
     /// @notice Returns the address of the ConfigControllerFactory
