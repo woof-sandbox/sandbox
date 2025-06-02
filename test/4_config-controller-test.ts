@@ -82,6 +82,10 @@ describe("ConfigController", () => {
 
             // Verify comet creation
             expect(createCometEvents.args.baseToken).to.equal(baseToken.address);
+<<<<<<< HEAD
+=======
+            expect(createCometEvents.args.priceFeed).to.equal(priceFeeds[await baseToken.symbol()].address);
+>>>>>>> 3e1757e (test: added tests for params validations for ConfigController and comet creation)
             expect(createCometEvents.args.cometId).to.equal(1);
             expect(createCometEvents.args.baseTokenCurveId).to.equal(0);
 
@@ -159,6 +163,7 @@ describe("ConfigController", () => {
                 (collateralToken) => collateralToken.collateralToken === baseToken.address
             );
             expect(baseTokenConfig).to.be.undefined;
+<<<<<<< HEAD
 
             expect(await configController.comets(0)).to.eq(cometAddress);
             expect(await configController.cometsLength()).to.eq(1);
@@ -1280,6 +1285,427 @@ describe("ConfigController", () => {
 
     //         await configController.proposeCurator(proposedCurator);
 
+=======
+
+            expect(await configController.comets(0)).to.eq(cometAddress);
+            expect(await configController.cometsLength()).to.eq(1);
+        });
+    });
+
+    // describe('setCuratorFee', () => {
+    //     it('should set curator fee', async () => {
+    //         const { configController } = await makeConfigController();
+    //         await expect(configController.setCuratorFee(2000))
+    //             .to.emit(configController, 'CuratorFeeUpdated')
+    //             .withArgs(1000, 2000);
+    //         expect(await configController.curatorFee()).to.equal(2000);
+    //     });
+
+    //     it('should revert if not owner', async () => {
+    //         const { configController } = await makeConfigController();
+    //         const [_, nonOwner] = await ethers.getSigners();
+    //         await expect(configController.connect(nonOwner).setCuratorFee(2000))
+    //             .to.be.revertedWithCustomError(configController, 'Unauthorized');
+    //     });
+
+    //     it('should revert if fee is greater than 100%', async () => {
+    //         const { configController } = await makeConfigController();
+    //         await expect(configController.setCuratorFee(10001))
+    //             .to.be.revertedWithCustomError(configController, 'InvalidFeePercentage');
+    //     });
+    // });
+
+    // describe('accumulateRevenue', () => {
+    //     it('should accumulate revenue with curator fee', async () => {
+    //         const { configController, tokens, users, owner, baseToken, priceFeeds, cometFactory } = await makeConfigController();
+    //         const token = tokens['USDC'];
+    //         const amount = exp(1000, 6); // 1000 USDC
+
+    //         let cometConfig: MarketConfigStruct = {
+    //             baseToken: baseToken.address,
+    //             priceFeed: priceFeeds[await baseToken.symbol()].address,
+    //             collateralTokens: [],
+    //             baseTokenCurveId: 0n,
+    //             options: {
+    //                 baseTrackingSupplySpeed: 0n,
+    //                 baseTrackingBorrowSpeed: 0n,
+    //                 trackingIndexScale: 0n,
+    //                 baseMinForRewards: 0n
+    //             }
+    //         }
+
+    //         cometConfig.collateralTokens.push(
+    //             {
+    //                 collateralToken: tokens["COMP"].address,
+    //                 priceFeed: priceFeeds["COMP"].address,
+    //                 borrowCollateralFactor: factor(0.6),
+    //                 liquidateCollateralFactor: factor(0.7),
+    //                 liquidationFactor: factor(0.8),
+    //                 supplyCap: exp(1_000_000, 6)
+    //             }
+    //         );
+
+    //         const createCometTx = await configController.connect(owner).createComet(cometConfig);
+    //         const createCometReceipt = await createCometTx.wait();
+    //         const [createCometEvents] = createCometReceipt.events?.filter((event) => event.event === 'CometCreated');
+    //         const cometAddress = createCometEvents.args.comet;
+
+    //         const cometContract: CometHarness = <CometHarness>await ethers.getContractAt(
+    //             "CometHarness", cometAddress);
+
+    //         await token.allocateTo(cometAddress, amount);
+    //         await expect(cometContract.accumulateRevenue(token.address, amount))
+    //             .to.emit(configController, 'RevenueAccumulated')
+    //             .withArgs(token.address, amount);
+
+    //         const ownerAmount = (amount * 9000n) / 10000n; // 90%
+    //         const curatorAmount = (amount * 1000n) / 10000n; // 10%
+
+    //         expect(await configController.getUnclaimedRevenue(token.address, await configController.owner()))
+    //             .to.equal(ownerAmount);
+    //         expect(await configController.getUnclaimedRevenue(token.address, await configController.curator()))
+    //             .to.equal(curatorAmount);
+    //     });
+
+    //     it('should accumulate all revenue to owner when curator fee is 0', async () => {
+    //         const { configController, tokens, users, owner, baseToken, priceFeeds } = await makeConfigController();
+    //         await configController.setCuratorFee(0);
+
+    //         const token = tokens['USDC'];
+    //         const amount = exp(1000, 6); // 1000 USDC
+    //         let cometConfig: MarketConfigStruct = {
+    //             baseToken: baseToken.address,
+    //             priceFeed: priceFeeds[await baseToken.symbol()].address,
+    //             collateralTokens: [],
+    //             baseTokenCurveId: 0n,
+    //             options: {
+    //                 baseTrackingSupplySpeed: 0n,
+    //                 baseTrackingBorrowSpeed: 0n,
+    //                 trackingIndexScale: 0n,
+    //                 baseMinForRewards: 0n
+    //             }
+    //         }
+
+    //         cometConfig.collateralTokens.push(
+    //             {
+    //                 collateralToken: tokens["COMP"].address,
+    //                 priceFeed: priceFeeds["COMP"].address,
+    //                 borrowCollateralFactor: factor(0.6),
+    //                 liquidateCollateralFactor: factor(0.7),
+    //                 liquidationFactor: factor(0.8),
+    //                 supplyCap: exp(1_000_000, 6)
+    //             }
+    //         );
+
+    //         const createCometTx = await configController.connect(owner).createComet(cometConfig);
+    //         const createCometReceipt = await createCometTx.wait();
+    //         const [createCometEvents] = createCometReceipt.events?.filter((event) => event.event === 'CometCreated');
+    //         const cometAddress = createCometEvents.args.comet;
+    //         const cometContract: MarketMock = <MarketMock>await ethers.getContractAt("MarketMock", cometAddress);
+
+    //         await token.allocateTo(cometAddress, amount);
+    //         await cometContract.accumulateRevenue(token.address, amount);
+    //         expect(await configController.getUnclaimedRevenue(token.address, await configController.owner()))
+    //             .to.equal(amount);
+    //         expect(await configController.getUnclaimedRevenue(token.address, await configController.curator()))
+    //             .to.equal(0);
+    //     });
+
+    //     it('should revert if amount is zero', async () => {
+    //         const { configController, tokens, owner, baseToken, priceFeeds } = await makeConfigController();
+
+    //         let cometConfig: MarketConfigStruct = {
+    //             baseToken: baseToken.address,
+    //             priceFeed: priceFeeds[await baseToken.symbol()].address,
+    //             collateralTokens: [],
+    //             baseTokenCurveId: 0n,
+    //             options: {
+    //                 baseTrackingSupplySpeed: 0n,
+    //                 baseTrackingBorrowSpeed: 0n,
+    //                 trackingIndexScale: 0n,
+    //                 baseMinForRewards: 0n
+    //             }
+    //         }
+
+    //         cometConfig.collateralTokens.push(
+    //             {
+    //                 collateralToken: tokens["COMP"].address,
+    //                 priceFeed: priceFeeds["COMP"].address,
+    //                 borrowCollateralFactor: factor(0.6),
+    //                 liquidateCollateralFactor: factor(0.7),
+    //                 liquidationFactor: factor(0.8),
+    //                 supplyCap: exp(1_000_000, 6)
+    //             }
+    //         );
+
+    //         const createCometTx = await configController.connect(owner).createComet(cometConfig);
+    //         const createCometReceipt = await createCometTx.wait();
+    //         const [createCometEvents] = createCometReceipt.events?.filter((event) => event.event === 'CometCreated');
+    //         const cometAddress = createCometEvents.args.comet;
+    //         const cometContract: MarketMock = <MarketMock>await ethers.getContractAt("MarketMock", cometAddress);
+
+    //         await expect(cometContract.accumulateRevenue(tokens['USDC'].address, 0))
+    //             .to.be.revertedWithCustomError(configController, 'ZeroAmount');
+    //     });
+    // });
+
+    // describe('claimRevenue', () => {
+    //     it('should allow owner to claim revenue', async () => {
+    //         const { configController, tokens, users, owner, baseToken, priceFeeds } = await makeConfigController();
+    //         const token = tokens['USDC'];
+    //         const amount = exp(1000, 6); // 1000 USDC
+
+    //         let cometConfig: MarketConfigStruct = {
+    //             baseToken: baseToken.address,
+    //             priceFeed: priceFeeds[await baseToken.symbol()].address,
+    //             collateralTokens: [],
+    //             baseTokenCurveId: 0n,
+    //             options: {
+    //                 baseTrackingSupplySpeed: 0n,
+    //                 baseTrackingBorrowSpeed: 0n,
+    //                 trackingIndexScale: 0n,
+    //                 baseMinForRewards: 0n
+    //             }
+    //         }
+
+    //         cometConfig.collateralTokens.push(
+    //             {
+    //                 collateralToken: tokens["COMP"].address,
+    //                 priceFeed: priceFeeds["COMP"].address,
+    //                 borrowCollateralFactor: factor(0.6),
+    //                 liquidateCollateralFactor: factor(0.7),
+    //                 liquidationFactor: factor(0.8),
+    //                 supplyCap: exp(1_000_000, 6)
+    //             }
+    //         );
+
+    //         const createCometTx = await configController.connect(owner).createComet(cometConfig);
+    //         const createCometReceipt = await createCometTx.wait();
+    //         const [createCometEvents] = createCometReceipt.events?.filter((event) => event.event === 'CometCreated');
+    //         const cometAddress = createCometEvents.args.comet;
+    //         const cometContract: MarketMock = <MarketMock>await ethers.getContractAt("MarketMock", cometAddress);
+
+    //         await token.allocateTo(cometAddress, amount);
+    //         await expect(cometContract.accumulateRevenue(token.address, amount))
+    //             .to.emit(configController, 'RevenueAccumulated')
+    //             .withArgs(token.address, amount);
+
+    //         const ownerAmount = (amount * 9000n) / 10000n; // 90%
+    //         const balanceBefore = await token.balanceOf(owner.address);
+
+    //         await expect(configController.connect(owner).claimRevenue(token.address))
+    //             .to.emit(configController, 'RevenueClaimed')
+    //             .withArgs(token.address, owner.address, ownerAmount);
+
+    //         expect(await token.balanceOf(owner.address)).to.equal(balanceBefore.add(ownerAmount));
+    //         expect(await configController.getUnclaimedRevenue(token.address, owner.address)).to.equal(0);
+    //     });
+
+    //     it('should allow curator to claim revenue', async () => {
+    //         const { configController, curator, tokens, users, owner, baseToken, priceFeeds } = await makeConfigController();
+    //         const token = tokens['USDC'];
+    //         const amount = exp(1000, 6); // 1000 USDC
+
+    //         let cometConfig: MarketConfigStruct = {
+    //             baseToken: baseToken.address,
+    //             priceFeed: priceFeeds[await baseToken.symbol()].address,
+    //             collateralTokens: [],
+    //             baseTokenCurveId: 0n,
+    //             options: {
+    //                 baseTrackingSupplySpeed: 0n,
+    //                 baseTrackingBorrowSpeed: 0n,
+    //                 trackingIndexScale: 0n,
+    //                 baseMinForRewards: 0n
+    //             }
+    //         }
+
+    //         cometConfig.collateralTokens.push(
+    //             {
+    //                 collateralToken: tokens["COMP"].address,
+    //                 priceFeed: priceFeeds["COMP"].address,
+    //                 borrowCollateralFactor: factor(0.6),
+    //                 liquidateCollateralFactor: factor(0.7),
+    //                 liquidationFactor: factor(0.8),
+    //                 supplyCap: exp(1_000_000, 6)
+    //             }
+    //         );
+
+    //         const createCometTx = await configController.connect(owner).createComet(cometConfig);
+    //         const createCometReceipt = await createCometTx.wait();
+    //         const [createCometEvents] = createCometReceipt.events?.filter((event) => event.event === 'CometCreated');
+    //         const cometAddress = createCometEvents.args.comet;
+    //         const cometContract: MarketMock = <MarketMock>await ethers.getContractAt("MarketMock", cometAddress);
+
+    //         await token.allocateTo(cometAddress, amount);
+    //         await expect(cometContract.accumulateRevenue(token.address, amount))
+    //             .to.emit(configController, 'RevenueAccumulated')
+    //             .withArgs(token.address, amount);
+
+    //         const curatorAmount = (amount * 1000n) / 10000n; // 10%
+    //         const balanceBefore = await token.balanceOf(curator.address);
+
+    //         await expect(configController.connect(curator).claimRevenue(token.address))
+    //             .to.emit(configController, 'RevenueClaimed')
+    //             .withArgs(token.address, curator.address, curatorAmount);
+
+    //         expect(await token.balanceOf(curator.address)).to.equal(balanceBefore.add(curatorAmount));
+    //         expect(await configController.getUnclaimedRevenue(token.address, curator.address)).to.equal(0);
+    //     });
+
+    //     it('should revert if token is zero address', async () => {
+    //         const { configController } = await makeConfigController();
+    //         await expect(configController.claimRevenue(ethers.constants.AddressZero))
+    //             .to.be.revertedWithCustomError(configController, 'ZeroAddress');
+    //     });
+
+    //     it('should revert if no revenue to claim', async () => {
+    //         const { configController, tokens } = await makeConfigController();
+    //         await expect(configController.claimRevenue(tokens['USDC'].address))
+    //             .to.be.revertedWithCustomError(configController, 'InsufficientBalance');
+    //     });
+
+    //     it('should allow old curator to claim revenue after curator change', async () => {
+    //         const { configController, tokens, curator, users, owner, baseToken, priceFeeds } = await makeConfigController();
+    //         const token = tokens['USDC'];
+    //         const amount = exp(1000, 6); // 1000 USDC
+
+    //         let cometConfig: MarketConfigStruct = {
+    //             baseToken: baseToken.address,
+    //             priceFeed: priceFeeds[await baseToken.symbol()].address,
+    //             collateralTokens: [],
+    //             baseTokenCurveId: 0n,
+    //             options: {
+    //                 baseTrackingSupplySpeed: 0n,
+    //                 baseTrackingBorrowSpeed: 0n,
+    //                 trackingIndexScale: 0n,
+    //                 baseMinForRewards: 0n
+    //             }
+    //         }
+
+    //         cometConfig.collateralTokens.push(
+    //             {
+    //                 collateralToken: tokens["COMP"].address,
+    //                 priceFeed: priceFeeds["COMP"].address,
+    //                 borrowCollateralFactor: factor(0.6),
+    //                 liquidateCollateralFactor: factor(0.7),
+    //                 liquidationFactor: factor(0.8),
+    //                 supplyCap: exp(1_000_000, 6)
+    //             }
+    //         );
+
+    //         const createCometTx = await configController.connect(owner).createComet(cometConfig);
+    //         const createCometReceipt = await createCometTx.wait();
+    //         const [createCometEvents] = createCometReceipt.events?.filter((event) => event.event === 'CometCreated');
+    //         const cometAddress = createCometEvents.args.comet;
+    //         const cometContract: MarketMock = <MarketMock>await ethers.getContractAt("MarketMock", cometAddress);
+
+    //         await token.allocateTo(cometAddress, amount);
+    //         await expect(cometContract.accumulateRevenue(token.address, amount))
+    //             .to.emit(configController, 'RevenueAccumulated')
+    //             .withArgs(token.address, amount);
+
+    //         const oldCuratorAmount = (amount * 1000n) / 10000n; // 10%
+    //         const oldCuratorBalanceBefore = await token.balanceOf(curator.address);
+    //         const newCurator = users[0];
+    //         // Change curator
+    //         await configController.proposeCurator(newCurator.address);
+    //         await configController.connect(newCurator).acceptCuratorRole();
+
+    //         // Old curator claims revenue
+    //         await expect(configController.connect(curator).claimRevenue(token.address))
+    //             .to.emit(configController, 'RevenueClaimed')
+    //             .withArgs(token.address, curator.address, oldCuratorAmount);
+
+    //         expect(await token.balanceOf(curator.address)).to.equal(oldCuratorBalanceBefore.add(oldCuratorAmount));
+    //         expect(await configController.getUnclaimedRevenue(token.address, curator.address)).to.equal(0);
+    //         expect(await configController.curator()).to.equal(newCurator.address);
+    //     });
+    // });
+
+    // describe('grantOwnership', () => {
+    //     it('should transfer ownership', async () => {
+    //         const { configController, users } = await makeConfigController();
+
+    //         await configController.grantOwnership(users[4].address);
+    //         expect(await configController.owner()).to.equal(users[4].address);
+    //     });
+
+    //     it('should revert if not owner', async () => {
+    //         const { configController, users } = await makeConfigController();
+
+    //         await expect(configController.connect(users[4]).grantOwnership(users[5].address))
+    //             .to.be.revertedWithCustomError(configController, 'Unauthorized');
+    //     });
+    // });
+
+    // describe('Curator Role Proposal', () => {
+    //     it('should allow owner to propose new curator', async () => {
+    //         const { configController, users } = await makeConfigController();
+    //         const proposedCurator = users[4].address;
+
+    //         await expect(configController.proposeCurator(proposedCurator))
+    //             .to.emit(configController, 'CuratorProposed')
+    //             .withArgs(await configController.curator(), proposedCurator, await configController.curatorProposalExpiry());
+
+    //         expect(await configController.proposedCurator()).to.equal(proposedCurator);
+    //         expect(await configController.curatorProposalExpiry()).to.be.gt(0);
+    //     });
+
+    //     it('should allow proposed curator to accept the role', async () => {
+    //         const { configController, users } = await makeConfigController();
+    //         const proposedCurator = users[4].address;
+    //         const currentCurator = await configController.curator();
+
+    //         await configController.proposeCurator(proposedCurator);
+
+    //         await expect(configController.connect(users[4]).acceptCuratorRole())
+    //             .to.emit(configController, 'CuratorAccepted')
+    //             .withArgs(currentCurator, proposedCurator);
+
+    //         expect(await configController.curator()).to.equal(proposedCurator);
+    //         expect(await configController.proposedCurator()).to.equal(ethers.constants.AddressZero);
+    //         expect(await configController.curatorProposalExpiry()).to.equal(0);
+    //     });
+
+    //     it('should allow owner to cancel curator proposal', async () => {
+    //         const { configController, users } = await makeConfigController();
+    //         const proposedCurator = users[4].address;
+
+    //         await configController.proposeCurator(proposedCurator);
+
+    //         await expect(configController.cancelCuratorProposal())
+    //             .to.emit(configController, 'CuratorProposalCancelled')
+    //             .withArgs(proposedCurator);
+
+    //         expect(await configController.proposedCurator()).to.equal(ethers.constants.AddressZero);
+    //         expect(await configController.curatorProposalExpiry()).to.equal(0);
+    //     });
+
+    //     it('should revert if non-owner tries to propose curator', async () => {
+    //         const { configController, users } = await makeConfigController();
+    //         const proposedCurator = users[4].address;
+
+    //         await expect(configController.connect(users[4]).proposeCurator(proposedCurator))
+    //             .to.be.revertedWithCustomError(configController, 'Unauthorized');
+    //     });
+
+    //     it('should revert if non-proposed curator tries to accept role', async () => {
+    //         const { configController, users } = await makeConfigController();
+    //         const proposedCurator = users[4].address;
+
+    //         await configController.proposeCurator(proposedCurator);
+
+    //         await expect(configController.connect(users[5]).acceptCuratorRole())
+    //             .to.be.revertedWithCustomError(configController, 'Unauthorized');
+    //     });
+
+    //     it('should revert if non-owner tries to cancel proposal', async () => {
+    //         const { configController, users } = await makeConfigController();
+    //         const proposedCurator = users[4].address;
+
+    //         await configController.proposeCurator(proposedCurator);
+
+>>>>>>> 3e1757e (test: added tests for params validations for ConfigController and comet creation)
     //         await expect(configController.connect(users[4]).cancelCuratorProposal())
     //             .to.be.revertedWithCustomError(configController, 'Unauthorized');
     //     });

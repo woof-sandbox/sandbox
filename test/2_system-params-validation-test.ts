@@ -460,62 +460,6 @@ describe("System Params Validation", function() {
                     curve.borrowPerYearInterestRateBase.div(secondsPerYear)
                 );
             });
-
-            it("should revert if token decimals is greater than max base decimals", async () => {
-                const unsupportedToken = await makeToken({
-                    symbol: "BASE",
-                    initialMint: ethers.utils.parseEther("50000").toString(),
-                    decimals: 19,
-                });
-                const priceFeedUnsupportedToken = await makePriceFeed();
-
-                await sandboxListBaseAsset(sandboxController, unsupportedToken, priceFeedUnsupportedToken.address);
-
-                marketConfig.baseToken = unsupportedToken.address;
-
-                await expect(configController.createComet(marketConfig)).to.be.revertedWithCustomError(
-                    comet,
-                    "BadDecimals"
-                );
-            });
-
-            it("should revert if price feed decimals is not equal to PRICE FEED DECIMALS", async () => {
-                const baseToken = await makeToken({
-                    symbol: "BASE",
-                    initialMint: ethers.utils.parseEther("50000").toString(),
-                    decimals: 18,
-                });
-                const invalidPriceFeed = await makePriceFeed({ decimals: 7 });
-
-                await sandboxListBaseAsset(sandboxController, baseToken, invalidPriceFeed.address);
-
-                marketConfig.baseToken = baseToken.address;
-                marketConfig.priceFeed = invalidPriceFeed.address;
-
-                await expect(configController.createComet(marketConfig)).to.be.revertedWithCustomError(
-                    comet,
-                    "BadDecimals"
-                );
-            });
-
-            it("should revert if base scale is less than base accrual scale", async () => {
-                const unsupportedToken = await makeToken({
-                    symbol: "BASE",
-                    initialMint: ethers.utils.parseEther("50000").toString(),
-                    decimals: 5,
-                });
-                const unsupportedPriceFeed = await makePriceFeed();
-
-                await sandboxListBaseAsset(sandboxController, unsupportedToken, unsupportedPriceFeed.address);
-
-                marketConfig.baseToken = unsupportedToken.address;
-                marketConfig.priceFeed = unsupportedPriceFeed.address;
-
-                await expect(configController.createComet(marketConfig)).to.be.revertedWithCustomError(
-                    comet,
-                    "BadDecimals"
-                );
-            });
         });
     });
 });
