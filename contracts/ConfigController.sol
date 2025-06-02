@@ -144,9 +144,6 @@ contract ConfigController is IConfigController {
         ISandboxController.BaseAssetConfiguration memory baseAssetConfig =
             ISandboxController(sandboxController).baseAssets(_cometConfig.baseToken);
         if (baseAssetConfig.priceFeed == ZERO_ADDRESS) revert BaseTokenNotWhitelisted();
-        if (!ISandboxController(sandboxController).isBasePriceFeedWhitelisted(_cometConfig.priceFeed)) {
-            revert WrongPriceFeed();
-        }
         if (_cometConfig.collateralTokens.length == 0) revert ZeroCollateralAssets();
 
         if (_cometConfig.baseTokenCurveId >= baseAssetConfig.baseAssetCurves.length) revert WrongCurveParams();
@@ -191,9 +188,7 @@ contract ConfigController is IConfigController {
 
         IERC20(_cometConfig.baseToken).safeTransferFrom(msg.sender, comet, _sandboxConfig.suggestedAmountOfSeedReserves);
 
-        emit CometCreated(
-            comet, _cometConfig.baseToken, _cometConfig.priceFeed, cometsLength, _cometConfig.baseTokenCurveId
-        );
+        emit CometCreated(comet, _cometConfig.baseToken, cometsLength, _cometConfig.baseTokenCurveId);
 
         return comets[cometsLength - 1];
     }
@@ -301,16 +296,11 @@ contract ConfigController is IConfigController {
         ISandboxController.CollateralAssetConfiguration memory collateralAssetLimitations,
         address[] memory addedCollateralTokens
     ) internal view {
-        if (collateralTokenConfig.collateralToken == ZERO_ADDRESS) {
-            revert ZeroAddress();
-        }
+        if (collateralTokenConfig.collateralToken == ZERO_ADDRESS) revert ZeroAddress();
         if (
             ISandboxController(sandboxController).collateralAssets(collateralTokenConfig.collateralToken).priceFeed
                 == ZERO_ADDRESS
         ) revert CollateralTokenNotWhitelisted();
-        if (!ISandboxController(sandboxController).isCollateralPriceFeedWhitelisted(collateralTokenConfig.priceFeed)) {
-            revert WrongPriceFeed();
-        }
 
         for (uint256 j; j < addedCollateralTokens.length; j++) {
             if (addedCollateralTokens[j] == collateralTokenConfig.collateralToken) revert CollateralTokenAlreadyAdded();

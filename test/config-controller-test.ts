@@ -82,7 +82,6 @@ describe("ConfigController", () => {
 
             // Verify comet creation
             expect(createCometEvents.args.baseToken).to.equal(baseToken.address);
-            expect(createCometEvents.args.priceFeed).to.equal(priceFeeds[await baseToken.symbol()].address);
             expect(createCometEvents.args.cometId).to.equal(1);
             expect(createCometEvents.args.baseTokenCurveId).to.equal(0);
 
@@ -163,6 +162,708 @@ describe("ConfigController", () => {
 
             expect(await configController.comets(0)).to.eq(cometAddress);
             expect(await configController.cometsLength()).to.eq(1);
+        });
+
+        it("should emit an event when creating a comet", async () => {
+            const {
+                configController,
+                sandboxController,
+                tokens,
+                baseToken,
+                priceFeeds,
+                owner,
+            } = await makeConfigController();
+
+            let cometConfig: MarketConfigStruct = {
+                baseToken: baseToken.address,
+                priceFeed: priceFeeds[await baseToken.symbol()].address,
+                collateralTokens: [],
+                baseTokenCurveId: 0n,
+                options: {
+                    baseTrackingSupplySpeed: 0n,
+                    baseTrackingBorrowSpeed: 0n,
+                    trackingIndexScale: 0n,
+                    baseMinForRewards: 0n,
+                },
+            };
+
+            for (let token in tokens) {
+                if (token != (await baseToken.symbol())) {
+                    cometConfig.collateralTokens.push({
+                        collateralToken: tokens[token].address,
+                        priceFeed: priceFeeds[token].address,
+                        borrowCollateralFactor: factor(0.6),
+                        liquidateCollateralFactor: factor(0.7),
+                        liquidationFactor: factor(0.8),
+                        supplyCap: exp(1_000_000, 6),
+                    });
+                }
+            }
+            await baseToken.allocateTo(owner.address, (await sandboxController.config()).suggestedAmountOfSeedReserves);
+            await baseToken
+                .connect(owner)
+                .approve(configController.address, (await sandboxController.config()).suggestedAmountOfSeedReserves);
+            const tx = await configController.connect(owner).createComet(cometConfig);
+            const receipt = await tx.wait();
+            const event = receipt.events?.find((e) => e.event === "CometCreated");
+            expect(event?.args?.comet).to.equal(await configController.comets(0));
+            expect(event?.args?.baseToken).to.equal(baseToken.address);
+            expect(event?.args?.cometId).to.equal(1);
+            expect(event?.args?.baseTokenCurveId).to.equal(0);
+        });
+
+        it("should revert if the caller is not the owner", async () => {
+            const { configController, tokens, baseToken, priceFeeds } = await makeConfigController();
+
+            let cometConfig: MarketConfigStruct = {
+                baseToken: baseToken.address,
+                priceFeed: priceFeeds[await baseToken.symbol()].address,
+                collateralTokens: [],
+                baseTokenCurveId: 0n,
+                options: {
+                    baseTrackingSupplySpeed: 0n,
+                    baseTrackingBorrowSpeed: 0n,
+                    trackingIndexScale: 0n,
+                    baseMinForRewards: 0n,
+                },
+            };
+
+            for (let token in tokens) {
+                if (token != (await baseToken.symbol())) {
+                    cometConfig.collateralTokens.push({
+                        collateralToken: tokens[token].address,
+                        priceFeed: priceFeeds[token].address,
+                        borrowCollateralFactor: factor(0.6),
+                        liquidateCollateralFactor: factor(0.7),
+                        liquidationFactor: factor(0.8),
+                        supplyCap: exp(1_000_000, 6),
+                    });
+                }
+            }
+
+            await expect(
+                configController.connect(ethers.provider.getSigner(2)).createComet(cometConfig)
+            ).to.be.revertedWithCustomError(configController, "Unauthorized");
+        });
+
+        it("should revert if the base token is zero address", async () => {
+            const { configController, tokens, baseToken, priceFeeds } = await makeConfigController();
+
+            let cometConfig: MarketConfigStruct = {
+                baseToken: ethers.constants.AddressZero,
+                priceFeed: priceFeeds[await baseToken.symbol()].address,
+                collateralTokens: [],
+                baseTokenCurveId: 0n,
+                options: {
+                    baseTrackingSupplySpeed: 0n,
+                    baseTrackingBorrowSpeed: 0n,
+                    trackingIndexScale: 0n,
+                    baseMinForRewards: 0n,
+                },
+            };
+
+            for (let token in tokens) {
+                if (token != (await baseToken.symbol())) {
+                    cometConfig.collateralTokens.push({
+                        collateralToken: tokens[token].address,
+                        priceFeed: priceFeeds[token].address,
+                        borrowCollateralFactor: factor(0.6),
+                        liquidateCollateralFactor: factor(0.7),
+                        liquidationFactor: factor(0.8),
+                        supplyCap: exp(1_000_000, 6),
+                    });
+                }
+            }
+
+            await expect(configController.createComet(cometConfig)).to.be.revertedWithCustomError(
+                configController,
+                "ZeroAddress"
+            );
+        });
+
+        it("should revert if the collateral token is zero address", async () => {
+            const { configController, tokens, baseToken, priceFeeds } = await makeConfigController();
+
+            let cometConfig: MarketConfigStruct = {
+                baseToken: baseToken.address,
+                priceFeed: priceFeeds[await baseToken.symbol()].address,
+                collateralTokens: [],
+                baseTokenCurveId: 0n,
+                options: {
+                    baseTrackingSupplySpeed: 0n,
+                    baseTrackingBorrowSpeed: 0n,
+                    trackingIndexScale: 0n,
+                    baseMinForRewards: 0n,
+                },
+            };
+
+            for (let token in tokens) {
+                if (token != (await baseToken.symbol())) {
+                    cometConfig.collateralTokens.push({
+                        collateralToken: ethers.constants.AddressZero,
+                        priceFeed: priceFeeds[token].address,
+                        borrowCollateralFactor: factor(0.6),
+                        liquidateCollateralFactor: factor(0.7),
+                        liquidationFactor: factor(0.8),
+                        supplyCap: exp(1_000_000, 6),
+                    });
+                }
+            }
+
+            await expect(configController.createComet(cometConfig)).to.be.revertedWithCustomError(
+                configController,
+                "ZeroAddress"
+            );
+        });
+
+        it("should revert if the collateral token is the base token", async () => {
+            const { configController, tokens, baseToken, priceFeeds } = await makeConfigController();
+
+            let cometConfig: MarketConfigStruct = {
+                baseToken: baseToken.address,
+                priceFeed: priceFeeds[await baseToken.symbol()].address,
+                collateralTokens: [],
+                baseTokenCurveId: 0n,
+                options: {
+                    baseTrackingSupplySpeed: 0n,
+                    baseTrackingBorrowSpeed: 0n,
+                    trackingIndexScale: 0n,
+                    baseMinForRewards: 0n,
+                },
+            };
+
+            for (let token in tokens) {
+                if (token != (await baseToken.symbol())) {
+                    cometConfig.collateralTokens.push({
+                        collateralToken: baseToken.address,
+                        priceFeed: priceFeeds[token].address,
+                        borrowCollateralFactor: factor(0.6),
+                        liquidateCollateralFactor: factor(0.7),
+                        liquidationFactor: factor(0.8),
+                        supplyCap: exp(1_000_000, 6),
+                    });
+                }
+            }
+
+            await expect(configController.createComet(cometConfig)).to.be.revertedWithCustomError(
+                configController,
+                "WrongCollateralTokenSettings"
+            );
+        });
+
+        it("should revert if the collateral token already exists in the config", async () => {
+            const { configController, tokens, baseToken, priceFeeds } = await makeConfigController();
+
+            let cometConfig: MarketConfigStruct = {
+                baseToken: baseToken.address,
+                priceFeed: priceFeeds[await baseToken.symbol()].address,
+                collateralTokens: [],
+                baseTokenCurveId: 0n,
+                options: {
+                    baseTrackingSupplySpeed: 0n,
+                    baseTrackingBorrowSpeed: 0n,
+                    trackingIndexScale: 0n,
+                    baseMinForRewards: 0n,
+                },
+            };
+
+            cometConfig.collateralTokens.push({
+                collateralToken: tokens["COMP"].address,
+                priceFeed: priceFeeds["COMP"].address,
+                borrowCollateralFactor: factor(0.6),
+                liquidateCollateralFactor: factor(0.7),
+                liquidationFactor: factor(0.8),
+                supplyCap: exp(1_000_000, 6),
+            });
+            cometConfig.collateralTokens.push({
+                collateralToken: tokens["COMP"].address,
+                priceFeed: priceFeeds["COMP"].address,
+                borrowCollateralFactor: factor(0.6),
+                liquidateCollateralFactor: factor(0.7),
+                liquidationFactor: factor(0.8),
+                supplyCap: exp(1_000_000, 6),
+            });
+
+            await expect(configController.createComet(cometConfig)).to.be.revertedWithCustomError(
+                configController,
+                "CollateralTokenAlreadyAdded"
+            );
+        });
+
+        it("should revert if the collateral token is not whitelisted", async () => {
+            const { configController, tokens, baseToken, priceFeeds, unsupportedToken } = await makeConfigController();
+
+            let cometConfig: MarketConfigStruct = {
+                baseToken: baseToken.address,
+                priceFeed: priceFeeds[await baseToken.symbol()].address,
+                collateralTokens: [],
+                baseTokenCurveId: 0n,
+                options: {
+                    baseTrackingSupplySpeed: 0n,
+                    baseTrackingBorrowSpeed: 0n,
+                    trackingIndexScale: 0n,
+                    baseMinForRewards: 0n,
+                },
+            };
+
+            cometConfig.collateralTokens.push({
+                collateralToken: unsupportedToken.address,
+                priceFeed: priceFeeds[await unsupportedToken.symbol()].address,
+                borrowCollateralFactor: factor(0.6),
+                liquidateCollateralFactor: factor(0.7),
+                liquidationFactor: factor(0.8),
+                supplyCap: exp(1_000_000, 6),
+            });
+
+            await expect(configController.createComet(cometConfig)).to.be.revertedWithCustomError(
+                configController,
+                "CollateralTokenNotWhitelisted"
+            );
+        });
+
+        it("should revert if the collateral token supply cap is zero", async () => {
+            const { configController, tokens, baseToken, priceFeeds, unsupportedToken } = await makeConfigController();
+
+            let cometConfig: MarketConfigStruct = {
+                baseToken: baseToken.address,
+                priceFeed: priceFeeds[await baseToken.symbol()].address,
+                collateralTokens: [],
+                baseTokenCurveId: 0n,
+                options: {
+                    baseTrackingSupplySpeed: 0n,
+                    baseTrackingBorrowSpeed: 0n,
+                    trackingIndexScale: 0n,
+                    baseMinForRewards: 0n,
+                },
+            };
+
+            cometConfig.collateralTokens.push({
+                collateralToken: tokens["COMP"].address,
+                priceFeed: priceFeeds["COMP"].address,
+                borrowCollateralFactor: factor(0.6),
+                liquidateCollateralFactor: factor(0.7),
+                liquidationFactor: factor(0.8),
+                supplyCap: 0,
+            });
+
+            await expect(configController.createComet(cometConfig)).to.be.revertedWithCustomError(
+                configController,
+                "WrongCollateralTokenSettings"
+            );
+        });
+
+        it("should revert if the collateral token borrow collateral factor is zero", async () => {
+            const { configController, tokens, baseToken, priceFeeds } = await makeConfigController();
+
+            let cometConfig: MarketConfigStruct = {
+                baseToken: baseToken.address,
+                priceFeed: priceFeeds[await baseToken.symbol()].address,
+                collateralTokens: [],
+                baseTokenCurveId: 0n,
+                options: {
+                    baseTrackingSupplySpeed: 0n,
+                    baseTrackingBorrowSpeed: 0n,
+                    trackingIndexScale: 0n,
+                    baseMinForRewards: 0n,
+                },
+            };
+
+            cometConfig.collateralTokens.push({
+                collateralToken: tokens["COMP"].address,
+                priceFeed: priceFeeds["COMP"].address,
+                borrowCollateralFactor: 0,
+                liquidateCollateralFactor: factor(0.7),
+                liquidationFactor: factor(0.8),
+                supplyCap: exp(1_000_000, 6),
+            });
+
+            await expect(configController.createComet(cometConfig)).to.be.revertedWithCustomError(
+                configController,
+                "WrongCollateralTokenSettings"
+            );
+        });
+
+        it("should revert if the collateral token liquidate collateral factor is zero", async () => {
+            const { configController, tokens, baseToken, priceFeeds } = await makeConfigController();
+
+            let cometConfig: MarketConfigStruct = {
+                baseToken: baseToken.address,
+                priceFeed: priceFeeds[await baseToken.symbol()].address,
+                collateralTokens: [],
+                baseTokenCurveId: 0n,
+                options: {
+                    baseTrackingSupplySpeed: 0n,
+                    baseTrackingBorrowSpeed: 0n,
+                    trackingIndexScale: 0n,
+                    baseMinForRewards: 0n,
+                },
+            };
+
+            cometConfig.collateralTokens.push({
+                collateralToken: tokens["COMP"].address,
+                priceFeed: priceFeeds["COMP"].address,
+                borrowCollateralFactor: factor(0.6),
+                liquidateCollateralFactor: 0,
+                liquidationFactor: factor(0.8),
+                supplyCap: exp(1_000_000, 6),
+            });
+
+            await expect(configController.createComet(cometConfig)).to.be.revertedWithCustomError(
+                configController,
+                "WrongCollateralTokenSettings"
+            );
+        });
+
+        it("should revert if the collateral token liquidation factor is zero", async () => {
+            const { configController, tokens, baseToken, priceFeeds } = await makeConfigController();
+
+            let cometConfig: MarketConfigStruct = {
+                baseToken: baseToken.address,
+                priceFeed: priceFeeds[await baseToken.symbol()].address,
+                collateralTokens: [],
+                baseTokenCurveId: 0n,
+                options: {
+                    baseTrackingSupplySpeed: 0n,
+                    baseTrackingBorrowSpeed: 0n,
+                    trackingIndexScale: 0n,
+                    baseMinForRewards: 0n,
+                },
+            };
+
+            cometConfig.collateralTokens.push({
+                collateralToken: tokens["COMP"].address,
+                priceFeed: priceFeeds["COMP"].address,
+                borrowCollateralFactor: factor(0.6),
+                liquidateCollateralFactor: factor(0.7),
+                liquidationFactor: 0,
+                supplyCap: exp(1_000_000, 6),
+            });
+
+            await expect(configController.createComet(cometConfig)).to.be.revertedWithCustomError(
+                configController,
+                "WrongCollateralTokenSettings"
+            );
+        });
+
+        it("should revert if the collateral token borrow collateral factor is greater than liquidate collateral factor", async () => {
+            const { configController, tokens, baseToken, priceFeeds } = await makeConfigController();
+
+            let cometConfig: MarketConfigStruct = {
+                baseToken: baseToken.address,
+                priceFeed: priceFeeds[await baseToken.symbol()].address,
+                collateralTokens: [],
+                baseTokenCurveId: 0n,
+                options: {
+                    baseTrackingSupplySpeed: 0n,
+                    baseTrackingBorrowSpeed: 0n,
+                    trackingIndexScale: 0n,
+                    baseMinForRewards: 0n,
+                },
+            };
+
+            cometConfig.collateralTokens.push({
+                collateralToken: tokens["COMP"].address,
+                priceFeed: priceFeeds["COMP"].address,
+                borrowCollateralFactor: factor(0.8),
+                liquidateCollateralFactor: factor(0.7),
+                liquidationFactor: factor(0.8),
+                supplyCap: exp(1_000_000, 6),
+            });
+
+            await expect(configController.createComet(cometConfig)).to.be.revertedWithCustomError(
+                configController,
+                "WrongCollateralTokenSettings"
+            );
+        });
+
+        it("should revert if the borrow collateral factor is greater than liquidate collateral factor", async () => {
+            const { configController, tokens, baseToken, priceFeeds } = await makeConfigController();
+
+            let cometConfig: MarketConfigStruct = {
+                baseToken: baseToken.address,
+                priceFeed: priceFeeds[await baseToken.symbol()].address,
+                collateralTokens: [],
+                baseTokenCurveId: 0n,
+                options: {
+                    baseTrackingSupplySpeed: 0n,
+                    baseTrackingBorrowSpeed: 0n,
+                    trackingIndexScale: 0n,
+                    baseMinForRewards: 0n,
+                },
+            };
+
+            cometConfig.collateralTokens.push({
+                collateralToken: tokens["COMP"].address,
+                priceFeed: priceFeeds["COMP"].address,
+                borrowCollateralFactor: factor(0.8),
+                liquidateCollateralFactor: factor(0.7),
+                liquidationFactor: factor(0.8),
+                supplyCap: exp(1_000_000, 6),
+            });
+
+            await expect(configController.createComet(cometConfig)).to.be.revertedWithCustomError(
+                configController,
+                "WrongCollateralTokenSettings"
+            );
+        });
+
+        it("should revert if the borrow collateral factor is greater than max borrow collateral factor", async () => {
+            const { configController, tokens, baseToken, priceFeeds } = await makeConfigController();
+
+            let cometConfig: MarketConfigStruct = {
+                baseToken: baseToken.address,
+                priceFeed: priceFeeds[await baseToken.symbol()].address,
+                collateralTokens: [],
+                baseTokenCurveId: 0n,
+                options: {
+                    baseTrackingSupplySpeed: 0n,
+                    baseTrackingBorrowSpeed: 0n,
+                    trackingIndexScale: 0n,
+                    baseMinForRewards: 0n,
+                },
+            };
+
+            cometConfig.collateralTokens.push({
+                collateralToken: tokens["COMP"].address,
+                priceFeed: priceFeeds["COMP"].address,
+                borrowCollateralFactor: factor(1.1),
+                liquidateCollateralFactor: factor(0.7),
+                liquidationFactor: factor(0.8),
+                supplyCap: exp(1_000_000, 6),
+            });
+
+            await expect(configController.createComet(cometConfig)).to.be.revertedWithCustomError(
+                configController,
+                "WrongCollateralTokenSettings"
+            );
+        });
+
+        it("should revert if the borrow collateral factor is less than min borrow collateral factor", async () => {
+            const { configController, tokens, baseToken, priceFeeds } = await makeConfigController();
+
+            let cometConfig: MarketConfigStruct = {
+                baseToken: baseToken.address,
+                priceFeed: priceFeeds[await baseToken.symbol()].address,
+                collateralTokens: [],
+                baseTokenCurveId: 0n,
+                options: {
+                    baseTrackingSupplySpeed: 0n,
+                    baseTrackingBorrowSpeed: 0n,
+                    trackingIndexScale: 0n,
+                    baseMinForRewards: 0n,
+                },
+            };
+
+            cometConfig.collateralTokens.push({
+                collateralToken: tokens["COMP"].address,
+                priceFeed: priceFeeds["COMP"].address,
+                borrowCollateralFactor: factor(0.4),
+                liquidateCollateralFactor: factor(0.7),
+                liquidationFactor: factor(0.8),
+                supplyCap: exp(1_000_000, 6),
+            });
+
+            await expect(configController.createComet(cometConfig)).to.be.revertedWithCustomError(
+                configController,
+                "WrongCollateralTokenSettings"
+            );
+        });
+
+        it("should revert if the liquidate collateral factor is greater than the max liquidate collateral factor", async () => {
+            const { configController, tokens, baseToken, priceFeeds } = await makeConfigController();
+
+            let cometConfig: MarketConfigStruct = {
+                baseToken: baseToken.address,
+                priceFeed: priceFeeds[await baseToken.symbol()].address,
+                collateralTokens: [],
+                baseTokenCurveId: 0n,
+                options: {
+                    baseTrackingSupplySpeed: 0n,
+                    baseTrackingBorrowSpeed: 0n,
+                    trackingIndexScale: 0n,
+                    baseMinForRewards: 0n,
+                },
+            };
+
+            cometConfig.collateralTokens.push({
+                collateralToken: tokens["COMP"].address,
+                priceFeed: priceFeeds["COMP"].address,
+                borrowCollateralFactor: factor(0.6),
+                liquidateCollateralFactor: factor(0.8),
+                liquidationFactor: factor(0.8),
+                supplyCap: exp(1_000_000, 6),
+            });
+
+            await expect(configController.createComet(cometConfig)).to.be.revertedWithCustomError(
+                configController,
+                "WrongCollateralTokenSettings"
+            );
+        });
+
+        it("should revert if the liquidate collateral factor is less than min liquidate collateral factor", async () => {
+            const { configController, tokens, baseToken, priceFeeds } = await makeConfigController();
+
+            let cometConfig: MarketConfigStruct = {
+                baseToken: baseToken.address,
+                priceFeed: priceFeeds[await baseToken.symbol()].address,
+                collateralTokens: [],
+                baseTokenCurveId: 0n,
+                options: {
+                    baseTrackingSupplySpeed: 0n,
+                    baseTrackingBorrowSpeed: 0n,
+                    trackingIndexScale: 0n,
+                    baseMinForRewards: 0n,
+                },
+            };
+
+            cometConfig.collateralTokens.push({
+                collateralToken: tokens["COMP"].address,
+                priceFeed: priceFeeds["COMP"].address,
+                borrowCollateralFactor: factor(0.6),
+                liquidateCollateralFactor: factor(0.59),
+                liquidationFactor: factor(0.8),
+                supplyCap: exp(1_000_000, 6),
+            });
+
+            await expect(configController.createComet(cometConfig)).to.be.revertedWithCustomError(
+                configController,
+                "WrongCollateralTokenSettings"
+            );
+        });
+
+        it("should revert if the liquidation factor is less than min liquidation factor", async () => {
+            const { configController, tokens, baseToken, priceFeeds } = await makeConfigController();
+
+            let cometConfig: MarketConfigStruct = {
+                baseToken: baseToken.address,
+                priceFeed: priceFeeds[await baseToken.symbol()].address,
+                collateralTokens: [],
+                baseTokenCurveId: 0n,
+                options: {
+                    baseTrackingSupplySpeed: 0n,
+                    baseTrackingBorrowSpeed: 0n,
+                    trackingIndexScale: 0n,
+                    baseMinForRewards: 0n,
+                },
+            };
+
+            cometConfig.collateralTokens.push({
+                collateralToken: tokens["COMP"].address,
+                priceFeed: priceFeeds["COMP"].address,
+                borrowCollateralFactor: factor(0.6),
+                liquidateCollateralFactor: factor(0.7),
+                liquidationFactor: factor(0.79),
+                supplyCap: exp(1_000_000, 6),
+            });
+
+            await expect(configController.createComet(cometConfig)).to.be.revertedWithCustomError(
+                configController,
+                "WrongCollateralTokenSettings"
+            );
+        });
+
+        it("should revert if the liquidation factor is greater than max liquidation factor", async () => {
+            const {
+                configController,
+                tokens,
+                baseToken,
+                priceFeeds,
+                owner,
+                sandboxController,
+            } = await makeConfigController();
+
+            let cometConfig: MarketConfigStruct = {
+                baseToken: baseToken.address,
+                priceFeed: priceFeeds[await baseToken.symbol()].address,
+                collateralTokens: [],
+                baseTokenCurveId: 0n,
+                options: {
+                    baseTrackingSupplySpeed: 0n,
+                    baseTrackingBorrowSpeed: 0n,
+                    trackingIndexScale: 0n,
+                    baseMinForRewards: 0n,
+                },
+            };
+
+            cometConfig.collateralTokens.push({
+                collateralToken: tokens["COMP"].address,
+                priceFeed: priceFeeds["COMP"].address,
+                borrowCollateralFactor: factor(0.9),
+                liquidateCollateralFactor: factor(0.7),
+                liquidationFactor: factor(0.91),
+                supplyCap: exp(1_000_000, 6),
+            });
+
+            await baseToken.allocateTo(owner.address, (await sandboxController.config()).suggestedAmountOfSeedReserves);
+            await baseToken
+                .connect(owner)
+                .approve(configController.address, (await sandboxController.config()).suggestedAmountOfSeedReserves);
+            await expect(configController.createComet(cometConfig)).to.be.revertedWithCustomError(
+                configController,
+                "WrongCollateralTokenSettings"
+            );
+        });
+
+        it("it should be possible to create two comets with the same configuration", async () => {
+            const {
+                configController,
+                tokens,
+                baseToken,
+                priceFeeds,
+                owner,
+                sandboxController,
+            } = await makeConfigController();
+
+            let cometConfig: MarketConfigStruct = {
+                baseToken: baseToken.address,
+                priceFeed: priceFeeds[await baseToken.symbol()].address,
+                collateralTokens: [],
+                baseTokenCurveId: 0n,
+                options: {
+                    baseTrackingSupplySpeed: 0n,
+                    baseTrackingBorrowSpeed: 0n,
+                    trackingIndexScale: 0n,
+                    baseMinForRewards: 0n,
+                },
+            };
+
+            for (let token in tokens) {
+                if (token != (await baseToken.symbol())) {
+                    cometConfig.collateralTokens.push({
+                        collateralToken: tokens[token].address,
+                        priceFeed: priceFeeds[token].address,
+                        borrowCollateralFactor: factor(0.6),
+                        liquidateCollateralFactor: factor(0.7),
+                        liquidationFactor: factor(0.8),
+                        supplyCap: exp(1_000_000, 6),
+                    });
+                }
+            }
+
+            await baseToken.allocateTo(owner.address, (await sandboxController.config()).suggestedAmountOfSeedReserves);
+            await baseToken
+                .connect(owner)
+                .approve(configController.address, (await sandboxController.config()).suggestedAmountOfSeedReserves);
+
+            let createCometTx = await configController.connect(owner).createComet(cometConfig);
+            let createCometReceipt = await createCometTx.wait();
+            let [createCometEvents] = createCometReceipt.events?.filter((event) => event.event === "CometCreated");
+            let cometAddress = createCometEvents.args.comet;
+            expect(await configController.comets(0)).to.eq(cometAddress);
+            expect(await configController.cometsLength()).to.eq(1);
+
+            await baseToken.allocateTo(owner.address, (await sandboxController.config()).suggestedAmountOfSeedReserves);
+            await baseToken
+                .connect(owner)
+                .approve(configController.address, (await sandboxController.config()).suggestedAmountOfSeedReserves);
+
+            createCometTx = await configController.connect(owner).createComet(cometConfig);
+            createCometReceipt = await createCometTx.wait();
+            [createCometEvents] = createCometReceipt.events?.filter((event) => event.event === "CometCreated");
+            cometAddress = createCometEvents.args.comet;
+
+            expect(await configController.comets(1)).to.eq(cometAddress);
+            expect(await configController.cometsLength()).to.eq(2);
         });
     });
 
