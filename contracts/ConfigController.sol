@@ -192,6 +192,7 @@ contract ConfigController is IConfigController {
         emit CometCreated(
             comet,
             _cometConfig.baseToken,
+            baseAssetConfig.priceFeed,
             cometsLength,
             _cometConfig.baseTokenCurveId
         );
