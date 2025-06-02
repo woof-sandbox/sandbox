@@ -4,6 +4,7 @@ pragma solidity 0.8.28;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "./interfaces/IConfigController.sol";
+import "./interfaces/IConfigControllerFactory.sol";
 import "./interfaces/ISandboxController.sol";
 import "./interfaces/ISandboxComet.sol";
 import "./interfaces/ISandboxCometFactory.sol";
@@ -47,9 +48,6 @@ contract ConfigController is IConfigController {
     /// @notice Array of all comets created by this controller
     address[] public override comets;
 
-    /// @notice The number of comets created by this controller
-    uint public override cometsLength;
-
     /// @notice The curator fee in basis points (1% = 100)
     uint public override curatorFee;
 
@@ -92,7 +90,6 @@ contract ConfigController is IConfigController {
     /// @notice Initializes the ConfigController contract
     /// @param _owner The address of the protocol owner
     /// @param _guardian The address of the protocol guardian
-    /// @param _sandboxController The address of the SandboxController contract
     /// @param _cometFactory The address of the cometFactory contract
     /// @param _curatorFee Initial curator fee in basis points (1% = 100)
     /// @param _name Name of the controller
@@ -102,7 +99,6 @@ contract ConfigController is IConfigController {
         address _owner,
         address _curator,
         address _guardian,
-        address _sandboxController,
         address _cometFactory,
         uint _curatorFee,
         string memory _name,
@@ -110,6 +106,11 @@ contract ConfigController is IConfigController {
         uint _proposalDuration
     ) public override {
         if (configControllerFactory != address(0)) revert AlreadyInitialized();
+        /// it is assumed that controller can be initialized only via factory - atomically after the deployment
+        configControllerFactory = msg.sender;
+
+        /// back-link to ensure that correct sandboxController is used and to bind it with factory - thus avoiding foreign deployments
+        sandboxController = IConfigControllerFactory(configControllerFactory).sandboxController();
 
         /// Addresses of owner, curator, guardian, sandbox controller and factory are validated in the factory
         /// and it is guaranteed that initialization follows deployment in the same transaction.
@@ -117,21 +118,19 @@ contract ConfigController is IConfigController {
         unchecked {
             if (_curatorFee > FEE_DIVISOR) revert InvalidFeePercentage();
 
-            (uint minUpdateTime, uint maxUpdateTime) = ISandboxController(_sandboxController).proposalBoundaries();
+            (uint minUpdateTime, uint maxUpdateTime) = ISandboxController(sandboxController).proposalBoundaries();
             if (_curatorProposalDuration < minUpdateTime || _proposalDuration < minUpdateTime) revert ProposalDurationTooShort();
             if (_curatorProposalDuration > maxUpdateTime || _proposalDuration > maxUpdateTime) revert ProposalDurationTooLong();
         }
 
         owner = _owner;
         guardian = _guardian;
-        sandboxController = _sandboxController;
+        
         cometFactory = _cometFactory;
         curatorFee = _curatorFee;
         name = _name;
         curatorProposalDuration = _curatorProposalDuration;
         proposalDuration = _proposalDuration;
-        /// it is assumed that can be initialized only via factory - atomically after the deployment
-        configControllerFactory = msg.sender;
         
         _proposeCurator(_curator);
     }
@@ -183,9 +182,9 @@ contract ConfigController is IConfigController {
             ISandboxController(sandboxController).baseAssets(_cometConfig.baseToken).minBorrow
         );
 
+        uint256 cometsLength = comets.length;
         comets.push(comet);
-        cometsLength++;
-        cometId[comet] = cometsLength - 1;
+        cometId[comet] = cometsLength;
         
         IERC20(_cometConfig.baseToken).safeTransferFrom(
             msg.sender,
@@ -197,11 +196,16 @@ contract ConfigController is IConfigController {
             comet,
             _cometConfig.baseToken,
             _cometConfig.priceFeed,
-            cometsLength,
+            cometsLength + 1,
             _cometConfig.baseTokenCurveId
         );
 
-        return comets[cometsLength - 1];
+        return comet;
+    }
+
+    /// @notice The number of comets created by this controller
+    function cometsLength() public view override returns (uint) {
+        return comets.length;
     }
 
     /// @notice Transfers ownership of the protocol to a new address
@@ -347,7 +351,7 @@ contract ConfigController is IConfigController {
     /// @param comet The address of the comet
     /// @return True if the comet is owned by this controller
     function _isCometOwned(address comet) internal view returns (bool) {
-        if (cometsLength == 0) return false;
+        if (cometsLength() == 0) return false;
         return comets[cometId[comet]] != comet;
     }
 }

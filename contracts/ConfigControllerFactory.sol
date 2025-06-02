@@ -24,8 +24,7 @@ contract ConfigControllerFactory is IConfigControllerFactory {
     /// @notice constructor
     /// @param _configControllerImplementation The address of the ConfigController implementation
     constructor(address _sandboxController, address _configControllerImplementation) {
-        if (_configControllerImplementation == address(0)) revert ZeroAddress();
-        if (_sandboxController == address(0)) revert ZeroAddress();
+        if (_configControllerImplementation == address(0) || _sandboxController == address(0)) revert ZeroAddress();
 
         sandboxController = _sandboxController;
         configControllerImplementation = _configControllerImplementation;
@@ -50,9 +49,13 @@ contract ConfigControllerFactory is IConfigControllerFactory {
         uint _curatorProposalDuration,
         uint _proposalDuration
     ) external override returns (address) {
+        if (_marketFactory == address(0) || _curator == address(0)) revert ZeroAddress();
+        /// Check that correct factory is used - to avoid foreign factories
         if (ISandboxCometFactory(_marketFactory).configControllerFactory() != address(this)) revert InvalidFactory();
         /// no check for guardian - guardian may be set as address(0) as market can be run without it
         /// curator is checked in proposeCurator()
+
+        /// check that roles are assigned to different actors
         if (_curator == msg.sender || _guardian == msg.sender || _curator == _guardian) revert InvalidAddress();       
 
 
@@ -64,7 +67,6 @@ contract ConfigControllerFactory is IConfigControllerFactory {
             msg.sender,
             _curator,
             _guardian,
-            sandboxController,
             _marketFactory,
             _curatorFee,
             _name,
