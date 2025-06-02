@@ -4,12 +4,14 @@ import { ethers, exp, expect,
   sandboxListBaseAsset, sandboxListCollateralAsset } from "./helper/helpers";
 import {
   ConfigController,
+  ConfigControllerTest,
   ConfigControllerFactory,
   SandboxComet,
   SandboxCometFactory,
   
   ConfigControllerFactory__factory,
   ConfigController__factory,
+  ConfigControllerTest__factory,
   SandboxComet__factory,
   SandboxCometFactory__factory,
 } from "../build/types";
@@ -18,10 +20,10 @@ import {
   CometConfigStruct,
 } from "../build/types/ConfigController";
 
-describe("System Initialization", function() {
+describe.only("System Initialization", function() {
     // Factories
   let _ConfigControllerFactory: ConfigControllerFactory__factory;
-  let _ConfigController: ConfigController__factory;
+  let _ConfigController: ConfigControllerTest__factory;
   let _Comet: SandboxComet__factory;
   let _SandboxCometFactory: SandboxCometFactory__factory;
 
@@ -39,7 +41,9 @@ describe("System Initialization", function() {
 
   before(async function() {
     _ConfigControllerFactory = (await ethers.getContractFactory("ConfigControllerFactory")) as ConfigControllerFactory__factory;
-    _ConfigController = (await ethers.getContractFactory("ConfigController")) as ConfigController__factory;
+
+    /// Note: we are deploying the test wrapper over the config controller
+    _ConfigController = (await ethers.getContractFactory("ConfigControllerTest")) as ConfigControllerTest__factory;
     _Comet = (await ethers.getContractFactory("SandboxComet")) as SandboxComet__factory;
     _SandboxCometFactory = (await ethers.getContractFactory("SandboxCometFactory")) as SandboxCometFactory__factory;
 
@@ -428,7 +432,7 @@ describe("System Initialization", function() {
     let owner, curator, guardian, sandboxController;
 
     let configControllerAddress;
-    let configController: ConfigController;
+    let configController: ConfigControllerTest;
     let sandboxCometFactory: SandboxCometFactory;
 
     const configControllerOpts = {
@@ -479,7 +483,7 @@ describe("System Initialization", function() {
         configControllerOpts._curatorProposalDuration,
         configControllerOpts._proposalDuration
       );
-      configController = (await ethers.getContractAt("ConfigController", configControllerAddress)) as ConfigController;
+      configController = (await ethers.getContractAt("ConfigControllerTest", configControllerAddress)) as ConfigControllerTest;
 
       // deploy comet
       const baseToken = await makeToken({symbol: "BASE", initialMint: ethers.utils.parseEther('50000').toString()});
@@ -578,23 +582,15 @@ describe("System Initialization", function() {
       await expect(
         _comet
           .connect(curator)
-          .initialize(marketConfig, config, sandboxController.address, 1e15)
+          .initialize(marketConfig, config, 1e15)
       ).to.be.revertedWithCustomError(_comet, "IncorrectInitialization");
     });
 
     it("should revert if initialize is called twice", async function() {
-      const SandboxComet = await ethers.getContractFactory("SandboxComet");
-      const _comet = (await SandboxComet.deploy()) as SandboxComet;
-
-      await _comet.factoryInit(owner.address, sandboxCometFactory.address);
-      const config = await sandboxController.config();
-      await _comet.connect(owner).initialize(marketConfig, config, sandboxController.address, 1e15);
-      
+      /// call via the test wrapper
       await expect(
-        _comet
-          .connect(owner)
-          .initialize(marketConfig, config, sandboxController.address, 1e15)
-      ).to.be.revertedWithCustomError(_comet, "AlreadyInitialized");
+        configController.reinitializeComet(comet.address, marketConfig)
+      ).to.be.revertedWithCustomError(comet, "AlreadyInitialized");
     });
 
     it("should emit event on Comet deployment", async function() {
