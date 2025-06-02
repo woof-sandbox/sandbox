@@ -18,7 +18,7 @@ import {
   CometConfigStruct,
 } from "../build/types/ConfigController";
 
-describe("System Initialization", function() {
+describe.only("System Initialization", function() {
     // Factories
   let _ConfigControllerFactory: ConfigControllerFactory__factory;
   let _ConfigController: ConfigController__factory;
@@ -229,22 +229,6 @@ describe("System Initialization", function() {
             owner.address,
             ethers.constants.AddressZero,
             guardian.address,
-            sandboxController.address,
-            sandboxCometFactory.address,
-            configControllerOpts._curatorFee,
-            configControllerOpts._name,
-            configControllerOpts._curatorProposalDuration,
-            configControllerOpts._proposalDuration
-          )
-        ).to.be.revertedWithCustomError(_ConfigController, "ZeroAddress");
-      });
-
-      it("guardian", async function() {
-        await expect(
-          configControllerFactory.createConfigController(
-            owner.address,
-            curator.address,
-            ethers.constants.AddressZero,
             sandboxController.address,
             sandboxCometFactory.address,
             configControllerOpts._curatorFee,

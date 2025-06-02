@@ -109,8 +109,8 @@ contract ConfigController is IConfigController {
         if (configControllerFactory != address(0)) revert AlreadyInitialized();
         unchecked {
             if (_owner == ZERO_ADDRESS) revert ZeroAddress();
-            if (_curator == ZERO_ADDRESS) revert ZeroAddress();
-            if (_guardian == ZERO_ADDRESS) revert ZeroAddress();
+            /// no check for guardian - guardian may be set as address(0) as market can be run without it
+            /// curator is checked in proposeCurator()
             if (_sandboxController == ZERO_ADDRESS) revert ZeroAddress();
             if (_cometFactory == ZERO_ADDRESS) revert ZeroAddress();
             if (_curatorFee > 10000) revert InvalidFeePercentage();
