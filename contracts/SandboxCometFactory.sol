@@ -53,7 +53,7 @@ contract SandboxCometFactory is ISandboxCometFactory {
 
         ISandboxComet(comet).factoryInit(msg.sender, address(ext));
                 
-        emit CometCreated(comet, msg.sender);
+        emit CometCreated(comet, address(ext), msg.sender);
         return comet;
     }
     
