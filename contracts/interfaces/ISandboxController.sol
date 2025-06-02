@@ -95,7 +95,6 @@ abstract contract ISandboxController is ISandboxErrors {
     function baseAssetTokens(uint256) external view virtual returns (address);
     function collateralAssetTokens(uint256) external view virtual returns (address);
     function tokenToPriceFeed(address) external view virtual returns (address);
-    function priceFeedToToken(address) external view virtual returns (address);
     function reserveCommission(MarketState) external view virtual returns (uint256);
     function protocolCommission(MarketState) external view virtual returns (uint256);
 

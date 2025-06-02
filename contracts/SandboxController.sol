@@ -22,7 +22,6 @@ contract SandboxController is ISandboxController {
     SandboxControllerConfiguration public _controllerConfiguration;
     address[] public override baseAssetTokens;
     address[] public override collateralAssetTokens;
-    mapping(address => address) public override priceFeedToToken;
     mapping(address => address) public override tokenToPriceFeed;
     mapping(MarketState => uint256) public override reserveCommission;
     mapping(MarketState => uint256) public override protocolCommission;
