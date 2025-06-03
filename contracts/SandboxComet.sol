@@ -146,7 +146,6 @@ contract SandboxComet is ISandboxComet {
         address _baseTokenPriceFeed = _sandboxController.tokenToPriceFeed(comet.baseToken);
         /// @dev price feed is already checked in config controller
         if (IPriceFeed(_baseTokenPriceFeed).decimals() != PRICE_FEED_DECIMALS) revert BadDecimals();
-        configController = configController_;
         sandboxController = sandboxController_;
 
         baseToken = comet.baseToken;

@@ -27,7 +27,6 @@ contract ConfigController is IConfigController {
     address public constant ZERO_ADDRESS = 0x0000000000000000000000000000000000000000;
 
     /// @notice The address of the protocol owner
-
     address public override owner;
 
     /// @notice The address of the protocol curator
