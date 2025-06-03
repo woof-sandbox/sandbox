@@ -13,7 +13,6 @@ export default async function deploy(deploymentManager: DeploymentManager, deplo
   return deployed;
 }
 
-
 async function makeToken(
   deploymentManager: DeploymentManager,
   amount: number,

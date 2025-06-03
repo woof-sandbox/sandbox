@@ -27,7 +27,6 @@ abstract contract IConfigController {
     
     struct CometConfig {
         address baseToken;
-        address priceFeed;
         CollateralTokenConfig[] collateralTokens;
         uint baseTokenCurveId;
         CometOptions options;
@@ -49,6 +48,7 @@ abstract contract IConfigController {
         uint128 supplyCap;
     }
 
+    error AlreadyInitialized();
     error ZeroAddress();
     error Unauthorized();
     error WrongPriceFeed();
@@ -74,6 +74,7 @@ abstract contract IConfigController {
     error ProposalExists();
     error ProposalNotReady();
     error ProposalDurationTooShort();
+    error ProposalDurationTooLong();
     error TokenNotRevenue();
     error CometAlreadyAdded();
     error NonConfigController();
@@ -230,7 +231,6 @@ abstract contract IConfigController {
     /// @notice Initializes the ConfigController contract
     /// @param _owner The address of the protocol owner
     /// @param _guardian The address of the protocol guardian
-    /// @param _sandboxController The address of the SandboxController contract
     /// @param _cometFactory The address of the cometFactory contract
     /// @param _curatorFee Initial curator fee in basis points (1% = 100)
     /// @param _name Name of the controller
@@ -240,13 +240,11 @@ abstract contract IConfigController {
         address _owner,
         address _curator,
         address _guardian,
-        address _sandboxController,
         address _cometFactory,
         uint _curatorFee,
         string memory _name,
         uint _curatorProposalDuration,
-        uint _proposalDuration,
-        address _configControllerFactory
+        uint _proposalDuration
     ) external virtual;
 
     /// @notice Returns the address of the ConfigControllerFactory

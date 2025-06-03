@@ -12,6 +12,7 @@ import 'hardhat-contract-sizer';
 import 'hardhat-gas-reporter';
 import 'hardhat-preprocessor';
 import 'solidity-docgen';
+import 'solidity-coverage';
 
 // Hardhat tasks
 import './tasks/deployment_manager/task.ts';
@@ -100,51 +101,51 @@ function setupDefaultNetworkProviders(hardhatConfig: HardhatUserConfig) {
 
 function getRemappings() {
   return fs
-    .readFileSync("remappings.txt", "utf8")
-    .split("\n")
+    .readFileSync('remappings.txt', 'utf8')
+    .split('\n')
     .filter(Boolean)
-    .map((line: string) => line.trim().split("="));
+    .map((line: string) => line.trim().split('='));
 }
 
 
 const config: HardhatUserConfig = {
 
-    preprocess: {
-      eachLine: () => ({
-        transform: (line: string) => {
-          if (line.match(/".*.sol";$/)) {
-            for (const [from, to] of getRemappings()) {
-              if (line.includes(from)) {
-                line = line.replace(from, to);
-                console.log(`=> ${line}`);
-                break;
-              }
+  preprocess: {
+    eachLine: () => ({
+      transform: (line: string) => {
+        if (line.match(/".*.sol";$/)) {
+          for (const [from, to] of getRemappings()) {
+            if (line.includes(from)) {
+              line = line.replace(from, to);
+              console.log(`=> ${line}`);
+              break;
             }
           }
-          return line;
-        },
-      }),
-    },
+        }
+        return line;
+      },
+    }),
+  },
   solidity: {
     compilers: [
       {
-        version: "0.8.28",
+        version: '0.8.28',
         settings: {
           optimizer: process.env.OPTIMIZER_DISABLED
             ? { enabled: false }
             : {
-                enabled: true,
-                runs: 1,
-                details: {
-                  yulDetails: {
-                    optimizerSteps:
-                      "dhfoDgvulfnTUtnIf [xa[r]scLM cCTUtTOntnfDIul Lcul Vcul [j] Tpeul xa[rul] xa[r]cL gvif CTUca[r]LsTOtfDnca[r]Iulc] jmul[jul] VcTOcul jmul",
-                  },
+              enabled: true,
+              runs: 1,
+              details: {
+                yulDetails: {
+                  optimizerSteps:
+                      'dhfoDgvulfnTUtnIf [xa[r]scLM cCTUtTOntnfDIul Lcul Vcul [j] Tpeul xa[rul] xa[r]cL gvif CTUca[r]LsTOtfDnca[r]Iulc] jmul[jul] VcTOcul jmul',
                 },
               },
+            },
           outputSelection: {
-            "*": {
-              "*": ["evm.deployedBytecode.sourceMap"],
+            '*': {
+              '*': ['evm.deployedBytecode.sourceMap'],
             },
           },
           viaIR: process.env.OPTIMIZER_DISABLED ? false : true,

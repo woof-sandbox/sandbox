@@ -33,12 +33,18 @@ contract RateBasedScalingPriceFeed is IPriceFeed {
     /// @notice The amount to upscale or downscale the price by
     int256 internal immutable rescaleFactor;
 
+    /// @notice The underlying token
+    address public immutable override underlyingToken;
+
     /**
      * @notice Construct a new scaling price feed
      * @param underlyingPriceFeed_ The address of the underlying price feed to fetch prices from
      * @param decimals_ The number of decimals for the returned prices
+     * @param underlyingDecimals_ The number of decimals for the underlying price feed
+     * @param description_ The description of the price feed
+     * @param underlyingToken_ The address of the underlying token
      **/
-    constructor(address underlyingPriceFeed_, uint8 decimals_, uint8 underlyingDecimals_, string memory description_) {
+    constructor(address underlyingPriceFeed_, uint8 decimals_, uint8 underlyingDecimals_, string memory description_, address underlyingToken_) {
         underlyingPriceFeed = underlyingPriceFeed_;
         if (decimals_ > 18) revert BadDecimals();
         decimals = decimals_;
@@ -51,6 +57,7 @@ contract RateBasedScalingPriceFeed is IPriceFeed {
             ? signed256(10 ** (decimals_ - priceFeedDecimals))
             : signed256(10 ** (priceFeedDecimals - decimals_))
         );
+        underlyingToken = underlyingToken_;
     }
 
     /**
