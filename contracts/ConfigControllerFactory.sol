@@ -14,13 +14,13 @@ import "./interfaces/ISandboxCometFactory.sol";
 contract ConfigControllerFactory is IConfigControllerFactory {
     /// @notice The implementation address used for cloning
     address public immutable override configControllerImplementation;
-    /// @notice The implementation address used for cloning
+        /// @notice The implementation address used for cloning
     address public immutable override sandboxController;
     /// @notice The array of controller addresses
-    mapping(address => uint256) public override controllerIds;
+    mapping(address => uint) public override controllerIds;
     /// @notice The array of controller addresses
     address[] public override controllerAddresses;
-
+    
     /// @notice constructor
     /// @param _configControllerImplementation The address of the ConfigController implementation
     constructor(address _sandboxController, address _configControllerImplementation) {
@@ -44,10 +44,10 @@ contract ConfigControllerFactory is IConfigControllerFactory {
         address _curator,
         address _guardian,
         address _marketFactory,
-        uint256 _curatorFee,
+        uint _curatorFee,
         string memory _name,
-        uint256 _curatorProposalDuration,
-        uint256 _proposalDuration
+        uint _curatorProposalDuration,
+        uint _proposalDuration
     ) external override returns (address) {
         if (_marketFactory == address(0)) revert ZeroAddress();
         /// Check that correct factory is used - to avoid foreign factories
@@ -56,7 +56,8 @@ contract ConfigControllerFactory is IConfigControllerFactory {
         /// curator is checked in proposeCurator()
 
         /// check that roles are assigned to different actors
-        if (_curator == msg.sender || _guardian == msg.sender || _curator == _guardian) revert InvalidAddress();
+        if (_curator == msg.sender || _guardian == msg.sender || _curator == _guardian) revert InvalidAddress();       
+
 
         address configController = Clones.clone(configControllerImplementation);
         controllerIds[configController] = controllerAddresses.length;
@@ -72,7 +73,7 @@ contract ConfigControllerFactory is IConfigControllerFactory {
             _curatorProposalDuration,
             _proposalDuration
         );
-
+        
         emit ConfigControllerCreated(
             configController,
             msg.sender,
@@ -91,7 +92,7 @@ contract ConfigControllerFactory is IConfigControllerFactory {
 
     /// @notice Returns the last controller ID
     /// @return The last controller ID
-    function getLastControllerLength() external view override returns (uint256) {
+    function getLastControllerLength() external view override returns (uint) {
         return controllerAddresses.length;
     }
 
