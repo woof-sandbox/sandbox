@@ -35,14 +35,18 @@ contract MultiplicativePriceFeed is IPriceFeed {
     /// @notice Scale of this price feed
     int public immutable priceFeedScale;
 
+    /// @notice The underlying token
+    address public immutable override underlyingToken;
+
     /**
      * @notice Construct a new multiplicative price feed
      * @param priceFeedA_ The address of the first price feed to fetch prices from
      * @param priceFeedB_ The address of the second price feed to fetch prices from
      * @param decimals_ The number of decimals for the returned prices
      * @param description_ The description of the price feed
+     * @param underlyingToken_ The address of the underlying token
      **/
-    constructor(address priceFeedA_, address priceFeedB_, uint8 decimals_, string memory description_) {
+    constructor(address priceFeedA_, address priceFeedB_, uint8 decimals_, string memory description_, address underlyingToken_) {
         priceFeedA = priceFeedA_;
         priceFeedB = priceFeedB_;
         uint8 priceFeedADecimals = AggregatorV3Interface(priceFeedA_).decimals();
@@ -53,6 +57,7 @@ contract MultiplicativePriceFeed is IPriceFeed {
         decimals = decimals_;
         description = description_;
         priceFeedScale = int256(10 ** decimals);
+        underlyingToken = underlyingToken_;
     }
 
     /**

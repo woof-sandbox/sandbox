@@ -109,6 +109,9 @@ contract CometStorage {
     /// @notice The address of the base token contract
     address public baseToken;
 
+    /// @notice The address of the comet factory contract
+    address public factory;
+
     /// @notice The address of the price feed for the base token
     address public baseTokenPriceFeed;
 
@@ -227,8 +230,7 @@ contract CometStorage {
     mapping(address => UserBasic) public userBasic;
 
     /// @notice Mapping of users to collateral data per collateral asset
-    mapping(address => mapping(address => UserCollateral))
-        public userCollateral;
+    mapping(address => mapping(address => UserCollateral)) public userCollateral;
 
     mapping(address => uint8) public collateralAssetIndex;
     mapping(uint8 => address) public collateralAssetAddress;

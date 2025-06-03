@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
-import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
-
 import "./interfaces/ISandboxComet.sol";
 import "./interfaces/IERC20NonStandard.sol";
 import "./interfaces/IPriceFeed.sol";
@@ -14,39 +12,44 @@ import "./interfaces/ISandboxController.sol";
  * @notice An efficient monolithic money comet protocol
  * @author WOOF! Software
  */
-contract SandboxComet is ISandboxComet, Initializable {
-    constructor() {
-        _disableInitializers();
-    }
+contract SandboxComet is ISandboxComet {
+    /// @notice can be legally deployed only via the factory which provides correct config controller address
+    /// @param _configController legal address of the config controller which triggered the factory
+    /// @param _ext extension deployed by the same factory
+    function factoryInit(address _configController, address _ext) external override {
+        if (factory != address(0) || configController != address(0)) revert AlreadyInitialized();
+        if (_configController == address(0) || _ext == address(0)) revert IncorrectInitialization();
 
-    receive() external payable {
+        factory = msg.sender;
+        configController = _configController;
+        extension = _ext;
     }
-
 
     /// @notice replaces your old constructor
     function initialize(
         IConfigController.CometConfig calldata comet,
         ISandboxController.SandboxControllerConfiguration calldata config,
-        address configController_,
         address sandboxController_,
-        address ext,
         uint256 baseBorrowMin_
-    ) external override initializer {
+    ) external override {
+        /// Rely on base token as main characteristic of the market and that it was validated in Controller
+        if (baseToken != address(0)) revert AlreadyInitialized();
+
+        /// Relies on fact that factory provides correct controller and that it is set by the time of this call
+        if (msg.sender != configController) revert IncorrectInitialization();
+
         uint8 decimals_ = IERC20NonStandard(comet.baseToken).decimals();
         if (comet.collateralTokens.length > MAX_ASSETS) revert TooManyAssets();
         if (decimals_ > MAX_BASE_DECIMALS) revert BadDecimals();
-        if (IPriceFeed(comet.priceFeed).decimals() != PRICE_FEED_DECIMALS)
-            revert BadDecimals();
-        
-        baseScale = uint64(10 ** decimals_);
-        if (baseScale < BASE_ACCRUAL_SCALE) revert BadDecimals();
-        configController = configController_;
+        ISandboxController _sandboxController = ISandboxController(sandboxController_);
+        address _baseTokenPriceFeed = _sandboxController.tokenToPriceFeed(comet.baseToken);
+        /// @dev price feed is already checked in config controller
+        if (IPriceFeed(_baseTokenPriceFeed).decimals() != PRICE_FEED_DECIMALS) revert BadDecimals();
         sandboxController = sandboxController_;
 
         baseToken = comet.baseToken;
-        baseTokenPriceFeed = comet.priceFeed;
+        baseTokenPriceFeed = _baseTokenPriceFeed;
 
-        extension = ext;
         trackingIndexScale = comet.options.trackingIndexScale;
 
         baseTrackingSupplySpeed = comet.options.baseTrackingSupplySpeed;
@@ -61,20 +64,14 @@ contract SandboxComet is ISandboxComet, Initializable {
         baseBorrowMin = baseBorrowMin_;
         targetPercent = config.targetPercent;
         seedReserves = config.suggestedAmountOfSeedReserves;
+        
+        unlockTimestamp = block.timestamp + config.suggestedLockTimeOfSeedReserves;
 
-        unlockTimestamp =
-            block.timestamp +
-            config.suggestedLockTimeOfSeedReserves;
-
-        ISandboxController.BaseAssetCurve memory curve = ISandboxController(
-            sandboxController
-        ).baseAssets(comet.baseToken).baseAssetCurves[comet.baseTokenCurveId];
+        ISandboxController.BaseAssetCurve memory curve = _sandboxController.baseAssets(comet.baseToken).baseAssetCurves[comet.baseTokenCurveId];
 
         for (uint8 i; i < comet.collateralTokens.length; ++i) {
             collateralAssets.push(comet.collateralTokens[i]);
-            collateralAssetAddress[i] = comet
-                .collateralTokens[i]
-                .collateralToken;
+            collateralAssetAddress[i] = comet.collateralTokens[i].collateralToken;
             collateralAssetIndex[comet.collateralTokens[i].collateralToken] = i;
         }
         lastAccrualTime = getNowInternal();
@@ -105,6 +102,17 @@ contract SandboxComet is ISandboxComet, Initializable {
                 SECONDS_PER_YEAR;
         }
         numAssets = uint8(comet.collateralTokens.length);
+
+
+        /// initialize storage
+        
+        // Initialize aggregates
+        lastAccrualTime = getNowInternal();
+        baseSupplyIndex = BASE_INDEX_SCALE;
+        baseBorrowIndex = BASE_INDEX_SCALE;
+        // Implicit initialization (not worth increasing contract size)
+        // trackingSupplyIndex = 0;
+        // trackingBorrowIndex = 0;
     }
 
     /**
@@ -299,10 +307,7 @@ contract SandboxComet is ISandboxComet, Initializable {
             return
                 safe64(
                     borrowPerSecondInterestRateBase +
-                        mulFactor(
-                            borrowPerSecondInterestRateSlopeLow,
-                            borrowKink
-                        ) +
+                        mulFactor(borrowPerSecondInterestRateSlopeLow, borrowKink) +
                         mulFactor(
                             borrowPerSecondInterestRateSlopeHigh,
                             (utilization - borrowKink)

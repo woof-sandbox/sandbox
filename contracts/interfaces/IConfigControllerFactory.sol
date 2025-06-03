@@ -12,8 +12,8 @@ abstract contract IConfigControllerFactory {
     /// @notice Event emitted when a new ConfigController is created
     /// @param controller The address of the newly created controller
     /// @param owner The address of the controller owner
+    /// @param curator The address of the controller curator
     /// @param guardian The address of the controller guardian
-    /// @param sandboxController The address of the sandbox controller
     /// @param marketFactory The address of the market factory
     /// @param curatorFee The curator fee in basis points
     /// @param name The name of the controller
@@ -22,8 +22,8 @@ abstract contract IConfigControllerFactory {
     event ConfigControllerCreated(
         address indexed controller,
         address indexed owner,
-        address indexed guardian,
-        address sandboxController,
+        address indexed curator,
+        address guardian,
         address marketFactory,
         uint curatorFee,
         string name,
@@ -32,10 +32,15 @@ abstract contract IConfigControllerFactory {
         uint controllerId
     );
     error InvalidAddress();
+    error ZeroAddress();
+    error InvalidFactory();
 
     /// @notice Returns the implementation address used for cloning
     /// @return The address of the implementation contract
     function configControllerImplementation() external view virtual returns (address);
+
+    /// @return The address of the Sandbox Controller - to verify the factory
+    function sandboxController() external view virtual returns (address);
 
     /// @notice Returns the controller ID for a given config controller address
     /// @param configController The address of the config controller
@@ -52,9 +57,7 @@ abstract contract IConfigControllerFactory {
     function getLastControllerLength() external view virtual returns (uint);
     
     /// @notice Creates a new ConfigController instance with unique configuration
-    /// @param _owner The address of the protocol owner
     /// @param _guardian The address of the protocol guardian
-    /// @param _sandboxController The address of the SandboxController contract
     /// @param _marketFactory The address of the MarketFactory contract
     /// @param _curatorFee Initial curator fee in basis points (1% = 100)
     /// @param _name Name of the controller
@@ -62,10 +65,8 @@ abstract contract IConfigControllerFactory {
     /// @param _proposalDuration Duration of market proposals in seconds
     /// @return The address of the newly created ConfigController
     function createConfigController(
-        address _owner,
         address _curator,
         address _guardian,
-        address _sandboxController,
         address _marketFactory,
         uint _curatorFee,
         string memory _name,

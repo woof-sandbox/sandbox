@@ -36,7 +36,17 @@ contract WstETHPriceFeed is IPriceFeed {
     /// @notice Scale for WstETH contract
     int public immutable wstETHScale;
 
-    constructor(address stETHtoETHPriceFeed_, address wstETH_, uint8 decimals_) {
+    /// @notice The underlying token
+    address public immutable override underlyingToken;
+
+    /**
+     * @notice Construct a new wstETH price feed
+     * @param stETHtoETHPriceFeed_ The address of the stETH / ETH price feed
+     * @param wstETH_ The address of the wstETH contract
+     * @param decimals_ The number of decimals for the returned prices
+     * @param underlyingToken_ The address of the underlying token
+     **/
+    constructor(address stETHtoETHPriceFeed_, address wstETH_, uint8 decimals_, address underlyingToken_) {
         stETHtoETHPriceFeed = stETHtoETHPriceFeed_;
         stETHToETHPriceFeedDecimals = AggregatorV3Interface(stETHtoETHPriceFeed_).decimals();
         wstETH = wstETH_;
@@ -46,6 +56,7 @@ contract WstETHPriceFeed is IPriceFeed {
         // Note: stETH / ETH price feed has 18 decimals so `decimals_` should always be less than or equals to that
         if (decimals_ > stETHToETHPriceFeedDecimals) revert BadDecimals();
         decimals = decimals_;
+        underlyingToken = wstETH;
     }
 
     function signed256(uint256 n) internal pure returns (int256) {

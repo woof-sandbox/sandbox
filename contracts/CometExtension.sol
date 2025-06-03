@@ -5,27 +5,27 @@ import "./interfaces/ICometExtension.sol";
 
 contract CometExtension is ICometExtension {
     /** Public constants **/
-
-    
     /// @notice The major version of this contract
     string public override constant version = "0";
 
     /** Internal constants **/
-
     /// @dev The EIP-712 typehash for the contract's domain
-    bytes32 internal constant DOMAIN_TYPEHASH = keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
+    bytes32 internal constant DOMAIN_TYPEHASH = keccak256(
+        "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"
+    );
 
     /// @dev The EIP-712 typehash for allowBySig Authorization
-    bytes32 internal constant AUTHORIZATION_TYPEHASH = keccak256("Authorization(address owner,address manager,bool isAllowed,uint256 nonce,uint256 expiry)");
+    bytes32 internal constant AUTHORIZATION_TYPEHASH = keccak256(
+        "Authorization(address owner,address manager,bool isAllowed,uint256 nonce,uint256 expiry)"
+    );
 
     /// @dev The highest valid value for s in an ECDSA signature pair (0 < s < secp256k1n ÷ 2 + 1)
     ///  See https://ethereum.github.io/yellowpaper/paper.pdf #307)
     uint internal constant MAX_VALID_ECDSA_S = 0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5D576E7357A4501DDFE92F46681B20A0;
-    /** Immutable symbol **/
 
+    /** Immutable symbol **/
     /// @dev The ERC20 name for wrapped base token
     bytes32 internal immutable name32;
-
     /// @dev The ERC20 symbol for wrapped base token
     bytes32 internal immutable symbol32;
     
@@ -39,7 +39,6 @@ contract CometExtension is ICometExtension {
     }
 
     /** External getters for internal constants **/
-
     function baseAccrualScale() override external pure returns (uint64) { return BASE_ACCRUAL_SCALE; }
     function baseIndexScale() override external pure returns (uint64) { return BASE_INDEX_SCALE; }
     function factorScale() override external pure returns (uint64) { return FACTOR_SCALE; }
@@ -63,7 +62,6 @@ contract CometExtension is ICometExtension {
     }
 
     /** Additional ERC20 functionality and approval interface **/
-
     /**
      * @notice Get the ERC20 name for wrapped base token
      * @return The name as a string
@@ -71,9 +69,7 @@ contract CometExtension is ICometExtension {
     function name() override public view returns (string memory) {
         uint8 i;
         for (i = 0; i < 32; ) {
-            if (name32[i] == 0) {
-                break;
-            }
+            if (name32[i] == 0) break;
             unchecked { i++; }
         }
         bytes memory name_ = new bytes(i);
@@ -91,9 +87,7 @@ contract CometExtension is ICometExtension {
     function symbol() override external view returns (string memory) {
         uint8 i;
         for (i = 0; i < 32; ) {
-            if (symbol32[i] == 0) {
-                break;
-            }
+            if (symbol32[i] == 0) break;
             unchecked { i++; }
         }
         bytes memory symbol_ = new bytes(i);
@@ -186,7 +180,15 @@ contract CometExtension is ICometExtension {
         if (uint256(s) > MAX_VALID_ECDSA_S) revert InvalidValueS();
         // v ∈ {27, 28} (source: https://ethereum.github.io/yellowpaper/paper.pdf #308)
         if (v != 27 && v != 28) revert InvalidValueV();
-        bytes32 domainSeparator = keccak256(abi.encode(DOMAIN_TYPEHASH, keccak256(bytes(name())), keccak256(bytes(version)), block.chainid, address(this)));
+        bytes32 domainSeparator = keccak256(
+            abi.encode(
+                DOMAIN_TYPEHASH,
+                keccak256(bytes(name())),
+                keccak256(bytes(version)),
+                block.chainid,
+                address(this)
+            )
+        );
         bytes32 structHash = keccak256(abi.encode(AUTHORIZATION_TYPEHASH, owner, manager, isAllowed_, nonce, expiry));
         bytes32 digest = keccak256(abi.encodePacked("\x19\x01", domainSeparator, structHash));
         address signatory = ecrecover(digest, v, r, s);

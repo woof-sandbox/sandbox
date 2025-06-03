@@ -20,6 +20,7 @@ abstract contract ISandboxComet is CometCore {
     error BadPrice();
     error BorrowTooSmall();
     error BorrowCFTooLarge();
+    error IncorrectInitialization();
     error InsufficientReserves();
     error LiquidateCFTooLarge();
     error NoSelfTransfer();
@@ -150,12 +151,11 @@ abstract contract ISandboxComet is CometCore {
         uint amount
     ) external virtual;
 
+    function factoryInit(address, address) virtual external;
     function initialize(
         IConfigController.CometConfig memory market,
         ISandboxController.SandboxControllerConfiguration memory config,
-        address configController_,
         address sandboxController_,
-        address ext_,
         uint256 baseBorrowMin_
     ) external virtual;
 

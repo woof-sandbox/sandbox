@@ -35,13 +35,17 @@ contract WBTCPriceFeed is IPriceFeed {
     /// @notice Scale of this price feed
     int public immutable priceFeedScale;
 
+    /// @notice The underlying token
+    address public immutable override underlyingToken;
+
     /**
      * @notice Construct a new WBTC / USD price feed
      * @param WBTCToBTCPriceFeed_ The address of the WBTC / BTC price feed to fetch prices from
      * @param BTCToUSDPriceFeed_ The address of the BTC / USD price feed to fetch prices from
      * @param decimals_ The number of decimals for the returned prices
+     * @param underlyingToken_ The address of the underlying token
      **/
-    constructor(address WBTCToBTCPriceFeed_, address BTCToUSDPriceFeed_, uint8 decimals_) {
+    constructor(address WBTCToBTCPriceFeed_, address BTCToUSDPriceFeed_, uint8 decimals_, address underlyingToken_) {
         WBTCToBTCPriceFeed = WBTCToBTCPriceFeed_;
         BTCToUSDPriceFeed = BTCToUSDPriceFeed_;
         uint8 WBTCToBTCPriceFeedDecimals = AggregatorV3Interface(WBTCToBTCPriceFeed_).decimals();
@@ -51,6 +55,7 @@ contract WBTCPriceFeed is IPriceFeed {
         if (decimals_ > 18) revert BadDecimals();
         decimals = decimals_;
         priceFeedScale = int256(10 ** decimals);
+        underlyingToken = underlyingToken_;
     }
 
     /**
