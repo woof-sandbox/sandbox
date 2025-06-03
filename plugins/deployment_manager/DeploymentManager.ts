@@ -304,7 +304,7 @@ export class DeploymentManager {
 
   /* Loads contract configuration by tracing from roots outwards, based on relationConfig */
   async spider(deployed: Deployed = {}): Promise<Spider> {
-    console.log('spider load contracts')
+    console.log('spider load contracts');
     const relationConfigMap = getRelationConfig(
       this.hre.config.deploymentManager,
       this.network,

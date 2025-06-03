@@ -21,13 +21,19 @@ contract ConstantPriceFeed is IPriceFeed {
     /// @notice The constant price
     int public immutable constantPrice;
 
+    /// @notice The underlying token
+    address public immutable override underlyingToken;
+
     /**
      * @notice Construct a new scaling price feed
      * @param decimals_ The number of decimals for the returned prices
+     * @param constantPrice_ The constant price
+     * @param underlyingToken_ The address of the underlying token
      **/
-    constructor(uint8 decimals_, int256 constantPrice_) {
+    constructor(uint8 decimals_, int256 constantPrice_, address underlyingToken_) {
         decimals = decimals_;
         constantPrice = constantPrice_;
+        underlyingToken = underlyingToken_;
     }
 
     /**

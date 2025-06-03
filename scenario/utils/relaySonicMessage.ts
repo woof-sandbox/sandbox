@@ -18,7 +18,7 @@ export default async function relaySonicMessage(
   const endpointDestination = await bridgeDeploymentManager.getContractOrThrow('LayerZeroEndpoint');
   const bridgeReceiver = await bridgeDeploymentManager.getContractOrThrow('bridgeReceiver');
 
-  const openBridgedProposals: { id: ethers.BigNumber; eta: ethers.BigNumber }[] = [];
+  const openBridgedProposals: { id: ethers.BigNumber, eta: ethers.BigNumber }[] = [];
 
   const filter = endpointOrigin.filters.PacketSent();
   const sentPacketEvents: Log[] = await governanceDeploymentManager.hre.ethers.provider.getLogs({

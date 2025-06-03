@@ -456,9 +456,9 @@ describe('withdrawTo', function () {
 
     // Pause withdraw
     const configSigner = await ethers.getImpersonatedSigner(configController.address);
-    await hre.network.provider.send("hardhat_setBalance", [
+    await hre.network.provider.send('hardhat_setBalance', [
       configController.address,
-      ethers.utils.hexValue(ethers.utils.parseEther("5")),
+      ethers.utils.hexValue(ethers.utils.parseEther('5')),
     ]);
 
     await wait(comet.connect(configSigner).pause(false, false, true, false, false));
@@ -602,9 +602,9 @@ describe('withdraw', function () {
 
     // Pause withdraw  
     const configSigner = await ethers.getImpersonatedSigner(configController.address);
-    await hre.network.provider.send("hardhat_setBalance", [
+    await hre.network.provider.send('hardhat_setBalance', [
       configController.address,
-      ethers.utils.hexValue(ethers.utils.parseEther("5")),
+      ethers.utils.hexValue(ethers.utils.parseEther('5')),
     ]);
 
     await wait(comet.connect(configSigner).pause(false, false, true, false, false));
@@ -912,9 +912,9 @@ describe('withdrawFrom', function () {
 
     // Pause withdraw
     const configSigner = await ethers.getImpersonatedSigner(configController.address);
-    await hre.network.provider.send("hardhat_setBalance", [
+    await hre.network.provider.send('hardhat_setBalance', [
       configController.address,
-      ethers.utils.hexValue(ethers.utils.parseEther("5")),
+      ethers.utils.hexValue(ethers.utils.parseEther('5')),
     ]);
     await wait(comet.connect(configSigner).pause(false, false, true, false, false));
     expect(await comet.isWithdrawPaused()).to.be.true;

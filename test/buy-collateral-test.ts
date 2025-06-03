@@ -81,7 +81,7 @@ describe("buyCollateral", function() {
 
   it("allows buying collateral when reserves < target reserves", async () => {
     const protocol = await makeProtocol({
-      base: "USDC",
+      base: 'USDC',
       storeFrontPriceFactor: exp(0.5, 18),
       targetPercent: 0.5,
       assets: {
@@ -354,9 +354,9 @@ describe("buyCollateral", function() {
       configController.address
     );
 
-    await hre.network.provider.send("hardhat_setBalance", [
+    await hre.network.provider.send('hardhat_setBalance', [
       configController.address,
-      ethers.utils.hexValue(ethers.utils.parseEther("1")),
+      ethers.utils.hexValue(ethers.utils.parseEther('1')),
     ]);
 
     await wait(

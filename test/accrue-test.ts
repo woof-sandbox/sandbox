@@ -152,7 +152,7 @@ describe("accrue", function () {
     };
     const { comet } = await makeProtocol(params);
     await setTotalsBasic(comet, { lastAccrualTime: start }); 
-    
+
     const t0 = await comet.totalsBasic();
     const t1 = await setTotalsBasic(comet, {
       totalSupplyBase: exp(14000, 6),

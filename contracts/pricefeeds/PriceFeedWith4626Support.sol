@@ -36,6 +36,9 @@ contract PriceFeedWith4626Support is IPriceFeed {
     /// @notice Chainlink oracle for the underlying asset
     address public immutable underlyingPriceFeed;
 
+    /// @notice The underlying token
+    address public immutable override underlyingToken;
+
     /// @notice Combined scale of the two underlying price feeds
     int public immutable combinedScale;
 
@@ -48,8 +51,9 @@ contract PriceFeedWith4626Support is IPriceFeed {
      * @param underlyingPriceFeed_ The address of the underlying asset price feed to fetch prices from
      * @param decimals_ The number of decimals for the returned prices
      * @param description_ The description of the price feed
+     * @param underlyingToken_ The address of the underlying token
      **/
-    constructor(address rateProvider_, address underlyingPriceFeed_, uint8 decimals_, string memory description_) {
+    constructor(address rateProvider_, address underlyingPriceFeed_, uint8 decimals_, string memory description_, address underlyingToken_) {
         rateProvider = rateProvider_;
         underlyingPriceFeed = underlyingPriceFeed_;
         rateProviderDecimals = IERC4626(rateProvider_).decimals();
@@ -60,6 +64,7 @@ contract PriceFeedWith4626Support is IPriceFeed {
         if (decimals_ > 18) revert BadDecimals();
         decimals = decimals_;
         priceFeedScale = int256(10 ** decimals);
+        underlyingToken = underlyingToken_;
     }
 
     /**

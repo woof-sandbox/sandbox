@@ -44,6 +44,7 @@ abstract contract ISandboxController is ISandboxErrors {
         uint256 targetPercent;
         uint256 storeFrontPriceFactor;
         uint256 minUpdateTime;
+        uint256 maxUpdateTime;
         uint256 suggestedAmountOfSeedReserves;
         uint256 suggestedLockTimeOfSeedReserves;
     }
@@ -53,10 +54,12 @@ abstract contract ISandboxController is ISandboxErrors {
         address indexed priceFeed,
         uint8 decimals,
         BaseAssetCurve baseAssetCurve,
-        uint256 minBorrow
+        uint256 minBorrow,
+        uint256 baseAssetCount,
+        uint256 curveIndex
     );
-    event BaseAssetCurveAdded(address indexed token, BaseAssetCurve baseAssetCurve);
-    event BaseAssetCurveChanged(address indexed token, BaseAssetCurve oldCurve, BaseAssetCurve newCurve);
+    event BaseAssetCurveAdded(address indexed token, BaseAssetCurve baseAssetCurve, uint256 curveIndex);
+    event BaseAssetCurveChanged(address indexed token, BaseAssetCurve oldCurve, BaseAssetCurve newCurve, uint256 curveIndex);
     event CollateralAssetWhitelisted(
         address indexed token,
         address indexed priceFeed,
@@ -83,16 +86,17 @@ abstract contract ISandboxController is ISandboxErrors {
     function protocolFactorLiquidation() external view virtual returns (uint256);
     function reserveFactorLiquidation() external view virtual returns (uint256);
     function maxCollateralAssets() external view virtual returns (uint256);
-    function baseAssetCount() external view virtual returns (uint256);
-    function collateralAssetCount() external view virtual returns (uint256);
+    function getBaseAssetLength() external view virtual returns (uint256);
+    function getCollateralAssetLength() external view virtual returns (uint256);
     function treasury() external view virtual returns (address);
     function owner() external view virtual returns (address);
     function dao() external view virtual returns (address);
     function feeEnabled() external view virtual returns (bool);
     function controllerConfiguration() external view virtual returns (SandboxControllerConfiguration memory);
+    function proposalBoundaries() external view virtual returns (uint,uint);
     function baseAssetTokens(uint256) external view virtual returns (address);
     function collateralAssetTokens(uint256) external view virtual returns (address);
-    function isPriceFeedWhitelisted(address) external view virtual returns (bool);
+    function tokenToPriceFeed(address) external view virtual returns (address);
     function reserveCommission(MarketState) external view virtual returns (uint256);
     function protocolCommission(MarketState) external view virtual returns (uint256);
 

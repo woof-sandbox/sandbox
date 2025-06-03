@@ -5,6 +5,7 @@ import "@openzeppelin/contracts/proxy/Clones.sol";
 import "./ConfigController.sol";
 import "./interfaces/IConfigController.sol";
 import "./interfaces/IConfigControllerFactory.sol";
+import "./interfaces/ISandboxCometFactory.sol";
 
 /**
  * @title ConfigControllerFactory
@@ -13,6 +14,8 @@ import "./interfaces/IConfigControllerFactory.sol";
 contract ConfigControllerFactory is IConfigControllerFactory {
     /// @notice The implementation address used for cloning
     address public immutable override configControllerImplementation;
+        /// @notice The implementation address used for cloning
+    address public immutable override sandboxController;
     /// @notice The array of controller addresses
     mapping(address => uint) public override controllerIds;
     /// @notice The array of controller addresses
@@ -20,16 +23,17 @@ contract ConfigControllerFactory is IConfigControllerFactory {
     
     /// @notice constructor
     /// @param _configControllerImplementation The address of the ConfigController implementation
-    constructor(address _configControllerImplementation) {
-        if (_configControllerImplementation == address(0)) revert InvalidAddress();
-        
+    constructor(address _sandboxController, address _configControllerImplementation) {
+        if (_configControllerImplementation == address(0) || _sandboxController == address(0)) revert ZeroAddress();
+
+        sandboxController = _sandboxController;
         configControllerImplementation = _configControllerImplementation;
     }
 
     /// @notice Creates a new ConfigController instance with unique configuration
-    /// @param _owner The address of the protocol owner
+    /// @notice Sets msg.sender as an owner of the newly created Config Controller
+    /// @param _curator The address of the protocol curator
     /// @param _guardian The address of the protocol guardian
-    /// @param _sandboxController The address of the SandboxController contract
     /// @param _marketFactory The address of the MarketFactory contract
     /// @param _curatorFee Initial curator fee in basis points (1% = 100)
     /// @param _name Name of the controller
@@ -37,39 +41,44 @@ contract ConfigControllerFactory is IConfigControllerFactory {
     /// @param _proposalDuration Duration of market proposals in seconds
     /// @return The address of the newly created ConfigController
     function createConfigController(
-        address _owner,
         address _curator,
         address _guardian,
-        address _sandboxController,
         address _marketFactory,
         uint _curatorFee,
         string memory _name,
         uint _curatorProposalDuration,
         uint _proposalDuration
     ) external override returns (address) {
+        if (_marketFactory == address(0)) revert ZeroAddress();
+        /// Check that correct factory is used - to avoid foreign factories
+        if (ISandboxCometFactory(_marketFactory).configControllerFactory() != address(this)) revert InvalidFactory();
+        /// no check for guardian - guardian may be set as address(0) as market can be run without it
+        /// curator is checked in proposeCurator()
+
+        /// check that roles are assigned to different actors
+        if (_curator == msg.sender || _guardian == msg.sender || _curator == _guardian) revert InvalidAddress();       
+
+
         address configController = Clones.clone(configControllerImplementation);
-        
         controllerIds[configController] = controllerAddresses.length;
         controllerAddresses.push(configController);
 
         IConfigController(configController).initialize(
-            _owner,
+            msg.sender,
             _curator,
             _guardian,
-            _sandboxController,
             _marketFactory,
             _curatorFee,
             _name,
             _curatorProposalDuration,
-            _proposalDuration,
-            address(this)
+            _proposalDuration
         );
         
         emit ConfigControllerCreated(
             configController,
-            _owner,
+            msg.sender,
             _curator,
-            _sandboxController,
+            _guardian,
             _marketFactory,
             _curatorFee,
             _name,
@@ -91,7 +100,7 @@ contract ConfigControllerFactory is IConfigControllerFactory {
     /// @param _controller The address to check
     /// @return True if the address is a controller, false otherwise
     function isController(address _controller) external view override returns (bool) {
-        if (controllerAddresses.length == 0) return false;
-        return controllerAddresses[controllerIds[_controller]] != address(0);
+        if (controllerAddresses.length == 0 || _controller == address(0)) return false;
+        return controllerAddresses[controllerIds[_controller]] == _controller;
     }
 }
