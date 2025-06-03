@@ -551,10 +551,10 @@ async function createComet2(
       collateralTokens: collateralTokens,
       baseTokenCurveId: 0n,
       options: {
-          baseTrackingSupplySpeed: 1e15,
-          baseTrackingBorrowSpeed: 1e15,
-          trackingIndexScale: 1e15,
-          baseMinForRewards: 1e15
+          baseTrackingSupplySpeed: opts.baseTrackingSupplySpeed ?? 1e15,
+          baseTrackingBorrowSpeed: opts.baseTrackingBorrowSpeed ?? 1e15,
+          trackingIndexScale: opts.trackingIndexScale ?? 1e15,
+          baseMinForRewards: opts.baseMinForRewards ?? 1e15
       }
   }
 

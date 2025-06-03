@@ -277,6 +277,7 @@ contract SandboxComet is ISandboxComet, Initializable {
      * @return The current timestamp
      **/
     function getNowInternal() internal view virtual returns (uint40) {
+        if (block.timestamp > type(uint40).max) revert TimestampTooLarge();
         return uint40(block.timestamp);
     }
 
@@ -306,6 +307,7 @@ contract SandboxComet is ISandboxComet, Initializable {
         uint40 now_ = getNowInternal();
         uint timeElapsed = uint256(now_ - lastAccrualTime);
 
+     
         if (timeElapsed != 0) {
             (baseSupplyIndex, baseBorrowIndex) = accruedInterestIndices(
                 timeElapsed
@@ -1195,7 +1197,7 @@ contract SandboxComet is ISandboxComet, Initializable {
      * @notice Withdraw an amount of asset from the protocol
      * @param asset The asset to withdraw
      * @param amount The quantity to withdraw
-     */
+     */  
     function withdraw(address asset, uint amount) external override {
         return
             withdrawInternal(msg.sender, msg.sender, msg.sender, asset, amount);

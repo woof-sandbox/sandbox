@@ -165,6 +165,8 @@ contract ConfigController is IConfigController, Initializable {
             _cometConfig.baseTokenCurveId >=
             baseAssetConfig.baseAssetCurves.length
         ) revert WrongCurveParams();
+        if (_cometConfig.options.baseMinForRewards == 0) revert BadMinimum();
+
         uint length = _cometConfig.collateralTokens.length;
         CollateralTokenConfig memory collateralTokenConfig;
         ISandboxController.CollateralAssetConfiguration

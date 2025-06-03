@@ -81,7 +81,9 @@ abstract contract IConfigController {
     error InvalidCurveId();
     error SameCurve();
     error ProposalNotRevertable();
+    error BadMinimum();
 
+    
     event CometBaseTokenCurveProposed(
         address indexed comet,
         address indexed proposer,
