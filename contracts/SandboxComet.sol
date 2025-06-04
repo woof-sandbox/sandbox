@@ -45,6 +45,9 @@ contract SandboxComet is ISandboxComet {
         address _baseTokenPriceFeed = _sandboxController.tokenToPriceFeed(comet.baseToken);
         /// @dev price feed is already checked in config controller
         if (IPriceFeed(_baseTokenPriceFeed).decimals() != PRICE_FEED_DECIMALS) revert BadDecimals();
+        baseScale = uint64(10 ** decimals_);
+        if (baseScale < BASE_ACCRUAL_SCALE) revert BadDecimals();
+
         sandboxController = sandboxController_;
 
         baseToken = comet.baseToken;
@@ -60,7 +63,7 @@ contract SandboxComet is ISandboxComet {
 
         decimals = decimals_;
         accrualDescaleFactor = baseScale / BASE_ACCRUAL_SCALE;
-
+        
         baseBorrowMin = baseBorrowMin_;
         targetPercent = config.targetPercent;
         seedReserves = config.suggestedAmountOfSeedReserves;
@@ -102,17 +105,6 @@ contract SandboxComet is ISandboxComet {
                 SECONDS_PER_YEAR;
         }
         numAssets = uint8(comet.collateralTokens.length);
-
-
-        /// initialize storage
-        
-        // Initialize aggregates
-        lastAccrualTime = getNowInternal();
-        baseSupplyIndex = BASE_INDEX_SCALE;
-        baseBorrowIndex = BASE_INDEX_SCALE;
-        // Implicit initialization (not worth increasing contract size)
-        // trackingSupplyIndex = 0;
-        // trackingBorrowIndex = 0;
     }
 
     /**

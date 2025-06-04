@@ -41,13 +41,6 @@ contract CometStorage {
         uint128 _reserved;
     }
 
-    struct LiquidatorPoints {
-        uint32 numAbsorbs;
-        uint64 numAbsorbed;
-        uint128 approxSpend;
-        uint32 _reserved;
-    }
-
     /** Internal constants **/
 
     /// @dev The max number of assets this contract is hardcoded to support
@@ -166,14 +159,6 @@ contract CometStorage {
     /// @notice The speed at which borrow rewards are tracked (in trackingIndexScale)
     /// @dev uint64
     uint public baseTrackingBorrowSpeed;
-
-    /// @notice The speed at which supply rewards are tracked (in trackingIndexScale)
-    /// @dev uint64
-    uint public daoBaseTrackingSupplySpeed;
-
-    /// @notice The speed at which borrow rewards are tracked (in trackingIndexScale)
-    /// @dev uint64
-    uint public daoBaseTrackingBorrowSpeed;
 
     /// @notice The minimum amount of base principal wei for rewards to accrue
     /// @dev This must be large enough so as to prevent division by base wei from overflowing the 64 bit indices

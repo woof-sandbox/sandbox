@@ -196,6 +196,7 @@ contract ConfigController is IConfigController {
             comet,
             _sandboxConfig.suggestedAmountOfSeedReserves
         );
+        
         emit CometCreated(
             comet,
             _cometConfig.baseToken,
