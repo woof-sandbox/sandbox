@@ -9,7 +9,6 @@ import {
   makeCometFactory,
   defaultSandboxControllerOpts,
   makeOnlyConfigController,
-  makeConfigControllerFactory,
   createComet
 } from './helper/helpers';
 import { 

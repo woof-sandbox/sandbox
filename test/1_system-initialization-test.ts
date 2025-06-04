@@ -489,7 +489,6 @@ describe("System Initialization", function() {
     });
   });
 
-
   describe("Comet deployment",function() {
     let sandboxController;
 

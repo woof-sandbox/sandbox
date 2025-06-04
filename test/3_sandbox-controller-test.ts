@@ -5,10 +5,10 @@ import {
   makeSandboxController,
   makeMockERC20,
   makePriceFeed,
-  exp
+  exp,
+  SandboxControllerOpts
 } from './helper/helpers';
 import { parseEther } from 'ethers/lib/utils';
-import { isIterationStatement } from 'typescript';
 
 function makeValidCurve() {
   return {
@@ -55,100 +55,59 @@ describe('SandboxController', function () {
   let attacker: any;
   let other: any;
   let SandboxControllerFactory: any;
+  let opts: SandboxControllerOpts = {};
 
   before(async function () {
     SandboxControllerFactory = await ethers.getContractFactory('SandboxController');
     [owner, dao, attacker, other] = await ethers.getSigners();
+    opts = defaultSandboxControllerOpts({admin: owner, dao: dao, feeEnabled: true});
   });
 
   describe('constructor', function () {
+    beforeEach(async function () {
+      opts.dao = dao.address;
+      opts.admin = owner.address;
+    });
+
     it('initializes state with correct values', async function () {
-      const opts = defaultSandboxControllerOpts({
-        admin: owner,
-        dao: dao,
-        feeEnabled: true,
-        storeFrontPriceFactor: parseEther('0.999999999999999999').toString(),
-        protocolFactorBorrow: parseEther('0.1').toString(),
-        reserveFactorBorrow: parseEther('0.2').toString(),
-        protocolFactorLiquidation: parseEther('0.1').toString(),
-        reserveFactorLiquidation: parseEther('0.2').toString(),
-        minUpdateTime: 300,
-        maxCollateralAssets: 5,
-        suggestedAmountOfSeedReserves: '1000',
-        suggestedLockTimeOfSeedReserves: 500,
-        targetPercent: '100'
-      });
       const { sandboxController } = await makeSandboxController(opts);
       expect(await sandboxController.owner()).to.equal(owner.address);
       expect(await sandboxController.dao()).to.equal(dao.address);
       expect(await sandboxController.feeEnabled()).to.equal(true);
-      expect(await sandboxController.protocolFactorBorrow()).to.equal(parseEther('0.1').toString());
+      expect(await sandboxController.protocolFactorBorrow()).to.equal(parseEther('0.5').toString());
       expect(await sandboxController.reserveFactorBorrow()).to.equal(parseEther('0.2').toString());
-      expect(await sandboxController.protocolFactorLiquidation()).to.equal(parseEther('0.1').toString());
-      expect(await sandboxController.reserveFactorLiquidation()).to.equal(parseEther('0.2').toString());
-      expect(await sandboxController.maxCollateralAssets()).to.equal(5);
-      expect((await sandboxController.controllerConfiguration()).storeFrontPriceFactor).to.equal(parseEther('0.999999999999999999').toString());
+      expect(await sandboxController.protocolFactorLiquidation()).to.equal(parseEther('0.3').toString());
+      expect(await sandboxController.reserveFactorLiquidation()).to.equal(parseEther('0.4').toString());
+      expect((await sandboxController.controllerConfiguration()).storeFrontPriceFactor).to.equal(parseEther('0.9999999999').toString());
       expect((await sandboxController.controllerConfiguration()).minUpdateTime).to.equal(300);
-      expect((await sandboxController.controllerConfiguration()).suggestedAmountOfSeedReserves).to.equal('1000');
-      expect((await sandboxController.controllerConfiguration()).suggestedLockTimeOfSeedReserves).to.equal(500);
+      expect((await sandboxController.controllerConfiguration()).maxUpdateTime).to.equal(604800);
+      expect((await sandboxController.controllerConfiguration()).suggestedAmountOfSeedReserves).to.equal(ethers.utils.parseEther('500').toString());
+      expect((await sandboxController.controllerConfiguration()).suggestedLockTimeOfSeedReserves).to.equal(86400);
     });
 
     it('reverts if admin=0', async function () {
+      opts.admin = ethers.constants.AddressZero;
       await expect(
-        SandboxControllerFactory.deploy(
-          ethers.constants.AddressZero,
-          dao.address,
-          true,
-          parseEther('0.1').toString(),
-          parseEther('0.2').toString(),
-          parseEther('0.1').toString(),
-          parseEther('0.2').toString(),
-          5,
-          parseEther('0.1').toString(),
-          parseEther('0.999999999999999999').toString(),
-          300,
-          1000,
-          500
+        SandboxControllerFactory.connect(dao).deploy(
+          ...Object.values(opts)
         )
       ).to.be.revertedWithCustomError(SandboxControllerFactory, 'ZeroAddress');
     });
 
     it('reverts if dao=0', async function () {
+      opts.dao = ethers.constants.AddressZero;
       await expect(
         SandboxControllerFactory.deploy(
-          owner.address,
-          ethers.constants.AddressZero,
-          true,
-          parseEther('0.1').toString(),
-          parseEther('0.2').toString(),
-          parseEther('0.1').toString(),
-          parseEther('0.2').toString(),
-          5,
-          parseEther('0.1').toString(),
-          parseEther('0.999999999999999999').toString(),
-          300,
-          1000,
-          500
+          ...Object.values(opts)
         )
       ).to.be.revertedWithCustomError(SandboxControllerFactory, 'ZeroAddress');
     });
 
     it('reverts if storeFrontPriceFactor >= 1e18', async function () {
+      opts.storeFrontPriceFactor = ethers.utils.parseEther('1').toString();
       await expect(
         SandboxControllerFactory.deploy(
-          owner.address,
-          dao.address,
-          true,
-          parseEther('0.1').toString(),
-          parseEther('0.2').toString(),
-          parseEther('0.1').toString(),
-          parseEther('0.2').toString(),
-          5,
-          parseEther('0.1').toString(),
-          parseEther('1').toString(),
-          300,
-          1000,
-          500
+          ...Object.values(opts)
         )
       ).to.be.revertedWithCustomError(SandboxControllerFactory, 'InvalidFactors');
     });
@@ -380,35 +339,33 @@ describe('SandboxController', function () {
         admin: owner,
         dao: dao,
         feeEnabled: false,
-        storeFrontPriceFactor: parseEther('0.1').toString(),
-        protocolFactorBorrow: parseEther('0.1').toString(),
-        reserveFactorBorrow: parseEther('0.1').toString(),
-        protocolFactorLiquidation: parseEther('0.1').toString(),
-        reserveFactorLiquidation: parseEther('0.1').toString(),
+        storeFrontPriceFactor: parseEther("0.1").toString(),
+        protocolFactorBorrow: parseEther("0.1").toString(),
+        reserveFactorBorrow: parseEther("0.1").toString(),
+        protocolFactorLiquidation: parseEther("0.1").toString(),
+        reserveFactorLiquidation: parseEther("0.1").toString(),
         minUpdateTime: 300,
-        maxCollateralAssets: 10,
-        suggestedAmountOfSeedReserves: '1000',
+        suggestedAmountOfSeedReserves: "1000",
         suggestedLockTimeOfSeedReserves: 3600,
-        targetPercent: ethers.utils.parseEther('0.5').toString()
+        targetPercent: ethers.utils.parseEther("0.5").toString(),
       });
       const { sandboxController } = await makeSandboxController(opts);
       expect(await sandboxController.owner()).to.equal(owner.address);
       expect(await sandboxController.dao()).to.equal(dao.address);
       expect(await sandboxController.feeEnabled()).to.equal(false);
 
-      expect(await sandboxController.protocolFactorBorrow()).to.equal(parseEther('0.1').toString());
-      expect(await sandboxController.reserveFactorBorrow()).to.equal(parseEther('0.1').toString());
-      expect(await sandboxController.protocolFactorLiquidation()).to.equal(parseEther('0.1').toString());
-      expect(await sandboxController.reserveFactorLiquidation()).to.equal(parseEther('0.1').toString());
+      expect(await sandboxController.protocolFactorBorrow()).to.equal(parseEther("0.1").toString());
+      expect(await sandboxController.reserveFactorBorrow()).to.equal(parseEther("0.1").toString());
+      expect(await sandboxController.protocolFactorLiquidation()).to.equal(parseEther("0.1").toString());
+      expect(await sandboxController.reserveFactorLiquidation()).to.equal(parseEther("0.1").toString());
 
-      expect(await sandboxController.maxCollateralAssets()).to.equal(10);
       expect(await sandboxController.getBaseAssetLength()).to.equal(0);
       expect(await sandboxController.getCollateralAssetLength()).to.equal(0);
-      expect((await sandboxController.controllerConfiguration()).storeFrontPriceFactor).to.equal(parseEther('0.1').toString());
+      expect((await sandboxController.controllerConfiguration()).storeFrontPriceFactor).to.equal(parseEther("0.1").toString());
       expect((await sandboxController.controllerConfiguration()).minUpdateTime).to.equal(300);
-      expect((await sandboxController.controllerConfiguration()).suggestedAmountOfSeedReserves).to.equal('1000');
+      expect((await sandboxController.controllerConfiguration()).maxUpdateTime).to.equal(604800);
+      expect((await sandboxController.controllerConfiguration()).suggestedAmountOfSeedReserves).to.equal("1000");
       expect((await sandboxController.controllerConfiguration()).suggestedLockTimeOfSeedReserves).to.equal(3600);
-
     });
   });
 
@@ -420,16 +377,15 @@ describe('SandboxController', function () {
         admin: owner,
         dao: dao,
         feeEnabled: false,
-        storeFrontPriceFactor: parseEther('0.5').toString(),
-        protocolFactorBorrow: parseEther('0.1').toString(),
-        reserveFactorBorrow: parseEther('0.1').toString(),
-        protocolFactorLiquidation: parseEther('0.1').toString(),
-        reserveFactorLiquidation: parseEther('0.1').toString(),
+        storeFrontPriceFactor: parseEther("0.5").toString(),
+        protocolFactorBorrow: parseEther("0.1").toString(),
+        reserveFactorBorrow: parseEther("0.1").toString(),
+        protocolFactorLiquidation: parseEther("0.1").toString(),
+        reserveFactorLiquidation: parseEther("0.1").toString(),
         minUpdateTime: 500,
-        maxCollateralAssets: 5,
-        suggestedAmountOfSeedReserves: '1000',
+        suggestedAmountOfSeedReserves: "1000",
         suggestedLockTimeOfSeedReserves: 1000,
-        targetPercent: ethers.utils.parseEther('0.5').toString()
+        targetPercent: ethers.utils.parseEther("0.5").toString(),
       });
       const c = await makeSandboxController(opts);
       sandboxController = c.sandboxController;
@@ -609,7 +565,6 @@ describe('SandboxController', function () {
         protocolFactorLiquidation: parseEther('0.1').toString(),
         reserveFactorLiquidation: parseEther('0.1').toString(),
         minUpdateTime: 500,
-        maxCollateralAssets: 5,
         suggestedAmountOfSeedReserves: '1000',
         suggestedLockTimeOfSeedReserves: 1000,
         targetPercent: ethers.utils.parseEther('0.5').toString()
@@ -954,141 +909,100 @@ describe('SandboxController', function () {
     });
   });
 
-
   describe('setConfiguration', function () {
     let sandboxController: any;
+    type Config = {
+      targetPercent: string;
+      storeFrontPriceFactor: string;
+      minUpdateTime: number;
+      maxUpdateTime: number;
+      suggestedAmountOfSeedReserves: string;
+      suggestedLockTimeOfSeedReserves: number;
+    }
+    let config: Config;
 
     beforeEach(async function () {
-      const opts = defaultSandboxControllerOpts({
-        admin: owner,
-        dao: dao,
-        feeEnabled: false,
-        storeFrontPriceFactor: parseEther('0.3').toString(),
-        protocolFactorBorrow: parseEther('0.1').toString(),
-        reserveFactorBorrow: parseEther('0.1').toString(),
-        protocolFactorLiquidation: parseEther('0.1').toString(),
-        reserveFactorLiquidation: parseEther('0.1').toString(),
-        minUpdateTime: 400,
-        maxCollateralAssets: 5,
-        suggestedAmountOfSeedReserves: '1000',
-        suggestedLockTimeOfSeedReserves: 1000,
-        targetPercent: ethers.utils.parseEther('0.5').toString()
-      });
+      const opts = defaultSandboxControllerOpts({admin: owner, dao: dao});
       const c = await makeSandboxController(opts);
       sandboxController = c.sandboxController;
+      config = {
+        targetPercent: ethers.utils.parseEther('0.5').toString(),
+        storeFrontPriceFactor: parseEther('0.3').toString(),
+        minUpdateTime: 400,
+        maxUpdateTime: 604800,
+        suggestedAmountOfSeedReserves: '1000',
+        suggestedLockTimeOfSeedReserves: 1000
+      }
     });
 
     it('reverts if caller is not owner', async function () {
       await expect(
-        sandboxController.connect(dao).setConfiguration(
-          {
-            storeFrontPriceFactor: parseEther('0.3').toString(),
-            minUpdateTime: 400,
-            suggestedAmountOfSeedReserves: '1000',
-            suggestedLockTimeOfSeedReserves: 1000,
-            targetPercent: ethers.utils.parseEther('0.5').toString()
-          }
-        )
+        sandboxController.connect(dao).setConfiguration(config)
       ).to.be.revertedWithCustomError(sandboxController, 'NotOwner');
       await expect(
-        sandboxController.connect(attacker).setConfiguration(
-          {
-            storeFrontPriceFactor: parseEther('0.3').toString(),
-            minUpdateTime: 400,
-            suggestedAmountOfSeedReserves: '1000',
-            suggestedLockTimeOfSeedReserves: 1000,
-            targetPercent: ethers.utils.parseEther('0.5').toString()
-          }
-        )
+        sandboxController.connect(attacker).setConfiguration(config)
       ).to.be.revertedWithCustomError(sandboxController, 'NotOwner');
     });
-
 
     it('reverts if storeFrontPriceFactor >= 1e18', async function () {
+      config.storeFrontPriceFactor = parseEther('1').toString();
       await expect(
-        sandboxController.setConfiguration(
-          {
-            storeFrontPriceFactor: parseEther('1').toString(),
-            minUpdateTime: 400,
-            suggestedAmountOfSeedReserves: '1000',
-            suggestedLockTimeOfSeedReserves: 1000,
-            targetPercent: ethers.utils.parseEther('0.5').toString()
-          }
-        )
+        sandboxController.setConfiguration(config)
       ).to.be.revertedWithCustomError(sandboxController, 'InvalidFactors');
     });
-
 
     it('reverts if minUpdateTime=0', async function () {
-      await expect(
-        sandboxController.setConfiguration(
-          {
-            storeFrontPriceFactor: parseEther('0.3').toString(),
-            minUpdateTime: 0,
-            suggestedAmountOfSeedReserves: '1000',
-            suggestedLockTimeOfSeedReserves: 1000,
-            targetPercent: ethers.utils.parseEther('0.5').toString()
-          }
-        )
+      config.minUpdateTime = 0;
+      await expect(sandboxController.setConfiguration(config)
       ).to.be.revertedWithCustomError(sandboxController, 'InvalidFactors');
     });
-
 
     it('reverts if suggestedAmountOfSeedReserves=0', async function () {
+      config.suggestedAmountOfSeedReserves = '0';
       await expect(
-        sandboxController.setConfiguration(
-          {
-            storeFrontPriceFactor: parseEther('0.3').toString(),
-            minUpdateTime: 400,
-            suggestedAmountOfSeedReserves: '0',
-            suggestedLockTimeOfSeedReserves: 1000,
-            targetPercent: ethers.utils.parseEther('0.5').toString()
-          }
-        )
+        sandboxController.setConfiguration(config)
       ).to.be.revertedWithCustomError(sandboxController, 'InvalidFactors');
     });
-
 
     it('reverts if suggestedLockTimeOfSeedReserves=0', async function () {
+      config.suggestedLockTimeOfSeedReserves = 0;
       await expect(
-        sandboxController.setConfiguration(
-          {
-            storeFrontPriceFactor: parseEther('0.3').toString(),
-            minUpdateTime: 400,
-            suggestedAmountOfSeedReserves: '1000',
-            suggestedLockTimeOfSeedReserves: 0,
-            targetPercent: ethers.utils.parseEther('0.5').toString()
-          }
-        )
+        sandboxController.setConfiguration(config)
       ).to.be.revertedWithCustomError(sandboxController, 'InvalidFactors');
     });
 
-
     it('updates configuration with valid values and emits event', async function () {
-      const tx = await sandboxController.setConfiguration(
-        {
-          storeFrontPriceFactor: parseEther('0.4').toString(),
-          minUpdateTime: 500,
-          suggestedAmountOfSeedReserves: '2000',
-          suggestedLockTimeOfSeedReserves: 2000,
-          targetPercent: ethers.utils.parseEther('0.5').toString()
-        }
-      );
-      expect((await sandboxController.controllerConfiguration()).storeFrontPriceFactor).to.equal(parseEther('0.4').toString());
-      expect((await sandboxController.controllerConfiguration()).minUpdateTime).to.equal(500);
-      expect((await sandboxController.controllerConfiguration()).suggestedAmountOfSeedReserves).to.equal('2000');
-      expect((await sandboxController.controllerConfiguration()).suggestedLockTimeOfSeedReserves).to.equal(2000);
-
+      expect((await sandboxController.controllerConfiguration()).storeFrontPriceFactor).to.equal(parseEther('0.9999999999').toString());
+      expect((await sandboxController.controllerConfiguration()).minUpdateTime).to.equal(300);
+      expect((await sandboxController.controllerConfiguration()).maxUpdateTime).to.equal(7 * 24 * 60 * 60);
+      expect((await sandboxController.controllerConfiguration()).suggestedAmountOfSeedReserves).to.equal(ethers.utils.parseEther('500').toString());
+      expect((await sandboxController.controllerConfiguration()).suggestedLockTimeOfSeedReserves).to.equal(86400);
+      expect((await sandboxController.controllerConfiguration()).targetPercent).to.equal(ethers.utils.parseEther('0.5').toString());
+      
+      const tx = await sandboxController.setConfiguration({
+        storeFrontPriceFactor: parseEther('0.3').toString(),
+        minUpdateTime: 400,
+        maxUpdateTime: 500,
+        suggestedAmountOfSeedReserves: 10,
+        suggestedLockTimeOfSeedReserves: 1000,
+        targetPercent: ethers.utils.parseEther('0.4').toString()
+      });
       const rcpt = await tx.wait();
       const ev = rcpt.events?.find((e: any) => e.event === 'ConfigurationChanged');
-      expect(ev.args.oldConfig.storeFrontPriceFactor).to.equal(parseEther('0.3').toString());
-      expect(ev.args.oldConfig.minUpdateTime).to.equal(400);
-      expect(ev.args.oldConfig.suggestedAmountOfSeedReserves).to.equal('1000');
-      expect(ev.args.oldConfig.suggestedLockTimeOfSeedReserves).to.equal(1000);
-      expect(ev.args.newConfig.storeFrontPriceFactor).to.equal(parseEther('0.4').toString());
-      expect(ev.args.newConfig.minUpdateTime).to.equal(500);
-      expect(ev.args.newConfig.suggestedAmountOfSeedReserves).to.equal('2000');
-      expect(ev.args.newConfig.suggestedLockTimeOfSeedReserves).to.equal(2000);
+      /// old config
+      expect(ev.args.oldConfig.storeFrontPriceFactor).to.equal(parseEther('0.9999999999').toString());
+      expect(ev.args.oldConfig.minUpdateTime).to.equal(300);
+      expect(ev.args.oldConfig.maxUpdateTime).to.equal(7 * 24 * 60 * 60);
+      expect(ev.args.oldConfig.suggestedAmountOfSeedReserves).to.equal(ethers.utils.parseEther('500').toString());
+      expect(ev.args.oldConfig.suggestedLockTimeOfSeedReserves).to.equal(86400);
+      expect(ev.args.oldConfig.targetPercent).to.equal(ethers.utils.parseEther('0.5').toString());
+      /// new config
+      expect(ev.args.newConfig.storeFrontPriceFactor).to.equal(parseEther('0.3').toString());
+      expect(ev.args.newConfig.minUpdateTime).to.equal(400);
+      expect(ev.args.newConfig.maxUpdateTime).to.equal(500);
+      expect(ev.args.newConfig.suggestedAmountOfSeedReserves).to.equal(10);
+      expect(ev.args.newConfig.suggestedLockTimeOfSeedReserves).to.equal(1000);
+      expect(ev.args.newConfig.targetPercent).to.equal(ethers.utils.parseEther('0.4').toString());
     });
   });
 
@@ -1106,7 +1020,6 @@ describe('SandboxController', function () {
         protocolFactorLiquidation: parseEther('0.1').toString(),
         reserveFactorLiquidation: parseEther('0.1').toString(),
         minUpdateTime: 400,
-        maxCollateralAssets: 5,
         suggestedAmountOfSeedReserves: '1000',
         suggestedLockTimeOfSeedReserves: 1000,
         targetPercent: ethers.utils.parseEther('0.5').toString()
@@ -1150,7 +1063,6 @@ describe('SandboxController', function () {
         protocolFactorLiquidation: parseEther('0.1').toString(),
         reserveFactorLiquidation: parseEther('0.1').toString(),
         minUpdateTime: 400,
-        maxCollateralAssets: 5,
         suggestedAmountOfSeedReserves: '1000',
         suggestedLockTimeOfSeedReserves: 1000,
         targetPercent: ethers.utils.parseEther('0.5').toString()
@@ -1262,7 +1174,6 @@ describe('SandboxController', function () {
         protocolFactorLiquidation: parseEther('0.1').toString(),
         reserveFactorLiquidation: parseEther('0.1').toString(),
         minUpdateTime: 400,
-        maxCollateralAssets: 5,
         suggestedAmountOfSeedReserves: '1000',
         suggestedLockTimeOfSeedReserves: 1000,
         targetPercent: ethers.utils.parseEther('0.5').toString()
@@ -1379,7 +1290,6 @@ describe('SandboxController', function () {
         protocolFactorLiquidation: parseEther('0.1').toString(),
         reserveFactorLiquidation: parseEther('0.1').toString(),
         minUpdateTime: 400,
-        maxCollateralAssets: 5,
         suggestedAmountOfSeedReserves: '1000',
         suggestedLockTimeOfSeedReserves: 1000,
         targetPercent: ethers.utils.parseEther('0.5').toString()
