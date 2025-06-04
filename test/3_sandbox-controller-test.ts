@@ -6,10 +6,11 @@ import {
     makeMockERC20,
     makePriceFeed,
     exp,
+    SandboxControllerOpts,
 } from "./helper/helpers";
 import { parseEther } from "ethers/lib/utils";
 import { isIterationStatement } from "typescript";
-import { SandboxController } from "../build/types";
+import { SandboxController, SandboxController__factory } from "../build/types";
 import { SandboxControllerConfigurationStruct } from "../build/types/ISandboxComet";
 import { BigNumber } from "ethers";
 
@@ -64,320 +65,356 @@ describe("SandboxController", function() {
         [owner, dao, attacker, other] = await ethers.getSigners();
     });
 
-    // describe("constructor", function() {
-    //     it("initializes state with correct values", async function() {
-    //         const opts = defaultSandboxControllerOpts({
-    //             admin: owner,
-    //             dao: dao,
-    //             feeEnabled: true,
-    //             storeFrontPriceFactor: parseEther("0.999999999999999999").toString(),
-    //             protocolFactorBorrow: parseEther("0.1").toString(),
-    //             reserveFactorBorrow: parseEther("0.2").toString(),
-    //             protocolFactorLiquidation: parseEther("0.1").toString(),
-    //             reserveFactorLiquidation: parseEther("0.2").toString(),
-    //             minUpdateTime: 300,
-    //             maxCollateralAssets: 5,
-    //             suggestedAmountOfSeedReserves: "1000",
-    //             suggestedLockTimeOfSeedReserves: 500,
-    //             targetPercent: "100",
-    //         });
-    //         const { sandboxController } = await makeSandboxController(opts);
-    //         expect(await sandboxController.owner()).to.equal(owner.address);
-    //         expect(await sandboxController.dao()).to.equal(dao.address);
-    //         expect(await sandboxController.feeEnabled()).to.equal(true);
-    //         expect(await sandboxController.protocolFactorBorrow()).to.equal(parseEther("0.1").toString());
-    //         expect(await sandboxController.reserveFactorBorrow()).to.equal(parseEther("0.2").toString());
-    //         expect(await sandboxController.protocolFactorLiquidation()).to.equal(parseEther("0.1").toString());
-    //         expect(await sandboxController.reserveFactorLiquidation()).to.equal(parseEther("0.2").toString());
-    //         expect(await sandboxController.maxCollateralAssets()).to.equal(5);
-    //         expect((await sandboxController.controllerConfiguration()).storeFrontPriceFactor).to.equal(
-    //             parseEther("0.999999999999999999").toString()
-    //         );
-    //         expect((await sandboxController.controllerConfiguration()).minUpdateTime).to.equal(300);
-    //         expect((await sandboxController.controllerConfiguration()).suggestedAmountOfSeedReserves).to.equal("1000");
-    //         expect((await sandboxController.controllerConfiguration()).suggestedLockTimeOfSeedReserves).to.equal(500);
-    //     });
+    describe("constructor", function() {
+        let opts: SandboxControllerOpts;
+        beforeEach(async () => {
+            const deployOptions = defaultSandboxControllerOpts({
+                admin: owner,
+                dao: dao,
+                feeEnabled: true,
+                protocolFactorBorrow: parseEther("0.1").toString(),
+                reserveFactorBorrow: parseEther("0.2").toString(),
+                protocolFactorLiquidation: parseEther("0.1").toString(),
+                reserveFactorLiquidation: parseEther("0.2").toString(),
+                maxCollateralAssets: 5,
+                targetPercent: "100",
+                storeFrontPriceFactor: parseEther("0.999999999999999999").toString(),
+                minUpdateTime: 300,
+                maxUpdateTime: 300 + 5,
+                suggestedAmountOfSeedReserves: "1000",
+                suggestedLockTimeOfSeedReserves: 500,
+            });
+            opts = deployOptions;
+        });
 
-    //     it("reverts if admin=0", async function() {
-    //         await expect(
-    //             SandboxControllerFactory.deploy(
-    //                 ethers.constants.AddressZero,
-    //                 dao.address,
-    //                 true,
-    //                 parseEther("0.1").toString(),
-    //                 parseEther("0.2").toString(),
-    //                 parseEther("0.1").toString(),
-    //                 parseEther("0.2").toString(),
-    //                 5,
-    //                 parseEther("0.1").toString(),
-    //                 parseEther("0.999999999999999999").toString(),
-    //                 300,
-    //                 1000,
-    //                 500
-    //             )
-    //         ).to.be.revertedWithCustomError(SandboxControllerFactory, "ZeroAddress");
-    //     });
+        it("initializes state with correct values", async function() {
+            const { sandboxController } = await makeSandboxController(opts);
+            expect(await sandboxController.owner()).to.equal(owner.address);
+            expect(await sandboxController.dao()).to.equal(dao.address);
+            expect(await sandboxController.feeEnabled()).to.equal(true);
+            expect(await sandboxController.protocolFactorBorrow()).to.equal(parseEther("0.1").toString());
+            expect(await sandboxController.reserveFactorBorrow()).to.equal(parseEther("0.2").toString());
+            expect(await sandboxController.protocolFactorLiquidation()).to.equal(parseEther("0.1").toString());
+            expect(await sandboxController.reserveFactorLiquidation()).to.equal(parseEther("0.2").toString());
+            expect(await sandboxController.maxCollateralAssets()).to.equal(5);
+            expect((await sandboxController.controllerConfiguration()).storeFrontPriceFactor).to.equal(
+                parseEther("0.999999999999999999").toString()
+            );
+            expect((await sandboxController.controllerConfiguration()).minUpdateTime).to.equal(300);
+            expect((await sandboxController.controllerConfiguration()).suggestedAmountOfSeedReserves).to.equal("1000");
+            expect((await sandboxController.controllerConfiguration()).suggestedLockTimeOfSeedReserves).to.equal(500);
+        });
 
-    //     it("reverts if dao=0", async function() {
-    //         await expect(
-    //             SandboxControllerFactory.deploy(
-    //                 owner.address,
-    //                 ethers.constants.AddressZero,
-    //                 true,
-    //                 parseEther("0.1").toString(),
-    //                 parseEther("0.2").toString(),
-    //                 parseEther("0.1").toString(),
-    //                 parseEther("0.2").toString(),
-    //                 5,
-    //                 parseEther("0.1").toString(),
-    //                 parseEther("0.999999999999999999").toString(),
-    //                 300,
-    //                 1000,
-    //                 500
-    //             )
-    //         ).to.be.revertedWithCustomError(SandboxControllerFactory, "ZeroAddress");
-    //     });
+        it("reverts if admin=0", async function() {
+            opts.admin = ethers.constants.AddressZero;
+            await expect(
+                SandboxControllerFactory.deploy(
+                    opts.admin,
+                    opts.dao.address,
+                    opts.feeEnabled,
+                    opts.protocolFactorBorrow,
+                    opts.reserveFactorBorrow,
+                    opts.protocolFactorLiquidation,
+                    opts.reserveFactorLiquidation,
+                    opts.maxCollateralAssets,
+                    opts.targetPercent,
+                    opts.storeFrontPriceFactor,
+                    opts.minUpdateTime,
+                    opts.maxUpdateTime,
+                    opts.suggestedAmountOfSeedReserves,
+                    opts.suggestedLockTimeOfSeedReserves
+                )
+            ).to.be.revertedWithCustomError(SandboxControllerFactory, "ZeroAddress");
+        });
 
-    //     it("reverts if storeFrontPriceFactor >= 1e18", async function() {
-    //         await expect(
-    //             SandboxControllerFactory.deploy(
-    //                 owner.address,
-    //                 dao.address,
-    //                 true,
-    //                 parseEther("0.1").toString(),
-    //                 parseEther("0.2").toString(),
-    //                 parseEther("0.1").toString(),
-    //                 parseEther("0.2").toString(),
-    //                 5,
-    //                 parseEther("0.1").toString(),
-    //                 parseEther("1").toString(),
-    //                 300,
-    //                 1000,
-    //                 500
-    //             )
-    //         ).to.be.revertedWithCustomError(SandboxControllerFactory, "InvalidFactors");
-    //     });
+        it("reverts if dao=0", async function() {
+            opts.dao = ethers.constants.AddressZero;
+            await expect(
+                SandboxControllerFactory.deploy(
+                    opts.admin.address,
+                    opts.dao,
+                    opts.feeEnabled,
+                    opts.protocolFactorBorrow,
+                    opts.reserveFactorBorrow,
+                    opts.protocolFactorLiquidation,
+                    opts.reserveFactorLiquidation,
+                    opts.maxCollateralAssets,
+                    opts.targetPercent,
+                    opts.storeFrontPriceFactor,
+                    opts.minUpdateTime,
+                    opts.maxUpdateTime,
+                    opts.suggestedAmountOfSeedReserves,
+                    opts.suggestedLockTimeOfSeedReserves
+                )
+            ).to.be.revertedWithCustomError(SandboxControllerFactory, "ZeroAddress");
+        });
 
-    //     it("reverts if protocolFactorBorrow=0", async function() {
-    //         await expect(
-    //             SandboxControllerFactory.deploy(
-    //                 owner.address,
-    //                 dao.address,
-    //                 false,
-    //                 "0",
-    //                 parseEther("0.2").toString(),
-    //                 parseEther("0.1").toString(),
-    //                 parseEther("0.2").toString(),
-    //                 5,
-    //                 parseEther("0.1").toString(),
-    //                 parseEther("0.5").toString(),
-    //                 300,
-    //                 1000,
-    //                 500
-    //             )
-    //         ).to.be.revertedWithCustomError(SandboxControllerFactory, "InvalidFactors");
-    //     });
+        it("reverts if storeFrontPriceFactor >= 1e18", async function() {
+            opts.storeFrontPriceFactor = parseEther("1").toString();
+            await expect(
+                SandboxControllerFactory.deploy(
+                    opts.admin.address,
+                    opts.dao.address,
+                    opts.feeEnabled,
+                    opts.protocolFactorBorrow,
+                    opts.reserveFactorBorrow,
+                    opts.protocolFactorLiquidation,
+                    opts.reserveFactorLiquidation,
+                    opts.maxCollateralAssets,
+                    opts.targetPercent,
+                    opts.storeFrontPriceFactor,
+                    opts.minUpdateTime,
+                    opts.maxUpdateTime,
+                    opts.suggestedAmountOfSeedReserves,
+                    opts.suggestedLockTimeOfSeedReserves
+                )
+            ).to.be.revertedWithCustomError(SandboxControllerFactory, "InvalidFactors");
+        });
 
-    //     it("reverts if reserveFactorBorrow=0", async function() {
-    //         await expect(
-    //             SandboxControllerFactory.deploy(
-    //                 owner.address,
-    //                 dao.address,
-    //                 true,
-    //                 parseEther("0.5").toString(),
-    //                 "0",
-    //                 parseEther("0.1").toString(),
-    //                 parseEther("0.2").toString(),
-    //                 5,
-    //                 parseEther("0.1").toString(),
-    //                 parseEther("0.5").toString(),
-    //                 300,
-    //                 1000,
-    //                 500
-    //             )
-    //         ).to.be.revertedWithCustomError(SandboxControllerFactory, "InvalidFactors");
-    //     });
+        it("reverts if protocolFactorBorrow=0", async function() {
+            opts.protocolFactorBorrow = "0";
+            await expect(
+                SandboxControllerFactory.deploy(
+                    opts.admin.address,
+                    opts.dao.address,
+                    opts.feeEnabled,
+                    opts.protocolFactorBorrow,
+                    opts.reserveFactorBorrow,
+                    opts.protocolFactorLiquidation,
+                    opts.reserveFactorLiquidation,
+                    opts.maxCollateralAssets,
+                    opts.targetPercent,
+                    opts.storeFrontPriceFactor,
+                    opts.minUpdateTime,
+                    opts.maxUpdateTime,
+                    opts.suggestedAmountOfSeedReserves,
+                    opts.suggestedLockTimeOfSeedReserves
+                )
+            ).to.be.revertedWithCustomError(SandboxControllerFactory, "InvalidFactors");
+        });
 
-    //     it("reverts if protocolFactorBorrow+reserveFactorBorrow > 1e18", async function() {
-    //         await expect(
-    //             SandboxControllerFactory.deploy(
-    //                 owner.address,
-    //                 dao.address,
-    //                 true,
-    //                 ethers.utils.parseEther("0.6").toString(),
-    //                 ethers.utils.parseEther("0.5").toString(),
-    //                 parseEther("0.1").toString(),
-    //                 parseEther("0.2").toString(),
-    //                 5,
-    //                 parseEther("0.1").toString(),
-    //                 parseEther("0.5").toString(),
-    //                 300,
-    //                 1000,
-    //                 500
-    //             )
-    //         ).to.be.revertedWithCustomError(SandboxControllerFactory, "InvalidFactors");
-    //     });
+        it("reverts if reserveFactorBorrow=0", async function() {
+            opts.reserveFactorBorrow = "0";
+            await expect(
+                SandboxControllerFactory.deploy(
+                    opts.admin.address,
+                    opts.dao.address,
+                    opts.feeEnabled,
+                    opts.protocolFactorBorrow,
+                    opts.reserveFactorBorrow,
+                    opts.protocolFactorLiquidation,
+                    opts.reserveFactorLiquidation,
+                    opts.maxCollateralAssets,
+                    opts.targetPercent,
+                    opts.storeFrontPriceFactor,
+                    opts.minUpdateTime,
+                    opts.maxUpdateTime,
+                    opts.suggestedAmountOfSeedReserves,
+                    opts.suggestedLockTimeOfSeedReserves
+                )
+            ).to.be.revertedWithCustomError(SandboxControllerFactory, "InvalidFactors");
+        });
 
-    //     it("reverts if protocolFactorLiquidation=0", async function() {
-    //         await expect(
-    //             SandboxControllerFactory.deploy(
-    //                 owner.address,
-    //                 dao.address,
-    //                 false,
-    //                 parseEther("0.5").toString(),
-    //                 parseEther("0.2").toString(),
-    //                 "0",
-    //                 parseEther("0.2").toString(),
-    //                 5,
-    //                 parseEther("0.1").toString(),
-    //                 parseEther("0.5").toString(),
-    //                 300,
-    //                 1000,
-    //                 500
-    //             )
-    //         ).to.be.revertedWithCustomError(SandboxControllerFactory, "InvalidFactors");
-    //     });
+        it("reverts if protocolFactorBorrow+reserveFactorBorrow > 1e18", async function() {
+            opts.protocolFactorBorrow = parseEther("0.6").toString();
+            opts.reserveFactorBorrow = parseEther("0.5").toString();
+            await expect(
+                SandboxControllerFactory.deploy(
+                    opts.admin.address,
+                    opts.dao.address,
+                    opts.feeEnabled,
+                    opts.protocolFactorBorrow,
+                    opts.reserveFactorBorrow,
+                    opts.protocolFactorLiquidation,
+                    opts.reserveFactorLiquidation,
+                    opts.maxCollateralAssets,
+                    opts.targetPercent,
+                    opts.storeFrontPriceFactor,
+                    opts.minUpdateTime,
+                    opts.maxUpdateTime,
+                    opts.suggestedAmountOfSeedReserves,
+                    opts.suggestedLockTimeOfSeedReserves
+                )
+            ).to.be.revertedWithCustomError(SandboxControllerFactory, "InvalidFactors");
+        });
 
-    //     it("reverts if reserveFactorLiquidation=0", async function() {
-    //         await expect(
-    //             SandboxControllerFactory.deploy(
-    //                 owner.address,
-    //                 dao.address,
-    //                 true,
-    //                 parseEther("0.5").toString(),
-    //                 parseEther("0.2").toString(),
-    //                 parseEther("0.1").toString(),
-    //                 "0",
-    //                 5,
-    //                 parseEther("0.1").toString(),
-    //                 parseEther("0.5").toString(),
-    //                 300,
-    //                 1000,
-    //                 500
-    //             )
-    //         ).to.be.revertedWithCustomError(SandboxControllerFactory, "InvalidFactors");
-    //     });
+        it("reverts if protocolFactorLiquidation=0", async function() {
+            opts.protocolFactorLiquidation = "0";
+            await expect(
+                SandboxControllerFactory.deploy(
+                    opts.admin.address,
+                    opts.dao.address,
+                    opts.feeEnabled,
+                    opts.protocolFactorBorrow,
+                    opts.reserveFactorBorrow,
+                    opts.protocolFactorLiquidation,
+                    opts.reserveFactorLiquidation,
+                    opts.maxCollateralAssets,
+                    opts.targetPercent,
+                    opts.storeFrontPriceFactor,
+                    opts.minUpdateTime,
+                    opts.maxUpdateTime,
+                    opts.suggestedAmountOfSeedReserves,
+                    opts.suggestedLockTimeOfSeedReserves
+                )
+            ).to.be.revertedWithCustomError(SandboxControllerFactory, "InvalidFactors");
+        });
 
-    //     it("reverts if protocolFactorLiquidation+reserveFactorLiquidation > 1e18", async function() {
-    //         await expect(
-    //             SandboxControllerFactory.deploy(
-    //                 owner.address,
-    //                 dao.address,
-    //                 true,
-    //                 parseEther("0.5").toString(),
-    //                 parseEther("0.2").toString(),
-    //                 ethers.utils.parseEther("0.8").toString(),
-    //                 ethers.utils.parseEther("0.3").toString(),
-    //                 5,
-    //                 parseEther("0.1").toString(),
-    //                 parseEther("0.5").toString(),
-    //                 300,
-    //                 1000,
-    //                 500
-    //             )
-    //         ).to.be.revertedWithCustomError(SandboxControllerFactory, "InvalidFactors");
-    //     });
+        it("reverts if reserveFactorLiquidation=0", async function() {
+            opts.reserveFactorLiquidation = "0";
+            await expect(
+                SandboxControllerFactory.deploy(
+                    opts.admin.address,
+                    opts.dao.address,
+                    opts.feeEnabled,
+                    opts.protocolFactorBorrow,
+                    opts.reserveFactorBorrow,
+                    opts.protocolFactorLiquidation,
+                    opts.reserveFactorLiquidation,
+                    opts.maxCollateralAssets,
+                    opts.targetPercent,
+                    opts.storeFrontPriceFactor,
+                    opts.minUpdateTime,
+                    opts.maxUpdateTime,
+                    opts.suggestedAmountOfSeedReserves,
+                    opts.suggestedLockTimeOfSeedReserves
+                )
+            ).to.be.revertedWithCustomError(SandboxControllerFactory, "InvalidFactors");
+        });
 
-    //     it("reverts if minUpdateTime=0", async function() {
-    //         await expect(
-    //             SandboxControllerFactory.deploy(
-    //                 owner.address,
-    //                 dao.address,
-    //                 false,
-    //                 parseEther("0.5").toString(),
-    //                 parseEther("0.2").toString(),
-    //                 parseEther("0.1").toString(),
-    //                 parseEther("0.2").toString(),
-    //                 5,
-    //                 parseEther("0.1").toString(),
-    //                 parseEther("0.5").toString(),
-    //                 0,
-    //                 1000,
-    //                 500
-    //             )
-    //         ).to.be.revertedWithCustomError(SandboxControllerFactory, "InvalidFactors");
-    //     });
+        it("reverts if protocolFactorLiquidation+reserveFactorLiquidation > 1e18", async function() {
+            opts.protocolFactorLiquidation = parseEther("0.6").toString();
+            opts.reserveFactorLiquidation = parseEther("0.5").toString();
+            await expect(
+                SandboxControllerFactory.deploy(
+                    opts.admin.address,
+                    opts.dao.address,
+                    opts.feeEnabled,
+                    opts.protocolFactorBorrow,
+                    opts.reserveFactorBorrow,
+                    opts.protocolFactorLiquidation,
+                    opts.reserveFactorLiquidation,
+                    opts.maxCollateralAssets,
+                    opts.targetPercent,
+                    opts.storeFrontPriceFactor,
+                    opts.minUpdateTime,
+                    opts.maxUpdateTime,
+                    opts.suggestedAmountOfSeedReserves,
+                    opts.suggestedLockTimeOfSeedReserves
+                )
+            ).to.be.revertedWithCustomError(SandboxControllerFactory, "InvalidFactors");
+        });
 
-    //     it("reverts if maxCollateralAssets=0", async function() {
-    //         await expect(
-    //             SandboxControllerFactory.deploy(
-    //                 owner.address,
-    //                 dao.address,
-    //                 false,
-    //                 parseEther("0.5").toString(),
-    //                 parseEther("0.2").toString(),
-    //                 parseEther("0.1").toString(),
-    //                 parseEther("0.2").toString(),
-    //                 0,
-    //                 parseEther("0.1").toString(),
-    //                 parseEther("0.5").toString(),
-    //                 300,
-    //                 1000,
-    //                 500
-    //             )
-    //         ).to.be.revertedWithCustomError(SandboxControllerFactory, "InvalidFactors");
-    //     });
+        it("reverts if minUpdateTime=0", async function() {
+            opts.minUpdateTime = 0;
+            await expect(
+                SandboxControllerFactory.deploy(
+                    opts.admin.address,
+                    opts.dao.address,
+                    opts.feeEnabled,
+                    opts.protocolFactorBorrow,
+                    opts.reserveFactorBorrow,
+                    opts.protocolFactorLiquidation,
+                    opts.reserveFactorLiquidation,
+                    opts.maxCollateralAssets,
+                    opts.targetPercent,
+                    opts.storeFrontPriceFactor,
+                    opts.minUpdateTime,
+                    opts.maxUpdateTime,
+                    opts.suggestedAmountOfSeedReserves,
+                    opts.suggestedLockTimeOfSeedReserves
+                )
+            ).to.be.revertedWithCustomError(SandboxControllerFactory, "InvalidFactors");
+        });
 
-    //     it("reverts if suggestedAmountOfSeedReserves=0", async function() {
-    //         await expect(
-    //             SandboxControllerFactory.deploy(
-    //                 owner.address,
-    //                 dao.address,
-    //                 false,
-    //                 parseEther("0.5").toString(),
-    //                 parseEther("0.2").toString(),
-    //                 parseEther("0.1").toString(),
-    //                 parseEther("0.2").toString(),
-    //                 5,
-    //                 parseEther("0.1").toString(),
-    //                 parseEther("0.5").toString(),
-    //                 300,
-    //                 "0",
-    //                 500
-    //             )
-    //         ).to.be.revertedWithCustomError(SandboxControllerFactory, "InvalidFactors");
-    //     });
+        it("reverts if maxCollateralAssets=0", async function() {
+            opts.maxCollateralAssets = 0;
+            await expect(
+                SandboxControllerFactory.deploy(
+                    opts.admin.address,
+                    opts.dao.address,
+                    opts.feeEnabled,
+                    opts.protocolFactorBorrow,
+                    opts.reserveFactorBorrow,
+                    opts.protocolFactorLiquidation,
+                    opts.reserveFactorLiquidation,
+                    opts.maxCollateralAssets,
+                    opts.targetPercent,
+                    opts.storeFrontPriceFactor,
+                    opts.minUpdateTime,
+                    opts.maxUpdateTime,
+                    opts.suggestedAmountOfSeedReserves,
+                    opts.suggestedLockTimeOfSeedReserves
+                )
+            ).to.be.revertedWithCustomError(SandboxControllerFactory, "InvalidFactors");
+        });
 
-    //     it("reverts if suggestedLockTimeOfSeedReserves=0", async function() {
-    //         await expect(
-    //             SandboxControllerFactory.deploy(
-    //                 owner.address,
-    //                 dao.address,
-    //                 false,
-    //                 parseEther("0.5").toString(),
-    //                 parseEther("0.2").toString(),
-    //                 parseEther("0.1").toString(),
-    //                 parseEther("0.2").toString(),
-    //                 5,
-    //                 parseEther("0.1").toString(),
-    //                 parseEther("0.5").toString(),
-    //                 300,
-    //                 1000,
-    //                 0
-    //             )
-    //         ).to.be.revertedWithCustomError(SandboxControllerFactory, "InvalidFactors");
-    //     });
+        it("reverts if suggestedAmountOfSeedReserves=0", async function() {
+            opts.suggestedAmountOfSeedReserves = "0";
+            await expect(
+                SandboxControllerFactory.deploy(
+                    opts.admin.address,
+                    opts.dao.address,
+                    opts.feeEnabled,
+                    opts.protocolFactorBorrow,
+                    opts.reserveFactorBorrow,
+                    opts.protocolFactorLiquidation,
+                    opts.reserveFactorLiquidation,
+                    opts.maxCollateralAssets,
+                    opts.targetPercent,
+                    opts.storeFrontPriceFactor,
+                    opts.minUpdateTime,
+                    opts.maxUpdateTime,
+                    opts.suggestedAmountOfSeedReserves,
+                    opts.suggestedLockTimeOfSeedReserves
+                )
+            ).to.be.revertedWithCustomError(SandboxControllerFactory, "InvalidFactors");
+        });
 
-    //     it("reverts if targetReserves>5e17", async function() {
-    //         await expect(
-    //             SandboxControllerFactory.deploy(
-    //                 owner.address,
-    //                 dao.address,
-    //                 false,
-    //                 parseEther("0.5").toString(),
-    //                 parseEther("0.2").toString(),
-    //                 parseEther("0.1").toString(),
-    //                 parseEther("0.2").toString(),
-    //                 5,
-    //                 "500000000000000001",
-    //                 parseEther("0.5").toString(),
-    //                 300,
-    //                 1000,
-    //                 500
-    //             )
-    //         ).to.be.revertedWithCustomError(SandboxControllerFactory, "InvalidFactors");
-    //     });
-    // });
+        it("reverts if suggestedLockTimeOfSeedReserves=0", async function() {
+            opts.suggestedLockTimeOfSeedReserves = 0;
+            await expect(
+                SandboxControllerFactory.deploy(
+                    opts.admin.address,
+                    opts.dao.address,
+                    opts.feeEnabled,
+                    opts.protocolFactorBorrow,
+                    opts.reserveFactorBorrow,
+                    opts.protocolFactorLiquidation,
+                    opts.reserveFactorLiquidation,
+                    opts.maxCollateralAssets,
+                    opts.targetPercent,
+                    opts.storeFrontPriceFactor,
+                    opts.minUpdateTime,
+                    opts.maxUpdateTime,
+                    opts.suggestedAmountOfSeedReserves,
+                    opts.suggestedLockTimeOfSeedReserves
+                )
+            ).to.be.revertedWithCustomError(SandboxControllerFactory, "InvalidFactors");
+        });
+
+        it("reverts if targetPercent>5e17", async function() {
+            opts.targetPercent = ethers.utils.parseUnits("6", 17).toString();
+            await expect(
+                SandboxControllerFactory.deploy(
+                    opts.admin.address,
+                    opts.dao.address,
+                    opts.feeEnabled,
+                    opts.protocolFactorBorrow,
+                    opts.reserveFactorBorrow,
+                    opts.protocolFactorLiquidation,
+                    opts.reserveFactorLiquidation,
+                    opts.maxCollateralAssets,
+                    opts.targetPercent,
+                    opts.storeFrontPriceFactor,
+                    opts.minUpdateTime,
+                    opts.maxUpdateTime,
+                    opts.suggestedAmountOfSeedReserves,
+                    opts.suggestedLockTimeOfSeedReserves
+                )
+            ).to.be.revertedWithCustomError(SandboxControllerFactory, "InvalidFactors");
+        });
+    });
 
     describe("deployment with typical valid parameters", function() {
         it("verifies initial values after construction", async function() {
