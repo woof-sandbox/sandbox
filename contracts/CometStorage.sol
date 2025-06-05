@@ -188,7 +188,6 @@ contract CometStorage {
     uint104 internal totalBorrowBase;
     uint40 internal lastAccrualTime;
     uint8 internal pauseFlags;
-    uint8 public decimals;
 
     /// @notice The number of assets this contract actually supports
     uint8 public numAssets;
