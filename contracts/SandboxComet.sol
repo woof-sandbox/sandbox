@@ -350,7 +350,7 @@ contract SandboxComet is ISandboxComet {
     ) public view override returns (uint) {
         return
             IERC20NonStandard(asset).balanceOf(address(this)) -
-            totalsCollateral[asset].totalSupplyAsset;
+            totalsCollateral[asset];
     }
 
     /**
@@ -401,7 +401,7 @@ contract SandboxComet is ISandboxComet {
 
                 IConfigController.CollateralTokenConfig memory asset = getAssetInfo(i);
                 uint newAmount = mulPrice(
-                    userCollateral[account][asset.collateralToken].balance,
+                    userCollateral[account][asset.collateralToken],
                     getPrice(asset.priceFeed),
                     asset.scale
                 );
@@ -439,7 +439,7 @@ contract SandboxComet is ISandboxComet {
 
                 IConfigController.CollateralTokenConfig memory asset = getAssetInfo(i);
                 uint newAmount = mulPrice(
-                    userCollateral[account][asset.collateralToken].balance,
+                    userCollateral[account][asset.collateralToken],
                     getPrice(asset.priceFeed),
                     asset.scale
                 );
@@ -623,8 +623,8 @@ contract SandboxComet is ISandboxComet {
     function updateAssetsIn(
         address account,
         uint8 index,
-        uint128 initialUserBalance,
-        uint128 finalUserBalance
+        uint256 initialUserBalance,
+        uint256 finalUserBalance
     ) internal {
         if (initialUserBalance == 0 && finalUserBalance != 0) {
             userBasic[account].assetsIn |= uint24(1) << index;
@@ -838,24 +838,21 @@ contract SandboxComet is ISandboxComet {
         address from,
         address dst,
         address asset,
-        uint128 amount
+        uint256 amount
     ) internal {
-        amount = safe128(doTransferIn(asset, from, amount));
+        amount = doTransferIn(asset, from, amount);
 
-        (
-            IConfigController.CollateralTokenConfig memory assetInfo,
-            uint8 index
-        ) = getAssetInfoByAddress(asset);
-        TotalsCollateral memory totals = totalsCollateral[asset];
-        totals.totalSupplyAsset += amount;
-        if (totals.totalSupplyAsset > assetInfo.supplyCap)
-            revert SupplyCapExceeded();
+        (IConfigController.CollateralTokenConfig memory assetInfo, uint8 index) = getAssetInfoByAddress(asset);
+        uint256 totals = totalsCollateral[asset];
+        totals += amount;
 
-        uint128 dstCollateral = userCollateral[dst][asset].balance;
-        uint128 dstCollateralNew = dstCollateral + amount;
+        if (totals > assetInfo.supplyCap) revert SupplyCapExceeded();
+
+        uint256 dstCollateral = userCollateral[dst][asset];
+        uint256 dstCollateralNew = dstCollateral + amount;
 
         totalsCollateral[asset] = totals;
-        userCollateral[dst][asset].balance = dstCollateralNew;
+        userCollateral[dst][asset] = dstCollateralNew;
 
         updateAssetsIn(dst, index, dstCollateral, dstCollateralNew);
 
@@ -1008,15 +1005,15 @@ contract SandboxComet is ISandboxComet {
         address src,
         address dst,
         address asset,
-        uint128 amount
+        uint256 amount
     ) internal {
-        uint128 srcCollateral = userCollateral[src][asset].balance;
-        uint128 dstCollateral = userCollateral[dst][asset].balance;
-        uint128 srcCollateralNew = srcCollateral - amount;
-        uint128 dstCollateralNew = dstCollateral + amount;
+        uint256 srcCollateral = userCollateral[src][asset];
+        uint256 dstCollateral = userCollateral[dst][asset];
+        uint256 srcCollateralNew = srcCollateral - amount;
+        uint256 dstCollateralNew = dstCollateral + amount;
 
-        userCollateral[src][asset].balance = srcCollateralNew;
-        userCollateral[dst][asset].balance = dstCollateralNew;
+        userCollateral[src][asset] = srcCollateralNew;
+        userCollateral[dst][asset] = dstCollateralNew;
 
         (, uint8 index) = getAssetInfoByAddress(asset);
         updateAssetsIn(src, index, srcCollateral, srcCollateralNew);
@@ -1138,13 +1135,13 @@ contract SandboxComet is ISandboxComet {
         address src,
         address to,
         address asset,
-        uint128 amount
+        uint256 amount
     ) internal {
-        uint128 srcCollateral = userCollateral[src][asset].balance;
-        uint128 srcCollateralNew = srcCollateral - amount;
+        uint256 srcCollateral = userCollateral[src][asset];
+        uint256 srcCollateralNew = srcCollateral - amount;
 
-        totalsCollateral[asset].totalSupplyAsset -= amount;
-        userCollateral[src][asset].balance = srcCollateralNew;
+        totalsCollateral[asset] -= amount;
+        userCollateral[src][asset] = srcCollateralNew;
 
         (, uint8 index) = getAssetInfoByAddress(asset);
         updateAssetsIn(src, index, srcCollateral, srcCollateralNew);
@@ -1193,12 +1190,11 @@ contract SandboxComet is ISandboxComet {
         uint8 nAssets = numAssets;
         for (uint8 i = 0; i < nAssets; ) {
             if (isInAsset(assetsIn, i)) {
-                IConfigController.CollateralTokenConfig
-                    memory assetInfo = getAssetInfo(i);
+                IConfigController.CollateralTokenConfig memory assetInfo = getAssetInfo(i);
                 address asset = assetInfo.collateralToken;
-                uint128 seizeAmount = userCollateral[account][asset].balance;
-                userCollateral[account][asset].balance = 0;
-                totalsCollateral[asset].totalSupplyAsset -= seizeAmount;
+                uint256 seizeAmount = userCollateral[account][asset];
+                userCollateral[account][asset] = 0;
+                totalsCollateral[asset] -= seizeAmount;
 
                 uint256 value = mulPrice(
                     seizeAmount,

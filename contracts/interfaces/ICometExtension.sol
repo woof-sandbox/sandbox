@@ -55,7 +55,7 @@ abstract contract ICometExtension is CometCore {
     function collateralBalanceOf(
         address account,
         address asset
-    ) external view virtual returns (uint128);
+    ) external view virtual returns (uint256);
 
     function baseTrackingAccrued(
         address account

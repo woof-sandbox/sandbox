@@ -863,11 +863,13 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
   }
   
   export async function bumpTotalsCollateral(comet: CometHarness, token: FaucetToken | NonStandardFaucetFeeToken, delta: bigint): Promise<TotalsCollateralStructOutput> {
-    const t0 = await comet.totalsCollateral(token.address);
-    const t1 = Object.assign({}, t0, { totalSupplyAsset: t0.totalSupplyAsset.toBigInt() + delta });
+    const totalCollateralBefore = await comet.totalsCollateral(token.address);
+
+    const totalCollateralAfter = totalCollateralBefore.add(delta);
     await token.allocateTo(comet.address, delta);
-    await wait(comet.setTotalsCollateral(token.address, t1));
-    return t1;
+    await wait(comet.setTotalsCollateral(token.address, totalCollateralAfter));
+
+    return totalCollateralAfter;
   }
   
   export async function setTotalsBasic(comet: CometHarness, overrides = {}): Promise<TotalsBasicStructOutput> {

@@ -20,8 +20,8 @@ contract CometHarness is SandboxComet {
         nowOverride = now_;
     }
 
-    function collateralBalanceOf(address account, address asset) external view returns (uint128) {
-        return userCollateral[account][asset].balance;
+    function collateralBalanceOf(address account, address asset) external view returns (uint256) {
+        return userCollateral[account][asset];
     }
 
     function setTotalsBasic(TotalsBasic memory totals) external {
@@ -36,7 +36,7 @@ contract CometHarness is SandboxComet {
 
     function setTotalsCollateral(
         address asset,
-        TotalsCollateral memory totals
+        uint256 totals
     ) external {
         totalsCollateral[asset] = totals;
     }
@@ -48,14 +48,12 @@ contract CometHarness is SandboxComet {
     function setCollateralBalance(
         address account,
         address asset,
-        uint128 balance
+        uint256 balance
     ) external {
-        uint128 oldBalance = userCollateral[account][asset].balance;
-        userCollateral[account][asset].balance = balance;
-        (
-            IConfigController.CollateralTokenConfig memory assetInfo,
-            uint8 index
-        ) = getAssetInfoByAddress(asset);
+        uint256 oldBalance = userCollateral[account][asset];
+        userCollateral[account][asset] = balance;
+        
+        (IConfigController.CollateralTokenConfig memory assetInfo, uint8 index) = getAssetInfoByAddress(asset);
 
         updateAssetsIn(account, index, oldBalance, balance);
     }

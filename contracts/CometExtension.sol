@@ -103,8 +103,8 @@ contract CometExtension is ICometExtension {
      * @param asset The collateral asset to check the balance for
      * @return The collateral balance of the account
      */
-    function collateralBalanceOf(address account, address asset) override external view returns (uint128) {
-        return userCollateral[account][asset].balance;
+    function collateralBalanceOf(address account, address asset) override external view returns (uint256) {
+        return userCollateral[account][asset];
     }
 
     /**

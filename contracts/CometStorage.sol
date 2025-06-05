@@ -24,21 +24,11 @@ contract CometStorage {
         uint8 pauseFlags;
     }
 
-    struct TotalsCollateral {
-        uint128 totalSupplyAsset;
-        uint128 _reserved;
-    }
-
     struct UserBasic {
         int104 principal;
         uint64 baseTrackingIndex;
         uint64 baseTrackingAccrued;
         uint24 assetsIn;
-    }
-
-    struct UserCollateral {
-        uint128 balance;
-        uint128 _reserved;
     }
 
     /** Internal constants **/
@@ -167,14 +157,8 @@ contract CometStorage {
     /// @notice Seed reserves
     uint public seedReserves;
 
-    /// @notice Suggested reserves
-    uint public suggestedReserves;
-
     /// @notice Unlock timestamp
     uint public unlockTimestamp;
-
-    /// @notice Last reserve balance
-    uint public lastReserveBalance;
 
     /// @notice Factor to divide by when accruing rewards in order to preserve 6 decimals (i.e. baseScale / 1e6)
     uint internal accrualDescaleFactor;
@@ -191,11 +175,11 @@ contract CometStorage {
 
     /// @notice The number of assets this contract actually supports
     uint8 public numAssets;
-
+    /// @notice Marker that the market is closed
     bool internal _closed;
 
     /// @notice Aggregate variables tracked for each collateral asset
-    mapping(address => TotalsCollateral) public totalsCollateral;
+    mapping(address => uint256) public totalsCollateral;
 
     /// @notice Mapping of users to accounts which may be permitted to manage the user account
     mapping(address => mapping(address => bool)) public isAllowed;
@@ -207,7 +191,7 @@ contract CometStorage {
     mapping(address => UserBasic) public userBasic;
 
     /// @notice Mapping of users to collateral data per collateral asset
-    mapping(address => mapping(address => UserCollateral)) public userCollateral;
+    mapping(address => mapping(address => uint)) public userCollateral;
 
     mapping(address => uint8) public collateralAssetIndex;
     mapping(uint8 => address) public collateralAssetAddress;
