@@ -609,7 +609,6 @@ contract SandboxComet is ISandboxComet {
 
     /**
      * @dev Whether user has a non-zero balance of an asset, given assetsIn flags
-     * @dev _reserved is used to check bits 16-23 of assetsIn
      */
     function isInAsset(
         uint24 assetsIn,
