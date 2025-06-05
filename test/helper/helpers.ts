@@ -659,7 +659,8 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
       guardian,
       owner,
       unsupportedToken,
-      seedReserves
+      seedReserves,
+      sandboxController
     };
   };
   

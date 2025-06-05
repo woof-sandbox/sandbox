@@ -39,10 +39,10 @@ describe('updateAssetsIn', function () {
     const { comet, tokens, users } = await makeProtocol({ assets: assetsWithInitial(symbols) });
     const [user] = users;
 
-    const asset12Address = tokens['ASSET24'].address;
+    const asset24Address = tokens['ASSET24'].address;
 
-    await comet.updateAssetsInExternal(user.address, asset12Address, 0, 1);
-    expect(await comet.getAssetList(user.address)).to.deep.equal([asset12Address]);
+    await comet.updateAssetsInExternal(user.address, asset24Address, 0, 1);
+    expect(await comet.getAssetList(user.address)).to.deep.equal([asset24Address]);
   });
 
   it('does not change state when both initialUserBalance and finalUserBalance are 0', async () => {
@@ -83,7 +83,7 @@ describe('updateAssetsIn', function () {
   });
 
   it('reverts for non-existent asset address', async () => {
-    const { comet, users } = await makeProtocol();
+    const { comet, users } = await makeProtocol();assetsWithInitial
     const [user] = users;
 
     const randomAddress = ethers.Wallet.createRandom().address;
