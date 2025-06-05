@@ -61,7 +61,6 @@ contract SandboxComet is ISandboxComet {
 
         baseMinForRewards = comet.options.baseMinForRewards;
 
-        decimals = decimals_;
         accrualDescaleFactor = baseScale / BASE_ACCRUAL_SCALE;
         
         baseBorrowMin = baseBorrowMin_;
