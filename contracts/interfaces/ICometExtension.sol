@@ -67,8 +67,6 @@ abstract contract ICometExtension is CometCore {
 
     function factorScale() external view virtual returns (uint64);
 
-    function priceScale() external view virtual returns (uint64);
-
     function maxAssets() external view virtual returns (uint8);
 
     function totalsBasic() external view virtual returns (TotalsBasic memory);

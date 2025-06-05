@@ -331,7 +331,7 @@ contract SandboxComet is ISandboxComet {
     /**
      * @notice Get the current price from a feed
      * @param priceFeed The address of a price feed
-     * @return The price, scaled by `PRICE_SCALE`
+     * @return The price, scaled by price feed decimals
      */
     function getPrice(
         address priceFeed
@@ -1340,9 +1340,7 @@ contract SandboxComet is ISandboxComet {
      * @return The amount of debt
      **/
     function totalBorrow() public view override returns (uint256) {
-        (, uint64 baseBorrowIndex_) = accruedInterestIndices(
-            getNowInternal() - lastAccrualTime
-        );
+        (, uint64 baseBorrowIndex_) = accruedInterestIndices(getNowInternal() - lastAccrualTime);
         return presentValueBorrow(baseBorrowIndex_, totalBorrowBase);
     }
 

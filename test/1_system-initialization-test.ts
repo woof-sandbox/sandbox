@@ -687,7 +687,7 @@ describe("System Initialization", function() {
 
   });
 
-  describe.only("Sandbox Controller deployment", function() {
+  describe("Sandbox Controller deployment", function() {
     
     beforeEach(async function() {
       opts.dao = dao.address;

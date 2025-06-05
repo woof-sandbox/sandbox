@@ -52,9 +52,6 @@ contract CometStorage {
     ///  Note this cannot just be increased arbitrarily.
     uint8 internal constant MAX_BASE_DECIMALS = 18;
 
-    /// @dev The max value for a collateral factor (1)
-    uint64 internal constant MAX_COLLATERAL_FACTOR = FACTOR_SCALE;
-
     /// @dev Offsets for specific actions in the pause flag bit array
     uint8 internal constant PAUSE_SUPPLY_OFFSET = 0;
     uint8 internal constant PAUSE_TRANSFER_OFFSET = 1;
@@ -74,9 +71,6 @@ contract CometStorage {
     /// @dev The scale for base index (depends on time/rate scales, not base token)
     uint64 internal constant BASE_INDEX_SCALE = 1e15;
 
-    /// @dev The scale for prices (in USD)
-    uint64 internal constant PRICE_SCALE = uint64(10 ** PRICE_FEED_DECIMALS);
-
     /// @dev The scale for factors
     uint64 internal constant FACTOR_SCALE = 1e18;
 
@@ -87,7 +81,6 @@ contract CometStorage {
     /// @dev The reentrancy guard statuses
     uint256 internal constant REENTRANCY_GUARD_NOT_ENTERED = 0;
     uint256 internal constant REENTRANCY_GUARD_ENTERED = 1;
-    uint256 internal constant MIN_TARGET_RESERVES = 1;
 
     /** General configuration constants **/
     /// @notice Config Controller address
