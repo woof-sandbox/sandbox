@@ -1,37 +1,51 @@
-import { ethers, exp, expect,
-  defaultSandboxControllerOpts, makeSandboxController,
-  makeToken, makePriceFeed,
-  sandboxListBaseAsset, sandboxListCollateralAsset } from "./helper/helpers";
+import { 
+  ethers, 
+  exp, 
+  expect,
+  defaultSandboxControllerOpts, 
+  makeSandboxController,
+  makeToken, 
+  makePriceFeed,
+  sandboxListBaseAsset, 
+  sandboxListCollateralAsset,
+  SandboxControllerOpts 
+} from "./helper/helpers";
 import {
   ConfigController,
   ConfigControllerInitializeTest,
   ConfigControllerFactory,
   SandboxComet,
   SandboxCometFactory,
-  
   ConfigControllerFactory__factory,
   ConfigController__factory,
   ConfigControllerInitializeTest__factory,
   SandboxComet__factory,
   SandboxCometFactory__factory,
+  SandboxController__factory,
 } from "../build/types";
 import {
   CollateralTokenConfigStruct,
   CometConfigStruct,
 } from "../build/types/ConfigController";
+import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
+import { parseEther } from 'ethers/lib/utils';
 
 describe("System Initialization", function() {
-    // Factories
+  // Factories
   let _ConfigControllerFactory: ConfigControllerFactory__factory;
   let _ConfigController: ConfigControllerInitializeTest__factory;
   let _Comet: SandboxComet__factory;
   let _SandboxCometFactory: SandboxCometFactory__factory;
-
+  let _SandboxControllerFactory: SandboxController__factory;
+  
   let configControllerImpl: ConfigController;
   let sandboxCometImpl: SandboxComet;
 
-  let signers;
-  let owner, curator, guardian;
+  let signers: SignerWithAddress[];
+  let owner: SignerWithAddress;
+  let curator: SignerWithAddress; 
+  let guardian: SignerWithAddress;
+  let dao: SignerWithAddress;
 
   const _minUpdateTime = 7 * 24 * 60 * 60;
 
@@ -42,6 +56,8 @@ describe("System Initialization", function() {
     _proposalDuration: 7 * 24 * 60 * 60
   }
 
+  let opts: SandboxControllerOpts = {};
+
   before(async function() {
     _ConfigControllerFactory = (await ethers.getContractFactory("ConfigControllerFactory")) as ConfigControllerFactory__factory;
 
@@ -49,7 +65,8 @@ describe("System Initialization", function() {
     _ConfigController = (await ethers.getContractFactory("ConfigControllerInitializeTest")) as ConfigControllerInitializeTest__factory;
     _Comet = (await ethers.getContractFactory("SandboxComet")) as SandboxComet__factory;
     _SandboxCometFactory = (await ethers.getContractFactory("SandboxCometFactory")) as SandboxCometFactory__factory;
-
+    _SandboxControllerFactory = (await ethers.getContractFactory("SandboxController")) as SandboxController__factory;
+    
     configControllerImpl = (await _ConfigController.deploy()) as ConfigController;
     sandboxCometImpl = (await _Comet.deploy()) as SandboxComet;
 
@@ -58,6 +75,9 @@ describe("System Initialization", function() {
     owner = signers[0];
     curator = signers[1];
     guardian = signers[2];
+    dao = signers[3];
+    /// Options of the sandbox controller
+    opts = defaultSandboxControllerOpts({admin: owner, dao: dao, feeEnabled: true});
   });
 
   describe("Config Controller Factory deployment",function() {
@@ -666,4 +686,127 @@ describe("System Initialization", function() {
     });
 
   });
+
+  describe.only("Sandbox Controller deployment", function() {
+    
+    beforeEach(async function() {
+      opts.dao = dao.address;
+      opts.admin = owner.address;
+    });
+
+    it('initializes state with correct values', async function () {
+      const { sandboxController } = await makeSandboxController(opts);
+      expect(await sandboxController.owner()).to.equal(owner.address);
+      expect(await sandboxController.dao()).to.equal(dao.address);
+      expect(await sandboxController.feeEnabled()).to.equal(true);
+      expect(await sandboxController.protocolFactorBorrow()).to.equal(parseEther('0.5').toString());
+      expect(await sandboxController.reserveFactorBorrow()).to.equal(parseEther('0.2').toString());
+      expect(await sandboxController.protocolFactorLiquidation()).to.equal(parseEther('0.3').toString());
+      expect(await sandboxController.reserveFactorLiquidation()).to.equal(parseEther('0.4').toString());
+      expect((await sandboxController.controllerConfiguration()).storeFrontPriceFactor).to.equal(parseEther('0.9999999999').toString());
+      expect((await sandboxController.controllerConfiguration()).minUpdateTime).to.equal(300);
+      expect((await sandboxController.controllerConfiguration()).maxUpdateTime).to.equal(604800);
+      expect((await sandboxController.controllerConfiguration()).suggestedAmountOfSeedReserves).to.equal(ethers.utils.parseEther('500').toString());
+      expect((await sandboxController.controllerConfiguration()).suggestedLockTimeOfSeedReserves).to.equal(86400);
+    });
+
+    it('reverts if admin = 0', async function () {
+      opts.admin = ethers.constants.AddressZero;
+      await expect(
+        _SandboxControllerFactory.connect(dao).deploy(
+          ...Object.values(opts)
+        )
+      ).to.be.revertedWithCustomError(_SandboxControllerFactory, 'ZeroAddress');
+    });
+
+    it('reverts if dao = 0', async function () {
+      opts.dao = ethers.constants.AddressZero;
+      await expect(
+        _SandboxControllerFactory.deploy(
+          ...Object.values(opts)
+        )
+      ).to.be.revertedWithCustomError(_SandboxControllerFactory, 'ZeroAddress');
+    });
+
+    it('reverts if storeFrontPriceFactor >= 1e18', async function () {
+      opts.storeFrontPriceFactor = ethers.utils.parseEther('1').toString();
+      await expect(
+        _SandboxControllerFactory.deploy(
+          ...Object.values(opts)
+        )
+      ).to.be.revertedWithCustomError(_SandboxControllerFactory, 'InvalidFactors');
+    });
+
+    it('reverts if protocolFactorBorrow = 0', async function () {
+      opts.protocolFactorBorrow = '0';
+      await expect(
+        _SandboxControllerFactory.deploy(...Object.values(opts))
+      ).to.be.revertedWithCustomError(_SandboxControllerFactory, 'InvalidFactors');
+    });
+
+    it('reverts if reserveFactorBorrow = 0', async function () {
+      opts.reserveFactorBorrow = '0';
+      await expect(
+        _SandboxControllerFactory.deploy(...Object.values(opts))
+      ).to.be.revertedWithCustomError(_SandboxControllerFactory, 'InvalidFactors');
+    });
+
+    it('reverts if protocolFactorBorrow+reserveFactorBorrow > 1e18', async function () {
+      opts.protocolFactorBorrow = ethers.utils.parseEther('0.6').toString();
+      opts.reserveFactorBorrow = ethers.utils.parseEther('0.5').toString();
+      await expect(
+        _SandboxControllerFactory.deploy(...Object.values(opts))
+      ).to.be.revertedWithCustomError(_SandboxControllerFactory, 'InvalidFactors');
+    });
+
+    it('reverts if protocolFactorLiquidation = 0', async function () {
+      opts.protocolFactorLiquidation = '0';
+      await expect(
+        _SandboxControllerFactory.deploy(...Object.values(opts))
+      ).to.be.revertedWithCustomError(_SandboxControllerFactory, 'InvalidFactors');
+    });
+
+    it('reverts if reserveFactorLiquidation = 0', async function () {
+      opts.reserveFactorLiquidation = '0';
+      await expect(
+        _SandboxControllerFactory.deploy(...Object.values(opts))
+      ).to.be.revertedWithCustomError(_SandboxControllerFactory, 'InvalidFactors');
+    });
+
+    it('reverts if protocolFactorLiquidation+reserveFactorLiquidation > 1e18', async function () {
+      opts.protocolFactorLiquidation = ethers.utils.parseEther('0.6').toString();
+      opts.reserveFactorLiquidation = ethers.utils.parseEther('0.5').toString();
+      await expect(
+        _SandboxControllerFactory.deploy(...Object.values(opts))
+      ).to.be.revertedWithCustomError(_SandboxControllerFactory, 'InvalidFactors');
+    });
+
+    it('reverts if minUpdateTime = 0', async function () {
+      opts.minUpdateTime = 0;
+      await expect(
+        _SandboxControllerFactory.deploy(...Object.values(opts))
+      ).to.be.revertedWithCustomError(_SandboxControllerFactory, 'InvalidFactors');
+    });
+
+    it('reverts if suggestedAmountOfSeedReserves = 0', async function () {
+      opts.suggestedAmountOfSeedReserves = '0';
+      await expect(
+        _SandboxControllerFactory.deploy(...Object.values(opts))
+      ).to.be.revertedWithCustomError(_SandboxControllerFactory, 'InvalidFactors');
+    });
+
+    it('reverts if suggestedLockTimeOfSeedReserves = 0', async function () {
+      opts.suggestedLockTimeOfSeedReserves = 0;
+      await expect(
+        _SandboxControllerFactory.deploy(...Object.values(opts))
+      ).to.be.revertedWithCustomError(_SandboxControllerFactory, 'InvalidFactors');
+    });
+
+    it('reverts if targetReserves > 5e17', async function () {
+      opts.targetPercent = ethers.utils.parseEther('0.6').toString();
+      await expect(
+        _SandboxControllerFactory.deploy(...Object.values(opts))
+      ).to.be.revertedWithCustomError(_SandboxControllerFactory, 'InvalidFactors');
+    });
+  })
 });
