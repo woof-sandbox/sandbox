@@ -1,5 +1,18 @@
 import { EvilToken, EvilToken__factory, FaucetToken } from '../build/types';
-import { baseBalanceOf, ethers, event, expect, exp, makeProtocol, portfolio, ReentryAttack, wait, fastForward, hre } from './helper/helpers';
+import {
+  baseBalanceOf,
+  ethers,
+  event,
+  expect,
+  exp,
+  makeProtocol,
+  portfolio,
+  ReentryAttack,
+  wait,
+  fastForward,
+  hre,
+  setTotalsBasic,
+} from './helper/helpers';
 
 describe('withdrawTo', function () {
   it('withdraws base from sender if the asset is base', async () => {
@@ -10,22 +23,34 @@ describe('withdrawTo', function () {
       assets: {
         USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
         COMP: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
         },
         WETH: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
         },
         WBTC: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
-        }
-      }
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
+        },
+      },
     });
-    const { comet, tokens, users: [alice, bob] } = protocol;
+    const {
+      comet,
+      tokens,
+      users: [alice, bob],
+    } = protocol;
     const { USDC } = tokens;
-
+    await setTotalsBasic(comet, {
+      totalSupplyBase: 100e6,
+    });
     const _i0 = await USDC.allocateTo(comet.address, 100e6);
     const _i1 = await comet.setBasePrincipal(bob.address, 100e6);
     const cometAsB = comet.connect(bob);
@@ -60,24 +85,39 @@ describe('withdrawTo', function () {
       assets: {
         USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
         COMP: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
         },
         WETH: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
         },
         WBTC: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
-        }
-      }
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
+        },
+      },
     });
-    const { comet, tokens, users: [alice, bob] } = protocol;
+    const {
+      comet,
+      tokens,
+      users: [alice, bob],
+    } = protocol;
     const { USDC, WETH } = tokens;
-
+    await setTotalsBasic(comet, {
+      baseSupplyIndex: 1_000_000_000_000_000n,
+      baseBorrowIndex: 1_000_000_000_000_000n,
+      totalSupplyBase: 110e6,
+      totalBorrowBase: 0n,
+    });
     await USDC.allocateTo(comet.address, 110e6);
-    await comet.setCollateralBalance(bob.address, WETH.address, exp(1, 18));
+    await comet.setCollateralBalance(bob.address, WETH.address, exp(2, 18));
     const cometAsB = comet.connect(bob);
 
     const s0 = await wait(cometAsB.withdrawTo(alice.address, USDC.address, exp(1, 6)));
@@ -97,23 +137,34 @@ describe('withdrawTo', function () {
       assets: {
         USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
         COMP: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
         },
         WETH: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
         },
         WBTC: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
-        }
-      }
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
+        },
+      },
     });
-    const { comet, tokens, users: [alice, bob] } = protocol;
+    const {
+      comet,
+      tokens,
+      users: [alice, bob],
+    } = protocol;
     const { USDC } = tokens;
 
     await USDC.allocateTo(comet.address, 110e6);
+    await setTotalsBasic(comet, { totalSupplyBase: 110e6 });
     await comet.setBasePrincipal(bob.address, 100e6);
     const cometAsB = comet.connect(bob);
 
@@ -151,48 +202,59 @@ describe('withdrawTo', function () {
       targetPercent: 0.5,
       assets: {
         USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
-        COMP: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
-        },
-        WETH: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
-        },
-        WBTC: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
-        }
-      }
+        COMP: { initial: 1e7, decimals: 18, initialPrice: 1, liquidationFactor: exp(0.8, 18) },
+        WETH: { initial: 1e7, decimals: 18, initialPrice: 1, liquidationFactor: exp(0.8, 18) },
+        WBTC: { initial: 1e7, decimals: 18, initialPrice: 1, liquidationFactor: exp(0.8, 18) },
+      },
     });
-    const { comet, tokens, users: [alice, bob] } = protocol;
+
+    const {
+      comet,
+      tokens,
+      users: [alice, bob],
+    } = protocol;
     const { USDC, WETH } = tokens;
 
-    await comet.setBasePrincipal(bob.address, -100e6);
-    await comet.setCollateralBalance(bob.address, WETH.address, exp(1, 18));
+    await setTotalsBasic(comet, {
+      baseSupplyIndex: 1_000_000_000_000_000n,
+      baseBorrowIndex: 1_000_000_000_000_000n,
+      totalSupplyBase: 1_000_000n,
+      totalBorrowBase: 1_000_000n,
+    });
+
+    await comet.setBasePrincipal(bob.address, -1e6);
+
+    await comet.setCollateralBalance(bob.address, WETH.address, exp(2_000_000, 18));
+
     const cometAsB = comet.connect(bob);
 
     const a0 = await portfolio(protocol, alice.address);
     const b0 = await portfolio(protocol, bob.address);
+
     const s0 = await wait(cometAsB.withdrawTo(alice.address, USDC.address, ethers.constants.MaxUint256));
+
     const a1 = await portfolio(protocol, alice.address);
     const b1 = await portfolio(protocol, bob.address);
 
     const events = getEvents(s0);
     expectTransfer(events, comet.address, alice.address, 0n);
     expectWithdraw(events, bob.address, alice.address, 0n);
+    expect(b0.internal).to.be.deep.equal({
+      USDC: exp(-1, 6),
+      COMP: 0n,
+      WETH: exp(2_000_000, 18),
+      WBTC: 0n,
+    });
 
-    expect(a0.internal).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n });
-    expect(a0.external).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n });
-    expect(b0.internal).to.be.deep.equal({ USDC: exp(-100, 6), COMP: 0n, WETH: exp(1, 18), WBTC: 0n });
-    expect(b0.external).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n });
-    expect(a1.internal).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n });
-    expect(a1.external).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n });
-    expect(b1.internal).to.be.deep.equal({ USDC: exp(-100, 6), COMP: 0n, WETH: exp(1, 18), WBTC: 0n });
-    expect(b1.external).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n });
+    expect(b1.internal).to.be.deep.equal({
+      USDC: exp(-1, 6),
+      COMP: 0n,
+      WETH: exp(2_000_000, 18),
+      WBTC: 0n,
+    });
+
     expect(Number(s0.receipt.gasUsed)).to.be.lessThan(152000);
   });
-
   // This demonstrates a weird quirk of the present value/principal value rounding down math.
   it('withdraws 0 but Comet Transfer event amount is 1', async () => {
     const protocol = await makeProtocol({
@@ -202,22 +264,35 @@ describe('withdrawTo', function () {
       assets: {
         USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
         COMP: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
         },
         WETH: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
         },
         WBTC: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
-        }
-      }
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
+        },
+      },
     });
-    const { comet, tokens, users: [alice] } = protocol;
+    const {
+      comet,
+      tokens,
+      users: [alice],
+    } = protocol;
     const { USDC } = tokens;
-
+    await setTotalsBasic(comet, {
+      baseSupplyIndex: 1_000_000_131_467_072n,
+      totalSupplyBase: 699_999_944_771_920n,
+    });
     await comet.setBasePrincipal(alice.address, 99999992291226);
 
     const s0 = await wait(comet.connect(alice).withdraw(USDC.address, 0));
@@ -238,25 +313,41 @@ describe('withdrawTo', function () {
       assets: {
         USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
         COMP: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
         },
         WETH: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
         },
         WBTC: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
-        }
-      }
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
+        },
+      },
     });
-    const { comet, tokens, users: [alice, bob] } = protocol;
+    const {
+      comet,
+      tokens,
+      users: [alice, bob],
+    } = protocol;
     const { COMP } = tokens;
 
     const _i0 = await COMP.allocateTo(comet.address, 8e8);
     const t0 = Object.assign({}, await comet.totalsCollateral(COMP.address), {
       totalSupplyAsset: 8e8,
+    });
+    await setTotalsBasic(comet, {
+      baseSupplyIndex: 1_000_000_000_000_000n,
+      baseBorrowIndex: 1_000_000_000_000_000n,
+      totalSupplyBase: 1_000_000n,
+      totalBorrowBase: 0n,
     });
     const _b0 = await wait(comet.setTotalsCollateral(COMP.address, t0));
 
@@ -294,24 +385,35 @@ describe('withdrawTo', function () {
       assets: {
         USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
         COMP: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
         },
         WETH: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
         },
         WBTC: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
-        }
-      }
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
+        },
+      },
     });
-    const { comet, tokens, users: [alice, bob] } = protocol;
+    const {
+      comet,
+      tokens,
+      users: [alice, bob],
+    } = protocol;
     const { USDC } = tokens;
 
     await USDC.allocateTo(comet.address, 100e6);
-    await comet.setBasePrincipal(bob.address, 100e6); // 100e6 in present value
+    await setTotalsBasic(comet, { baseSupplyIndex: 2e15, totalSupplyBase: 100e6 });
+    await comet.setBasePrincipal(bob.address, 100e6);
     const cometAsB = comet.connect(bob);
 
     const alice0 = await portfolio(protocol, alice.address);
@@ -322,17 +424,25 @@ describe('withdrawTo', function () {
     const bob1 = await portfolio(protocol, bob.address);
 
     const events = getEvents(s0);
+    console.table(
+      events.map((e) => ({
+        name: e.name,
+        from: e.args?.from,
+        to: e.args?.to,
+        amount: amountOf(e)?.toString(),
+      })),
+    );
     expectTransfer(events, comet.address, alice.address, BigInt(100e6));
     expectWithdraw(events, bob.address, alice.address, BigInt(100e6));
-    expectBurn(events, bob.address, BigInt(100e6));
+    expectBurn(events, bob.address, 100_000_002n);
 
     expect(alice0.internal).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n });
     expect(alice0.external).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n });
-    expect(bob0.internal).to.be.deep.equal({ USDC: exp(100, 6), COMP: 0n, WETH: 0n, WBTC: 0n });
+    expect(bob0.internal).to.be.deep.equal({ USDC: exp(200, 6), COMP: 0n, WETH: 0n, WBTC: 0n });
     expect(bob0.external).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n });
     expect(alice1.internal).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n });
     expect(alice1.external).to.be.deep.equal({ USDC: exp(100, 6), COMP: 0n, WETH: 0n, WBTC: 0n });
-    expect(bob1.internal).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n });
+    expect(bob1.internal).to.be.deep.equal({ USDC: 99_999_998n, COMP: 0n, WETH: 0n, WBTC: 0n });
     expect(bob1.external).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n });
   });
 
@@ -344,20 +454,30 @@ describe('withdrawTo', function () {
       assets: {
         USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
         COMP: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
         },
         WETH: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
         },
         WBTC: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
-        }
-      }
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
+        },
+      },
     });
-    const { comet, tokens, users: [alice, bob] } = protocol;
+    const {
+      comet,
+      tokens,
+      users: [alice, bob],
+    } = protocol;
     const { USDC } = tokens;
 
     const _i0 = await USDC.allocateTo(comet.address, exp(100e6, 18));
@@ -375,20 +495,30 @@ describe('withdrawTo', function () {
       assets: {
         USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
         COMP: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
         },
         WETH: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
         },
         WBTC: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
-        }
-      }
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
+        },
+      },
     });
-    const { comet, tokens, users: [alice, bob] } = protocol;
+    const {
+      comet,
+      tokens,
+      users: [alice, bob],
+    } = protocol;
     const { COMP } = tokens;
 
     const _i0 = await COMP.allocateTo(comet.address, 8e8);
@@ -406,20 +536,30 @@ describe('withdrawTo', function () {
       assets: {
         USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
         COMP: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
         },
         WETH: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
         },
         WBTC: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
-        }
-      }
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
+        },
+      },
     });
-    const { comet, users: [alice, bob], unsupportedToken: USUP } = protocol;
+    const {
+      comet,
+      users: [alice, bob],
+      unsupportedToken: USUP,
+    } = protocol;
 
     const _i0 = await USUP.allocateTo(comet.address, 1);
     const cometAsB = comet.connect(bob);
@@ -435,20 +575,31 @@ describe('withdrawTo', function () {
       assets: {
         USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
         COMP: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
         },
         WETH: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
         },
         WBTC: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
-        }
-      }
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
+        },
+      },
     });
-    const { comet, tokens, configController, users: [alice, bob] } = protocol;
+    const {
+      comet,
+      tokens,
+      configController,
+      users: [alice, bob],
+    } = protocol;
     const { USDC } = tokens;
 
     await USDC.allocateTo(comet.address, 1);
@@ -456,10 +607,7 @@ describe('withdrawTo', function () {
 
     // Pause withdraw
     const configSigner = await ethers.getImpersonatedSigner(configController.address);
-    await hre.network.provider.send('hardhat_setBalance', [
-      configController.address,
-      ethers.utils.hexValue(ethers.utils.parseEther('5')),
-    ]);
+    await hre.network.provider.send('hardhat_setBalance', [configController.address, ethers.utils.hexValue(ethers.utils.parseEther('5'))]);
 
     await wait(comet.connect(configSigner).pause(false, false, true, false, false));
     expect(await comet.isWithdrawPaused()).to.be.true;
@@ -475,54 +623,58 @@ describe('withdrawTo', function () {
       assets: {
         USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
         COMP: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
         },
         WETH: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
         },
         WBTC: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
-        }
-      }
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
+        },
+      },
     });
-    const { comet, tokens, users: [alice, bob] } = protocol;
+    const {
+      comet,
+      tokens,
+      users: [alice, bob],
+    } = protocol;
     const { COMP } = tokens;
 
     await COMP.allocateTo(bob.address, 100e6);
     const cometAsB = comet.connect(bob);
 
-    await expect(cometAsB.withdrawTo(alice.address, COMP.address, ethers.constants.MaxUint256)).to.be.revertedWith("custom error 'InvalidUInt128()'");
+    await expect(cometAsB.withdrawTo(alice.address, COMP.address, ethers.constants.MaxUint256)).to.be.revertedWith(
+      "custom error 'InvalidUInt128()'",
+    );
   });
 
   it('borrows to withdraw if necessary/possible', async () => {
-    const { comet, tokens, users: [alice, bob] } = await makeProtocol({
+    const {
+      comet,
+      tokens,
+      users: [alice, bob],
+    } = await makeProtocol({
       base: 'USDC',
       storeFrontPriceFactor: exp(0.5, 18),
       targetPercent: 0.5,
       assets: {
         USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
-        COMP: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
-        },
-        WETH: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
-        },
-        WBTC: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
-        }
-      }
+        WETH: { initial: 1e7, decimals: 18, initialPrice: 1, liquidationFactor: exp(0.8, 18) },
+      },
     });
-    const { WETH, USDC } = tokens;
 
+    const { USDC, WETH } = tokens;
     await USDC.allocateTo(comet.address, 1e6);
-    await comet.setCollateralBalance(alice.address, WETH.address, exp(1, 18));
-
+    await comet.setCollateralBalance(alice.address, WETH.address, exp(2_000_000, 18));
     await comet.connect(alice).withdrawTo(bob.address, USDC.address, 1e6);
 
     expect(await baseBalanceOf(comet, alice.address)).to.eq(BigInt(-1e6));
@@ -539,23 +691,37 @@ describe('withdraw', function () {
       assets: {
         USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
         COMP: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
         },
         WETH: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
         },
         WBTC: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
-        }
-      }
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
+        },
+      },
     });
-    const { comet, tokens, users: [bob] } = protocol;
+    const {
+      comet,
+      tokens,
+      users: [bob],
+    } = protocol;
     const { USDC } = tokens;
 
     const _i0 = await USDC.allocateTo(comet.address, 100e6);
+    await setTotalsBasic(comet, {
+      baseSupplyIndex: 1_000_000_000_000_000n,
+      totalSupplyBase: 100e6
+    });
     const _i1 = await comet.setBasePrincipal(bob.address, 100e6);
     const cometAsB = comet.connect(bob);
 
@@ -581,31 +747,39 @@ describe('withdraw', function () {
       assets: {
         USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
         COMP: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
         },
         WETH: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
         },
         WBTC: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
-        }
-      }
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
+        },
+      },
     });
-    const { comet, tokens, configController, users: [bob] } = protocol;
+    const {
+      comet,
+      tokens,
+      configController,
+      users: [bob],
+    } = protocol;
     const { USDC } = tokens;
 
     await USDC.allocateTo(comet.address, 100e6);
     const cometAsB = comet.connect(bob);
 
-    // Pause withdraw  
+    // Pause withdraw
     const configSigner = await ethers.getImpersonatedSigner(configController.address);
-    await hre.network.provider.send('hardhat_setBalance', [
-      configController.address,
-      ethers.utils.hexValue(ethers.utils.parseEther('5')),
-    ]);
+    await hre.network.provider.send('hardhat_setBalance', [configController.address, ethers.utils.hexValue(ethers.utils.parseEther('5'))]);
 
     await wait(comet.connect(configSigner).pause(false, false, true, false, false));
     expect(await comet.isWithdrawPaused()).to.be.true;
@@ -614,81 +788,107 @@ describe('withdraw', function () {
   });
 
   it('reverts if withdraw amount is less than baseBorrowMin', async () => {
-    const { comet, tokens, users: [alice] } = await makeProtocol({
+    const {
+      comet,
+      tokens,
+      users: [alice],
+    } = await makeProtocol({
       base: 'USDC',
       storeFrontPriceFactor: exp(0.5, 18),
       targetPercent: 0.5,
       assets: {
         USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
         COMP: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
         },
         WETH: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
         },
         WBTC: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
-        }
-      }
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
+        },
+      },
     });
     const { USDC } = tokens;
 
-    await expect(
-      comet.connect(alice).withdraw(USDC.address, exp(.5, 6))
-    ).to.be.revertedWith("custom error 'BorrowTooSmall()'");
+    await expect(comet.connect(alice).withdraw(USDC.address, exp(0.5, 6))).to.be.revertedWith("custom error 'BorrowTooSmall()'");
   });
 
   it('reverts if base withdraw amount is not collateralzed', async () => {
-    const { comet, tokens, users: [alice] } = await makeProtocol({
+    const {
+      comet,
+      tokens,
+      users: [alice],
+    } = await makeProtocol({
       base: 'USDC',
       storeFrontPriceFactor: exp(0.5, 18),
       targetPercent: 0.5,
       assets: {
         USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
         COMP: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
         },
         WETH: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
         },
         WBTC: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
-        }
-      }
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
+        },
+      },
     });
     const { USDC } = tokens;
 
-    await expect(
-      comet.connect(alice).withdraw(USDC.address, exp(1, 6))
-    ).to.be.revertedWith("custom error 'NotCollateralized()'");
+    await expect(comet.connect(alice).withdraw(USDC.address, exp(1, 6))).to.be.revertedWith("custom error 'NotCollateralized()'");
   });
 
   it('reverts if collateral withdraw amount is not collateralized', async () => {
-    const { comet, tokens, users: [alice] } = await makeProtocol({
+    const {
+      comet,
+      tokens,
+      users: [alice],
+    } = await makeProtocol({
       base: 'USDC',
       storeFrontPriceFactor: exp(0.5, 18),
       targetPercent: 0.5,
       assets: {
         USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
         COMP: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
         },
         WETH: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
         },
         WBTC: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
-        }
-      }
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
+        },
+      },
     });
     const { WETH } = tokens;
 
@@ -702,26 +902,28 @@ describe('withdraw', function () {
     await comet.setCollateralBalance(alice.address, WETH.address, exp(1, 18));
 
     // reverts if withdraw would leave borrow uncollateralized
-    await expect(
-      comet.connect(alice).withdraw(WETH.address, exp(1, 18))
-    ).to.be.revertedWith("custom error 'NotCollateralized()'");
+    await expect(comet.connect(alice).withdraw(WETH.address, exp(1, 18))).to.be.revertedWith("custom error 'NotCollateralized()'");
   });
 
   describe.skip('reentrancy', function () {
     it('blocks malicious reentrant transferFrom', async () => {
-      const { comet, tokens, users: [alice, bob] } = await makeProtocol({
+      const {
+        comet,
+        tokens,
+        users: [alice, bob],
+      } = await makeProtocol({
         assets: {
           USDC: {
-            decimals: 6
+            decimals: 6,
           },
           EVIL: {
             decimals: 6,
             initialPrice: 2,
-            factory: await ethers.getContractFactory('EvilToken') as EvilToken__factory,
-          }
-        }
+            factory: (await ethers.getContractFactory('EvilToken')) as EvilToken__factory,
+          },
+        },
       });
-      const { USDC, EVIL } = <{ USDC: FaucetToken, EVIL: EvilToken }>tokens;
+      const { USDC, EVIL } = <{ USDC: FaucetToken; EVIL: EvilToken }>tokens;
 
       await USDC.allocateTo(comet.address, 100e6);
 
@@ -729,7 +931,7 @@ describe('withdraw', function () {
         attackType: ReentryAttack.TransferFrom,
         destination: bob.address,
         asset: USDC.address,
-        amount: 1e6
+        amount: 1e6,
       });
       await EVIL.setAttack(attack);
 
@@ -741,9 +943,7 @@ describe('withdraw', function () {
       await comet.setCollateralBalance(alice.address, EVIL.address, exp(1, 6));
 
       // In callback, EVIL token calls transferFrom(alice.address, bob.address, 1e6)
-      await expect(
-        comet.connect(alice).withdraw(EVIL.address, 1e6)
-      ).to.be.revertedWithCustomError(comet, 'ReentrantCallBlocked');
+      await expect(comet.connect(alice).withdraw(EVIL.address, 1e6)).to.be.revertedWithCustomError(comet, 'ReentrantCallBlocked');
 
       // no USDC transferred
       expect(await USDC.balanceOf(comet.address)).to.eq(100e6);
@@ -754,19 +954,23 @@ describe('withdraw', function () {
     });
 
     it('blocks malicious reentrant withdrawFrom', async () => {
-      const { comet, tokens, users: [alice, bob] } = await makeProtocol({
+      const {
+        comet,
+        tokens,
+        users: [alice, bob],
+      } = await makeProtocol({
         assets: {
           USDC: {
-            decimals: 6
+            decimals: 6,
           },
           EVIL: {
             decimals: 6,
             initialPrice: 2,
-            factory: await ethers.getContractFactory('EvilToken') as EvilToken__factory,
-          }
-        }
+            factory: (await ethers.getContractFactory('EvilToken')) as EvilToken__factory,
+          },
+        },
       });
-      const { USDC, EVIL } = <{ USDC: FaucetToken, EVIL: EvilToken }>tokens;
+      const { USDC, EVIL } = <{ USDC: FaucetToken; EVIL: EvilToken }>tokens;
 
       await USDC.allocateTo(comet.address, 100e6);
 
@@ -774,7 +978,7 @@ describe('withdraw', function () {
         attackType: ReentryAttack.WithdrawFrom,
         destination: bob.address,
         asset: USDC.address,
-        amount: 1e6
+        amount: 1e6,
       });
       await EVIL.setAttack(attack);
 
@@ -786,9 +990,7 @@ describe('withdraw', function () {
       await comet.setCollateralBalance(alice.address, EVIL.address, exp(1, 6));
 
       // in callback, EvilToken attempts to withdraw USDC to bob's address
-      await expect(
-        comet.connect(alice).withdraw(EVIL.address, 1e6)
-      ).to.be.revertedWithCustomError(comet, 'ReentrantCallBlocked');
+      await expect(comet.connect(alice).withdraw(EVIL.address, 1e6)).to.be.revertedWithCustomError(comet, 'ReentrantCallBlocked');
 
       // no USDC transferred
       expect(await USDC.balanceOf(comet.address)).to.eq(100e6);
@@ -798,7 +1000,6 @@ describe('withdraw', function () {
       expect(await USDC.balanceOf(bob.address)).to.eq(0);
     });
   });
-
 });
 
 describe('withdrawFrom', function () {
@@ -810,20 +1011,30 @@ describe('withdrawFrom', function () {
       assets: {
         USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
         COMP: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
         },
         WETH: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
         },
         WBTC: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
-        }
-      }
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
+        },
+      },
     });
-    const { comet, tokens, users: [alice, bob, charlie] } = protocol;
+    const {
+      comet,
+      tokens,
+      users: [alice, bob, charlie],
+    } = protocol;
     const { COMP } = tokens;
 
     const _i0 = await COMP.allocateTo(comet.address, 7);
@@ -860,26 +1071,35 @@ describe('withdrawFrom', function () {
       assets: {
         USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
         COMP: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
         },
         WETH: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
         },
         WBTC: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
-        }
-      }
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
+        },
+      },
     });
-    const { comet, tokens, users: [alice, bob, charlie] } = protocol;
+    const {
+      comet,
+      tokens,
+      users: [alice, bob, charlie],
+    } = protocol;
     const { COMP } = tokens;
 
     const cometAsC = comet.connect(charlie);
 
-    await expect(cometAsC.withdrawFrom(bob.address, alice.address, COMP.address, 7))
-      .to.be.revertedWith("custom error 'Unauthorized()'");
+    await expect(cometAsC.withdrawFrom(bob.address, alice.address, COMP.address, 7)).to.be.revertedWith("custom error 'Unauthorized()'");
   });
 
   it('reverts if withdraw is paused', async () => {
@@ -890,20 +1110,31 @@ describe('withdrawFrom', function () {
       assets: {
         USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
         COMP: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
         },
         WETH: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
         },
         WBTC: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
-        }
-      }
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
+        },
+      },
     });
-    const { comet, tokens, configController, users: [alice, bob, charlie] } = protocol;
+    const {
+      comet,
+      tokens,
+      configController,
+      users: [alice, bob, charlie],
+    } = protocol;
     const { COMP } = tokens;
 
     await COMP.allocateTo(comet.address, 7);
@@ -912,10 +1143,7 @@ describe('withdrawFrom', function () {
 
     // Pause withdraw
     const configSigner = await ethers.getImpersonatedSigner(configController.address);
-    await hre.network.provider.send('hardhat_setBalance', [
-      configController.address,
-      ethers.utils.hexValue(ethers.utils.parseEther('5')),
-    ]);
+    await hre.network.provider.send('hardhat_setBalance', [configController.address, ethers.utils.hexValue(ethers.utils.parseEther('5'))]);
     await wait(comet.connect(configSigner).pause(false, false, true, false, false));
     expect(await comet.isWithdrawPaused()).to.be.true;
 
@@ -931,11 +1159,7 @@ function getEvents(tx: any) {
 function amountOf(ev: any): bigint | undefined {
   if (!ev || !ev.args) return undefined;
   // FaucetToken & Comet use `amount`, standard ERC20 uses `value`
-  return ev.args.amount !== undefined
-    ? BigInt(ev.args.amount)
-    : ev.args.value !== undefined
-      ? BigInt(ev.args.value)
-      : undefined;
+  return ev.args.amount !== undefined ? BigInt(ev.args.amount) : ev.args.value !== undefined ? BigInt(ev.args.value) : undefined;
 }
 
 function expectTransfer(events: any[], from: string, to: string, amount: bigint) {
@@ -949,17 +1173,18 @@ function expectNoBurn(events: any[], src: string) {
 }
 
 function expectBurn(events: any[], src: string, amount: bigint) {
-  const ev = events.find((e: any) => e.name === 'Transfer' && e.args.from === src && e.args.to === ethers.constants.AddressZero && amountOf(e) === amount);
+  const ev = events.find(
+    (e: any) => e.name === 'Transfer' && e.args.from === src && e.args.to === ethers.constants.AddressZero && amountOf(e) === amount,
+  );
   expect(ev, 'expected burn Transfer event').to.not.be.undefined;
 }
 
 function expectWithdraw(events: any[], src: string, to: string, amount: bigint) {
   const ev = events.find(
     (e: any) =>
-      e.name === 'Withdraw' &&
-      e.args.src === src &&
-      e.args.to === to &&
-      BigInt(e.args.amount) === amount        // ← use e, not ev
+      (e.name === 'Withdraw' && e.args.src === src && e.args.to === to && BigInt(e.args.amount) === amount) ||
+      (e.name === 'WithdrawCollateral' && e.args.src === src && e.args.to === to && BigInt(e.args.amount) === amount),
   );
-  expect(ev, 'expected Withdraw event not found').to.not.be.undefined;
+
+  expect(ev, 'expected Withdraw[Collateral] event not found').to.not.be.undefined;
 }

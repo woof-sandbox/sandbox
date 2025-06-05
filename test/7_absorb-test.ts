@@ -361,8 +361,6 @@ describe('absorb', function () {
     expect(basePaidOut).to.equal(ethers.BigNumber.from(-START_DEBT));
   });
 
-
-
   it('reverts if an account is not underwater', async () => {
     const { comet, users: [alice, bob] } = await makeProtocol({
       base: 'USDC', targetPercent: 0.5,
