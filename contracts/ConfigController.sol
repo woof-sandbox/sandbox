@@ -136,6 +136,20 @@ contract ConfigController is IConfigController {
         _proposeCurator(_curator);
     }
 
+    /// @notice Set speeds for a specific comet
+    /// @dev Only callable by the ownerAdd commentMore actions
+    /// @param comet The address of the comet
+    /// @param baseTrackingSupplySpeed_ The new base tracking supply speed
+    /// @param baseTrackingBorrowSpeed_ The new base tracking borrow speed
+    function setSpeeds(
+        address comet,
+        uint baseTrackingSupplySpeed_,
+        uint baseTrackingBorrowSpeed_
+    ) external override onlyOwner {
+        if (!_isCometOwned(comet)) revert CometNotOwned();
+        ISandboxComet(comet).setBaseSpeeds(baseTrackingSupplySpeed_, baseTrackingBorrowSpeed_);
+    }
+
     /// @notice Creates a new comet with the specified configuration
     /// @dev Only callable by the owner
     /// @param _cometConfig The configuration parameters for the new comet

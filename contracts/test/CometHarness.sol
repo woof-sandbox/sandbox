@@ -70,6 +70,8 @@ contract CometHarness is SandboxComet {
                 baseBorrowIndex: baseBorrowIndex,
                 trackingSupplyIndex: trackingSupplyIndex,
                 trackingBorrowIndex: trackingBorrowIndex,
+                daoTrackingSupplyIndex: daoTrackingSupplyIndex,
+                daoTrackingBorrowIndex: daoTrackingBorrowIndex,
                 totalSupplyBase: totalSupplyBase,
                 totalBorrowBase: totalBorrowBase,
                 lastAccrualTime: lastAccrualTime,

@@ -752,9 +752,7 @@ export const makeProtocol = async (opts: ProtocolOpts = {}) => {
 
   await baseToken.allocateTo(owner.address, seedReserves);
   await baseToken.approve(configController.address, seedReserves);
-  console.log(
-    `Approved ${seedReserves} of ${await baseToken.symbol()} to ConfigController`
-  );
+  
   const market = await createComet2(
     opts,
     configController,
@@ -762,7 +760,6 @@ export const makeProtocol = async (opts: ProtocolOpts = {}) => {
     baseToken,
     priceFeeds
   );
-  console.log("Market address:", market);
 
   const comet = (await ethers.getContractAt(
     "CometHarness",

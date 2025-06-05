@@ -189,6 +189,12 @@ abstract contract IConfigController {
         address indexed newController
     );
 
+    function setSpeeds(
+        address _comet,
+        uint _baseTrackingSupplySpeed,
+        uint _baseTrackingBorrowSpeed
+    ) virtual external;
+
     /// @notice Returns the current curator fee in basis points (1% = 100)
     /// @return The curator fee value
     function curatorFee() virtual external view returns (uint);

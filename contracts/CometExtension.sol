@@ -54,6 +54,8 @@ contract CometExtension is ICometExtension {
             baseBorrowIndex: baseBorrowIndex,
             trackingSupplyIndex: trackingSupplyIndex,
             trackingBorrowIndex: trackingBorrowIndex,
+            daoTrackingSupplyIndex: daoTrackingSupplyIndex,
+            daoTrackingBorrowIndex: daoTrackingBorrowIndex,
             totalSupplyBase: totalSupplyBase,
             totalBorrowBase: totalBorrowBase,
             lastAccrualTime: lastAccrualTime,

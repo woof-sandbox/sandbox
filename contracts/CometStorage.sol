@@ -17,6 +17,8 @@ contract CometStorage {
         uint64 baseBorrowIndex;
         uint64 trackingSupplyIndex;
         uint64 trackingBorrowIndex;
+        uint64 daoTrackingSupplyIndex;
+        uint64 daoTrackingBorrowIndex;
         // 2nd slot
         uint104 totalSupplyBase;
         uint104 totalBorrowBase;
@@ -58,6 +60,8 @@ contract CometStorage {
         int104 principal;
         uint64 baseTrackingIndex;
         uint64 baseTrackingAccrued;
+        uint64 daoBaseTrackingIndex;
+        uint64 daoBaseTrackingAccrued;
         uint16 assetsIn;
         uint8 _reserved;
     }
@@ -81,6 +85,8 @@ contract CometStorage {
     /// @dev Aggregate variables tracked for the entire market
     uint64 internal baseSupplyIndex;
     uint64 internal baseBorrowIndex;
+    uint64 public daoTrackingSupplyIndex; 
+    uint64 public daoTrackingBorrowIndex;
     uint64 internal trackingSupplyIndex;
     uint64 internal trackingBorrowIndex;
     uint104 internal totalSupplyBase;

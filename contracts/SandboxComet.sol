@@ -6,6 +6,7 @@ import "./interfaces/IERC20NonStandard.sol";
 import "./interfaces/IPriceFeed.sol";
 import "./interfaces/IConfigController.sol";
 import "./interfaces/ISandboxController.sol";
+
 /**
  * @title Compound's Comet Contract
  * @notice An efficient monolithic money comet protocol
@@ -82,6 +83,9 @@ contract SandboxComet is ISandboxComet {
     /// @notice The speed at which borrow rewards are tracked (in trackingIndexScale)
     /// @dev uint64
     uint public override baseTrackingBorrowSpeed;
+
+    uint public override daoBaseTrackingSupplySpeed;
+    uint public override daoBaseTrackingBorrowSpeed;
 
     /// @notice The minimum amount of base principal wei for rewards to accrue
     /// @dev This must be large enough so as to prevent division by base wei from overflowing the 64 bit indices
@@ -289,6 +293,46 @@ contract SandboxComet is ISandboxComet {
         return uint40(block.timestamp);
     }
 
+    /**Add commentMore actions
+     * @notice Set the base tracking supply and borrow speeds
+     * @param baseTrackingSupplySpeed_ The new base tracking supply speed
+     * @param baseTrackingBorrowSpeed_ The new base tracking borrow speed
+     */
+    function setBaseSpeeds(
+        uint256 baseTrackingSupplySpeed_,
+        uint256 baseTrackingBorrowSpeed_
+    ) external override {
+        if (msg.sender != configController) revert Unauthorized();
+        baseTrackingSupplySpeed = baseTrackingSupplySpeed_;
+        baseTrackingBorrowSpeed = baseTrackingBorrowSpeed_;
+
+        emit BaseSpeedsChanged(
+            baseTrackingSupplySpeed_,
+            baseTrackingBorrowSpeed_
+        );
+    }
+
+    /**
+     * @notice Set the DAO base tracking supply and borrow speeds
+     * @param daoBaseTrackingSupplySpeed_ The new DAO base tracking supply speed
+     * @param daoBaseTrackingBorrowSpeed_ The new DAO base tracking borrow speed
+     */
+    function setDaoBaseSpeeds(
+        uint256 daoBaseTrackingSupplySpeed_,
+        uint256 daoBaseTrackingBorrowSpeed_
+    ) external override {
+        address dao = ISandboxController(sandboxController).dao();
+        
+        if (msg.sender != dao) revert Unauthorized();
+        daoBaseTrackingSupplySpeed = daoBaseTrackingSupplySpeed_;
+        daoBaseTrackingBorrowSpeed = daoBaseTrackingBorrowSpeed_;
+
+        emit DaoSpeedsChanged(
+            daoBaseTrackingSupplySpeed_,
+            daoBaseTrackingBorrowSpeed_
+        );
+    }
+
     /**
      * @dev Calculate accrued interest indices for base token supply and borrows
      **/
@@ -311,33 +355,23 @@ contract SandboxComet is ISandboxComet {
         return (baseSupplyIndex_, baseBorrowIndex_);
     }
 
-    function accrueInternal() internal {
+     function accrueInternal() internal {
         uint40 now_ = getNowInternal();
         uint timeElapsed = uint256(now_ - lastAccrualTime);
+        if (timeElapsed == 0) return;
 
-     
-        if (timeElapsed != 0) {
-            (baseSupplyIndex, baseBorrowIndex) = accruedInterestIndices(
-                timeElapsed
-            );
-            if (totalSupplyBase >= baseMinForRewards) {
-                trackingSupplyIndex += safe64(
-                    divBaseWei(
-                        baseTrackingSupplySpeed * timeElapsed,
-                        totalSupplyBase
-                    )
-                );
-            }
-            if (totalBorrowBase >= baseMinForRewards) {
-                trackingBorrowIndex += safe64(
-                    divBaseWei(
-                        baseTrackingBorrowSpeed * timeElapsed,
-                        totalBorrowBase
-                    )
-                );
-            }
-            lastAccrualTime = now_;
+        (baseSupplyIndex, baseBorrowIndex) = accruedInterestIndices(timeElapsed);
+
+        if (totalSupplyBase >= baseMinForRewards) {
+            trackingSupplyIndex    += safe64(divBaseWei(baseTrackingSupplySpeed    * timeElapsed, totalSupplyBase));
+            daoTrackingSupplyIndex += safe64(divBaseWei(daoBaseTrackingSupplySpeed * timeElapsed, totalSupplyBase));
         }
+        if (totalBorrowBase >= baseMinForRewards) {
+            trackingBorrowIndex    += safe64(divBaseWei(baseTrackingBorrowSpeed    * timeElapsed, totalBorrowBase));
+            daoTrackingBorrowIndex += safe64(divBaseWei(daoBaseTrackingBorrowSpeed * timeElapsed, totalBorrowBase));
+        }
+
+        lastAccrualTime = now_;
     }
 
     /**
@@ -805,40 +839,31 @@ contract SandboxComet is ISandboxComet {
     /**
      * @dev Write updated principal to store and tracking participation
      */
-    function updateBasePrincipal(
-        address account,
-        UserBasic memory basic,
-        int104 principalNew
-    ) internal {
-        int104 principal = basic.principal;
-        basic.principal = principalNew;
-
-        if (principal >= 0) {
-            uint indexDelta = uint256(
-                trackingSupplyIndex - basic.baseTrackingIndex
-            );
-            basic.baseTrackingAccrued += safe64(
-                (uint104(principal) * indexDelta) /
-                    trackingIndexScale /
-                    accrualDescaleFactor
-            );
-        } else {
-            uint indexDelta = uint256(
-                trackingBorrowIndex - basic.baseTrackingIndex
-            );
-            basic.baseTrackingAccrued += safe64(
-                (uint104(-principal) * indexDelta) /
-                    trackingIndexScale /
-                    accrualDescaleFactor
-            );
+    function updateBasePrincipal(address account, UserBasic memory basic, int104 principalNew) internal {
+        int104 principalOld = basic.principal;
+        bool   positive     = principalOld >= 0;
+        uint64 marketIdx = positive ? trackingSupplyIndex : trackingBorrowIndex;
+        uint   delta     = uint(marketIdx - basic.baseTrackingIndex);
+        if (delta != 0) {
+            basic.baseTrackingAccrued += safe64(uint104(positive ? principalOld : -principalOld) * delta / trackingIndexScale / accrualDescaleFactor);
+            basic.baseTrackingIndex    = marketIdx;
         }
 
+        uint64 daoIdx = positive ? daoTrackingSupplyIndex : daoTrackingBorrowIndex;
+        uint   dDelta = uint(daoIdx - basic.daoBaseTrackingIndex);
+        if (dDelta != 0) {
+            basic.daoBaseTrackingAccrued += safe64(uint104(positive ? principalOld : -principalOld) * dDelta / trackingIndexScale / accrualDescaleFactor);
+            basic.daoBaseTrackingIndex    = daoIdx;
+        }
+
+        basic.principal = principalNew;
         if (principalNew >= 0) {
             basic.baseTrackingIndex = trackingSupplyIndex;
+            basic.daoBaseTrackingIndex = daoTrackingSupplyIndex;
         } else {
             basic.baseTrackingIndex = trackingBorrowIndex;
+            basic.daoBaseTrackingIndex = daoTrackingBorrowIndex;
         }
-
         userBasic[account] = basic;
     }
 
