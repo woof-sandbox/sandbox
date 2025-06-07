@@ -85,7 +85,6 @@ abstract contract ISandboxController is ISandboxErrors {
     function reserveFactorBorrow() external view virtual returns (uint256);
     function protocolFactorLiquidation() external view virtual returns (uint256);
     function reserveFactorLiquidation() external view virtual returns (uint256);
-    function maxCollateralAssets() external view virtual returns (uint256);
     function getBaseAssetLength() external view virtual returns (uint256);
     function getCollateralAssetLength() external view virtual returns (uint256);
     function treasury() external view virtual returns (address);

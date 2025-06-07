@@ -664,6 +664,7 @@ async function createComet2(
         liquidateCollateralFactor: assetConfig?.liquidateCF ?? exp(0.7, 18),
         liquidationFactor: assetConfig?.liquidationFactor ?? exp(0.8, 18),
         supplyCap: assetConfig?.supplyCap ?? exp(1e9, 18),
+        scale: 0n,
       });
     }
   }
@@ -677,10 +678,11 @@ async function createComet2(
       baseTrackingSupplySpeed: opts.baseTrackingSupplySpeed ?? 1e15,
       baseTrackingBorrowSpeed: opts.baseTrackingBorrowSpeed ?? 1e15,
       trackingIndexScale: opts.trackingIndexScale ?? 1e15,
-      baseMinForRewards: opts.baseMinForRewards ?? 1e15,
+      baseMinForRewards: opts.baseMinForRewards ?? 1e15
     },
   };
 
+  console.log(marketConfig);
   const createCometTx = await configController.createComet(marketConfig);
   const receipt = await createCometTx.wait();
   const filter = configController.filters.CometCreated();
@@ -755,6 +757,7 @@ export const makeProtocol = async (opts: ProtocolOpts = {}) => {
   console.log(
     `Approved ${seedReserves} of ${await baseToken.symbol()} to ConfigController`
   );
+
   const market = await createComet2(
     opts,
     configController,
@@ -1022,7 +1025,6 @@ export async function makeSandboxController(
     opts.reserveFactorBorrow,
     opts.protocolFactorLiquidation,
     opts.reserveFactorLiquidation,
-    opts.maxCollateralAssets,
     opts.targetPercent,
     opts.storeFrontPriceFactor,
     opts.minUpdateTime,
@@ -1045,7 +1047,7 @@ export async function bumpTotalsCollateral(
 ): Promise<TotalsCollateralStructOutput> {
   const t0 = await comet.totalsCollateral(token.address);
   const t1 = Object.assign({}, t0, {
-    totalSupplyAsset: t0.totalSupplyAsset.toBigInt() + delta,
+    totalSupplyAsset: toBigInt(t0) + delta,
   });
   await token.allocateTo(comet.address, delta);
   await wait(comet.setTotalsCollateral(token.address, t1));

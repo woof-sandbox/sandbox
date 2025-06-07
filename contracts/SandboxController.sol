@@ -14,7 +14,6 @@ contract SandboxController is ISandboxController {
     uint256 public override reserveFactorBorrow;
     uint256 public override protocolFactorLiquidation;
     uint256 public override reserveFactorLiquidation;
-    uint256 public override maxCollateralAssets;
     address public override treasury;
     address public override owner;
     address public override dao;
@@ -60,7 +59,6 @@ contract SandboxController is ISandboxController {
      * @param _reserveFactorBorrow   Nonzero. Sum with _protocolFactorBorrow <= 1e18.
      * @param _protocolFactorLiquidation Nonzero. Sum with _reserveFactorLiquidation <= 1e18.
      * @param _reserveFactorLiquidation  Nonzero.
-     * @param _maxCollateralAssets       > 0
      * @param _targetPercent            < 0.5 (50%)
      * @param _storeFrontPriceFactor     < 1e18
      * @param _minUpdateTime             > 0
@@ -76,7 +74,6 @@ contract SandboxController is ISandboxController {
         uint256 _reserveFactorBorrow,
         uint256 _protocolFactorLiquidation,
         uint256 _reserveFactorLiquidation,
-        uint256 _maxCollateralAssets,
         uint256 _targetPercent,
         uint256 _storeFrontPriceFactor,
         uint256 _minUpdateTime,
@@ -102,7 +99,6 @@ contract SandboxController is ISandboxController {
             _protocolFactorLiquidation == 0 ||
             _reserveFactorLiquidation == 0 ||
             (_protocolFactorLiquidation + _reserveFactorLiquidation) > 1e18 ||
-            _maxCollateralAssets == 0 ||
             _targetPercent > 5e17 ||
             _storeFrontPriceFactor >= 1e18 ||
             _minUpdateTime == 0 || _maxUpdateTime < _minUpdateTime ||
@@ -116,7 +112,6 @@ contract SandboxController is ISandboxController {
         reserveFactorBorrow = _reserveFactorBorrow;
         protocolFactorLiquidation = _protocolFactorLiquidation;
         reserveFactorLiquidation = _reserveFactorLiquidation;
-        maxCollateralAssets = _maxCollateralAssets;
         _controllerConfiguration = SandboxControllerConfiguration(
             _targetPercent,
             _storeFrontPriceFactor,

@@ -10,7 +10,7 @@ import "./interfaces/IConfigController.sol";
  */
 contract CometStorage {
     // 512 bits total = 2 slots
-    
+
     struct TotalsBasic {
         // 1st slot
         uint64 baseSupplyIndex;
@@ -24,55 +24,145 @@ contract CometStorage {
         uint8 pauseFlags;
     }
 
-    struct TotalsCollateral {
-        uint128 totalSupplyAsset;
-        uint128 _reserved;
-    }
-
-    struct Configuration {
-        address configController;
-        address baseToken;
-        address baseTokenPriceFeed;
-        address extensionDelegate;
-        uint64 supplyKink;
-        uint64 supplyPerYearInterestRateSlopeLow;
-        uint64 supplyPerYearInterestRateSlopeHigh;
-        uint64 supplyPerYearInterestRateBase;
-        uint64 borrowKink;
-        uint64 borrowPerYearInterestRateSlopeLow;
-        uint64 borrowPerYearInterestRateSlopeHigh;
-        uint64 borrowPerYearInterestRateBase;
-        uint64 storeFrontPriceFactor;
-        uint64 trackingIndexScale;
-        uint64 baseTrackingSupplySpeed;
-        uint64 baseTrackingBorrowSpeed;
-        uint104 baseMinForRewards;
-        uint104 baseBorrowMin;
-        uint104 targetPercent;
-        uint104 seedReserves;
-        uint104 unlockTimestamp;
-        IConfigController.CollateralTokenConfig[] assetConfigs;
-    }
 
     struct UserBasic {
         int104 principal;
         uint64 baseTrackingIndex;
         uint64 baseTrackingAccrued;
-        uint16 assetsIn;
-        uint8 _reserved;
+        uint24 assetsIn;
     }
 
-    struct UserCollateral {
-        uint128 balance;
-        uint128 _reserved;
-    }
+    /** Internal constants **/
 
-    struct LiquidatorPoints {
-        uint32 numAbsorbs;
-        uint64 numAbsorbed;
-        uint128 approxSpend;
-        uint32 _reserved;
-    }
+    /// @dev The max number of assets this contract is hardcoded to support
+    ///  Do not change this variable without updating all the fields throughout the contract,
+    //    including the size of UserBasic.assetsIn and corresponding integer conversions.
+    uint8 internal constant MAX_ASSETS = 24;
+
+    /// @dev The max number of decimals base token can have
+    ///  Note this cannot just be increased arbitrarily.
+    uint8 internal constant MAX_BASE_DECIMALS = 18;
+
+    /// @dev Offsets for specific actions in the pause flag bit array
+    uint8 internal constant PAUSE_SUPPLY_OFFSET = 0;
+    uint8 internal constant PAUSE_TRANSFER_OFFSET = 1;
+    uint8 internal constant PAUSE_WITHDRAW_OFFSET = 2;
+    uint8 internal constant PAUSE_ABSORB_OFFSET = 3;
+    uint8 internal constant PAUSE_BUY_OFFSET = 4;
+
+    /// @dev The decimals required for a price feed
+    uint8 internal constant PRICE_FEED_DECIMALS = 8;
+
+    /// @dev 365 days * 24 hours * 60 minutes * 60 seconds
+    uint64 internal constant SECONDS_PER_YEAR = 31_536_000;
+
+    /// @dev The scale for base tracking accrual
+    uint64 internal constant BASE_ACCRUAL_SCALE = 1e6;
+
+    /// @dev The scale for base index (depends on time/rate scales, not base token)
+    uint64 internal constant BASE_INDEX_SCALE = 1e15;
+
+    /// @dev The scale for factors
+    uint64 internal constant FACTOR_SCALE = 1e18;
+
+    /// @dev The storage slot for reentrancy guard flags
+    bytes32 internal constant REENTRANCY_GUARD_FLAG_SLOT =
+        bytes32(keccak256("comet.reentrancy.guard"));
+
+    /// @dev The reentrancy guard statuses
+    uint256 internal constant REENTRANCY_GUARD_NOT_ENTERED = 0;
+    uint256 internal constant REENTRANCY_GUARD_ENTERED = 1;
+
+    /** General configuration constants **/
+    /// @notice Config Controller address
+    address public configController;
+
+    /// @notice Sandbox Controller address
+    address public sandboxController;
+
+    /// @notice The address of the extension contract
+    address public extension;
+
+    /// @notice The address of the base token contract
+    address public baseToken;
+
+    /// @notice The address of the comet factory contract
+    address public factory;
+
+    /// @notice The address of the price feed for the base token
+    address public baseTokenPriceFeed;
+
+    /// @notice The point in the supply rates separating the low interest rate slope and the high interest rate slope (factor)
+    /// @dev uint64
+    uint public supplyKink;
+
+    /// @notice Per second supply interest rate slope applied when utilization is below kink (factor)
+    /// @dev uint64
+    uint public supplyPerSecondInterestRateSlopeLow;
+
+    /// @notice Per secollateralTokenscond supply interest rate slope applied when utilization is above kink (factor)
+    /// @dev uint64
+    uint public supplyPerSecondInterestRateSlopeHigh;
+
+    /// @notice Per second supply base interest rate (factor)
+    /// @dev uint64
+    uint public supplyPerSecondInterestRateBase;
+
+    /// @notice The point in the borrow rate separating the low interest rate slope and the high interest rate slope (factor)
+    /// @dev uint64
+    uint public borrowKink;
+
+    /// @notice Per second borrow interest rate slope applied when utilization is below kink (factor)
+    /// @dev uint64
+    uint public borrowPerSecondInterestRateSlopeLow;
+
+    /// @notice Per second borrow interest rate slope applied when utilization is above kink (factor)
+    /// @dev uint64
+    uint public borrowPerSecondInterestRateSlopeHigh;
+
+    /// @notice Per second borrow base interest rate (factor)
+    /// @dev uint64
+    uint public borrowPerSecondInterestRateBase;
+
+    /// @notice The fraction of the liquidation penalty that goes to buyers of collateral instead of the protocol
+    /// @dev uint64
+    uint public storeFrontPriceFactor;
+
+    /// @notice The scale for base token (must be less than 18 decimals)
+    /// @dev uint64
+    uint public baseScale;
+
+    /// @notice The scale for reward tracking
+    /// @dev uint64
+    uint public trackingIndexScale;
+
+    /// @notice The speed at which supply rewards are tracked (in trackingIndexScale)
+    /// @dev uint64
+    uint public baseTrackingSupplySpeed;
+
+    /// @notice The speed at which borrow rewards are tracked (in trackingIndexScale)
+    /// @dev uint64
+    uint public baseTrackingBorrowSpeed;
+
+    /// @notice The minimum amount of base principal wei for rewards to accrue
+    /// @dev This must be large enough so as to prevent division by base wei from overflowing the 64 bit indices
+    /// @dev uint104
+    uint public baseMinForRewards;
+
+    /// @notice The minimum base amount required to initiate a borrow
+    uint public baseBorrowMin;
+
+    /// @notice The minimum base token reserves which must be held before collateral is hodled
+    uint public targetPercent;
+
+    /// @notice Seed reserves
+    uint public seedReserves;
+
+    /// @notice Unlock timestamp
+    uint public unlockTimestamp;
+
+    /// @notice Factor to divide by when accruing rewards in order to preserve 6 decimals (i.e. baseScale / 1e6)
+    uint internal accrualDescaleFactor;
 
 
     /// @notice Suggested reserves
@@ -88,8 +178,13 @@ contract CometStorage {
     uint40 internal lastAccrualTime;
     uint8 internal pauseFlags;
 
+    /// @notice The number of assets this contract actually supports
+    uint8 public numAssets;
+    /// @notice Marker that the market is closed
+    bool internal _closed;
+
     /// @notice Aggregate variables tracked for each collateral asset
-    mapping(address => TotalsCollateral) public totalsCollateral;
+    mapping(address => uint256) public totalsCollateral;
 
     /// @notice Mapping of users to accounts which may be permitted to manage the user account
     mapping(address => mapping(address => bool)) public isAllowed;
@@ -101,8 +196,9 @@ contract CometStorage {
     mapping(address => UserBasic) public userBasic;
 
     /// @notice Mapping of users to collateral data per collateral asset
-    mapping(address => mapping(address => UserCollateral)) public userCollateral;
+    mapping(address => mapping(address => uint)) public userCollateral;
 
-    /// @notice Mapping of magic liquidator points
-    mapping(address => LiquidatorPoints) public liquidatorPoints;
+    mapping(address => uint8) public collateralAssetIndex;
+    mapping(uint8 => address) public collateralAssetAddress;
+    IConfigController.CollateralTokenConfig[] public collateralAssets;
 }
