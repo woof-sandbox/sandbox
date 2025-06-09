@@ -368,7 +368,7 @@ describe('supplyTo', function () {
     const { comet, tokens, users: [alice, bob] } = protocol;
     const { COMP } = tokens;
 
-    const _i0 = await COMP.allocateTo(bob.address, 8e8);
+    await COMP.allocateTo(bob.address, 8e8);
     const baseAsB = COMP.connect(bob);
     const cometAsB = comet.connect(bob);
 
@@ -401,11 +401,11 @@ describe('supplyTo', function () {
     expect(p0.external).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n });
     expect(q0.internal).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n });
     expect(q0.external).to.be.deep.equal({ USDC: 0n, COMP: exp(8, 8), WETH: 0n, WBTC: 0n });
-    expect(p1.internal).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n }); // TODO: check if this is correct
+    expect(p1.internal).to.be.deep.equal({ USDC: 0n, COMP: exp(8, 8), WETH: 0n, WBTC: 0n });
     expect(p1.external).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n });
     expect(q1.internal).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n });
     expect(q1.external).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n });
-    expect(t1.totalSupplyAsset).to.be.equal(t0.totalSupplyAsset.add(8e8));
+    expect(t1).to.be.equal(t0.add(8e8));
     expect(Number(s0.receipt.gasUsed)).to.be.lessThan(155000);
   });
 
@@ -482,12 +482,12 @@ describe('supplyTo', function () {
     const { comet, tokens, users: [alice, bob] } = protocol;
     const { COMP } = tokens;
 
-    const _i0 = await COMP.allocateTo(bob.address, exp(1e7, 18));
+    const _i0 = await COMP.allocateTo(bob.address, exp(1e10, 18));
     const baseAsB = COMP.connect(bob);
     const cometAsB = comet.connect(bob);
 
-    const _a0 = await wait(baseAsB.approve(comet.address, exp(1e7, 18)));
-    await expect(cometAsB.supplyTo(alice.address, COMP.address, exp(1e7, 18))).to.be.revertedWith("custom error 'SupplyCapExceeded()'");
+    const _a0 = await wait(baseAsB.approve(comet.address, exp(1e10, 18)));
+    await expect(cometAsB.supplyTo(alice.address, COMP.address, exp(1e10, 18))).to.be.revertedWith("custom error 'SupplyCapExceeded()'");
   });
 
   it('reverts if the asset is neither collateral nor base', async () => {
@@ -705,11 +705,11 @@ describe('supplyTo', function () {
     expect(p0.external).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n, FeeToken: 0n });
     expect(q0.internal).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n, FeeToken: 0n });
     expect(q0.external).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n, FeeToken: exp(2000, 8) });
-    expect(p1.internal).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n, FeeToken: 0n });
+    expect(p1.internal).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n, FeeToken:  exp(1998,8)});
     expect(p1.external).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n, FeeToken: 0n });
     expect(q1.internal).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n, FeeToken: 0n });
     expect(q1.external).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n, FeeToken: 0n });
-    expect(t1.totalSupplyAsset).to.be.equal(t0.totalSupplyAsset.add(1998e8));
+    expect(t1).to.be.equal(t0.add(1998e8));
     // Fee Token logics will cost a bit more gas than standard ERC20 token with no fee calculation
     expect(Number(s0.receipt.gasUsed)).to.be.lessThan(190000);
   });

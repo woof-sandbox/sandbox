@@ -349,7 +349,7 @@ describe('withdrawTo', function () {
       totalSupplyBase: 1_000_000n,
       totalBorrowBase: 0n,
     });
-    const _b0 = await wait(comet.setTotalsCollateral(COMP.address, t0));
+    const _b0 = await wait(comet.setTotalsCollateral(COMP.address, t0.totalSupplyAsset));
 
     const _i1 = await comet.setCollateralBalance(bob.address, COMP.address, 8e8);
     const cometAsB = comet.connect(bob);
@@ -373,7 +373,7 @@ describe('withdrawTo', function () {
     expect(p1.external).to.be.deep.equal({ USDC: 0n, COMP: exp(8, 8), WETH: 0n, WBTC: 0n });
     expect(q1.internal).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n });
     expect(q1.external).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n });
-    expect(t1.totalSupplyAsset).to.be.equal(0n);
+    expect(t1).to.be.equal(0n);
     expect(Number(s0.receipt.gasUsed)).to.be.lessThan(100000);
   });
 
@@ -863,7 +863,8 @@ describe('withdraw', function () {
     const {
       comet,
       tokens,
-      users: [alice],
+      users: [alice, bob],
+      baseToken
     } = await makeProtocol({
       base: 'USDC',
       storeFrontPriceFactor: exp(0.5, 18),
@@ -892,10 +893,7 @@ describe('withdraw', function () {
     });
     const { WETH } = tokens;
 
-    const totalsCollateral = Object.assign({}, await comet.totalsCollateral(WETH.address), {
-      totalSupplyAsset: exp(1, 18),
-    });
-    await wait(comet.setTotalsCollateral(WETH.address, totalsCollateral));
+    await comet.setTotalsCollateral(WETH.address, exp(1, 18));
 
     // user has a borrow, but with collateral to cover
     await comet.setBasePrincipal(alice.address, -100e6);
