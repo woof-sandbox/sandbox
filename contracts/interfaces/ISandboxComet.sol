@@ -104,6 +104,8 @@ abstract contract ISandboxComet is CometCore {
         bool dao_
     );
 
+    event ControllerFeeDisabled(bool disabled);
+
     function supply(address asset, uint amount) external virtual;
 
     function supplyTo(address dst, address asset, uint amount) external virtual;
@@ -159,6 +161,7 @@ abstract contract ISandboxComet is CometCore {
         uint256 baseBorrowMin_
     ) external virtual;
 
+    function setControllerFee(bool disabled) virtual external;
     function absorb(address absorber, address[] calldata accounts) virtual external;
     function buyCollateral(address asset, uint minAmount, uint baseAmount, address recipient) virtual external;
 

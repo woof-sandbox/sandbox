@@ -164,7 +164,6 @@ contract CometStorage {
     /// @notice Factor to divide by when accruing rewards in order to preserve 6 decimals (i.e. baseScale / 1e6)
     uint internal accrualDescaleFactor;
 
-
     /// @notice Suggested reserves
     uint public suggestedReserves;
 
@@ -180,6 +179,9 @@ contract CometStorage {
 
     /// @notice The number of assets this contract actually supports
     uint8 public numAssets;
+
+    /// @notice Marker that controller fees are disabled
+    bool public controllerFeeDisabled;
     /// @notice Marker that the market is closed
     bool internal _closed;
 

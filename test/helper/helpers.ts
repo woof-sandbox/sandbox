@@ -117,6 +117,7 @@ export type ProtocolOpts = {
         | NonStandardFaucetFeeToken__factory;
     };
   };
+  feeEnabled?: boolean;
   name?: string;
   symbol?: string;
   owner?: SignerWithAddress;
@@ -504,7 +505,7 @@ export async function makeConfigController(
   const sandboxControllerOpts = defaultSandboxControllerOpts({
     admin: owner,
     dao: dao,
-    feeEnabled: false,
+    feeEnabled: true,
     storeFrontPriceFactor: (
       opts.storeFrontPriceFactor ?? exp(0.1, 18)
     ).toString(),
