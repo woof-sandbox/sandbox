@@ -1,52 +1,52 @@
-import { expect } from 'chai';
-import { ethers } from 'hardhat';
+import { expect } from "chai";
+import { ethers } from "hardhat";
 import {
   defaultSandboxControllerOpts,
   makeSandboxController,
   makeMockERC20,
   makePriceFeed,
-  exp
+  exp,
+  SandboxControllerOpts
 } from './helper/helpers';
 import { parseEther } from 'ethers/lib/utils';
-import { isIterationStatement } from 'typescript';
 
 function makeValidCurve() {
-  return {
-    supplyKink: parseEther('0.5').toString(),
-    supplyPerYearInterestRateSlopeLow: ethers.BigNumber.from('500'),
-    supplyPerYearInterestRateSlopeHigh: ethers.BigNumber.from('1000'),
-    supplyPerYearInterestRateBase: ethers.BigNumber.from('100'),
-    borrowKink: parseEther('0.5').toString(),
-    borrowPerYearInterestRateSlopeLow: ethers.BigNumber.from('1000'),
-    borrowPerYearInterestRateSlopeHigh: ethers.BigNumber.from('2000'),
-    borrowPerYearInterestRateBase: ethers.BigNumber.from('1')
-  };
+    return {
+        supplyKink: parseEther("0.5").toString(),
+        supplyPerYearInterestRateSlopeLow: ethers.BigNumber.from("500"),
+        supplyPerYearInterestRateSlopeHigh: ethers.BigNumber.from("1000"),
+        supplyPerYearInterestRateBase: ethers.BigNumber.from("100"),
+        borrowKink: parseEther("0.5").toString(),
+        borrowPerYearInterestRateSlopeLow: ethers.BigNumber.from("1000"),
+        borrowPerYearInterestRateSlopeHigh: ethers.BigNumber.from("2000"),
+        borrowPerYearInterestRateBase: ethers.BigNumber.from("1"),
+    };
 }
 
 function makeInvalidCurveZeroBase() {
-  return {
-    supplyKink: parseEther('0.5').toString(),
-    supplyPerYearInterestRateSlopeLow: ethers.BigNumber.from('500'),
-    supplyPerYearInterestRateSlopeHigh: ethers.BigNumber.from('1000'),
-    supplyPerYearInterestRateBase: ethers.BigNumber.from('100'),
-    borrowKink: parseEther('0.5').toString(),
-    borrowPerYearInterestRateSlopeLow: ethers.BigNumber.from('1000'),
-    borrowPerYearInterestRateSlopeHigh: ethers.BigNumber.from('0'),
-    borrowPerYearInterestRateBase: ethers.BigNumber.from('0')
-  };
+    return {
+        supplyKink: parseEther("0.5").toString(),
+        supplyPerYearInterestRateSlopeLow: ethers.BigNumber.from("500"),
+        supplyPerYearInterestRateSlopeHigh: ethers.BigNumber.from("1000"),
+        supplyPerYearInterestRateBase: ethers.BigNumber.from("100"),
+        borrowKink: parseEther("0.5").toString(),
+        borrowPerYearInterestRateSlopeLow: ethers.BigNumber.from("1000"),
+        borrowPerYearInterestRateSlopeHigh: ethers.BigNumber.from("0"),
+        borrowPerYearInterestRateBase: ethers.BigNumber.from("0"),
+    };
 }
 
 function makeInvalidCurveKinkTooHigh() {
-  return {
-    supplyKink: parseEther('1').toString(),
-    supplyPerYearInterestRateSlopeLow: ethers.BigNumber.from('500'),
-    supplyPerYearInterestRateSlopeHigh: ethers.BigNumber.from('1000'),
-    supplyPerYearInterestRateBase: ethers.BigNumber.from('100'),
-    borrowKink: parseEther('1').toString(),
-    borrowPerYearInterestRateSlopeLow: ethers.BigNumber.from('1000'),
-    borrowPerYearInterestRateSlopeHigh: ethers.BigNumber.from('2000'),
-    borrowPerYearInterestRateBase: ethers.BigNumber.from('1')
-  };
+    return {
+        supplyKink: parseEther("1").toString(),
+        supplyPerYearInterestRateSlopeLow: ethers.BigNumber.from("500"),
+        supplyPerYearInterestRateSlopeHigh: ethers.BigNumber.from("1000"),
+        supplyPerYearInterestRateBase: ethers.BigNumber.from("100"),
+        borrowKink: parseEther("1").toString(),
+        borrowPerYearInterestRateSlopeLow: ethers.BigNumber.from("1000"),
+        borrowPerYearInterestRateSlopeHigh: ethers.BigNumber.from("2000"),
+        borrowPerYearInterestRateBase: ethers.BigNumber.from("1"),
+    };
 }
 
 describe('SandboxController', function () {
@@ -55,323 +55,12 @@ describe('SandboxController', function () {
   let attacker: any;
   let other: any;
   let SandboxControllerFactory: any;
+  let opts: SandboxControllerOpts = {};
 
   before(async function () {
     SandboxControllerFactory = await ethers.getContractFactory('SandboxController');
     [owner, dao, attacker, other] = await ethers.getSigners();
-  });
-
-  describe('constructor', function () {
-    it('initializes state with correct values', async function () {
-      const opts = defaultSandboxControllerOpts({
-        admin: owner,
-        dao: dao,
-        feeEnabled: true,
-        storeFrontPriceFactor: parseEther('0.999999999999999999').toString(),
-        protocolFactorBorrow: parseEther('0.1').toString(),
-        reserveFactorBorrow: parseEther('0.2').toString(),
-        protocolFactorLiquidation: parseEther('0.1').toString(),
-        reserveFactorLiquidation: parseEther('0.2').toString(),
-        minUpdateTime: 300,
-        maxCollateralAssets: 5,
-        suggestedAmountOfSeedReserves: '1000',
-        suggestedLockTimeOfSeedReserves: 500,
-        targetPercent: '100'
-      });
-      const { sandboxController } = await makeSandboxController(opts);
-      expect(await sandboxController.owner()).to.equal(owner.address);
-      expect(await sandboxController.dao()).to.equal(dao.address);
-      expect(await sandboxController.feeEnabled()).to.equal(true);
-      expect(await sandboxController.protocolFactorBorrow()).to.equal(parseEther('0.1').toString());
-      expect(await sandboxController.reserveFactorBorrow()).to.equal(parseEther('0.2').toString());
-      expect(await sandboxController.protocolFactorLiquidation()).to.equal(parseEther('0.1').toString());
-      expect(await sandboxController.reserveFactorLiquidation()).to.equal(parseEther('0.2').toString());
-      expect(await sandboxController.maxCollateralAssets()).to.equal(5);
-      expect((await sandboxController.controllerConfiguration()).storeFrontPriceFactor).to.equal(parseEther('0.999999999999999999').toString());
-      expect((await sandboxController.controllerConfiguration()).minUpdateTime).to.equal(300);
-      expect((await sandboxController.controllerConfiguration()).suggestedAmountOfSeedReserves).to.equal('1000');
-      expect((await sandboxController.controllerConfiguration()).suggestedLockTimeOfSeedReserves).to.equal(500);
-    });
-
-    it('reverts if admin=0', async function () {
-      await expect(
-        SandboxControllerFactory.deploy(
-          ethers.constants.AddressZero,
-          dao.address,
-          true,
-          parseEther('0.1').toString(),
-          parseEther('0.2').toString(),
-          parseEther('0.1').toString(),
-          parseEther('0.2').toString(),
-          5,
-          parseEther('0.1').toString(),
-          parseEther('0.999999999999999999').toString(),
-          300,
-          1000,
-          500
-        )
-      ).to.be.revertedWithCustomError(SandboxControllerFactory, 'ZeroAddress');
-    });
-
-    it('reverts if dao=0', async function () {
-      await expect(
-        SandboxControllerFactory.deploy(
-          owner.address,
-          ethers.constants.AddressZero,
-          true,
-          parseEther('0.1').toString(),
-          parseEther('0.2').toString(),
-          parseEther('0.1').toString(),
-          parseEther('0.2').toString(),
-          5,
-          parseEther('0.1').toString(),
-          parseEther('0.999999999999999999').toString(),
-          300,
-          1000,
-          500
-        )
-      ).to.be.revertedWithCustomError(SandboxControllerFactory, 'ZeroAddress');
-    });
-
-    it('reverts if storeFrontPriceFactor >= 1e18', async function () {
-      await expect(
-        SandboxControllerFactory.deploy(
-          owner.address,
-          dao.address,
-          true,
-          parseEther('0.1').toString(),
-          parseEther('0.2').toString(),
-          parseEther('0.1').toString(),
-          parseEther('0.2').toString(),
-          5,
-          parseEther('0.1').toString(),
-          parseEther('1').toString(),
-          300,
-          1000,
-          500
-        )
-      ).to.be.revertedWithCustomError(SandboxControllerFactory, 'InvalidFactors');
-    });
-
-    it('reverts if protocolFactorBorrow=0', async function () {
-      await expect(
-        SandboxControllerFactory.deploy(
-          owner.address,
-          dao.address,
-          false,
-          '0',
-          parseEther('0.2').toString(),
-          parseEther('0.1').toString(),
-          parseEther('0.2').toString(),
-          5,
-          parseEther('0.1').toString(),
-          parseEther('0.5').toString(),
-          300,
-          1000,
-          500
-        )
-      ).to.be.revertedWithCustomError(SandboxControllerFactory, 'InvalidFactors');
-    });
-
-    it('reverts if reserveFactorBorrow=0', async function () {
-      await expect(
-        SandboxControllerFactory.deploy(
-          owner.address,
-          dao.address,
-          true,
-          parseEther('0.5').toString(),
-          '0',
-          parseEther('0.1').toString(),
-          parseEther('0.2').toString(),
-          5,
-          parseEther('0.1').toString(),
-          parseEther('0.5').toString(),
-          300,
-          1000,
-          500
-        )
-      ).to.be.revertedWithCustomError(SandboxControllerFactory, 'InvalidFactors');
-    });
-
-    it('reverts if protocolFactorBorrow+reserveFactorBorrow > 1e18', async function () {
-      await expect(
-        SandboxControllerFactory.deploy(
-          owner.address,
-          dao.address,
-          true,
-          ethers.utils.parseEther('0.6').toString(),
-          ethers.utils.parseEther('0.5').toString(),
-          parseEther('0.1').toString(),
-          parseEther('0.2').toString(),
-          5,
-          parseEther('0.1').toString(),
-          parseEther('0.5').toString(),
-          300,
-          1000,
-          500
-        )
-      ).to.be.revertedWithCustomError(SandboxControllerFactory, 'InvalidFactors');
-    });
-
-    it('reverts if protocolFactorLiquidation=0', async function () {
-      await expect(
-        SandboxControllerFactory.deploy(
-          owner.address,
-          dao.address,
-          false,
-          parseEther('0.5').toString(),
-          parseEther('0.2').toString(),
-          '0',
-          parseEther('0.2').toString(),
-          5,
-          parseEther('0.1').toString(),
-          parseEther('0.5').toString(),
-          300,
-          1000,
-          500
-        )
-      ).to.be.revertedWithCustomError(SandboxControllerFactory, 'InvalidFactors');
-    });
-
-    it('reverts if reserveFactorLiquidation=0', async function () {
-      await expect(
-        SandboxControllerFactory.deploy(
-          owner.address,
-          dao.address,
-          true,
-          parseEther('0.5').toString(),
-          parseEther('0.2').toString(),
-          parseEther('0.1').toString(),
-          '0',
-          5,
-          parseEther('0.1').toString(),
-          parseEther('0.5').toString(),
-          300,
-          1000,
-          500
-        )
-      ).to.be.revertedWithCustomError(SandboxControllerFactory, 'InvalidFactors');
-    });
-
-    it('reverts if protocolFactorLiquidation+reserveFactorLiquidation > 1e18', async function () {
-      await expect(
-        SandboxControllerFactory.deploy(
-          owner.address,
-          dao.address,
-          true,
-          parseEther('0.5').toString(),
-          parseEther('0.2').toString(),
-          ethers.utils.parseEther('0.8').toString(),
-          ethers.utils.parseEther('0.3').toString(),
-          5,
-          parseEther('0.1').toString(),
-          parseEther('0.5').toString(),
-          300,
-          1000,
-          500
-        )
-      ).to.be.revertedWithCustomError(SandboxControllerFactory, 'InvalidFactors');
-    });
-
-    it('reverts if minUpdateTime=0', async function () {
-      await expect(
-        SandboxControllerFactory.deploy(
-          owner.address,
-          dao.address,
-          false,
-          parseEther('0.5').toString(),
-          parseEther('0.2').toString(),
-          parseEther('0.1').toString(),
-          parseEther('0.2').toString(),
-          5,
-          parseEther('0.1').toString(),
-          parseEther('0.5').toString(),
-          0,
-          1000,
-          500
-        )
-      ).to.be.revertedWithCustomError(SandboxControllerFactory, 'InvalidFactors');
-    });
-
-    it('reverts if maxCollateralAssets=0', async function () {
-      await expect(
-        SandboxControllerFactory.deploy(
-          owner.address,
-          dao.address,
-          false,
-          parseEther('0.5').toString(),
-          parseEther('0.2').toString(),
-          parseEther('0.1').toString(),
-          parseEther('0.2').toString(),
-          0,
-          parseEther('0.1').toString(),
-          parseEther('0.5').toString(),
-          300,
-          1000,
-          500
-        )
-      ).to.be.revertedWithCustomError(SandboxControllerFactory, 'InvalidFactors');
-    });
-
-    it('reverts if suggestedAmountOfSeedReserves=0', async function () {
-      await expect(
-        SandboxControllerFactory.deploy(
-          owner.address,
-          dao.address,
-          false,
-          parseEther('0.5').toString(),
-          parseEther('0.2').toString(),
-          parseEther('0.1').toString(),
-          parseEther('0.2').toString(),
-          5,
-          parseEther('0.1').toString(),
-          parseEther('0.5').toString(),
-          300,
-          '0',
-          500
-        )
-      ).to.be.revertedWithCustomError(SandboxControllerFactory, 'InvalidFactors');
-    });
-
-    it('reverts if suggestedLockTimeOfSeedReserves=0', async function () {
-      await expect(
-        SandboxControllerFactory.deploy(
-          owner.address,
-          dao.address,
-          false,
-          parseEther('0.5').toString(),
-          parseEther('0.2').toString(),
-          parseEther('0.1').toString(),
-          parseEther('0.2').toString(),
-          5,
-          parseEther('0.1').toString(),
-          parseEther('0.5').toString(),
-          300,
-          1000,
-          0
-        )
-      ).to.be.revertedWithCustomError(SandboxControllerFactory, 'InvalidFactors');
-    });
-
-    it('reverts if targetReserves>5e17', async function () {
-      await expect(
-        SandboxControllerFactory.deploy(
-          owner.address,
-          dao.address,
-          false,
-          parseEther('0.5').toString(),
-          parseEther('0.2').toString(),
-          parseEther('0.1').toString(),
-          parseEther('0.2').toString(),
-          5,
-          '500000000000000001',
-          parseEther('0.5').toString(),
-          300,
-          1000,
-          500
-        )
-      ).to.be.revertedWithCustomError(SandboxControllerFactory, 'InvalidFactors');
-    });
+    opts = defaultSandboxControllerOpts({admin: owner, dao: dao, feeEnabled: true});
   });
 
   describe('deployment with typical valid parameters', function () {
@@ -380,35 +69,33 @@ describe('SandboxController', function () {
         admin: owner,
         dao: dao,
         feeEnabled: false,
-        storeFrontPriceFactor: parseEther('0.1').toString(),
-        protocolFactorBorrow: parseEther('0.1').toString(),
-        reserveFactorBorrow: parseEther('0.1').toString(),
-        protocolFactorLiquidation: parseEther('0.1').toString(),
-        reserveFactorLiquidation: parseEther('0.1').toString(),
+        storeFrontPriceFactor: parseEther("0.1").toString(),
+        protocolFactorBorrow: parseEther("0.1").toString(),
+        reserveFactorBorrow: parseEther("0.1").toString(),
+        protocolFactorLiquidation: parseEther("0.1").toString(),
+        reserveFactorLiquidation: parseEther("0.1").toString(),
         minUpdateTime: 300,
-        maxCollateralAssets: 10,
-        suggestedAmountOfSeedReserves: '1000',
+        suggestedAmountOfSeedReserves: "1000",
         suggestedLockTimeOfSeedReserves: 3600,
-        targetPercent: ethers.utils.parseEther('0.5').toString()
+        targetPercent: ethers.utils.parseEther("0.5").toString(),
       });
       const { sandboxController } = await makeSandboxController(opts);
       expect(await sandboxController.owner()).to.equal(owner.address);
       expect(await sandboxController.dao()).to.equal(dao.address);
       expect(await sandboxController.feeEnabled()).to.equal(false);
 
-      expect(await sandboxController.protocolFactorBorrow()).to.equal(parseEther('0.1').toString());
-      expect(await sandboxController.reserveFactorBorrow()).to.equal(parseEther('0.1').toString());
-      expect(await sandboxController.protocolFactorLiquidation()).to.equal(parseEther('0.1').toString());
-      expect(await sandboxController.reserveFactorLiquidation()).to.equal(parseEther('0.1').toString());
+      expect(await sandboxController.protocolFactorBorrow()).to.equal(parseEther("0.1").toString());
+      expect(await sandboxController.reserveFactorBorrow()).to.equal(parseEther("0.1").toString());
+      expect(await sandboxController.protocolFactorLiquidation()).to.equal(parseEther("0.1").toString());
+      expect(await sandboxController.reserveFactorLiquidation()).to.equal(parseEther("0.1").toString());
 
-      expect(await sandboxController.maxCollateralAssets()).to.equal(10);
       expect(await sandboxController.getBaseAssetLength()).to.equal(0);
       expect(await sandboxController.getCollateralAssetLength()).to.equal(0);
-      expect((await sandboxController.controllerConfiguration()).storeFrontPriceFactor).to.equal(parseEther('0.1').toString());
+      expect((await sandboxController.controllerConfiguration()).storeFrontPriceFactor).to.equal(parseEther("0.1").toString());
       expect((await sandboxController.controllerConfiguration()).minUpdateTime).to.equal(300);
-      expect((await sandboxController.controllerConfiguration()).suggestedAmountOfSeedReserves).to.equal('1000');
+      expect((await sandboxController.controllerConfiguration()).maxUpdateTime).to.equal(604800);
+      expect((await sandboxController.controllerConfiguration()).suggestedAmountOfSeedReserves).to.equal("1000");
       expect((await sandboxController.controllerConfiguration()).suggestedLockTimeOfSeedReserves).to.equal(3600);
-
     });
   });
 
@@ -420,16 +107,15 @@ describe('SandboxController', function () {
         admin: owner,
         dao: dao,
         feeEnabled: false,
-        storeFrontPriceFactor: parseEther('0.5').toString(),
-        protocolFactorBorrow: parseEther('0.1').toString(),
-        reserveFactorBorrow: parseEther('0.1').toString(),
-        protocolFactorLiquidation: parseEther('0.1').toString(),
-        reserveFactorLiquidation: parseEther('0.1').toString(),
+        storeFrontPriceFactor: parseEther("0.5").toString(),
+        protocolFactorBorrow: parseEther("0.1").toString(),
+        reserveFactorBorrow: parseEther("0.1").toString(),
+        protocolFactorLiquidation: parseEther("0.1").toString(),
+        reserveFactorLiquidation: parseEther("0.1").toString(),
         minUpdateTime: 500,
-        maxCollateralAssets: 5,
-        suggestedAmountOfSeedReserves: '1000',
+        suggestedAmountOfSeedReserves: "1000",
         suggestedLockTimeOfSeedReserves: 1000,
-        targetPercent: ethers.utils.parseEther('0.5').toString()
+        targetPercent: ethers.utils.parseEther("0.5").toString(),
       });
       const c = await makeSandboxController(opts);
       sandboxController = c.sandboxController;
@@ -437,21 +123,21 @@ describe('SandboxController', function () {
 
     it('reverts if caller is not owner or dao', async function () {
       const token = await makeMockERC20({ name: 'TestToken', symbol: 'TT' });
-      const priceFeed = await makePriceFeed({}, token.address);
+      const priceFeed = await makePriceFeed(token.address);
       await expect(
         sandboxController.connect(attacker).whitelistBaseAsset(token.address, priceFeed.address, makeValidCurve(), 10)
       ).to.be.revertedWithCustomError(sandboxController, 'Unauthorized');
     });
 
-    it('reverts if token=0', async function () {
+    it('reverts if token = 0', async function () {
       const token = await makeMockERC20({ name: 'TestToken', symbol: 'TT' });
-      const priceFeed = await makePriceFeed({}, token.address);
+      const priceFeed = await makePriceFeed(token.address);
       await expect(
         sandboxController.whitelistBaseAsset(ethers.constants.AddressZero, priceFeed.address, makeValidCurve(), 100)
       ).to.be.revertedWithCustomError(sandboxController, 'ZeroAddress');
     });
 
-    it('reverts if priceFeed=0', async function () {
+    it('reverts if priceFeed = 0', async function () {
       const token = await makeMockERC20({ name: 'TokenZeroFeed', symbol: 'TZF' });
       await expect(
         sandboxController.whitelistBaseAsset(token.address, ethers.constants.AddressZero, makeValidCurve(), 100)
@@ -460,10 +146,10 @@ describe('SandboxController', function () {
 
     it('reverts if token already whitelisted', async function () {
       const token = await makeMockERC20({ name: 'T1', symbol: 'T1' });
-      const priceFeed = await makePriceFeed({}, token.address);
+      const priceFeed = await makePriceFeed(token.address);
       const curve = makeValidCurve();
       await sandboxController.whitelistBaseAsset(token.address, priceFeed.address, curve, 100);
-      const token2Feed = await makePriceFeed({}, token.address);
+      const token2Feed = await makePriceFeed(token.address);
       await expect(
         sandboxController.whitelistBaseAsset(token.address, token2Feed.address, curve, 200)
       ).to.be.revertedWithCustomError(sandboxController, 'BaseTokenAlreadyWhitelisted');
@@ -472,7 +158,7 @@ describe('SandboxController', function () {
     it('reverts if token is not associated with price feed', async function () {
       const token1 = await makeMockERC20({ name: 'T2', symbol: 'T2' });
       const token2 = await makeMockERC20({ name: 'T3', symbol: 'T3' });
-      const priceFeed = await makePriceFeed({}, token1.address);
+      const priceFeed = await makePriceFeed(token1.address);
       const curve = makeValidCurve();
       await expect(
         sandboxController.whitelistBaseAsset(token2.address, priceFeed.address, curve, 50)
@@ -481,8 +167,8 @@ describe('SandboxController', function () {
 
     it('reverts if different price feed already used for token', async function() {
       const token = await makeMockERC20({ name: 'C5', symbol: 'C5' });
-      const priceFeedChainlink = await makePriceFeed({}, token.address);
-      const priceFeedRedStone = await makePriceFeed({}, token.address);
+      const priceFeedChainlink = await makePriceFeed(token.address);
+      const priceFeedRedStone = await makePriceFeed(token.address);
       /// Whitelist token with one price feed vender(for example RedStone)
       await sandboxController.whitelistCollateralAsset(
         token.address,
@@ -505,7 +191,7 @@ describe('SandboxController', function () {
 
     it('reverts if curve is invalid', async function () {
       const token = await makeMockERC20({ name: 'T4', symbol: 'T4' });
-      const priceFeed = await makePriceFeed({}, token.address);
+      const priceFeed = await makePriceFeed(token.address);
       await expect(
         sandboxController.whitelistBaseAsset(token.address, priceFeed.address, makeInvalidCurveZeroBase(), 10)
       ).to.be.revertedWithCustomError(sandboxController, 'InvalidCurveConfiguration');
@@ -524,7 +210,7 @@ describe('SandboxController', function () {
 
     it('reverts if invalid price feed', async function () {
       const token = await makeMockERC20({ name: 'T6', symbol: 'T6' });
-      const priceFeed = await makePriceFeed({ amount: 0 }, token.address);
+      const priceFeed = await makePriceFeed(token.address, '0');
       await expect(
         sandboxController.whitelistBaseAsset(token.address, priceFeed.address, makeValidCurve(), 100)
       ).to.be.revertedWithCustomError(sandboxController, 'InvalidPriceFeed');
@@ -532,7 +218,7 @@ describe('SandboxController', function () {
 
     it('whitelists token for base asset with correct state changes', async function () {
       const token = await makeMockERC20({ name: 'T6', symbol: 'T6' });
-      const priceFeed = await makePriceFeed({}, token.address);
+      const priceFeed = await makePriceFeed(token.address);
       const curve = makeValidCurve();
       await sandboxController.whitelistBaseAsset(token.address, priceFeed.address, curve, 777);
       const data = await sandboxController.baseAssets(token.address);
@@ -547,7 +233,7 @@ describe('SandboxController', function () {
 
     it('whitelists token for collateral asset and whitelists token for base asset with the same price feed', async function () {
       const token = await makeMockERC20({ name: 'T6', symbol: 'T6' });
-      const priceFeed = await makePriceFeed({}, token.address);
+      const priceFeed = await makePriceFeed(token.address);
       const curve = makeValidCurve();
       await sandboxController.whitelistBaseAsset(token.address, priceFeed.address, curve, 777);
       await sandboxController.whitelistCollateralAsset(token.address, priceFeed.address, 1000, 2000, 1500, 2500, 1200, 2800);
@@ -556,7 +242,7 @@ describe('SandboxController', function () {
 
     it('whitelists token for base asset with correct state changes and emits BaseAssetWhitelisted', async function () {
       const token = await makeMockERC20({ name: 'T6', symbol: 'T6' });
-      const priceFeed = await makePriceFeed({}, token.address);
+      const priceFeed = await makePriceFeed(token.address);
       const curve = makeValidCurve();
       const tx = await sandboxController.whitelistBaseAsset(token.address, priceFeed.address, curve, 777);
       const rcpt = await tx.wait();
@@ -586,10 +272,10 @@ describe('SandboxController', function () {
 
     it('owner can do it, dao can do it', async function () {
       const token1 = await makeMockERC20({ name: 'T7', symbol: 'T7' });
-      const feed1 = await makePriceFeed({}, token1.address);
+      const feed1 = await makePriceFeed(token1.address);
       await sandboxController.connect(owner).whitelistBaseAsset(token1.address, feed1.address, makeValidCurve(), 100);
       const token2 = await makeMockERC20({ name: 'T8', symbol: 'T8' });
-      const feed2 = await makePriceFeed({}, token2.address);
+      const feed2 = await makePriceFeed(token2.address);
       await sandboxController.connect(dao).whitelistBaseAsset(token2.address, feed2.address, makeValidCurve(), 200);
       expect(await sandboxController.getBaseAssetLength()).to.equal(2);
     });
@@ -609,7 +295,6 @@ describe('SandboxController', function () {
         protocolFactorLiquidation: parseEther('0.1').toString(),
         reserveFactorLiquidation: parseEther('0.1').toString(),
         minUpdateTime: 500,
-        maxCollateralAssets: 5,
         suggestedAmountOfSeedReserves: '1000',
         suggestedLockTimeOfSeedReserves: 1000,
         targetPercent: ethers.utils.parseEther('0.5').toString()
@@ -620,7 +305,7 @@ describe('SandboxController', function () {
 
     it('reverts if caller is not authorized', async function () {
       const token = await makeMockERC20({ name: 'C1', symbol: 'C1' });
-      const priceFeed = await makePriceFeed({}, token.address);
+      const priceFeed = await makePriceFeed(token.address);
       await expect(
         sandboxController
           .connect(attacker)
@@ -637,8 +322,8 @@ describe('SandboxController', function () {
       ).to.be.revertedWithCustomError(sandboxController, 'Unauthorized');
     });
 
-    it('reverts if token=0', async function () {
-      const priceFeed = await makePriceFeed({}, ethers.constants.AddressZero);
+    it('reverts if token = 0', async function () {
+      const priceFeed = await makePriceFeed(ethers.constants.AddressZero);
       await expect(
         sandboxController.whitelistCollateralAsset(
           ethers.constants.AddressZero,
@@ -653,7 +338,7 @@ describe('SandboxController', function () {
       ).to.be.revertedWithCustomError(sandboxController, 'ZeroAddress');
     });
 
-    it('reverts if feed=0', async function () {
+    it('reverts if feed = 0', async function () {
       const token = await makeMockERC20({ name: 'C2', symbol: 'C2' });
       await expect(
         sandboxController.whitelistCollateralAsset(
@@ -671,7 +356,7 @@ describe('SandboxController', function () {
 
     it('reverts if token already whitelisted as collateral', async function () {
       const token = await makeMockERC20({ name: 'C3', symbol: 'C3' });
-      const priceFeed = await makePriceFeed({}, token.address);
+      const priceFeed = await makePriceFeed(token.address);
       await sandboxController.whitelistCollateralAsset(
         token.address,
         priceFeed.address,
@@ -682,7 +367,7 @@ describe('SandboxController', function () {
         7000,
         9500
       );
-      const newFeed = await makePriceFeed({}, token.address);
+      const newFeed = await makePriceFeed(token.address);
       await expect(
         sandboxController.whitelistCollateralAsset(
           token.address,
@@ -700,7 +385,7 @@ describe('SandboxController', function () {
     it('reverts if feed is used by another token', async function () {
       const tokenA = await makeMockERC20({ name: 'C4A', symbol: 'C4A' });
       const tokenB = await makeMockERC20({ name: 'C4B', symbol: 'C4B' });
-      const priceFeed = await makePriceFeed({}, tokenA.address);
+      const priceFeed = await makePriceFeed(tokenA.address);
 
       await sandboxController.whitelistCollateralAsset(
         tokenA.address,
@@ -729,8 +414,8 @@ describe('SandboxController', function () {
 
     it('reverts if different price feed already used for token', async function() {
       const token = await makeMockERC20({ name: 'C5', symbol: 'C5' });
-      const priceFeedChainlink = await makePriceFeed({}, token.address);
-      const priceFeedRedStone = await makePriceFeed({}, token.address);
+      const priceFeedChainlink = await makePriceFeed(token.address);
+      const priceFeedRedStone = await makePriceFeed(token.address);
       /// Whitelist token with one price feed vender(for example Chainlink)
       await sandboxController.whitelistBaseAsset(
         token.address,
@@ -772,7 +457,7 @@ describe('SandboxController', function () {
 
     it('reverts if invalid price feed (answer=0)', async function () {
       const token = await makeMockERC20({ name: 'T6', symbol: 'T6' });
-      const badPriceFeed = await makePriceFeed({ amount: 0 }, token.address);
+      const badPriceFeed = await makePriceFeed(token.address, '0');
       await expect(
         sandboxController.whitelistCollateralAsset(
           token.address,
@@ -789,7 +474,7 @@ describe('SandboxController', function () {
 
     it('reverts if any factor is zero', async function () {
       const token = await makeMockERC20({ name: 'CZero', symbol: 'CZero' });
-      const feed = await makePriceFeed({}, token.address);
+      const feed = await makePriceFeed(token.address);
       await expect(
         sandboxController.whitelistCollateralAsset(
           token.address,
@@ -806,7 +491,7 @@ describe('SandboxController', function () {
 
     it('reverts if minBorrowCollateralFactor > maxBorrowCollateralFactor', async function () {
       const token = await makeMockERC20({ name: 'CInv', symbol: 'CInv' });
-      const feed = await makePriceFeed({}, token.address);
+      const feed = await makePriceFeed(token.address);
       await expect(
         sandboxController.whitelistCollateralAsset(
           token.address,
@@ -823,7 +508,7 @@ describe('SandboxController', function () {
 
     it('reverts if minLiquidateCollateralFactor > maxLiquidateCollateralFactor', async function () {
       const token = await makeMockERC20({ name: 'CInv2', symbol: 'CInv2' });
-      const feed = await makePriceFeed({}, token.address);
+      const feed = await makePriceFeed(token.address);
       await expect(
         sandboxController.whitelistCollateralAsset(
           token.address,
@@ -840,7 +525,7 @@ describe('SandboxController', function () {
 
     it('reverts if minLiquidationFactor > maxLiquidationFactor', async function () {
       const token = await makeMockERC20({ name: 'CInv3', symbol: 'CInv3' });
-      const feed = await makePriceFeed({}, token.address);
+      const feed = await makePriceFeed(token.address);
       await expect(
         sandboxController.whitelistCollateralAsset(
           token.address,
@@ -857,7 +542,7 @@ describe('SandboxController', function () {
 
     it('whitelists valid collateral and updates state', async function () {
       const token = await makeMockERC20({ name: 'C6', symbol: 'C6' });
-      const priceFeed = await makePriceFeed({}, token.address);
+      const priceFeed = await makePriceFeed(token.address);
 
       const maxBorrowCollateralFactor = 8000;
       const minBorrowCollateralFactor = 5000;
@@ -897,7 +582,7 @@ describe('SandboxController', function () {
 
     it('emits CollateralAssetWhitelisted event with correct args', async function () {
       const token = await makeMockERC20({ name: 'C6', symbol: 'C6' });
-      const priceFeed = await makePriceFeed({}, token.address);
+      const priceFeed = await makePriceFeed(token.address);
 
       const tx = await sandboxController.whitelistCollateralAsset(
         token.address,
@@ -921,7 +606,7 @@ describe('SandboxController', function () {
 
     it('owner can do it, dao can do it', async function () {
       const token1 = await makeMockERC20({ name: 'C7', symbol: 'C7' });
-      const feed1 = await makePriceFeed({}, token1.address);
+      const feed1 = await makePriceFeed(token1.address);
       await sandboxController
         .connect(owner)
         .whitelistCollateralAsset(
@@ -936,7 +621,7 @@ describe('SandboxController', function () {
         );
 
       const token2 = await makeMockERC20({ name: 'C8', symbol: 'C8' });
-      const feed2 = await makePriceFeed({}, token2.address);
+      const feed2 = await makePriceFeed(token2.address);
       await sandboxController
         .connect(dao)
         .whitelistCollateralAsset(
@@ -954,141 +639,100 @@ describe('SandboxController', function () {
     });
   });
 
-
   describe('setConfiguration', function () {
     let sandboxController: any;
+    type Config = {
+      targetPercent: string;
+      storeFrontPriceFactor: string;
+      minUpdateTime: number;
+      maxUpdateTime: number;
+      suggestedAmountOfSeedReserves: string;
+      suggestedLockTimeOfSeedReserves: number;
+    }
+    let config: Config;
 
     beforeEach(async function () {
-      const opts = defaultSandboxControllerOpts({
-        admin: owner,
-        dao: dao,
-        feeEnabled: false,
-        storeFrontPriceFactor: parseEther('0.3').toString(),
-        protocolFactorBorrow: parseEther('0.1').toString(),
-        reserveFactorBorrow: parseEther('0.1').toString(),
-        protocolFactorLiquidation: parseEther('0.1').toString(),
-        reserveFactorLiquidation: parseEther('0.1').toString(),
-        minUpdateTime: 400,
-        maxCollateralAssets: 5,
-        suggestedAmountOfSeedReserves: '1000',
-        suggestedLockTimeOfSeedReserves: 1000,
-        targetPercent: ethers.utils.parseEther('0.5').toString()
-      });
+      const opts = defaultSandboxControllerOpts({admin: owner, dao: dao});
       const c = await makeSandboxController(opts);
       sandboxController = c.sandboxController;
+      config = {
+        targetPercent: ethers.utils.parseEther('0.5').toString(),
+        storeFrontPriceFactor: parseEther('0.3').toString(),
+        minUpdateTime: 400,
+        maxUpdateTime: 604800,
+        suggestedAmountOfSeedReserves: '1000',
+        suggestedLockTimeOfSeedReserves: 1000
+      }
     });
 
     it('reverts if caller is not owner', async function () {
       await expect(
-        sandboxController.connect(dao).setConfiguration(
-          {
-            storeFrontPriceFactor: parseEther('0.3').toString(),
-            minUpdateTime: 400,
-            suggestedAmountOfSeedReserves: '1000',
-            suggestedLockTimeOfSeedReserves: 1000,
-            targetPercent: ethers.utils.parseEther('0.5').toString()
-          }
-        )
+        sandboxController.connect(dao).setConfiguration(config)
       ).to.be.revertedWithCustomError(sandboxController, 'NotOwner');
       await expect(
-        sandboxController.connect(attacker).setConfiguration(
-          {
-            storeFrontPriceFactor: parseEther('0.3').toString(),
-            minUpdateTime: 400,
-            suggestedAmountOfSeedReserves: '1000',
-            suggestedLockTimeOfSeedReserves: 1000,
-            targetPercent: ethers.utils.parseEther('0.5').toString()
-          }
-        )
+        sandboxController.connect(attacker).setConfiguration(config)
       ).to.be.revertedWithCustomError(sandboxController, 'NotOwner');
     });
-
 
     it('reverts if storeFrontPriceFactor >= 1e18', async function () {
+      config.storeFrontPriceFactor = parseEther('1').toString();
       await expect(
-        sandboxController.setConfiguration(
-          {
-            storeFrontPriceFactor: parseEther('1').toString(),
-            minUpdateTime: 400,
-            suggestedAmountOfSeedReserves: '1000',
-            suggestedLockTimeOfSeedReserves: 1000,
-            targetPercent: ethers.utils.parseEther('0.5').toString()
-          }
-        )
+        sandboxController.setConfiguration(config)
       ).to.be.revertedWithCustomError(sandboxController, 'InvalidFactors');
     });
 
-
-    it('reverts if minUpdateTime=0', async function () {
-      await expect(
-        sandboxController.setConfiguration(
-          {
-            storeFrontPriceFactor: parseEther('0.3').toString(),
-            minUpdateTime: 0,
-            suggestedAmountOfSeedReserves: '1000',
-            suggestedLockTimeOfSeedReserves: 1000,
-            targetPercent: ethers.utils.parseEther('0.5').toString()
-          }
-        )
+    it('reverts if minUpdateTime = 0', async function () {
+      config.minUpdateTime = 0;
+      await expect(sandboxController.setConfiguration(config)
       ).to.be.revertedWithCustomError(sandboxController, 'InvalidFactors');
     });
 
-
-    it('reverts if suggestedAmountOfSeedReserves=0', async function () {
+    it('reverts if suggestedAmountOfSeedReserves = 0', async function () {
+      config.suggestedAmountOfSeedReserves = '0';
       await expect(
-        sandboxController.setConfiguration(
-          {
-            storeFrontPriceFactor: parseEther('0.3').toString(),
-            minUpdateTime: 400,
-            suggestedAmountOfSeedReserves: '0',
-            suggestedLockTimeOfSeedReserves: 1000,
-            targetPercent: ethers.utils.parseEther('0.5').toString()
-          }
-        )
+        sandboxController.setConfiguration(config)
       ).to.be.revertedWithCustomError(sandboxController, 'InvalidFactors');
     });
 
-
-    it('reverts if suggestedLockTimeOfSeedReserves=0', async function () {
+    it('reverts if suggestedLockTimeOfSeedReserves = 0', async function () {
+      config.suggestedLockTimeOfSeedReserves = 0;
       await expect(
-        sandboxController.setConfiguration(
-          {
-            storeFrontPriceFactor: parseEther('0.3').toString(),
-            minUpdateTime: 400,
-            suggestedAmountOfSeedReserves: '1000',
-            suggestedLockTimeOfSeedReserves: 0,
-            targetPercent: ethers.utils.parseEther('0.5').toString()
-          }
-        )
+        sandboxController.setConfiguration(config)
       ).to.be.revertedWithCustomError(sandboxController, 'InvalidFactors');
     });
-
 
     it('updates configuration with valid values and emits event', async function () {
-      const tx = await sandboxController.setConfiguration(
-        {
-          storeFrontPriceFactor: parseEther('0.4').toString(),
-          minUpdateTime: 500,
-          suggestedAmountOfSeedReserves: '2000',
-          suggestedLockTimeOfSeedReserves: 2000,
-          targetPercent: ethers.utils.parseEther('0.5').toString()
-        }
-      );
-      expect((await sandboxController.controllerConfiguration()).storeFrontPriceFactor).to.equal(parseEther('0.4').toString());
-      expect((await sandboxController.controllerConfiguration()).minUpdateTime).to.equal(500);
-      expect((await sandboxController.controllerConfiguration()).suggestedAmountOfSeedReserves).to.equal('2000');
-      expect((await sandboxController.controllerConfiguration()).suggestedLockTimeOfSeedReserves).to.equal(2000);
-
+      expect((await sandboxController.controllerConfiguration()).storeFrontPriceFactor).to.equal(parseEther('0.9999999999').toString());
+      expect((await sandboxController.controllerConfiguration()).minUpdateTime).to.equal(300);
+      expect((await sandboxController.controllerConfiguration()).maxUpdateTime).to.equal(7 * 24 * 60 * 60);
+      expect((await sandboxController.controllerConfiguration()).suggestedAmountOfSeedReserves).to.equal(ethers.utils.parseEther('500').toString());
+      expect((await sandboxController.controllerConfiguration()).suggestedLockTimeOfSeedReserves).to.equal(86400);
+      expect((await sandboxController.controllerConfiguration()).targetPercent).to.equal(ethers.utils.parseEther('0.5').toString());
+      
+      const tx = await sandboxController.setConfiguration({
+        storeFrontPriceFactor: parseEther('0.3').toString(),
+        minUpdateTime: 400,
+        maxUpdateTime: 500,
+        suggestedAmountOfSeedReserves: 10,
+        suggestedLockTimeOfSeedReserves: 1000,
+        targetPercent: ethers.utils.parseEther('0.4').toString()
+      });
       const rcpt = await tx.wait();
       const ev = rcpt.events?.find((e: any) => e.event === 'ConfigurationChanged');
-      expect(ev.args.oldConfig.storeFrontPriceFactor).to.equal(parseEther('0.3').toString());
-      expect(ev.args.oldConfig.minUpdateTime).to.equal(400);
-      expect(ev.args.oldConfig.suggestedAmountOfSeedReserves).to.equal('1000');
-      expect(ev.args.oldConfig.suggestedLockTimeOfSeedReserves).to.equal(1000);
-      expect(ev.args.newConfig.storeFrontPriceFactor).to.equal(parseEther('0.4').toString());
-      expect(ev.args.newConfig.minUpdateTime).to.equal(500);
-      expect(ev.args.newConfig.suggestedAmountOfSeedReserves).to.equal('2000');
-      expect(ev.args.newConfig.suggestedLockTimeOfSeedReserves).to.equal(2000);
+      /// old config
+      expect(ev.args.oldConfig.storeFrontPriceFactor).to.equal(parseEther('0.9999999999').toString());
+      expect(ev.args.oldConfig.minUpdateTime).to.equal(300);
+      expect(ev.args.oldConfig.maxUpdateTime).to.equal(7 * 24 * 60 * 60);
+      expect(ev.args.oldConfig.suggestedAmountOfSeedReserves).to.equal(ethers.utils.parseEther('500').toString());
+      expect(ev.args.oldConfig.suggestedLockTimeOfSeedReserves).to.equal(86400);
+      expect(ev.args.oldConfig.targetPercent).to.equal(ethers.utils.parseEther('0.5').toString());
+      /// new config
+      expect(ev.args.newConfig.storeFrontPriceFactor).to.equal(parseEther('0.3').toString());
+      expect(ev.args.newConfig.minUpdateTime).to.equal(400);
+      expect(ev.args.newConfig.maxUpdateTime).to.equal(500);
+      expect(ev.args.newConfig.suggestedAmountOfSeedReserves).to.equal(10);
+      expect(ev.args.newConfig.suggestedLockTimeOfSeedReserves).to.equal(1000);
+      expect(ev.args.newConfig.targetPercent).to.equal(ethers.utils.parseEther('0.4').toString());
     });
   });
 
@@ -1106,7 +750,6 @@ describe('SandboxController', function () {
         protocolFactorLiquidation: parseEther('0.1').toString(),
         reserveFactorLiquidation: parseEther('0.1').toString(),
         minUpdateTime: 400,
-        maxCollateralAssets: 5,
         suggestedAmountOfSeedReserves: '1000',
         suggestedLockTimeOfSeedReserves: 1000,
         targetPercent: ethers.utils.parseEther('0.5').toString()
@@ -1150,7 +793,6 @@ describe('SandboxController', function () {
         protocolFactorLiquidation: parseEther('0.1').toString(),
         reserveFactorLiquidation: parseEther('0.1').toString(),
         minUpdateTime: 400,
-        maxCollateralAssets: 5,
         suggestedAmountOfSeedReserves: '1000',
         suggestedLockTimeOfSeedReserves: 1000,
         targetPercent: ethers.utils.parseEther('0.5').toString()
@@ -1158,11 +800,11 @@ describe('SandboxController', function () {
       const c = await makeSandboxController(opts);
       sandboxController = c.sandboxController;
       token = await makeMockERC20({ name: 'T9', symbol: 'T9' });
-      priceFeed = await makePriceFeed({}, token.address);
+      priceFeed = await makePriceFeed(token.address);
       await sandboxController.connect(owner).whitelistBaseAsset(token.address, priceFeed.address, makeValidCurve(), 10);
     });
 
-    it('reverts if token=0', async function () {
+    it('reverts if token = 0', async function () {
       await expect(
         sandboxController.addBaseAssetCurve(ethers.constants.AddressZero, makeValidCurve())
       ).to.be.revertedWithCustomError(sandboxController, 'ZeroAddress');
@@ -1262,7 +904,6 @@ describe('SandboxController', function () {
         protocolFactorLiquidation: parseEther('0.1').toString(),
         reserveFactorLiquidation: parseEther('0.1').toString(),
         minUpdateTime: 400,
-        maxCollateralAssets: 5,
         suggestedAmountOfSeedReserves: '1000',
         suggestedLockTimeOfSeedReserves: 1000,
         targetPercent: ethers.utils.parseEther('0.5').toString()
@@ -1270,11 +911,11 @@ describe('SandboxController', function () {
       const c = await makeSandboxController(opts);
       sandboxController = c.sandboxController;
       token = await makeMockERC20({ name: 'T11', symbol: 'T11' });
-      priceFeed = await makePriceFeed({}, token.address);
+      priceFeed = await makePriceFeed(token.address);
       await sandboxController.connect(owner).whitelistBaseAsset(token.address, priceFeed.address, makeValidCurve(), 10);
     });
 
-    it('reverts if token=0', async function () {
+    it('reverts if token = 0', async function () {
       await expect(
         sandboxController.connect(dao).changeBaseAssetCurve(ethers.constants.AddressZero, 0, makeValidCurve())
       ).to.be.revertedWithCustomError(sandboxController, 'ZeroAddress');
@@ -1379,7 +1020,6 @@ describe('SandboxController', function () {
         protocolFactorLiquidation: parseEther('0.1').toString(),
         reserveFactorLiquidation: parseEther('0.1').toString(),
         minUpdateTime: 400,
-        maxCollateralAssets: 5,
         suggestedAmountOfSeedReserves: '1000',
         suggestedLockTimeOfSeedReserves: 1000,
         targetPercent: ethers.utils.parseEther('0.5').toString()
@@ -1397,7 +1037,7 @@ describe('SandboxController', function () {
       ).to.be.revertedWithCustomError(sandboxController, 'NotOwner');
     });
 
-    it('reverts if newOwner=0', async function () {
+    it('reverts if newOwner = 0', async function () {
       await expect(
         sandboxController.connect(owner).transferOwner(ethers.constants.AddressZero)
       ).to.be.revertedWithCustomError(sandboxController, 'ZeroAddress');
@@ -1428,7 +1068,6 @@ describe('SandboxController', function () {
         protocolFactorLiquidation: parseEther('0.1').toString(),
         reserveFactorLiquidation: parseEther('0.1').toString(),
         minUpdateTime: 400,
-        maxCollateralAssets: 5,
         suggestedAmountOfSeedReserves: '1000',
         suggestedLockTimeOfSeedReserves: 1000,
         targetPercent: ethers.utils.parseEther('0.5').toString()
@@ -1446,7 +1085,7 @@ describe('SandboxController', function () {
       ).to.be.revertedWithCustomError(sandboxController, 'NotDao');
     });
 
-    it('reverts if newDao=0', async function () {
+    it('reverts if newDao = 0', async function () {
       await expect(
         sandboxController.connect(dao).transferDao(ethers.constants.AddressZero)
       ).to.be.revertedWithCustomError(sandboxController, 'ZeroAddress');
@@ -1477,7 +1116,6 @@ describe('SandboxController', function () {
         protocolFactorLiquidation: parseEther('0.1').toString(),
         reserveFactorLiquidation: parseEther('0.1').toString(),
         minUpdateTime: 400,
-        maxCollateralAssets: 5,
         suggestedAmountOfSeedReserves: '1000',
         suggestedLockTimeOfSeedReserves: 1000,
         targetPercent: ethers.utils.parseEther('0.5').toString()
@@ -1493,7 +1131,7 @@ describe('SandboxController', function () {
 
     it('returns true if base asset whitelisted', async function () {
       const token = await makeMockERC20({ name: 'T14', symbol: 'T14' });
-      const priceFeed = await makePriceFeed({}, token.address);
+      const priceFeed = await makePriceFeed(token.address);
       await sandboxController.whitelistBaseAsset(token.address, priceFeed.address, makeValidCurve(), 50);
       expect(await sandboxController.isBaseTokenWhitelisted(token.address)).to.equal(true);
     });
@@ -1513,7 +1151,6 @@ describe('SandboxController', function () {
         protocolFactorLiquidation: parseEther('0.1').toString(),
         reserveFactorLiquidation: parseEther('0.1').toString(),
         minUpdateTime: 400,
-        maxCollateralAssets: 5,
         suggestedAmountOfSeedReserves: '1000',
         suggestedLockTimeOfSeedReserves: 1000,
         targetPercent: ethers.utils.parseEther('0.5').toString()
@@ -1529,7 +1166,7 @@ describe('SandboxController', function () {
 
     it('returns true if collateral asset whitelisted', async function () {
       const token = await makeMockERC20({ name: 'C16', symbol: 'C16' });
-      const priceFeed = await makePriceFeed({}, token.address);
+      const priceFeed = await makePriceFeed(token.address);
       await sandboxController.whitelistCollateralAsset(
         token.address, 
         priceFeed.address, 
@@ -1545,7 +1182,6 @@ describe('SandboxController', function () {
 
   });
 
-
   describe('isCurveConfigurationValid', function () {
     let sandboxController: any;
 
@@ -1560,7 +1196,6 @@ describe('SandboxController', function () {
         protocolFactorLiquidation: parseEther('0.1').toString(),
         reserveFactorLiquidation: parseEther('0.1').toString(),
         minUpdateTime: 400,
-        maxCollateralAssets: 5,
         suggestedAmountOfSeedReserves: '1000',
         suggestedLockTimeOfSeedReserves: 1000,
         targetPercent: ethers.utils.parseEther('0.5').toString()
@@ -1636,7 +1271,6 @@ describe('SandboxController', function () {
         protocolFactorLiquidation: parseEther('0.1').toString(),
         reserveFactorLiquidation: parseEther('0.2').toString(),
         minUpdateTime: 400,
-        maxCollateralAssets: 5,
         suggestedAmountOfSeedReserves: '1000',
         suggestedLockTimeOfSeedReserves: 1000,
         targetPercent: ethers.utils.parseEther('0.5').toString()
@@ -1764,7 +1398,6 @@ describe('SandboxController', function () {
         protocolFactorLiquidation: parseEther('0.1').toString(),
         reserveFactorLiquidation: parseEther('0.2').toString(),
         minUpdateTime: 400,
-        maxCollateralAssets: 5,
         suggestedAmountOfSeedReserves: '1000',
         suggestedLockTimeOfSeedReserves: 1000,
         targetPercent: ethers.utils.parseEther('0.5').toString()
