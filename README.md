@@ -3,7 +3,7 @@
 ## Getting started
 
 1. Clone the repo
-2. Run `yarn install`
+2. Run `npm run setup`
 
 ## Env variables
 
@@ -44,17 +44,66 @@ You can skip pre-commit checks with the `-n` flag:
 git commit -n -m "commit without running pre-commit hook"
 ```
 
+## Additional Tools
+
+This project provides several tools for code quality, security, and coverage. Below are the main tools, what they do, and how to run them.
+
+#### Linter
+
+- **TypeScript/JavaScript Linter**
+
+  - **Command:** `lint:ts`
+  - **What it does:** Runs ESLint on all TypeScript and JavaScript files to enforce code style and catch errors.
+  - **How to run:**
+    ```
+    npm run lint:ts
+    ```
+
+- **Solidity Linter**
+  - **Command:** `lint:sol`
+  - **What it does:** Runs Solhint on all Solidity contracts using the `.solhint.json` configuration.
+  - **How to run:**
+    ```
+    npm run lint:sol
+    ```
+
+### Slither (Static Analysis)
+
+- **Command:** `slither`
+- **What it does:** Runs Slither, a static analysis tool for Solidity, to detect vulnerabilities and code quality issues.
+- **How to run:**
+  ```
+  npm run slither
+  ```
+- **Note:**  
+  Slither must be installed separately (e.g., via `pip install slither-analyzer`).  
+  The command analyzes the `contracts/` directory and outputs to `artifacts/`.
+
+### Coverage
+
+- **Command:** `test:coverage`
+- **What it does:** Runs tests and generates a code coverage report for Solidity contracts.
+- **How to run:**
+  ```
+  npm run test:coverage
+  ```
+- **Output:**  
+  Coverage results are saved in the `coverage/` directory or printed in the terminal.
+
+**Tip:**  
+All commands are run from the project root. If you use yarn instead of npm, replace `npm run <command>` with `yarn <command>`.
+
 ## Comet protocol contracts
 
 **[SandboxComet.sol](./contracts/SandboxComet.sol)** - Contract that inherits `ISandboxComet.sol` and is the implementation for most of Comet's core functionalities.
 
 **[CometCore.sol](./contracts/CometCore.sol)** - Abstract contract that inherits `CometStorage.sol`, and `CometMath.sol`. This contracts contains functions and constants that are shared for `SandboxComet.sol`.
 
-**[CometStorage.sol](./contracts/Comet)** - Contract that defines the storage variables used for the Comet protocol.
+**[CometStorage.sol](./contracts/CometStorage.sol)** - Contract that defines the storage variables used for the Comet protocol.
 
-**[CometMath.sol](https://github.com/compound-finance/comet/blob/main/contracts/CometMath.sol)** - Contract that defines math functions that are used throughout the Comet codebase.
+**[CometMath.sol](./contracts/CometMath.sol)** - Contract that defines math functions that are used throughout the Comet codebase.
 
-**[CometFactory.sol](https://github.com/compound-finance/comet/blob/main/contracts/CometFactory.sol)** - Contract that inherits `CometConfiguration.sol` and is used to deploy new versions of `Comet.sol`. This contract will mainly be called by the Configurator during the governance upgrade process.
+**[SandboxCometFactory](./contracts/SandboxCometFactory.sol)** - Factory contract that inherits `ISandboxCometFactory.sol` and is used creating new comet instances using the clone pattern.
 
 ## Configurator contracts
 
@@ -63,8 +112,6 @@ git commit -n -m "commit without running pre-commit hook"
 **[ConfigControllerFactory](./contracts/ConfigControllerFactory.sol)** - Contract that inherits `IConfigControllerFactory.sol` and is used for deploying `ConfigController.sol` contract via clone proxy pattern.
 
 **[ConfigController](./contracts/ConfigController.sol)** - Contract that inherits `IConfigController.sol` and is used for deploying a new comet via `SandboxCometFactory.sol` contract.
-
-**[SandboxCometFactory](./contracts/SandboxCometFactory.sol)** - Factory contract that inherits `ISandboxCometFactory.sol` and is used creating new comet instances using the clone pattern.
 
 ## Supplementary contracts
 
