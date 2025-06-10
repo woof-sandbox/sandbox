@@ -381,8 +381,6 @@ describe('absorb', function () {
     await expect(comet.absorb(alice.address, [bob.address])).to.be.revertedWith("custom error 'NotLiquidatable()'");
   });
 
-  it.skip('reverts if collateral asset value overflows base balance', async () => { });
-
   it('reverts if absorb is paused', async () => {
     const protocol = await makeProtocol({
       base: 'USDC', targetPercent: 0.5,
