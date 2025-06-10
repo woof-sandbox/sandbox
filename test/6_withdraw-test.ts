@@ -863,8 +863,7 @@ describe('withdraw', function () {
     const {
       comet,
       tokens,
-      users: [alice, bob],
-      baseToken
+      users: [alice],
     } = await makeProtocol({
       base: 'USDC',
       storeFrontPriceFactor: exp(0.5, 18),
