@@ -495,15 +495,16 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
     const ConfigControllerFactory = (await ethers.getContractFactory("ConfigController")) as ConfigController__factory;
 
     const configControllerImpl = await ConfigControllerFactory.deploy();
-    const configControllerFactory = await ConfigControllerFactoryFactory.deploy(configControllerImpl.address);
+    const configControllerFactory = await ConfigControllerFactoryFactory.deploy(
+        sandboxController.address,
+        configControllerImpl.address
+    );
 
     const cometFactory = await makeCometFactory(cometImpl, configControllerFactory);
 
     await configControllerFactory.createConfigController(
-        owner.address,
         curator.address,
         guardian.address,
-        sandboxController.address,
         cometFactory.address,
         1000,
         "ConfigController",
