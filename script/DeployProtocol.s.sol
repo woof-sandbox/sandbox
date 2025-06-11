@@ -4,77 +4,216 @@ pragma solidity 0.8.28;
 import "forge-std/Script.sol";
 import "../contracts/SandboxController.sol";
 import "../contracts/ConfigControllerFactory.sol";
-import "../contracts/MarketFactory.sol";
+import "../contracts/SandboxCometFactory.sol";
 import "../contracts/SandboxComet.sol";
 import "../contracts/test/ManagedFaucetToken.sol";
 import "../contracts/test/ManagedSimplePriceFeed.sol";
+import "../contracts/interfaces/ISandboxComet.sol";
 
 contract DeployProtocol is Script {
+    address curator;
+    address owner;
+    address ownerPrivateKey;
+    address userPrivateKey;
+    address basePriceFeed1;
+    address collateralPriceFeed1;
+    address collateralPriceFeed2;
+    address collateralPriceFeed3;
+    address collateralPriceFeed4;
+    address baseToken1;
+    address collateralToken1;
+    address collateralToken2;
+    address collateralToken3;
+    address collateralToken4;
+
     function run() external {
         // Get owner's private key from .env
-        uint256 ownerPrivateKey = vm.envUint("OWNER_PRIVATE_KEY");
-        address owner = vm.addr(ownerPrivateKey);
-
+        ownerPrivateKey = vm.envUint("OWNER_PRIVATE_KEY");
+        owner = vm.addr(ownerPrivateKey);
+        userPrivateKey = vm.envUint("USER_PRIVATE_KEY");
+        curator = vm.addr(userPrivateKey);
+        console.log("Curator:", curator);
         // Start broadcasting transactions with owner's private key
         vm.startBroadcast(ownerPrivateKey);
 
         // Deploy implementation contracts
-        address marketImplementation = deployMarketImplementation();
+        address cometImplementation = deployCometImplementation();
         address configControllerImplementation = deployConfigControllerImplementation();
 
         // Deploy SandboxController
         address sandboxController = deploySandboxController(owner);
         
         // Deploy factories
-        address configControllerFactory = deployConfigControllerFactory(configControllerImplementation);
-        address marketFactory = deployMarketFactory(marketImplementation, configControllerFactory, sandboxController);
+        address configControllerFactory = deployConfigControllerFactory(sandboxController, configControllerImplementation);
+        address cometFactory = deploySandboxCometFactory(cometImplementation, configControllerFactory, sandboxController);
         
-        // Deploy test tokens and price feeds
-        (address baseToken, address basePriceFeed) = deployBaseAsset();
-        (address collateralToken, address collateralPriceFeed) = deployCollateralAsset();
+        // Deploy test tokens and price feeds for Comet 1
+        (baseToken1, basePriceFeed1) = deployBaseAsset("USDC", 6);
+        (collateralToken1, collateralPriceFeed1) = deployCollateralAsset("WETH", 18);
+        (collateralToken2, collateralPriceFeed2) = deployCollateralAsset("WBTC", 8);
 
-        // Whitelist assets in SandboxController
-        whitelistBaseAsset(sandboxController, baseToken, basePriceFeed);
-        whitelistCollateralAsset(sandboxController, collateralToken, collateralPriceFeed);
+        // Deploy test tokens and price feeds for Comet 2
+        (collateralToken3, collateralPriceFeed3) = deployCollateralAsset("COMP", 18);
+        (collateralToken4, collateralPriceFeed4) = deployCollateralAsset("LINK", 18);
 
-        // Create ConfigController instance
-        address configController = createConfigController(
+        // Whitelist assets in SandboxController for Comet 1
+        whitelistBaseAsset(sandboxController, baseToken1, basePriceFeed1);
+        whitelistCollateralAsset(sandboxController, collateralToken1, collateralPriceFeed1);
+        whitelistCollateralAsset(sandboxController, collateralToken2, collateralPriceFeed2);
+
+        // Whitelist assets in SandboxController for Comet 2
+        whitelistCollateralAsset(sandboxController, collateralToken3, collateralPriceFeed3);
+        whitelistCollateralAsset(sandboxController, collateralToken4, collateralPriceFeed4);
+
+        // Create ConfigController instances
+        address configController1 = createConfigController(
             configControllerFactory,
             sandboxController,
-            marketFactory,
+            cometFactory,
             owner
         );
 
-        // Create Market instance
-        createMarket(
-            configController,
-            baseToken,
-            basePriceFeed,
-            collateralToken,
-            collateralPriceFeed
+        address configController2 = createConfigController(
+            configControllerFactory,
+            sandboxController,
+            cometFactory,
+            owner
         );
+
+        // Initialize arrays with correct sizes
+        address[] memory collateralTokens1 = new address[](2);
+        collateralTokens1[0] = collateralToken1;
+        collateralTokens1[1] = collateralToken2;
+
+        address[] memory collateralPriceFeeds1 = new address[](2);
+        collateralPriceFeeds1[0] = collateralPriceFeed1;
+        collateralPriceFeeds1[1] = collateralPriceFeed2;
+
+        // Create Comet instances
+        address comet1 = createComet(
+            configController1,
+            baseToken1,
+            basePriceFeed1,
+            collateralTokens1,
+            collateralPriceFeeds1
+        );
+
+        address[] memory collateralTokens2 = new address[](4);
+        collateralTokens2[0] = collateralToken1;
+        collateralTokens2[1] = collateralToken2;
+        collateralTokens2[2] = collateralToken3;
+        collateralTokens2[3] = collateralToken4;
+
+        address[] memory collateralPriceFeeds2 = new address[](4);
+        collateralPriceFeeds2[0] = collateralPriceFeed1;
+        collateralPriceFeeds2[1] = collateralPriceFeed2;
+        collateralPriceFeeds2[2] = collateralPriceFeed3;
+        collateralPriceFeeds2[3] = collateralPriceFeed4;
+
+        address comet2 = createComet(
+            configController2,
+            baseToken1,
+            basePriceFeed1,
+            collateralTokens2,
+            collateralPriceFeeds2
+        );
+
+        setupBorrowing(
+            comet1,
+            baseToken1,
+            collateralTokens1,
+            curator
+        );
+
+        setupBorrowing(
+            comet2,
+            baseToken1,
+            collateralTokens2,
+            curator
+        );
+
+        setPrices();
 
         // Stop broadcasting
         vm.stopBroadcast();
 
         // Log deployment addresses
         console.log("Owner Address:", owner);
-        console.log("Market Implementation:", marketImplementation);
+        console.log("Comet Implementation:", cometImplementation);
         console.log("ConfigController Implementation:", configControllerImplementation);
-        console.log("Market Factory:", marketFactory);
+        console.log("Comet Factory:", cometFactory);
         console.log("ConfigController Factory:", configControllerFactory);
         console.log("SandboxController:", sandboxController);
-        console.log("Base Token:", baseToken);
-        console.log("Base Price Feed:", basePriceFeed);
-        console.log("Collateral Token:", collateralToken);
-        console.log("Collateral Price Feed:", collateralPriceFeed);
-        console.log("ConfigController:", configController);
+        
+        console.log("\nComet 1 Configuration:");
+        console.log("Base Token (USDC):", baseToken1);
+        console.log("Base Price Feed:", basePriceFeed1);
+        console.log("Collateral Token 1 (WETH):", collateralToken1);
+        console.log("Collateral Price Feed 1:", collateralPriceFeed1);
+        console.log("Collateral Token 2 (WBTC):", collateralToken2);
+        console.log("Collateral Price Feed 2:", collateralPriceFeed2);
+        console.log("ConfigController 1:", configController1);
+        console.log("Comet 1:", comet1);
+
+        console.log("\nComet 2 Configuration:");
+        console.log("Base Token (USDC):", baseToken1);
+        console.log("Base Price Feed:", basePriceFeed1);
+        console.log("Collateral Token 1 (WETH):", collateralToken1);
+        console.log("Collateral Price Feed 1:", collateralPriceFeed1);
+        console.log("Collateral Token 2 (WBTC):", collateralToken2);
+        console.log("Collateral Price Feed 2:", collateralPriceFeed2);
+        console.log("Collateral Token 3 (COMP):", collateralToken3);
+        console.log("Collateral Price Feed 3:", collateralPriceFeed3);
+        console.log("Collateral Token 4 (LINK):", collateralToken4);
+        console.log("Collateral Price Feed 4:", collateralPriceFeed4);
+        console.log("ConfigController 2:", configController2);
+        console.log("Comet 2:", comet2);
     }
 
-    function deployMarketImplementation() internal returns (address) {
-        // Deploy Market implementation contract
-        SandboxComet market = new SandboxComet();
-        return address(market);
+    function setPrices() internal {
+        console.log("Setting prices");
+        ManagedSimplePriceFeed(basePriceFeed1).setRoundData(
+            0,
+            99981900,
+            block.timestamp,
+            block.timestamp,
+            0
+        ); // USDC 
+        ManagedSimplePriceFeed(collateralPriceFeed1).setRoundData(
+            0,
+            248628071000,
+            block.timestamp,
+            block.timestamp,
+            0
+        ); // WETH 
+        ManagedSimplePriceFeed(collateralPriceFeed2).setRoundData(
+            0,
+            10357813578659,
+            block.timestamp,
+            block.timestamp,
+            0
+        ); // WBTC 
+        ManagedSimplePriceFeed(collateralPriceFeed3).setRoundData(
+            0,
+            4915585997,
+            block.timestamp,
+            block.timestamp,
+            0
+        ); // COMP 
+        ManagedSimplePriceFeed(collateralPriceFeed4).setRoundData(
+            0,
+            1318540000,
+            block.timestamp,
+            block.timestamp,
+            0
+        ); // LINK 
+        console.log("Prices set");
+    }
+
+    function deployCometImplementation() internal returns (address) {
+        // Deploy Comet implementation contract
+        SandboxComet comet = new SandboxComet();
+        return address(comet);
     }
 
     function deployConfigControllerImplementation() internal returns (address) {
@@ -83,21 +222,18 @@ contract DeployProtocol is Script {
         return address(configController);
     }
 
-    function deployMarketFactory(address marketImplementation, address configControlllerFactory, address sandboxController) internal returns (address) {
-        // Deploy MarketFactory
-        MarketFactory marketFactory = new MarketFactory(
-            marketImplementation,
-            configControlllerFactory,
-            sandboxController
+    function deploySandboxCometFactory(address cometImplementation, address configControlllerFactory, address sandboxController) internal returns (address) {
+        // Deploy CometFactory
+        SandboxCometFactory cometFactory = new SandboxCometFactory(
+            cometImplementation,
+            configControlllerFactory
         );
-        return address(marketFactory);
+        return address(cometFactory);
     }
 
-    function deployConfigControllerFactory(address configControllerImplementation) internal returns (address) {
+    function deployConfigControllerFactory(address sandboxController, address configControllerImplementation) internal returns (address) {
         // Deploy ConfigControllerFactory
-        ConfigControllerFactory configControllerFactory = new ConfigControllerFactory(
-            configControllerImplementation
-        );
+        ConfigControllerFactory configControllerFactory = new ConfigControllerFactory(sandboxController, configControllerImplementation);
         return address(configControllerFactory);
     }
 
@@ -111,47 +247,49 @@ contract DeployProtocol is Script {
             2e17, // reserveFactorBorrow (20%)
             3e17, // protocolFactorLiquidation (30%)
             2e17, // reserveFactorLiquidation (20%)
-            5, // maxCollateralAssets
-            2e17, // targetReserves (20%)
+            2e17, // targetPercent (20%)
             95e16, // storeFrontPriceFactor (95%)
             300, // minUpdateTime (5 minutes)
+            3600, // maxUpdateTime (1 hour)
             1e18, // suggestedAmountOfSeedReserves
             3600 // suggestedLockTimeOfSeedReserves (1 hour)
         );
         return address(sandboxController);
     }
 
-    function deployBaseAsset() internal returns (address, address) {
+    function deployBaseAsset(string memory name, uint8 decimals) internal returns (address, address) {
         // Deploy test base token
         ManagedFaucetToken baseToken = new ManagedFaucetToken(
             1e24, // initialAmount
-            "Test Base Token",
-            8, // decimals
-            "TBT"
+            name,
+            decimals,
+            name
         );
 
         // Deploy price feed for base token
         ManagedSimplePriceFeed basePriceFeed = new ManagedSimplePriceFeed(
             1e18, // initial price: 1.0
-            8 // decimals
+            8,
+            address(baseToken)
         );
 
         return (address(baseToken), address(basePriceFeed));
     }
 
-    function deployCollateralAsset() internal returns (address, address) {
+    function deployCollateralAsset(string memory name, uint8 decimals) internal returns (address, address) {
         // Deploy test collateral token
         ManagedFaucetToken collateralToken = new ManagedFaucetToken(
             1e24, // initialAmount
-            "Test Collateral Token",
-            8, // decimals
-            "TCT"
+            name,
+            decimals,
+            name
         );
 
         // Deploy price feed for collateral token
         ManagedSimplePriceFeed collateralPriceFeed = new ManagedSimplePriceFeed(
             1e18, // initial price: 1.0
-            8 // decimals
+            8,
+            address(collateralToken)
         );
 
         return (address(collateralToken), address(collateralPriceFeed));
@@ -181,7 +319,7 @@ contract DeployProtocol is Script {
             baseToken,
             basePriceFeed,
             curve,
-            1e18 // minBorrow: 1.0
+            10 // minBorrow: 1.0
         );
     }
 
@@ -208,59 +346,107 @@ contract DeployProtocol is Script {
     function createConfigController(
         address configControllerFactoryAddr,
         address sandboxController,
-        address marketFactory,
+        address cometFactory,
         address owner
     ) internal returns (address) {
         ConfigControllerFactory factory = ConfigControllerFactory(configControllerFactoryAddr);
 
         // Create new ConfigController instance
         address configController = factory.createConfigController(
-            owner, // owner
-            owner, // curator
-            owner, // guardian
-            sandboxController,
-            marketFactory,
+            curator, // curator
+            address(0), // guardian
+            cometFactory,
             100, // curatorFee (1%)
             "Test Config Controller",
-            7 days, // curatorProposalDuration
-            7 days // proposalDuration
+            3600, // curatorProposalDuration
+            3600 // proposalDuration
         );
 
         return configController;
     }
 
-    function createMarket(
+    function createComet(
         address configControllerAddr,
         address baseToken,
         address basePriceFeed,
-        address collateralToken,
-        address collateralPriceFeed
-    ) internal {
+        address[] memory collateralTokens,
+        address[] memory collateralPriceFeeds
+    ) internal returns (address) {
         IConfigController configController = IConfigController(configControllerAddr);
 
         // Create collateral token configuration
-        IConfigController.CollateralTokenConfig[] memory collateralTokens = 
-            new IConfigController.CollateralTokenConfig[](1);
+        IConfigController.CollateralTokenConfig[] memory collateralConfigs = 
+            new IConfigController.CollateralTokenConfig[](collateralTokens.length);
         
-        collateralTokens[0] = IConfigController.CollateralTokenConfig({
-            collateralToken: collateralToken,
-            priceFeed: collateralPriceFeed,
-            borrowCollateralFactor: 8000, // 80%
-            liquidateCollateralFactor: 8500, // 85%
-            liquidationFactor: 5000, // 50%
-            supplyCap: 1e24 // 1,000,000 tokens
-        });
+        for (uint i = 0; i < collateralTokens.length; i++) {
+            collateralConfigs[i] = IConfigController.CollateralTokenConfig({
+                collateralToken: collateralTokens[i],
+                priceFeed: collateralPriceFeeds[i],
+                borrowCollateralFactor: 8000, // 80%
+                liquidateCollateralFactor: 8500, // 85%
+                liquidationFactor: 5000, // 50%
+                supplyCap: 1e24, // 1,000,000 tokens
+                scale: 15 // 15 decimals
+            });
+        }
 
-        // Create market configuration
-        IConfigController.MarketConfig memory marketConfig = IConfigController.MarketConfig({
+        // Create comet config
+        IConfigController.CometConfig memory cometConfig = IConfigController.CometConfig({
             baseToken: baseToken,
-            priceFeed: basePriceFeed,
-            collateralTokens: collateralTokens,
-            baseTokenCurveId: 0 // Use first curve
+            baseTokenCurveId: 0, // Use first curve
+            collateralTokens: collateralConfigs,
+            options: IConfigController.CometOptions({
+                baseTrackingSupplySpeed: 1e18, // 1x
+                baseTrackingBorrowSpeed: 1e18, // 1x
+                trackingIndexScale: 1e18, // 1x
+                baseMinForRewards: 1e18 // 1x
+            })
         });
 
-        // Create market
-        address market = configController.createMarket(marketConfig);
-        console.log("Market:", market);
+        // Create comet
+        address comet = configController.createComet(cometConfig);
+
+        return comet;
+    }
+
+    function setupBorrowing(
+        address cometAddr,
+        address baseToken,
+        address[] memory collateralTokens,
+        address user
+    ) internal {
+        ISandboxComet comet = ISandboxComet(cometAddr);
+        ManagedFaucetToken baseTokenContract = ManagedFaucetToken(baseToken);
+
+        // Supply base token to the comet
+        uint256 baseAmount = 1e24; // 1,000,000 base tokens
+        vm.startBroadcast(ownerPrivateKey);
+        baseTokenContract.allocateTo(owner, baseAmount);
+        baseTokenContract.approve(cometAddr, baseAmount);
+        comet.supply(baseToken, baseAmount);
+        vm.stopBroadcast();
+
+        // Supply collateral tokens
+        for (uint i = 0; i < collateralTokens.length; i++) {
+            ManagedFaucetToken collateralToken = ManagedFaucetToken(collateralTokens[i]);
+            uint256 collateralAmount = 1e24; // 1,000,000 collateral tokens
+            vm.startBroadcast(ownerPrivateKey);
+            collateralToken.allocateTo(user, collateralAmount);
+            vm.stopBroadcast();
+            vm.startBroadcast(userPrivateKey);
+            collateralToken.approve(cometAddr, collateralAmount);
+            comet.supply(collateralTokens[i], collateralAmount);
+            vm.stopBroadcast();
+        }
+        
+        // Borrow base token
+        uint256 borrowAmount = 500 * 10 ** baseTokenContract.decimals();
+        vm.startBroadcast(userPrivateKey);
+        comet.withdraw(baseToken, borrowAmount);
+        vm.stopBroadcast();
+
+        console.log("Setup borrowing for Comet:", cometAddr);
+        console.log("Supplied base token amount:", baseAmount);
+        console.log("Borrowed amount:", borrowAmount);
     }
 } 

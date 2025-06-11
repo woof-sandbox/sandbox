@@ -13,23 +13,23 @@ abstract contract IConfigController {
     
     struct CometConfigProposal {
         address comet;
-        IConfigController.CollateralTokenConfig[] collateralTokens;
-        uint256 revertTime;
         address proposer;
+        uint256 revertTime;
+        IConfigController.CollateralTokenConfig[] collateralTokens;
     }
 
     struct CometBaseTokenCurveProposal {
-        address comet;
-        uint curveId;
-        uint256 revertTime;
         address proposer;
+        address comet;
+        uint256 curveId;
+        uint256 revertTime;
     }
     
     struct CometConfig {
         address baseToken;
-        CollateralTokenConfig[] collateralTokens;
         uint baseTokenCurveId;
         CometOptions options;
+        CollateralTokenConfig[] collateralTokens;
     }
 
     struct CometOptions {
@@ -42,10 +42,11 @@ abstract contract IConfigController {
     struct CollateralTokenConfig {
         address collateralToken;
         address priceFeed;
+        uint128 supplyCap;
         uint64 borrowCollateralFactor;
         uint64 liquidateCollateralFactor;
         uint64 liquidationFactor;
-        uint128 supplyCap;
+        uint64 scale;
     }
 
     error AlreadyInitialized();
@@ -191,7 +192,6 @@ abstract contract IConfigController {
         address indexed sender,
         uint256 amount
     );
-    address constant ZERO_ADDRESS = 0x0000000000000000000000000000000000000000;
 
     /// @notice Returns the current curator fee in basis points (1% = 100)
     /// @return The curator fee value

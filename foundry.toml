@@ -1,6 +1,6 @@
 [profile.default]
-src = 'src'
-out = 'out'
+src = 'contracts'
+out = 'artifacts'
 libs = ['lib']
 solc = '0.8.28'
 optimizer = true
@@ -8,6 +8,7 @@ optimizer_runs = 200
 extra_output = ['storageLayout']
 extra_output_files = ['storageLayout']
 eth_rpc_url = 'https://rpc.ankr.com/eth_sepolia/bfab75774c460fa32a8c5e98bd890f57777ca3be7fdc5654b31f16a91f1e073e'
+via_ir = true
 
 [fmt]
 line_length = 120
