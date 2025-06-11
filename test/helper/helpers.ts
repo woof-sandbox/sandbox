@@ -389,7 +389,7 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
     for (const symbol in assets) {
       const config = assets[symbol];
       const decimals = config.decimals || 18;
-      const initial = config.initial.toString() || 1e6;
+      const initial = config.initial != undefined && config.initial.toString() || 1e6;
       const name = config.name || symbol;
       const factory = config.factory || FaucetFactory;
       let token;

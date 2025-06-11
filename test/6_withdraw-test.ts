@@ -1,4 +1,4 @@
-import { EvilToken, EvilToken__factory, FaucetToken } from '../build/types';
+import { CometExtension, EvilToken, EvilToken__factory, FaucetToken } from '../build/types';
 import {
   baseBalanceOf,
   ethers,
@@ -349,7 +349,7 @@ describe('withdrawTo', function () {
       totalSupplyBase: 1_000_000n,
       totalBorrowBase: 0n,
     });
-    const _b0 = await wait(comet.setTotalsCollateral(COMP.address, t0));
+    const _b0 = await wait(comet.setTotalsCollateral(COMP.address, t0.totalSupplyAsset));
 
     const _i1 = await comet.setCollateralBalance(bob.address, COMP.address, 8e8);
     const cometAsB = comet.connect(bob);
@@ -373,7 +373,7 @@ describe('withdrawTo', function () {
     expect(p1.external).to.be.deep.equal({ USDC: 0n, COMP: exp(8, 8), WETH: 0n, WBTC: 0n });
     expect(q1.internal).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n });
     expect(q1.external).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n });
-    expect(t1.totalSupplyAsset).to.be.equal(0n);
+    expect(t1).to.be.equal(0n);
     expect(Number(s0.receipt.gasUsed)).to.be.lessThan(100000);
   });
 
@@ -892,10 +892,7 @@ describe('withdraw', function () {
     });
     const { WETH } = tokens;
 
-    const totalsCollateral = Object.assign({}, await comet.totalsCollateral(WETH.address), {
-      totalSupplyAsset: exp(1, 18),
-    });
-    await wait(comet.setTotalsCollateral(WETH.address, totalsCollateral));
+    await comet.setTotalsCollateral(WETH.address, exp(1, 18));
 
     // user has a borrow, but with collateral to cover
     await comet.setBasePrincipal(alice.address, -100e6);
@@ -905,7 +902,7 @@ describe('withdraw', function () {
     await expect(comet.connect(alice).withdraw(WETH.address, exp(1, 18))).to.be.revertedWith("custom error 'NotCollateralized()'");
   });
 
-  describe.skip('reentrancy', function () {
+  describe('reentrancy', function () {
     it('blocks malicious reentrant transferFrom', async () => {
       const {
         comet,
@@ -925,8 +922,6 @@ describe('withdraw', function () {
       });
       const { USDC, EVIL } = <{ USDC: FaucetToken; EVIL: EvilToken }>tokens;
 
-      await USDC.allocateTo(comet.address, 100e6);
-
       const attack = Object.assign({}, await EVIL.getAttack(), {
         attackType: ReentryAttack.TransferFrom,
         destination: bob.address,
@@ -938,7 +933,7 @@ describe('withdraw', function () {
       const totalsCollateral = Object.assign({}, await comet.totalsCollateral(EVIL.address), {
         totalSupplyAsset: 100e6,
       });
-      await comet.setTotalsCollateral(EVIL.address, totalsCollateral);
+      await comet.setTotalsCollateral(EVIL.address, totalsCollateral.totalSupplyAsset);
 
       await comet.setCollateralBalance(alice.address, EVIL.address, exp(1, 6));
 
@@ -972,8 +967,6 @@ describe('withdraw', function () {
       });
       const { USDC, EVIL } = <{ USDC: FaucetToken; EVIL: EvilToken }>tokens;
 
-      await USDC.allocateTo(comet.address, 100e6);
-
       const attack = Object.assign({}, await EVIL.getAttack(), {
         attackType: ReentryAttack.WithdrawFrom,
         destination: bob.address,
@@ -985,7 +978,7 @@ describe('withdraw', function () {
       const totalsCollateral = Object.assign({}, await comet.totalsCollateral(EVIL.address), {
         totalSupplyAsset: 100e6,
       });
-      await comet.setTotalsCollateral(EVIL.address, totalsCollateral);
+      await comet.setTotalsCollateral(EVIL.address, totalsCollateral.totalSupplyAsset);
 
       await comet.setCollateralBalance(alice.address, EVIL.address, exp(1, 6));
 
@@ -1003,7 +996,7 @@ describe('withdraw', function () {
 });
 
 describe('withdrawFrom', function () {
-  it.skip('withdraws from src if specified and sender has permission', async () => {
+  it('withdraws from src if specified and sender has permission', async () => {
     const protocol = await makeProtocol({
       base: 'USDC',
       storeFrontPriceFactor: exp(0.5, 18),
@@ -1041,9 +1034,20 @@ describe('withdrawFrom', function () {
     const t0 = Object.assign({}, await comet.totalsCollateral(COMP.address), {
       totalSupplyAsset: 7,
     });
-    const _b0 = await wait(comet.setTotalsCollateral(COMP.address, t0));
+    const _b0 = await wait(comet.setTotalsCollateral(COMP.address, t0.totalSupplyAsset));
 
     const _i1 = await comet.setCollateralBalance(bob.address, COMP.address, 7);
+
+    const cometExtention = await ethers.getContractAt('CometExtension', await comet.extension()) as CometExtension;
+    const approveCalldata = cometExtention.interface.encodeFunctionData(
+      "approve",
+      [charlie.address, ethers.constants.MaxUint256]
+    );
+    await bob.sendTransaction({
+      to: comet.address,
+      data: approveCalldata,
+      gasLimit: 1_000_000
+    });
 
     const cometAsB = comet.connect(bob);
     const cometAsC = comet.connect(charlie);
