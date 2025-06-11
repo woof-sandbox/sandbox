@@ -67,7 +67,7 @@ This project provides several tools for code quality, security, and coverage. Be
     npm run lint:sol
     ```
 
-### Slither (Static Analysis)
+#### Slither (Static Analysis)
 
 - **Command:** `slither`
 - **What it does:** Runs Slither, a static analysis tool for Solidity, to detect vulnerabilities and code quality issues.
@@ -79,7 +79,7 @@ This project provides several tools for code quality, security, and coverage. Be
   Slither must be installed separately (e.g., via `pip install slither-analyzer`).  
   The command analyzes the `contracts/` directory and outputs to `artifacts/`.
 
-### Coverage
+#### Coverage
 
 - **Command:** `test:coverage`
 - **What it does:** Runs tests and generates a code coverage report for Solidity contracts.
@@ -89,6 +89,18 @@ This project provides several tools for code quality, security, and coverage. Be
   ```
 - **Output:**  
   Coverage results are saved in the `coverage/` directory or printed in the terminal.
+
+#### Aderyn
+
+- **Command:** `aderyn`
+- **What it does:** Runs Aderyn, a static analysis tool for Solidity, to detect vulnerabilities and code quality issues.
+- **How to run:**
+  ```
+  npm run aderyn
+  ```
+- **Note:**  
+  Aderyn must be installed separately (e.g., via `brew install cyfrin/tap/aderyn`).  
+  Aderyn installation [docs](https://github.com/Cyfrin/aderyn)
 
 **Tip:**  
 All commands are run from the project root. If you use yarn instead of npm, replace `npm run <command>` with `yarn <command>`.
