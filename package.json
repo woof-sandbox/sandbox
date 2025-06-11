@@ -35,7 +35,8 @@
     "slither": "slither contracts/ --foundry-out-directory artifacts/ --foundry-compile-all",
     "lint:ts": "eslint 'plugins/**/*' 'scenario/**/*' 'scripts/**/*' 'src/**/*' 'tasks/**/*' 'test/**/*' hardhat.config.ts",
     "lint:sol": "solhint contracts/**/*.sol contracts/*.sol --config .solhint.json",
-    "aderyn": "aderyn --src contracts/ -o ADERYN_REPORT.md"
+    "aderyn": "aderyn --src contracts/ -o ADERYN_REPORT.md",
+    "prettier": "prettier --write 'contracts/**/*.sol' --config .prettierrc.json"
   },
   "author": "Compound Finance",
   "license": "UNLICENSED",
@@ -85,6 +86,8 @@
     "mocha-junit-reporter": "^2.0.2",
     "mocha-multi-reporters": "^1.5.1",
     "nock": "^13.2.2",
+    "prettier": "^2.8.8",
+    "prettier-plugin-solidity": "1.1.1",
     "sc-istanbul": "^0.4.5",
     "solhint": "^3.3.6",
     "solidity-coverage": "^0.8.16",
@@ -95,6 +98,7 @@
   },
   "repository": "git@github.com:compound-finance/comet.git",
   "resolutions": {
-    "mocha": "^9.1.3"
+    "mocha": "^9.1.3",
+    "prettier": "2.8.8"
   }
 }
