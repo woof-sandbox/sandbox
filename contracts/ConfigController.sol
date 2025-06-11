@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "./interfaces/IConfigController.sol";
 import "./interfaces/IConfigControllerFactory.sol";
@@ -23,7 +23,7 @@ import "./interfaces/IERC20NonStandard.sol";
  * - Comet transfer proposals
  */
 contract ConfigController is IConfigController {
-    using SafeERC20 for IERC20;
+    using SafeERC20 for IERC20Metadata;
     uint256 public constant FEE_DIVISOR = 10_000;
     address public constant ZERO_ADDRESS = 0x0000000000000000000000000000000000000000;
 
@@ -184,7 +184,13 @@ contract ConfigController is IConfigController {
                     addedCollateralTokens
                 );
 
-                addedCollateralTokens[i] = collateralTokenConfig.collateralToken;
+                collateralTokenConfig
+                    .scale = uint64(10 ** IERC20Metadata(
+                        collateralTokenConfig.collateralToken
+                    ).decimals());
+
+                addedCollateralTokens[i] = collateralTokenConfig
+                    .collateralToken;
                 i++;
             }
         }
@@ -215,12 +221,6 @@ contract ConfigController is IConfigController {
         uint256 _cometsLength = comets.length;
         comets.push(comet);
         cometId[comet] = comets.length;
-        
-        IERC20(_cometConfig.baseToken).safeTransferFrom(
-            msg.sender,
-            comet,
-            _sandboxConfig.suggestedAmountOfSeedReserves
-        );
         
         emit CometCreated(
             comet,

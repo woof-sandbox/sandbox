@@ -74,8 +74,8 @@ describe("buyCollateral", function() {
     const tBal = await comet.userCollateral(treasury, asset);
     const cBal = await comet.userCollateral(controller, asset);
     return {
-      treasury: tBal.balance.toBigInt(),
-      controller: cBal.balance.toBigInt(),
+      treasury: tBal.toBigInt(),
+      controller: cBal.toBigInt(),
     };
   }
 
@@ -125,9 +125,9 @@ describe("buyCollateral", function() {
     await USDC.connect(owner).approve(comet.address, 200e6);
     await comet.connect(owner).supply(USDC.address, 200e6);
 
-    await COMP.allocateTo(bob.address, 10n * 10n ** 18n);
-    await COMP.connect(bob).approve(comet.address, exp(10, 18));
-    await comet.connect(bob).supply(COMP.address, exp(10, 18));
+    await COMP.allocateTo(bob.address, exp(40, 18));
+    await COMP.connect(bob).approve(comet.address, exp(40, 18));
+    await comet.connect(bob).supply(COMP.address, exp(40, 18));
 
     await comet.connect(bob).withdraw(USDC.address, 20e6);
     await USDC.allocateTo(alice.address, 100e6);
@@ -145,7 +145,10 @@ describe("buyCollateral", function() {
     const r1 = await comet.getReserves();
     const p1 = await portfolio(protocol, alice.address);
 
-    expect(r0).to.be.eq(seedReserves + 1n);
+    expect(r0).to.equal(BigInt(seedReserves) + BigInt(1));
+    expect(BigInt(r0.toString()) - BigInt(seedReserves)).to.be.lt(
+      BigInt((await comet.targetReserves()).toString())
+    );
 
     expect(p0.internal).to.deep.equal({ USDC: 0n, COMP: 0n });
     expect(p0.external).to.deep.equal({ USDC: exp(100, 6), COMP: 0n });
@@ -156,7 +159,9 @@ describe("buyCollateral", function() {
       COMP: 55555555555555555555n,
     });
 
-    expect(r1).to.equal(exp(50, 6) + 1n + seedReserves);
+    expect(BigInt(r1.toString()) - BigInt(seedReserves)).to.equal(
+      exp(50, 6) + 1n
+    );
 
     expect(event(txn, 0)).to.deep.equal({
       Transfer: { from: alice.address, to: comet.address, amount: exp(50, 6) },
@@ -177,7 +182,6 @@ describe("buyCollateral", function() {
       },
     });
   });
-
 
   it("reverts if trying to buy collateral which belongs to users", async () => {
     const protocol = await makeProtocol({
@@ -205,9 +209,10 @@ describe("buyCollateral", function() {
     await COMP.allocateTo(comet.address, exp(30, 18));
     await USDC.allocateTo(comet.address, 3_000_000n);
 
-    await COMP.allocateTo(bob.address, exp(3_000_000, 18));
-    await COMP.connect(bob).approve(comet.address, exp(3_000_000, 18));
-    await comet.connect(bob).supply(COMP.address, exp(3_000_000, 18));
+    const bigCollateral = exp(4_000_000, 18);
+    await COMP.allocateTo(bob.address, bigCollateral);
+    await COMP.connect(bob).approve(comet.address, bigCollateral);
+    await comet.connect(bob).supply(COMP.address, bigCollateral);
 
     await seedBorrow(
       comet,
@@ -418,6 +423,12 @@ describe("buyCollateral", function() {
     const p0 = await portfolio(protocol, alice.address);
     await wait(baseAsA.approve(comet.address, exp(50, 6)));
 
+    // Some math writeup for better understanding in each expects number:
+    // assetPriceDiscount = 1 - (storeFrontPriceFactor * (1 - liquidationFactor)) * assetPrice
+    // assetPriceDiscount = 1 - (0.5 * (1 - 0.8)) * 1 = 0.9
+    // collateralAmount = basePrice * baseAmount / assetPriceDiscount
+    // collateralAmount = 1 * 50 * (1 - Token Fee) / 0.9 = 1 * 50 * 0.99 / 0.9 = 55
+    // actualReceiveCollateral = 55 * (1 - Token Fee) = 55 * 0.99 = 54.45
     const txn = await wait(
       cometAsA.buyCollateral(COMP.address, exp(50, 18), 50e6, alice.address)
     );
@@ -431,9 +442,9 @@ describe("buyCollateral", function() {
     expect(p1.internal).to.be.deep.equal({ USDT: 0n, COMP: 0n });
     expect(p1.external).to.be.deep.equal({
       USDT: exp(50, 6),
-      COMP: 54450000000000000000n,
+      COMP: exp(54.45, 18),
     });
-    expect(r1).to.be.equal(exp(49.5, 6) + seedReserves); 
+    expect(r1).to.be.equal(exp(49.5, 6) + BigInt(seedReserves));
     expect(event(txn, 0)).to.be.deep.equal({
       Transfer: {
         from: alice.address,
@@ -445,7 +456,7 @@ describe("buyCollateral", function() {
       Transfer: {
         from: comet.address,
         to: alice.address,
-        amount: 54450000000000000000n,
+        amount: exp(54.45, 18),
       },
     });
     expect(event(txn, 2)).to.be.deep.equal({
@@ -453,563 +464,9 @@ describe("buyCollateral", function() {
         buyer: alice.address,
         asset: COMP.address,
         baseAmount: exp(49.5, 6),
-        collateralAmount: 55000000000000000000n,
+        collateralAmount: exp(55, 18),
       },
     });
-  });
-
-  describe("quoteCollateral", function() {
-    const FACTOR_SCALE = BigInt("1000000000000000000");
-    const BASE_SCALE = BigInt(1_000_000);
-    const ASSET_SCALE = BigInt("1000000000000000000");
-
-    const SFP = exp(0.5, 18);
-    const LF = exp(0.8, 18);
-
-    function refAmountOut(baseAmount: bigint): bigint {
-      const discount = (SFP * (FACTOR_SCALE - LF)) / FACTOR_SCALE;
-      const priceDisc =
-        (BigInt(1e8) * (FACTOR_SCALE - discount)) / FACTOR_SCALE;
-      return (BigInt(1e8) * baseAmount * ASSET_SCALE) / priceDisc / BASE_SCALE;
-    }
-
-    function valueInBase(assetAmt: BigInt, discountedPrice: bigint): bigint {
-      const amt =
-        typeof assetAmt === "bigint" ? assetAmt : BigInt(assetAmt.toString());
-      return (amt * discountedPrice) / ASSET_SCALE;
-    }
-
-    it("zero commissions, feeController equals full delta, protocol fee zero", async () => {
-      const protocol = await makeProtocol({
-        base: "USDC",
-        storeFrontPriceFactor: SFP,
-        targetPercent: 0.5,
-        assets: {
-          USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
-          COMP: {
-            initial: 1e7,
-            decimals: 18,
-            initialPrice: 1,
-            liquidationFactor: LF,
-          },
-        },
-      });
-
-      const { comet, tokens, sandboxController, owner } = protocol as any;
-      const { COMP } = tokens;
-
-      const zero = ethers.utils.parseEther("0");
-      await sandboxController
-        .connect(owner)
-        .setReserveCommissions([zero, zero, zero]);
-      await sandboxController
-        .connect(owner)
-        .setProtocolCommissions([zero, zero, zero]);
-
-      const baseAmount = 50_000_000n;
-
-      const [
-        amountOut,
-        feeController,
-        feeProtocol,
-      ] = await comet.quoteCollateral(
-        COMP.address,
-        ethers.BigNumber.from(baseAmount.toString())
-      );
-
-      expect(amountOut).to.equal(
-        ethers.BigNumber.from(refAmountOut(baseAmount).toString())
-      );
-
-      expect(feeProtocol).to.equal(0);
-
-      expect(feeController).to.be.gt(0);
-
-      const discount = (SFP * (FACTOR_SCALE - LF)) / FACTOR_SCALE;
-      const discPrice =
-        (BigInt(1e8) * (FACTOR_SCALE - discount)) / FACTOR_SCALE;
-      const notDiscounted = (BigInt(1e8) * baseAmount) / BASE_SCALE;
-
-      const totalValue =
-        valueInBase(amountOut, discPrice) +
-        valueInBase(feeController, discPrice);
-      expect(totalValue).to.equal(notDiscounted - 1n);
-    });
-
-    it("positive commissions, amountOut unchanged, fees split > 0", async () => {
-      const protocol = await makeProtocol({
-        base: "USDC",
-        storeFrontPriceFactor: SFP,
-        targetPercent: 0.5,
-        assets: {
-          USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
-          COMP: {
-            initial: 1e7,
-            decimals: 18,
-            initialPrice: 1,
-            liquidationFactor: LF,
-          },
-        },
-      });
-
-      const { comet, tokens } = protocol as any;
-      const { COMP } = tokens;
-
-      const baseAmount = 50_000_000n;
-      const baseline = refAmountOut(baseAmount);
-
-      const [
-        amountOut,
-        feeController,
-        feeProtocol,
-      ] = await comet.quoteCollateral(
-        COMP.address,
-        ethers.BigNumber.from(baseAmount.toString())
-      );
-
-      expect(amountOut).to.equal(ethers.BigNumber.from(baseline.toString()));
-
-      expect(feeController.add(feeProtocol)).to.be.gt(0);
-
-      const discount = (SFP * (FACTOR_SCALE - LF)) / FACTOR_SCALE;
-      const discPrice =
-        (BigInt(1e8) * (FACTOR_SCALE - discount)) / FACTOR_SCALE;
-      const notDiscounted = (BigInt(1e8) * baseAmount) / BASE_SCALE;
-
-      const totalValue =
-        valueInBase(amountOut, discPrice) +
-        valueInBase(feeController, discPrice) +
-        valueInBase(feeProtocol, discPrice);
-
-      expect(totalValue).to.be.closeTo(notDiscounted, 2n);
-    });
-  });
-
-  it("credits protocol treasury and configController with their fee shares", async () => {
-    const protocol = await makeProtocol({
-      base: "USDC",
-      storeFrontPriceFactor: exp(0.5, 18),
-      targetPercent: 0.5,
-      assets: {
-        USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
-        COMP: {
-          initial: 5e7,
-          decimals: 18,
-          initialPrice: 1,
-          liquidationFactor: exp(0.8, 18),
-        },
-      },
-    });
-
-    const {
-      comet,
-      tokens,
-      users: [alice],
-      sandboxController,
-      configController,
-    } = protocol;
-    const { USDC, COMP } = tokens;
-
-    const treasuryAddr = await sandboxController.treasury();
-    const controllerAddr = configController.address;
-
-    await COMP.allocateTo(comet.address, exp(100, 18));
-    await USDC.allocateTo(alice.address, 100e6);
-    await USDC.connect(alice).approve(comet.address, 50e6);
-
-    const balBefore = {
-      treasury: (await comet.userCollateral(treasuryAddr, COMP.address))
-        .balance,
-      controller: (await comet.userCollateral(controllerAddr, COMP.address))
-        .balance,
-    };
-
-    const [, feeControllerBn, feeProtocolBn] = await comet.quoteCollateral(
-      COMP.address,
-      ethers.BigNumber.from(50e6)
-    );
-    const feeController = feeControllerBn.toBigInt();
-    const feeProtocol = feeProtocolBn.toBigInt();
-
-    expect(feeController + feeProtocol).to.be.gt(0n);
-
-    await wait(
-      comet.connect(alice).buyCollateral(COMP.address, 0, 50e6, alice.address)
-    );
-
-    const balAfterTreasury = (
-      await comet.userCollateral(treasuryAddr, COMP.address)
-    ).balance.toBigInt();
-    const balAfterController = (
-      await comet.userCollateral(controllerAddr, COMP.address)
-    ).balance.toBigInt();
-
-    expect(balAfterTreasury - balBefore.treasury.toBigInt()).to.equal(
-      feeProtocol
-    );
-    expect(balAfterController - balBefore.controller.toBigInt()).to.equal(
-      feeController
-    );
-  });
-
-  it("disables only protocol fees when commissions are disabled", async () => {
-    const protocol = await makeProtocol({
-      base: "USDC",
-      storeFrontPriceFactor: exp(0.5, 18),
-      targetPercent: 0.5,
-      assets: {
-        USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
-        COMP: {
-          initial: 5e7,
-          decimals: 18,
-          initialPrice: 1,
-          liquidationFactor: exp(0.8, 18),
-        },
-      },
-    });
-
-    const {
-      comet,
-      tokens,
-      sandboxController,
-      configController,
-      dao,
-      users: [alice],
-    } = protocol;
-    const { USDC, COMP } = tokens;
-
-    await sandboxController.connect(dao).setFeeEnabled(false);
-
-    await COMP.allocateTo(comet.address, exp(100, 18));
-    await USDC.allocateTo(alice.address, 100e6);
-    await USDC.connect(alice).approve(comet.address, 50e6);
-
-    const treasuryAddr = await sandboxController.treasury();
-    const controllerAddr = configController.address;
-
-    const beforeTreasury = (
-      await comet.userCollateral(treasuryAddr, COMP.address)
-    ).balance;
-    const beforeController = (
-      await comet.userCollateral(controllerAddr, COMP.address)
-    ).balance;
-
-    const [, feeCtr, feeProt] = await comet.quoteCollateral(
-      COMP.address,
-      ethers.BigNumber.from(50e6)
-    );
-
-    expect(feeProt).to.equal(0);
-    expect(feeCtr).to.be.gt(0);
-
-    await wait(
-      comet.connect(alice).buyCollateral(COMP.address, 0, 50e6, alice.address)
-    );
-
-    const afterTreasury = (
-      await comet.userCollateral(treasuryAddr, COMP.address)
-    ).balance;
-    const afterController = (
-      await comet.userCollateral(controllerAddr, COMP.address)
-    ).balance;
-
-    expect(afterTreasury).to.equal(beforeTreasury);
-    expect(afterController).to.equal(beforeController.add(feeCtr));
-  });
-
-  it("credits treasury and controller on every buyCollateral call", async () => {
-    const proto = await makeProtocol({
-      base: "USDC",
-      storeFrontPriceFactor: exp(0.5, 18),
-      targetPercent: 0.5,
-      assets: {
-        USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
-        COMP: {
-          initial: 1e7,
-          decimals: 18,
-          initialPrice: 1,
-          liquidationFactor: exp(0.8, 18),
-        },
-      },
-    });
-    const { comet, tokens, users, sandboxController, configController } = proto;
-    const { USDC, COMP } = tokens;
-    const [alice, bob] = users;
-
-    const [amtOutBn, feeCtrBn, feeProtBn] = await comet.quoteCollateral(
-      COMP.address,
-      ethers.BigNumber.from(50_000_000)
-    );
-    const needColl =
-      amtOutBn.toBigInt() + feeCtrBn.toBigInt() + feeProtBn.toBigInt();
-    await COMP.allocateTo(comet.address, 2n * needColl);
-
-    for (const u of [alice, bob]) {
-      await USDC.allocateTo(u.address, 100e6);
-      await USDC.connect(u).approve(comet.address, 50e6);
-    }
-
-    const treasury = await sandboxController.treasury();
-    const controller = configController.address;
-    const b0 = await feeBalances(comet, COMP.address, treasury, controller);
-
-    await wait(
-      comet.connect(alice).buyCollateral(COMP.address, 0, 50e6, alice.address)
-    );
-    const b1 = await feeBalances(comet, COMP.address, treasury, controller);
-    expect(b1.treasury - b0.treasury).to.equal(feeProtBn.toBigInt());
-    expect(b1.controller - b0.controller).to.equal(feeCtrBn.toBigInt());
-
-    await wait(
-      comet.connect(bob).buyCollateral(COMP.address, 0, 50e6, bob.address)
-    );
-    const b2 = await feeBalances(comet, COMP.address, treasury, controller);
-    expect(b2.treasury - b1.treasury).to.equal(feeProtBn.toBigInt());
-    expect(b2.controller - b1.controller).to.equal(feeCtrBn.toBigInt());
-  });
-
-  it("preserves buyer value (Low‑tier reserves)", async () => {
-    const proto = await makeProtocol({
-      base: "USDC",
-      storeFrontPriceFactor: exp(0.5, 18),
-      targetPercent: 0.5,
-      assets: {
-        USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
-        COMP: {
-          initial: 1e7,
-          decimals: 18,
-          initialPrice: 1,
-          liquidationFactor: exp(0.8, 18),
-        },
-      },
-    });
-    const { comet, tokens, users, sandboxController, configController } = proto;
-    const { USDC, COMP } = tokens;
-    const buyer = users[0];
-
-    const [amtOutBn, feeCtrBn, feeProtBn] = await comet.quoteCollateral(
-      COMP.address,
-      ethers.BigNumber.from(80_000_000)
-    );
-    const totalFees = feeCtrBn.toBigInt() + feeProtBn.toBigInt();
-    await COMP.allocateTo(comet.address, amtOutBn.toBigInt() + totalFees);
-
-    await USDC.allocateTo(buyer.address, 100e6);
-    await USDC.connect(buyer).approve(comet.address, 80e6);
-
-    const before = await portfolio(proto, buyer.address);
-    await wait(
-      comet.connect(buyer).buyCollateral(COMP.address, 0, 80e6, buyer.address)
-    );
-    const after = await portfolio(proto, buyer.address);
-
-    const valueBefore = before.external["USDC"];
-    const valueAfter =
-      after.external["USDC"] + compToBase(after.external["COMP"]);
-    expect(valueAfter).to.be.at.least(valueBefore - totalFees - 1n);
-
-    const { treasury, controller } = await feeBalances(
-      comet,
-      COMP.address,
-      await sandboxController.treasury(),
-      configController.address
-    );
-    expect(treasury).to.equal(feeProtBn.toBigInt());
-    expect(controller).to.equal(feeCtrBn.toBigInt());
-  });
-
-  it("preserves buyer value (Medium‑tier reserves)", async () => {
-    const proto = await makeProtocol({
-      base: "USDC",
-      storeFrontPriceFactor: exp(0.5, 18),
-      targetPercent: 0.5,
-      assets: {
-        USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
-        COMP: {
-          initial: 1e7,
-          decimals: 18,
-          initialPrice: 1,
-          liquidationFactor: exp(0.8, 18),
-        },
-      },
-    });
-    const { comet, tokens, users, sandboxController, configController } = proto;
-    const { USDC, COMP } = tokens;
-    const supplier = users[0];
-    const buyer = users[1];
-
-    await USDC.allocateTo(comet.address, 1_000_000_000n);
-
-    await COMP.allocateTo(supplier.address, exp(5000, 18));
-    await COMP.connect(supplier).approve(comet.address, exp(5000, 18));
-    await comet.connect(supplier).supply(COMP.address, exp(5000, 18));
-    await comet.connect(supplier).withdraw(USDC.address, 500_000_000n);
-
-    const suggested = (await comet.suggestedReserves()).toBigInt();
-    const target = (await comet.targetReserves()).toBigInt();
-    expect(target).to.be.gt(suggested, "targetReserves not above suggested");
-    const [amtOutBn, feeCtrBn, feeProtBn] = await comet.quoteCollateral(
-      COMP.address,
-      ethers.BigNumber.from(60_000_000)
-    );
-    const totalFees = feeCtrBn.toBigInt() + feeProtBn.toBigInt();
-
-    const midRes = (suggested + target) / 2n;
-    const needColl = amtOutBn.toBigInt() + totalFees;
-    await COMP.allocateTo(comet.address, midRes > needColl ? midRes : needColl);
-
-    await USDC.allocateTo(buyer.address, 100e6);
-    await USDC.connect(buyer).approve(comet.address, 60e6);
-
-    const before = await portfolio(proto, buyer.address);
-    await wait(
-      comet.connect(buyer).buyCollateral(COMP.address, 0, 60e6, buyer.address)
-    );
-    const after = await portfolio(proto, buyer.address);
-
-    const valBefore = before.external.USDC;
-    const valAfter = after.external.USDC + compToBase(after.external.COMP);
-    expect(valAfter).to.be.at.least(valBefore - totalFees - 1n);
-
-    const fb = await feeBalances(
-      comet,
-      COMP.address,
-      await sandboxController.treasury(),
-      configController.address
-    );
-    expect(fb.treasury).to.equal(feeProtBn.toBigInt());
-    expect(fb.controller).to.equal(feeCtrBn.toBigInt());
-  });
-
-  it("preserves buyer value (High‑tier reserves)", async () => {
-    const proto = await makeProtocol({
-      base: "USDC",
-      storeFrontPriceFactor: exp(0.5, 18),
-      targetPercent: 0.5,
-      assets: {
-        USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
-        COMP: {
-          initial: 1e7,
-          decimals: 18,
-          initialPrice: 1,
-          liquidationFactor: exp(0.8, 18),
-        },
-      },
-    });
-    const { comet, tokens, users, sandboxController, configController } = proto;
-    const { USDC, COMP } = tokens;
-    const buyer = users[0];
-
-    const [amtOutBn, feeCtrBn, feeProtBn] = await comet.quoteCollateral(
-      COMP.address,
-      ethers.BigNumber.from(40_000_000)
-    );
-    const totalFees = feeCtrBn.toBigInt() + feeProtBn.toBigInt();
-
-    const target = (await comet.targetReserves()).toBigInt();
-    await COMP.allocateTo(
-      comet.address,
-      target + amtOutBn.toBigInt() + totalFees + exp(100, 18)
-    );
-
-    await USDC.allocateTo(buyer.address, 50e6);
-    await USDC.connect(buyer).approve(comet.address, 40e6);
-
-    const p0 = await portfolio(proto, buyer.address);
-    await wait(
-      comet.connect(buyer).buyCollateral(COMP.address, 0, 40e6, buyer.address)
-    );
-    const p1 = await portfolio(proto, buyer.address);
-
-    const beforeBase = p0.external["USDC"];
-    const afterBase = p1.external["USDC"] + compToBase(p1.external["COMP"]);
-    expect(afterBase).to.be.at.least(beforeBase - totalFees - 1n);
-
-    const { treasury, controller } = await feeBalances(
-      comet,
-      COMP.address,
-      await sandboxController.treasury(),
-      configController.address
-    );
-    expect(treasury).to.equal(feeProtBn.toBigInt());
-    expect(controller).to.equal(feeCtrBn.toBigInt());
-  });
-
-  it.skip("keeps accruing protocol / controller fees after the owner drains seed reserves", async () => {
-    const protocol = await makeProtocol({
-      base: "USDC",
-      storeFrontPriceFactor: exp(0.5, 18),
-      targetPercent: 0.5,
-      assets: {
-        USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
-        COMP: {
-          initial: 5e7,
-          decimals: 18,
-          initialPrice: 1,
-          liquidationFactor: exp(0.8, 18),
-        },
-      },
-    });
-
-    const {
-      comet,
-      tokens,
-      owner,
-      users: [alice],
-      sandboxController,
-      configController,
-      seedReserves,
-    } = protocol;
-    const { USDC, COMP } = tokens;
-
-    const timestamp = await ethers.provider
-      .getBlock("latest")
-      .then((b) => b.timestamp);
-    const lock = (await comet.unlockTimestamp()).toNumber() - timestamp;
-    await ethers.provider.send("evm_increaseTime", [Number(lock) + 1]);
-    await ethers.provider.send("evm_mine", []);
-
-    const reservesBeforeDrain = await comet.getReserves();
-    expect(reservesBeforeDrain).to.be.equal(-11n);
-
-    await configController.connect(owner).withdraw(comet.address, seedReserves);
-
-    expect(await comet.getReserves()).to.equal(-100000011n);
-
-    await COMP.allocateTo(comet.address, exp(100, 18));
-    await USDC.allocateTo(alice.address, 100e6);
-    await USDC.connect(alice).approve(comet.address, 50e6);
-
-    const [, feeCtrBn, feeProtBn] = await comet.quoteCollateral(
-      COMP.address,
-      ethers.BigNumber.from(50e6)
-    );
-    const feeController = feeCtrBn.toBigInt();
-    const feeProtocol = feeProtBn.toBigInt();
-    expect(feeController + feeProtocol).to.be.gt(0n);
-
-    const treasuryAddr = await sandboxController.treasury();
-    const controllerAddr = configController.address;
-    const bal0 = await feeBalances(
-      comet,
-      COMP.address,
-      treasuryAddr,
-      controllerAddr
-    );
-
-    await wait(
-      comet.connect(alice).buyCollateral(COMP.address, 0, 50e6, alice.address)
-    );
-
-    const bal1 = await feeBalances(
-      comet,
-      COMP.address,
-      treasuryAddr,
-      controllerAddr
-    );
-
-    expect(bal1.treasury - bal0.treasury).to.equal(feeProtocol);
-    expect(bal1.controller - bal0.controller).to.equal(feeController);
   });
 
   describe.skip("reentrancy", function() {

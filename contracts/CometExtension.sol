@@ -42,7 +42,6 @@ contract CometExtension is ICometExtension {
     function baseAccrualScale() override external pure returns (uint64) { return BASE_ACCRUAL_SCALE; }
     function baseIndexScale() override external pure returns (uint64) { return BASE_INDEX_SCALE; }
     function factorScale() override external pure returns (uint64) { return FACTOR_SCALE; }
-    function priceScale() override external pure returns (uint64) { return PRICE_SCALE; }
     function maxAssets() override external pure returns (uint8) { return MAX_ASSETS; }
 
     /**
@@ -106,8 +105,8 @@ contract CometExtension is ICometExtension {
      * @param asset The collateral asset to check the balance for
      * @return The collateral balance of the account
      */
-    function collateralBalanceOf(address account, address asset) override external view returns (uint128) {
-        return userCollateral[account][asset].balance;
+    function collateralBalanceOf(address account, address asset) override external view returns (uint256) {
+        return userCollateral[account][asset];
     }
 
     /**
@@ -148,15 +147,6 @@ contract CometExtension is ICometExtension {
       */
     function allowance(address owner, address spender) override external view returns (uint256) {
         return hasPermission(owner, spender) ? type(uint256).max : 0;
-    }
-
-    /**
-     * @notice Allow or disallow another address to withdraw, or transfer from the sender
-     * @param manager The account which will be allowed or disallowed
-     * @param isAllowed_ Whether to allow or disallow
-     */
-    function allow(address manager, bool isAllowed_) override external {
-        allowInternal(msg.sender, manager, isAllowed_);
     }
 
     /**
@@ -208,5 +198,48 @@ contract CometExtension is ICometExtension {
         if (nonce != userNonce[signatory]++) revert BadNonce();
         if (block.timestamp >= expiry) revert SignatureExpired();
         allowInternal(signatory, manager, isAllowed_);
+    }
+
+
+    /// @notice Returns the current configuration of the market
+    /// @return Configuration struct containing all market parameters
+    function getConfiguration() external view returns (Configuration memory) {
+        return
+            Configuration({
+                configController: configController,
+                baseToken: baseToken,
+                baseTokenPriceFeed: baseTokenPriceFeed,
+                extensionDelegate: address(0), // Not implemented in this version
+                supplyKink: uint64(supplyKink),
+                supplyPerYearInterestRateSlopeLow: uint64(
+                    supplyPerSecondInterestRateSlopeLow * SECONDS_PER_YEAR
+                ),
+                supplyPerYearInterestRateSlopeHigh: uint64(
+                    supplyPerSecondInterestRateSlopeHigh * SECONDS_PER_YEAR
+                ),
+                supplyPerYearInterestRateBase: uint64(
+                    supplyPerSecondInterestRateBase * SECONDS_PER_YEAR
+                ),
+                borrowKink: uint64(borrowKink),
+                borrowPerYearInterestRateSlopeLow: uint64(
+                    borrowPerSecondInterestRateSlopeLow * SECONDS_PER_YEAR
+                ),
+                borrowPerYearInterestRateSlopeHigh: uint64(
+                    borrowPerSecondInterestRateSlopeHigh * SECONDS_PER_YEAR
+                ),
+                borrowPerYearInterestRateBase: uint64(
+                    borrowPerSecondInterestRateBase * SECONDS_PER_YEAR
+                ),
+                storeFrontPriceFactor: uint64(storeFrontPriceFactor),
+                trackingIndexScale: uint64(trackingIndexScale),
+                baseTrackingSupplySpeed: uint64(baseTrackingSupplySpeed),
+                baseTrackingBorrowSpeed: uint64(baseTrackingBorrowSpeed),
+                baseMinForRewards: uint104(baseMinForRewards),
+                baseBorrowMin: uint104(baseBorrowMin),
+                targetPercent: uint104(targetPercent),
+                seedReserves: uint104(seedReserves),
+                unlockTimestamp: uint104(unlockTimestamp),
+                assetConfigs: collateralAssets
+            });
     }
 }

@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
-import "../CometCore.sol";
-import "./IConfigController.sol";
-import "./ISandboxController.sol";
+import '../CometCore.sol';
+import './IConfigController.sol';
+import './ISandboxController.sol';
 
 /**
  * @title Compound's Comet Main Interface (without Ext)
@@ -11,176 +11,133 @@ import "./ISandboxController.sol";
  * @author Compound
  */
 abstract contract ISandboxComet is CometCore {
-    error Absurd();
-    error AlreadyInitialized();
-    error BadAsset();
-    error BadDecimals();
-    error BadDiscount();
-    error BadMinimum();
-    error BadPrice();
-    error BorrowTooSmall();
-    error BorrowCFTooLarge();
-    error IncorrectInitialization();
-    error InsufficientReserves();
-    error LiquidateCFTooLarge();
-    error NoSelfTransfer();
-    error NotCollateralized();
-    error NotForSale();
-    error NotLiquidatable();
-    error Paused();
-    error ReentrantCallBlocked();
-    error SupplyCapExceeded();
-    error TimestampTooLarge();
-    error TooManyAssets();
-    error TooMuchSlippage();
-    error TransferInFailed();
-    error TransferOutFailed();
-    error Unauthorized();
-    error Locked(uint256 currrentTimestamp, uint256 unlockTimestamp);
+  error Absurd();
+  error AlreadyInitialized();
+  error BadAsset();
+  error BadDecimals();
+  error BadDiscount();
+  error BadPrice();
+  error BorrowTooSmall();
+  error BorrowCFTooLarge();
+  error IncorrectInitialization();
+  error InsufficientReserves();
+  error LiquidateCFTooLarge();
+  error NoSelfTransfer();
+  error NotCollateralized();
+  error NotForSale();
+  error NotLiquidatable();
+  error Paused();
+  error ReentrantCallBlocked();
+  error SupplyCapExceeded();
+  error TimestampTooLarge();
+  error TooManyAssets();
+  error TooMuchSlippage();
+  error TransferInFailed();
+  error TransferOutFailed();
+  error Unauthorized();
+  error Locked(uint256 currrentTimestamp, uint256 unlockTimestamp);
 
-    event Supply(address indexed from, address indexed dst, uint amount);
-    event Transfer(address indexed from, address indexed to, uint amount);
-    event Withdraw(address indexed src, address indexed to, uint amount);
+  event Supply(address indexed from, address indexed dst, uint amount);
+  event Transfer(address indexed from, address indexed to, uint amount);
+  event Withdraw(address indexed src, address indexed to, uint amount);
 
-    event SupplyCollateral(address indexed from, address indexed dst, address indexed asset, uint amount);
-    event TransferCollateral(address indexed from, address indexed to, address indexed asset, uint amount);
-    event WithdrawCollateral(address indexed src, address indexed to, address indexed asset, uint amount);
-    event DaoSpeedsChanged(
-            uint baseTrackingSupplySpeed,
-            uint baseTrackingBorrowSpeed
-        );
+  event SupplyCollateral(address indexed from, address indexed dst, address indexed asset, uint amount);
+  event TransferCollateral(address indexed from, address indexed to, address indexed asset, uint amount);
+  event WithdrawCollateral(address indexed src, address indexed to, address indexed asset, uint amount);
 
-    event BaseSpeedsChanged(
-        uint baseTrackingSupplySpeed,
-        uint baseTrackingBorrowSpeed
-    );
+  event BaseSpeedsChanged(uint baseTrackingSupplySpeed, uint baseTrackingBorrowSpeed);
+  event DaoSpeedsChanged(uint daoBaseTrackingSupplySpeed_, uint daoBaseTrackingBorrowSpeed_);
 
-    function setDaoBaseSpeeds(
-        uint daoBaseTrackingSupplySpeed,
-        uint daoBaseTrackingBorrowSpeed
-    ) virtual external;
+  function setDaoBaseSpeeds(uint daoBaseTrackingSupplySpeed, uint daoBaseTrackingBorrowSpeed) external virtual;
 
-    function setBaseSpeeds(
-        uint baseTrackingSupplySpeed,
-        uint baseTrackingBorrowSpeed
-    ) virtual external;
-    
-    /// @notice Event emitted when a borrow position is absorbed by the protocol
-    event AbsorbDebt(address indexed absorber, address indexed borrower, uint basePaidOut, uint usdValue);
+  function setBaseSpeeds(uint baseTrackingSupplySpeed, uint baseTrackingBorrowSpeed) external virtual;
 
-    /// @notice Event emitted when a user's collateral is absorbed by the protocol
-    event AbsorbCollateral(address indexed absorber, address indexed borrower, address indexed asset, uint collateralAbsorbed, uint usdValue);
+  /// @notice Event emitted when a borrow position is absorbed by the protocol
+  event AbsorbDebt(address indexed absorber, address indexed borrower, uint basePaidOut, uint usdValue);
 
-    /// @notice Event emitted when a collateral asset is purchased from the protocol
-    event BuyCollateral(address indexed buyer, address indexed asset, uint baseAmount, uint collateralAmount);
+  /// @notice Event emitted when a user's collateral is absorbed by the protocol
+  event AbsorbCollateral(address indexed absorber, address indexed borrower, address indexed asset, uint collateralAbsorbed, uint usdValue);
 
-    /// @notice Event emitted when an action is paused/unpaused
-    event PauseAction(bool supplyPaused, bool transferPaused, bool withdrawPaused, bool absorbPaused, bool buyPaused);
+  /// @notice Event emitted when a collateral asset is purchased from the protocol
+  event BuyCollateral(address indexed buyer, address indexed asset, uint baseAmount, uint collateralAmount);
 
-    /// @notice Event emitted when reserves are withdrawn by the governor
-    event WithdrawReserves(address indexed to, uint amount);
-            
-    function supply(address asset, uint amount) virtual external;
-    function supplyTo(address dst, address asset, uint amount) virtual external;
-    function supplyFrom(address from, address dst, address asset, uint amount) virtual external;
+  /// @notice Event emitted when an action is paused/unpaused
+  event PauseAction(bool supplyPaused, bool transferPaused, bool withdrawPaused, bool absorbPaused, bool buyPaused);
 
-    function transfer(address dst, uint amount) virtual external returns (bool);
-    function transferFrom(address src, address dst, uint amount) virtual external returns (bool);
+  /// @notice Event emitted when reserves are withdrawn by the governor
+  event WithdrawReserves(address indexed to, uint amount);
 
-    function transferAsset(address dst, address asset, uint amount) virtual external;
-    function transferAssetFrom(address src, address dst, address asset, uint amount) virtual external;
-    
-    function withdraw(address asset, uint amount) virtual external;
-    function withdrawTo(address to, address asset, uint amount) virtual external;
-    function withdrawFrom(address src, address to, address asset, uint amount) virtual external;
+  event ControllerFeeDisabled(bool disabled);
 
-    function factoryInit(address, address) virtual external;
-    function initialize(
-        IConfigController.CometConfig memory comet,
-        ISandboxController.SandboxControllerConfiguration memory config,
-        address sandboxController_,
-        uint256 baseBorrowMin_
-    ) virtual external;
+  function supply(address asset, uint amount) external virtual;
 
+  function supplyTo(address dst, address asset, uint amount) external virtual;
 
-    function absorb(address absorber, address[] calldata accounts) virtual external;
-    function buyCollateral(address asset, uint minAmount, uint baseAmount, address recipient) virtual external;
-    function quoteCollateral(address asset, uint baseAmount) virtual public view returns (uint, uint, uint);
-    function getCollateralReserves(address asset) virtual public view returns (uint);
-    function getReserves() virtual public view returns (int);
-    function getPrice(address priceFeed) virtual public view returns (uint);
-    function isBorrowCollateralized(address account) virtual public view returns (bool);
-    function isLiquidatable(address account) virtual public view returns (bool);
+  function supplyFrom(address from, address dst, address asset, uint amount) external virtual;
 
-    function totalSupply() virtual external view returns (uint256);
-    function totalBorrow() virtual external view returns (uint256);
-    function balanceOf(address owner) virtual public view returns (uint256);
-    function borrowBalanceOf(address account) virtual public view returns (uint256);
+  function transfer(address dst, uint amount) external virtual returns (bool);
 
-    function pause(bool supplyPaused, bool transferPaused, bool withdrawPaused, bool absorbPaused, bool buyPaused) virtual external;
-    function isSupplyPaused() virtual public view returns (bool);
-    function isTransferPaused() virtual public view returns (bool);
-    function isWithdrawPaused() virtual public view returns (bool);
-    function isAbsorbPaused() virtual public view returns (bool);
-    function isBuyPaused() virtual public view returns (bool);
+  function transferFrom(address src, address dst, uint amount) external virtual returns (bool);
 
-    function getConfiguration() virtual external view returns (Configuration memory);
+  function transferAsset(address dst, address asset, uint amount) external virtual;
 
-    function accrueAccount(address account) virtual external;
-    function getSupplyRate(uint utilization) virtual public view returns (uint64);
-    function getBorrowRate(uint utilization) virtual public view returns (uint64);
-    function getUtilization() virtual public view returns (uint);
+  function transferAssetFrom(address src, address dst, address asset, uint amount) external virtual;
 
-    function configController() virtual external view returns (address);
-    function sandboxController() virtual external view returns (address);
-    function baseToken() virtual external view returns (address);
-    function baseTokenPriceFeed() virtual external view returns (address);
-    function extension() virtual external view returns (address);
+  function withdraw(address asset, uint amount) external virtual;
 
-    /// @dev uint64
-    function supplyKink() virtual external view returns (uint);
-    /// @dev uint64
-    function supplyPerSecondInterestRateSlopeLow() virtual external view returns (uint);
-    /// @dev uint64
-    function supplyPerSecondInterestRateSlopeHigh() virtual external view returns (uint);
-    /// @dev uint64
-    function supplyPerSecondInterestRateBase() virtual external view returns (uint);
-    /// @dev uint64
-    function borrowKink() virtual external view returns (uint);
-    /// @dev uint64
-    function borrowPerSecondInterestRateSlopeLow() virtual external view returns (uint);
-    /// @dev uint64
-    function borrowPerSecondInterestRateSlopeHigh() virtual external view returns (uint);
-    /// @dev uint64
-    function borrowPerSecondInterestRateBase() virtual external view returns (uint);
-    /// @dev uint64
-    function storeFrontPriceFactor() virtual external view returns (uint);
-    /// @dev uint64
-    function baseScale() virtual external view returns (uint);
-    /// @dev uint64
-    function trackingIndexScale() virtual external view returns (uint);
+  function withdrawTo(address to, address asset, uint amount) external virtual;
 
-    /// @dev uint64
-    function baseTrackingSupplySpeed() virtual external view returns (uint);
-    /// @dev uint64
-    function baseTrackingBorrowSpeed() virtual external view returns (uint);
+  function withdrawFrom(address src, address to, address asset, uint amount) external virtual;
 
-    function daoBaseTrackingSupplySpeed() virtual external view returns (uint);
-    function daoBaseTrackingBorrowSpeed() virtual external view returns (uint);
+  function factoryInit(address, address) external virtual;
+  function initialize(
+    IConfigController.CometConfig memory market,
+    ISandboxController.SandboxControllerConfiguration memory config,
+    address sandboxController_,
+    uint256 baseBorrowMin_
+  ) external virtual;
 
-    /// @dev uint104
-    function baseMinForRewards() virtual external view returns (uint);
-    /// @dev uint104
-    function baseBorrowMin() virtual external view returns (uint);
-    /// @dev uint104
-    function targetReserves() virtual external view returns (uint);
+  function setControllerFee(bool disabled) external virtual;
+  function absorb(address absorber, address[] calldata accounts) external virtual;
+  function buyCollateral(address asset, uint minAmount, uint baseAmount, address recipient) external virtual;
 
-    function targetPercent() virtual external view returns (uint);
-    
-    function seedReserves() virtual external view returns (uint);
+  function quoteCollateral(address asset, uint baseAmount) public view virtual returns (uint, uint, uint);
 
-    function unlockTimestamp() virtual external view returns (uint);
+  function getCollateralReserves(address asset) public view virtual returns (uint);
 
-    function numAssets() virtual external view returns (uint8);
-    function decimals() virtual external view returns (uint8);
+  function getReserves() public view virtual returns (int);
+
+  function getPrice(address priceFeed) public view virtual returns (uint);
+
+  function isBorrowCollateralized(address account) public view virtual returns (bool);
+
+  function isLiquidatable(address account) public view virtual returns (bool);
+
+  function totalBorrow() external view virtual returns (uint256);
+
+  function balanceOf(address owner) public view virtual returns (uint256);
+
+  function borrowBalanceOf(address account) public view virtual returns (uint256);
+
+  function pause(bool supplyPaused, bool transferPaused, bool withdrawPaused, bool absorbPaused, bool buyPaused) external virtual;
+
+  function isSupplyPaused() public view virtual returns (bool);
+
+  function isTransferPaused() public view virtual returns (bool);
+
+  function isWithdrawPaused() public view virtual returns (bool);
+
+  function isAbsorbPaused() public view virtual returns (bool);
+
+  function isBuyPaused() public view virtual returns (bool);
+
+  function accrueAccount(address account) external virtual;
+
+  function getSupplyRate(uint utilization) public view virtual returns (uint64);
+
+  function getBorrowRate(uint utilization) public view virtual returns (uint64);
+
+  function getUtilization() public view virtual returns (uint);
+
+  function targetReserves() external view virtual returns (uint);
 }
