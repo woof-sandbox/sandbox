@@ -20,6 +20,8 @@ contract SandboxComet is ISandboxComet {
         if (factory != address(0) || configController != address(0)) revert AlreadyInitialized();
         if (_configController == address(0) || _ext == address(0)) revert IncorrectInitialization();
 
+        /// if Comet is deployed not via the factory, than it will have incorrect factory address and will not
+        /// be listed in the factory. Thus we trust that initialization will happen only during deployment
         factory = msg.sender;
         configController = _configController;
         extension = _ext;
@@ -28,82 +30,82 @@ contract SandboxComet is ISandboxComet {
     /// @notice replaces your old constructor
     function initialize(
         IConfigController.CometConfig calldata comet,
-        ISandboxController.SandboxControllerConfiguration calldata config,
-        address sandboxController_,
-        uint256 baseBorrowMin_
+        ISandboxController.SandboxControllerConfiguration calldata config
     ) external override {
-        /// Rely on base token as main characteristic of the market and that it was validated in Controller
-        if (baseToken != address(0)) revert AlreadyInitialized();
-
         /// Relies on fact that factory provides correct controller and that it is set by the time of this call
         if (msg.sender != configController) revert IncorrectInitialization();
+        sandboxController = IConfigController(msg.sender).sandboxController();
+
+        /// Rely on base token as main characteristic of the market and that it was validated in Controller
+        if (baseToken != address(0)) revert AlreadyInitialized();
+        baseToken = comet.baseToken;
 
         uint8 decimals_ = IERC20NonStandard(comet.baseToken).decimals();
-        if (comet.collateralTokens.length > MAX_ASSETS) revert TooManyAssets();
         if (decimals_ > MAX_BASE_DECIMALS) revert BadDecimals();
-        ISandboxController _sandboxController = ISandboxController(sandboxController_);
-        address _baseTokenPriceFeed = _sandboxController.tokenToPriceFeed(comet.baseToken);
-        /// @dev price feed is already checked in config controller
-        if (IPriceFeed(_baseTokenPriceFeed).decimals() != PRICE_FEED_DECIMALS) revert BadDecimals();
+
         baseScale = uint64(10 ** decimals_);
         if (baseScale < BASE_ACCRUAL_SCALE) revert BadDecimals();
+        accrualDescaleFactor = baseScale / BASE_ACCRUAL_SCALE;
 
-        sandboxController = sandboxController_;
-
-        baseToken = comet.baseToken;
+        address _baseTokenPriceFeed = ISandboxController(sandboxController).tokenToPriceFeed(comet.baseToken);
+        /// @dev price feed is already checked to be listed in config controller
+        if (IPriceFeed(_baseTokenPriceFeed).decimals() != PRICE_FEED_DECIMALS) revert BadDecimals();
         baseTokenPriceFeed = _baseTokenPriceFeed;
 
         trackingIndexScale = comet.options.trackingIndexScale;
-
         baseTrackingSupplySpeed = comet.options.baseTrackingSupplySpeed;
         baseTrackingBorrowSpeed = comet.options.baseTrackingBorrowSpeed;
-        storeFrontPriceFactor = config.storeFrontPriceFactor;
-
         baseMinForRewards = comet.options.baseMinForRewards;
 
-        accrualDescaleFactor = baseScale / BASE_ACCRUAL_SCALE;
-        
-        baseBorrowMin = baseBorrowMin_;
+        storeFrontPriceFactor = config.storeFrontPriceFactor;
+
         targetPercent = config.targetPercent;
         seedReserves = config.suggestedAmountOfSeedReserves;
-        
         unlockTimestamp = block.timestamp + config.suggestedLockTimeOfSeedReserves;
 
-        ISandboxController.BaseAssetCurve memory curve = _sandboxController.baseAssets(comet.baseToken).baseAssetCurves[comet.baseTokenCurveId];
+        ISandboxController.BaseAssetConfiguration memory bac = ISandboxController(sandboxController).baseAssets(comet.baseToken);
+        baseBorrowMin = bac.minBorrow;
+        ISandboxController.BaseAssetCurve memory curve = bac.baseAssetCurves[comet.baseTokenCurveId];
 
-        for (uint8 i; i < comet.collateralTokens.length; ++i) {
-            collateralAssets.push(comet.collateralTokens[i]);
-            collateralAssetAddress[i] = comet.collateralTokens[i].collateralToken;
+        uint8 colTokensLength = uint8(comet.collateralTokens.length);
+        if (colTokensLength > MAX_ASSETS) revert TooManyAssets();
+        numAssets = colTokensLength;
+
+        /// Collateral and pricefeed for collateral are listed in SandboxController
+        /// Collateral parameters are validated in ConfigController (including non-repeatability)
+        /// Thus collaterals can be safely added directly into the storage
+        for (uint8 i; i < colTokensLength; ++i) {
+            address collateralToken = comet.collateralTokens[i].collateralToken;
+            uint64 scale = uint64(10 ** IERC20NonStandard(collateralToken).decimals());
+            address priceFeed = ISandboxController(sandboxController).tokenToPriceFeed(collateralToken);
+
+            collateralAssets.push(CollateralAsset(
+                comet.collateralTokens[i].collateralToken,
+                priceFeed,
+                comet.collateralTokens[i].supplyCap,
+                comet.collateralTokens[i].borrowCollateralFactor,
+                comet.collateralTokens[i].liquidateCollateralFactor,
+                comet.collateralTokens[i].liquidationFactor,
+                scale
+            ));
             collateralAssetIndex[comet.collateralTokens[i].collateralToken] = i;
         }
-        lastAccrualTime = getNowInternal();
-        baseSupplyIndex = BASE_INDEX_SCALE;
-        baseBorrowIndex = BASE_INDEX_SCALE;
 
         unchecked {
             supplyKink = curve.supplyKink;
-            supplyPerSecondInterestRateSlopeLow =
-                curve.supplyPerYearInterestRateSlopeLow /
-                SECONDS_PER_YEAR;
-            supplyPerSecondInterestRateSlopeHigh =
-                curve.supplyPerYearInterestRateSlopeHigh /
-                SECONDS_PER_YEAR;
-            supplyPerSecondInterestRateBase =
-                curve.supplyPerYearInterestRateBase /
-                SECONDS_PER_YEAR;
+            supplyPerSecondInterestRateSlopeLow = curve.supplyPerYearInterestRateSlopeLow / SECONDS_PER_YEAR;
+            supplyPerSecondInterestRateSlopeHigh = curve.supplyPerYearInterestRateSlopeHigh / SECONDS_PER_YEAR;
+            supplyPerSecondInterestRateBase = curve.supplyPerYearInterestRateBase / SECONDS_PER_YEAR;
 
             borrowKink = curve.borrowKink;
-            borrowPerSecondInterestRateSlopeLow =
-                curve.borrowPerYearInterestRateSlopeLow /
-                SECONDS_PER_YEAR;
-            borrowPerSecondInterestRateSlopeHigh =
-                curve.borrowPerYearInterestRateSlopeHigh /
-                SECONDS_PER_YEAR;
-            borrowPerSecondInterestRateBase =
-                curve.borrowPerYearInterestRateBase /
-                SECONDS_PER_YEAR;
+            borrowPerSecondInterestRateSlopeLow = curve.borrowPerYearInterestRateSlopeLow / SECONDS_PER_YEAR;
+            borrowPerSecondInterestRateSlopeHigh = curve.borrowPerYearInterestRateSlopeHigh / SECONDS_PER_YEAR;
+            borrowPerSecondInterestRateBase = curve.borrowPerYearInterestRateBase / SECONDS_PER_YEAR;
         }
-        numAssets = uint8(comet.collateralTokens.length);
+        
+        lastAccrualTime = getNowInternal();
+        baseSupplyIndex = BASE_INDEX_SCALE;
+        baseBorrowIndex = BASE_INDEX_SCALE;
     }
 
     /**
@@ -151,7 +153,7 @@ contract SandboxComet is ISandboxComet {
      */
     function getAssetInfo(
         uint8 i
-    ) public view returns (IConfigController.CollateralTokenConfig memory) {
+    ) public view returns (CollateralAsset memory) {
         if (i >= numAssets) revert BadAsset();
         return collateralAssets[i];
     }
@@ -164,7 +166,7 @@ contract SandboxComet is ISandboxComet {
     )
         public
         view
-        returns (IConfigController.CollateralTokenConfig memory, uint8 index)
+        returns (CollateralAsset memory, uint8 index)
     {
         index = collateralAssetIndex[asset];
         if (index == 0 && asset != collateralAssets[0].collateralToken) {
@@ -399,7 +401,7 @@ contract SandboxComet is ISandboxComet {
             if (isInAsset(assetsIn, i)) {
                 if (liquidity >= 0) return true;
 
-                IConfigController.CollateralTokenConfig memory asset = getAssetInfo(i);
+                CollateralAsset memory asset = getAssetInfo(i);
                 uint newAmount = mulPrice(
                     userCollateral[account][asset.collateralToken],
                     getPrice(asset.priceFeed),
@@ -437,7 +439,7 @@ contract SandboxComet is ISandboxComet {
             if (isInAsset(assetsIn, i)) {
                 if (liquidity >= 0) return false;
 
-                IConfigController.CollateralTokenConfig memory asset = getAssetInfo(i);
+                CollateralAsset memory asset = getAssetInfo(i);
                 uint newAmount = mulPrice(
                     userCollateral[account][asset.collateralToken],
                     getPrice(asset.priceFeed),
@@ -842,7 +844,7 @@ contract SandboxComet is ISandboxComet {
     ) internal {
         amount = doTransferIn(asset, from, amount);
 
-        (IConfigController.CollateralTokenConfig memory assetInfo, uint8 index) = getAssetInfoByAddress(asset);
+        (CollateralAsset memory assetInfo, uint8 index) = getAssetInfoByAddress(asset);
         uint256 totals = totalsCollateral[asset];
         totals += amount;
 
@@ -1190,7 +1192,7 @@ contract SandboxComet is ISandboxComet {
         uint8 nAssets = numAssets;
         for (uint8 i = 0; i < nAssets; ) {
             if (isInAsset(assetsIn, i)) {
-                IConfigController.CollateralTokenConfig memory assetInfo = getAssetInfo(i);
+                CollateralAsset memory assetInfo = getAssetInfo(i);
                 address asset = assetInfo.collateralToken;
                 uint256 seizeAmount = userCollateral[account][asset];
                 userCollateral[account][asset] = 0;
@@ -1304,7 +1306,7 @@ contract SandboxComet is ISandboxComet {
         uint baseAmount
     ) public view override returns (uint) {
         (
-            IConfigController.CollateralTokenConfig memory assetInfo,
+            CollateralAsset memory assetInfo,
 
         ) = getAssetInfoByAddress(asset);
         uint256 assetPrice = getPrice(assetInfo.priceFeed);

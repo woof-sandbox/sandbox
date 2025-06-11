@@ -41,48 +41,11 @@ abstract contract IConfigController {
 
     struct CollateralTokenConfig {
         address collateralToken;
-        address priceFeed;
         uint128 supplyCap;
         uint64 borrowCollateralFactor;
         uint64 liquidateCollateralFactor;
         uint64 liquidationFactor;
-        uint64 scale;
     }
-
-    error AlreadyInitialized();
-    error ZeroAddress();
-    error Unauthorized();
-    error WrongPriceFeed();
-    error WrongCurveParams();
-    error ZeroCollateralAssets();
-    error SupplyCapCantBeZero();
-    error WrongCollateralTokenSettings();
-    error LiquidateCollateralFactorTooLow();
-    error LiquidateCollateralFactorTooHigh();
-    error LiquidationFactorTooLow();
-    error LiquidationFactorTooHigh();
-    error BorrowCollateralFactorTooLow();
-    error BorrowCollateralFactorTooHigh();
-    error BaseTokenNotWhitelisted();
-    error CollateralTokenNotWhitelisted();
-    error CollateralTokenAlreadyAdded();
-    error InvalidFeePercentage();
-    error ZeroAmount();
-    error InsufficientBalance();
-    error InvalidCurator();
-    error ProposalExpired();
-    error NoActiveProposal();
-    error ProposalExists();
-    error ProposalNotReady();
-    error ProposalDurationTooShort();
-    error ProposalDurationTooLong();
-    error TokenNotRevenue();
-    error CometAlreadyAdded();
-    error NonConfigController();
-    error CometNotOwned();
-    error InvalidCurveId();
-    error SameCurve();
-    error ProposalNotRevertable();
 
     event CometBaseTokenCurveProposed(
         address indexed comet,

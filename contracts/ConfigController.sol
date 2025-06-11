@@ -4,6 +4,7 @@ pragma solidity 0.8.28;
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "./interfaces/IConfigController.sol";
+import "./interfaces/IConfigControllerErrors.sol";
 import "./interfaces/IConfigControllerFactory.sol";
 import "./interfaces/ISandboxController.sol";
 import "./interfaces/ISandboxComet.sol";
@@ -21,7 +22,7 @@ import "./interfaces/ISandboxCometFactory.sol";
  * - Proposal system for comet configuration changes
  * - Comet transfer proposals
  */
-contract ConfigController is IConfigController {
+contract ConfigController is IConfigController, IConfigControllerErrors {
     using SafeERC20 for IERC20Metadata;
     uint256 public constant FEE_DIVISOR = 10_000;
     address public constant ZERO_ADDRESS = 0x0000000000000000000000000000000000000000;
@@ -140,21 +141,33 @@ contract ConfigController is IConfigController {
     /// @param _cometConfig The configuration parameters for the new comet
     /// @return The address of the newly created comet
     function createComet(CometConfig memory _cometConfig) external override onlyOwner returns (address) {
+        /// Check base token
+        ///
         if (_cometConfig.baseToken == ZERO_ADDRESS) revert ZeroAddress();
-        ISandboxController.BaseAssetConfiguration memory baseAssetConfig = ISandboxController(sandboxController).baseAssets(_cometConfig.baseToken);
-        if (baseAssetConfig.priceFeed == ZERO_ADDRESS) revert BaseTokenNotWhitelisted();
-        if (_cometConfig.collateralTokens.length == 0) revert ZeroCollateralAssets();
+        if (!ISandboxController(sandboxController).isBaseTokenWhitelisted(_cometConfig.baseToken)) revert BaseTokenNotWhitelisted();
+        /// Token decimals and price feed decimal are validated on the Comet, as it may be an individual setting
 
-        if (_cometConfig.baseTokenCurveId >= baseAssetConfig.baseAssetCurves.length) revert WrongCurveParams();
+        /// Check interest curve
+        ISandboxController.BaseAssetConfiguration memory baseAssetConfig = ISandboxController(sandboxController).baseAssets(_cometConfig.baseToken);
+
+        if (baseAssetConfig.baseAssetCurves.length == 0) revert NoCurveRegistered();
+        if (_cometConfig.baseTokenCurveId >= baseAssetConfig.baseAssetCurves.length) revert InvalidCurveId();
         
+        /// Check collaterals
+        ///
         uint length = _cometConfig.collateralTokens.length;
         CollateralTokenConfig memory collateralTokenConfig;
         ISandboxController.CollateralAssetConfiguration memory collateralAssetLimitations;
         address[] memory addedCollateralTokens = new address[](length);
-        
+
+        /// Upper boundary for collateral tokens number is checked in Comet, as different Comets may be supported
+        if (length == 0) revert ZeroCollateralAssets();
         for (uint i; i < length; ) {
             unchecked {
                 collateralTokenConfig = _cometConfig.collateralTokens[i];
+
+                if (!ISandboxController(sandboxController).isCollateralTokenWhitelisted(_cometConfig.baseToken)) revert CollateralTokenNotWhitelisted();
+
                 collateralAssetLimitations = ISandboxController(sandboxController).collateralAssets(collateralTokenConfig.collateralToken);
 
                 if (collateralTokenConfig.collateralToken == _cometConfig.baseToken) revert WrongCollateralTokenSettings();
@@ -164,11 +177,6 @@ contract ConfigController is IConfigController {
                     collateralAssetLimitations,
                     addedCollateralTokens
                 );
-
-                collateralTokenConfig
-                    .scale = uint64(10 ** IERC20Metadata(
-                        collateralTokenConfig.collateralToken
-                    ).decimals());
 
                 addedCollateralTokens[i] = collateralTokenConfig
                     .collateralToken;
@@ -180,16 +188,11 @@ contract ConfigController is IConfigController {
             
         address comet = ISandboxCometFactory(cometFactory).createComet();
 
-        ISandboxComet(comet).initialize(
-            _cometConfig,
-            _sandboxConfig,
-            sandboxController,
-            ISandboxController(sandboxController).baseAssets(_cometConfig.baseToken).minBorrow
-        );
+        ISandboxComet(comet).initialize(_cometConfig, _sandboxConfig);
 
-        uint256 cometsLength = comets.length;
+        uint256 cometsNum = comets.length;
         comets.push(comet);
-        cometId[comet] = cometsLength;
+        cometId[comet] = cometsNum;
         
         IERC20Metadata(_cometConfig.baseToken).safeTransferFrom(
             msg.sender,
@@ -201,7 +204,7 @@ contract ConfigController is IConfigController {
             comet,
             _cometConfig.baseToken,
             baseAssetConfig.priceFeed,
-            cometsLength + 1,
+            cometsNum + 1,
             _cometConfig.baseTokenCurveId
         );
 
