@@ -115,8 +115,8 @@ describe("System Params Validation", function() {
             initialMint: ethers.utils.parseEther("50000").toString(),
         });
         const collateralToken = await makeToken({ symbol: "COL" });
-        const priceFeedBase = await makePriceFeed({}, baseToken.address);
-        const priceFeedCol = await makePriceFeed({}, collateralToken.address);
+        const priceFeedBase = await makePriceFeed(baseToken.address);
+        const priceFeedCol = await makePriceFeed(collateralToken.address);
 
         await sandboxListBaseAsset(sandboxController, baseToken, priceFeedBase.address);
         await sandboxListCollateralAsset(sandboxController, collateralToken, priceFeedCol.address);
@@ -129,6 +129,7 @@ describe("System Params Validation", function() {
             liquidateCollateralFactor: exp(0.7, 18),
             liquidationFactor: exp(0.8, 18),
             supplyCap: exp(1e9, 18),
+            scale: 15,
         });
 
         marketConfig = {
@@ -450,7 +451,7 @@ describe("System Params Validation", function() {
                     initialMint: ethers.utils.parseEther("50000").toString(),
                     decimals: 19,
                 });
-                const priceFeedUnsupportedToken = await makePriceFeed({}, unsupportedToken.address);
+                const priceFeedUnsupportedToken = await makePriceFeed(unsupportedToken.address);
 
                 await sandboxListBaseAsset(sandboxController, unsupportedToken, priceFeedUnsupportedToken.address);
 
@@ -468,7 +469,7 @@ describe("System Params Validation", function() {
                     initialMint: ethers.utils.parseEther("50000").toString(),
                     decimals: 18,
                 });
-                const invalidPriceFeed = await makePriceFeed({ decimals: 7 }, baseToken.address);
+                const invalidPriceFeed = await makePriceFeed(baseToken.address, '100000000', 7);
 
                 await sandboxListBaseAsset(sandboxController, baseToken, invalidPriceFeed.address);
 
@@ -486,7 +487,7 @@ describe("System Params Validation", function() {
                     initialMint: ethers.utils.parseEther("50000").toString(),
                     decimals: 5,
                 });
-                const unsupportedPriceFeed = await makePriceFeed({}, unsupportedToken.address);
+                const unsupportedPriceFeed = await makePriceFeed(unsupportedToken.address);
 
                 await sandboxListBaseAsset(sandboxController, unsupportedToken, unsupportedPriceFeed.address);
 

@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
-import "../interfaces/AggregatorV3Interface.sol";
+import "../interfaces/IPriceFeed.sol";
 
-contract ManagedSimplePriceFeed is AggregatorV3Interface {
+contract ManagedSimplePriceFeed is IPriceFeed {
     string public constant override description = "Mock Chainlink price aggregator";
 
     uint public constant override version = 1;
@@ -17,11 +17,13 @@ contract ManagedSimplePriceFeed is AggregatorV3Interface {
     uint80 internal answeredInRound;
 
     address public admin;
-
-    constructor(int answer_, uint8 decimals_) {
+    address public underlyingToken;
+    
+    constructor(int answer_, uint8 decimals_, address _underlyingToken) {
         answer = answer_;
         decimals = decimals_;
         admin = msg.sender;
+        underlyingToken = _underlyingToken;
     }
 
     modifier onlyAdmin() {
@@ -47,7 +49,7 @@ contract ManagedSimplePriceFeed is AggregatorV3Interface {
         admin = newAdmin;
     }
 
-    function getRoundData(uint80 roundId_) override external view returns (uint80, int256, uint256, uint256, uint80) {
+    function getRoundData(uint80 roundId_) external view returns (uint80, int256, uint256, uint256, uint80) {
         return (roundId_, answer, startedAt, updatedAt, answeredInRound);
     }
 
