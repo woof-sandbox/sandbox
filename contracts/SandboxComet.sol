@@ -1431,26 +1431,27 @@ contract SandboxComet is ISandboxComet {
                 : 0;
     }
 
-    function _marketState(
-        uint256 reserves
-    ) internal view returns (ISandboxController.MarketState) {
-        if (reserves < suggestedReserves)
-            return ISandboxController.MarketState.Low;
-        if (reserves < targetReserves())
-            return ISandboxController.MarketState.Medium;
-        return ISandboxController.MarketState.High;
-    }
+    function _commissions(uint256 reserves) internal view returns (uint256, uint256) {
+        uint256 price = getPrice(baseTokenPriceFeed);
+        uint256 reservesUsd = (reserves * price) / baseScale;
+        uint256 seedUsd = (seedReserves * price) / baseScale;
+        uint256 targetUsd = (targetReserves() * price) / baseScale;
 
-    function _commissions(
-        uint256 curRes
-    ) internal view returns (uint256, uint256) {
-        ISandboxController sc = ISandboxController(sandboxController);
-        ISandboxController.MarketState state = _marketState(curRes);
-        return (
-            ISandboxController(sandboxController).reserveCommission(state),
-            sc.feeEnabled() ? sc.protocolCommission(state) : 0
-        );
-    }
+        ISandboxController.MarketState state;
+        if (reservesUsd < seedUsd) {
+        state = ISandboxController.MarketState.High;
+        } else if (reservesUsd < targetUsd) {
+        state = ISandboxController.MarketState.Medium;
+        } else {
+        state = ISandboxController.MarketState.Low;
+        }
+
+        ISandboxController sandboxController = ISandboxController(sandboxController);
+        uint256 reserveCommission = sandboxController.reserveCommission(state);
+        uint256 protocolCommission = sandboxController.feeEnabled() ? sandboxController.protocolCommission(state) : 0;
+
+        return (reserveCommission, protocolCommission);
+  }
 
     /**
      * @dev Credits amount of asset to recipients internal collateral

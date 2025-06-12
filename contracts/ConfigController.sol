@@ -186,16 +186,12 @@ contract ConfigController is IConfigController {
         address comet = ISandboxCometFactory(cometFactory).createComet();
        
         
-        IERC20NonStandard(_cometConfig.baseToken).transferFrom(
+        IERC20Metadata(_cometConfig.baseToken).safeTransferFrom(
             msg.sender,
-            address(this),
-            _sandboxConfig.suggestedAmountOfSeedReserves
-        );
-        
-        IERC20NonStandard(_cometConfig.baseToken).transfer(
             comet,
             _sandboxConfig.suggestedAmountOfSeedReserves
         );
+        
         
         ISandboxComet(comet).initialize(
             _cometConfig,
@@ -222,6 +218,11 @@ contract ConfigController is IConfigController {
     /// @notice The number of comets created by this controller
     function cometsLength() public view override returns (uint) {
         return comets.length;
+    }
+
+    // @notice Disables/Enables the controller fee for a specific comet
+    function setControllerFee(address comet, bool disabled) external onlyOwner {
+        ISandboxComet(comet).setControllerFee(disabled);
     }
 
     /// @notice Transfers ownership of the protocol to a new address
