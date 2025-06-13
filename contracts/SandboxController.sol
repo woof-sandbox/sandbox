@@ -79,7 +79,8 @@ contract SandboxController is ISandboxController {
         uint256 _minUpdateTime,
         uint256 _maxUpdateTime,
         uint256 _suggestedAmountOfSeedReserves,
-        uint256 _suggestedLockTimeOfSeedReserves
+        uint256 _suggestedLockTimeOfSeedReserves,
+        uint64 _marketCloseTime
     ) {
         if (_owner == address(0) || _dao == address(0)) {
             revert ZeroAddress();
@@ -112,13 +113,15 @@ contract SandboxController is ISandboxController {
         reserveFactorBorrow = _reserveFactorBorrow;
         protocolFactorLiquidation = _protocolFactorLiquidation;
         reserveFactorLiquidation = _reserveFactorLiquidation;
+
         _controllerConfiguration = SandboxControllerConfiguration(
             _targetPercent,
             _storeFrontPriceFactor,
             _minUpdateTime,
             _maxUpdateTime,
             _suggestedAmountOfSeedReserves,
-            _suggestedLockTimeOfSeedReserves
+            _suggestedLockTimeOfSeedReserves,
+            _marketCloseTime
         );
     }
 

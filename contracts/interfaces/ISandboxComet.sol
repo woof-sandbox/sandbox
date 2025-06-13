@@ -89,11 +89,14 @@ abstract contract ISandboxComet is CometCore {
 
     /// @notice Event emitted when an action is paused/unpaused
     event PauseAction(
-        bool supplyPaused,
-        bool transferPaused,
-        bool withdrawPaused,
-        bool absorbPaused,
-        bool buyPaused
+        bool supply,
+        bool transfer,
+        bool withdraw,
+        bool absorb,
+        bool buy,
+        bool supplyBaseNoDebt,
+        bool supplyCollateral,
+        bool borrowBase
     );
 
     /// @notice Event emitted when reserves are withdrawn by the governor
@@ -213,7 +216,10 @@ abstract contract ISandboxComet is CometCore {
         bool transferPaused,
         bool withdrawPaused,
         bool absorbPaused,
-        bool buyPaused
+        bool buyPaused,
+        bool supplyBaseNoDebtPaused,
+        bool supplyCollateralPaused,
+        bool borrowBasePaused
     ) external virtual;
 
     function isSupplyPaused() public view virtual returns (bool);

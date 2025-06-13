@@ -48,6 +48,10 @@ contract CometStorage {
     uint8 internal constant PAUSE_WITHDRAW_OFFSET = 2;
     uint8 internal constant PAUSE_ABSORB_OFFSET = 3;
     uint8 internal constant PAUSE_BUY_OFFSET = 4;
+    uint8 constant PAUSE_SUPPLY_BASE_NO_DEBT_OFFSET = 5;
+    uint8 constant PAUSE_SUPPLY_COLLATERAL_OFFSET = 6;
+    uint8 constant PAUSE_BORROW_BASE_OFFSET = 7;
+
 
     /// @dev The decimals required for a price feed
     uint8 internal constant PRICE_FEED_DECIMALS = 8;

@@ -33,6 +33,7 @@ abstract contract IConfigController {
     }
 
     struct CometOptions {
+        uint256 seedReserves;
         uint256 baseTrackingSupplySpeed;
         uint256 baseTrackingBorrowSpeed;
         uint256 trackingIndexScale;
@@ -83,6 +84,7 @@ abstract contract IConfigController {
     error InvalidCurveId();
     error SameCurve();
     error ProposalNotRevertable();
+    error TimelockActive();
     
     event CometBaseTokenCurveProposed(
         address indexed comet,
@@ -191,6 +193,13 @@ abstract contract IConfigController {
         address indexed baseToken,
         address indexed sender,
         uint256 amount
+    );
+    event ClosureQueued(
+        address indexed comet,
+        uint256 indexed queuedBy
+    );
+    event ClosureExecuted(
+        address indexed comet
     );
 
     /// @notice Returns the current curator fee in basis points (1% = 100)

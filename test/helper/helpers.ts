@@ -134,6 +134,7 @@ export type ProtocolOpts = {
     targetPercent?: Numeric;
     baseTokenBalance?: Numeric;
     suggestedAmountOfSeedReserves?: string;
+    seedReserves?: Numeric;
 };
 
 export type Protocol = {
@@ -584,7 +585,8 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
         baseTrackingSupplySpeed: 1e15,
         baseTrackingBorrowSpeed: 1e15,
         trackingIndexScale: 1e15,
-        baseMinForRewards: 1e15
+        baseMinForRewards: 1e15,
+        seedReserves: opts.seedReserves ? BigInt(opts.seedReserves) : opts.suggestedAmountOfSeedReserves ? BigInt(opts.suggestedAmountOfSeedReserves) : 0n,
       }
     };
   

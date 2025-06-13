@@ -65,7 +65,7 @@ contract SandboxComet is ISandboxComet {
         
         baseBorrowMin = baseBorrowMin_;
         targetPercent = config.targetPercent;
-        seedReserves = config.suggestedAmountOfSeedReserves;
+        seedReserves = comet.options.seedReserves;
 
         unlockTimestamp =
             block.timestamp +
@@ -154,19 +154,19 @@ contract SandboxComet is ISandboxComet {
         if (msg.sender != configController) revert Unauthorized();
         if (_closed) revert Closed();
 
-        _closed = true;
+        _closed = true; 
+        accrueInternal();
 
-        uint256 baseBalance = IERC20NonStandard(baseToken).balanceOf(
-            address(this)
-        );
+        address dao = ISandboxController(sandboxController).dao();
+        int256 totalReserves = getReserves();  
 
-        if (baseBalance > seedReserves) {
-            uint256 excess = baseBalance - seedReserves;
-            doTransferOut(baseToken, address(0), excess);
-            emit Closure(address(0), excess);
-        } else {
-            emit Closure(address(0), 0);
+        uint256 payout;
+        if (totalReserves > int256(seedReserves)) {
+            payout = uint256(totalReserves) - seedReserves;
+            doTransferOut(baseToken, address(0), payout); // TODO add burn address
         }
+
+        emit Closure(dao, payout);
     }
 
     /**
@@ -527,26 +527,32 @@ contract SandboxComet is ISandboxComet {
         bool transferPaused,
         bool withdrawPaused,
         bool absorbPaused,
-        bool buyPaused
+        bool buyPaused,
+        bool supplyBaseNoDebtPaused,
+        bool supplyCollateralPaused,
+        bool borrowBasePaused
     ) external override {
-        address dao = ISandboxController(sandboxController).dao();
-        if (msg.sender != configController && dao != msg.sender)
-            revert Unauthorized();
+        if (msg.sender != configController) revert Unauthorized();
 
         pauseFlags =
-            uint8(0) |
-            (toUInt8(supplyPaused) << PAUSE_SUPPLY_OFFSET) |
-            (toUInt8(transferPaused) << PAUSE_TRANSFER_OFFSET) |
-            (toUInt8(withdrawPaused) << PAUSE_WITHDRAW_OFFSET) |
-            (toUInt8(absorbPaused) << PAUSE_ABSORB_OFFSET) |
-            (toUInt8(buyPaused) << PAUSE_BUY_OFFSET);
+            (toUInt8(supplyPaused)           << PAUSE_SUPPLY_OFFSET)              |
+            (toUInt8(transferPaused)         << PAUSE_TRANSFER_OFFSET)            |
+            (toUInt8(withdrawPaused)         << PAUSE_WITHDRAW_OFFSET)            |
+            (toUInt8(absorbPaused)           << PAUSE_ABSORB_OFFSET)              |
+            (toUInt8(buyPaused)              << PAUSE_BUY_OFFSET)                 |
+            (toUInt8(supplyBaseNoDebtPaused) << PAUSE_SUPPLY_BASE_NO_DEBT_OFFSET) |
+            (toUInt8(supplyCollateralPaused) << PAUSE_SUPPLY_COLLATERAL_OFFSET)   |
+            (toUInt8(borrowBasePaused)       << PAUSE_BORROW_BASE_OFFSET);
 
         emit PauseAction(
             supplyPaused,
             transferPaused,
             withdrawPaused,
             absorbPaused,
-            buyPaused
+            buyPaused,
+            supplyBaseNoDebtPaused,
+            supplyCollateralPaused,
+            borrowBasePaused
         );
     }
 
@@ -583,6 +589,18 @@ contract SandboxComet is ISandboxComet {
      */
     function isBuyPaused() public view override returns (bool) {
         return toBool(pauseFlags & (uint8(1) << PAUSE_BUY_OFFSET));
+    }
+
+    function isSupplyCollateralPaused() internal view returns (bool) {
+        return toBool(pauseFlags & (uint8(1) << PAUSE_SUPPLY_COLLATERAL_OFFSET));
+    }
+
+    function isSupplyBaseNoDebtPaused() internal view returns (bool) {
+        return toBool(pauseFlags & (uint8(1) << PAUSE_SUPPLY_BASE_NO_DEBT_OFFSET));
+    }
+
+    function isBorrowBasePaused() internal view returns (bool) {
+        return toBool(pauseFlags & (uint8(1) << PAUSE_BORROW_BASE_OFFSET));
     }
 
     /**
@@ -828,6 +846,9 @@ contract SandboxComet is ISandboxComet {
      * @dev Supply an amount of base asset from `from` to dst
      */
     function supplyBase(address from, address dst, uint256 amount) internal {
+        if (_closed) revert Paused();
+        if (isSupplyBaseNoDebtPaused() && borrowBalanceOf(dst) == 0) revert Paused();
+
         amount = doTransferIn(baseToken, from, amount);
         accrueInternal();
 
@@ -865,6 +886,7 @@ contract SandboxComet is ISandboxComet {
         address asset,
         uint256 amount
     ) internal {
+        if (_closed || isSupplyCollateralPaused()) revert Paused();
         amount = doTransferIn(asset, from, amount);
 
         (IConfigController.CollateralTokenConfig memory assetInfo, uint8 index) = getAssetInfoByAddress(asset);
@@ -955,6 +977,7 @@ contract SandboxComet is ISandboxComet {
         address asset,
         uint amount
     ) internal nonReentrant {
+        if (_closed) revert Paused();
         if (isTransferPaused()) revert Paused();
         if (!hasPermission(src, operator)) revert Unauthorized();
         if (src == dst) revert NoSelfTransfer();
@@ -973,6 +996,10 @@ contract SandboxComet is ISandboxComet {
      * @dev Transfer an amount of base asset from src to dst, borrowing if possible/necessary
      */
     function transferBase(address src, address dst, uint256 amount) internal {
+       
+        if (amount == type(uint256).max) {
+            amount = borrowBalanceOf(src);
+        }
         accrueInternal();
 
         UserBasic memory srcUser = userBasic[src];
@@ -989,6 +1016,10 @@ contract SandboxComet is ISandboxComet {
             uint104 withdrawAmount,
             uint104 borrowAmount
         ) = withdrawAndBorrowAmount(srcPrincipal, srcPrincipalNew);
+
+        if (( _closed || isBorrowBasePaused() ) && borrowAmount > 0) {
+            revert Paused();
+        }
         (uint104 repayAmount, uint104 supplyAmount) = repayAndSupplyAmount(
             dstPrincipal,
             dstPrincipalNew
@@ -1118,8 +1149,9 @@ contract SandboxComet is ISandboxComet {
      * @dev Withdraw an amount of base asset from src to `to`, borrowing if possible/necessary
      */
     function withdrawBase(address src, address to, uint256 amount) internal {
+        if (_closed && msg.sender != configController) revert Paused();
         accrueInternal();
-
+        
         if (msg.sender == configController) {
             require(
                 block.timestamp >= unlockTimestamp || _closed,
@@ -1146,6 +1178,7 @@ contract SandboxComet is ISandboxComet {
         totalBorrowBase += borrowAmount;
 
         updateBasePrincipal(src, srcUser, srcPrincipalNew);
+        if (isBorrowBasePaused() && borrowAmount > 0) revert Paused();
 
         if (srcBalance < 0) {
             if (uint256(-srcBalance) < baseBorrowMin) revert BorrowTooSmall();
@@ -1174,6 +1207,7 @@ contract SandboxComet is ISandboxComet {
         address asset,
         uint256 amount
     ) internal {
+        if (_closed) revert Paused();
         uint256 srcCollateral = userCollateral[src][asset];
         uint256 srcCollateralNew = srcCollateral - amount;
 
@@ -1189,6 +1223,19 @@ contract SandboxComet is ISandboxComet {
         doTransferOut(asset, to, amount);
 
         emit WithdrawCollateral(src, to, asset, amount);
+    }
+
+    function daoWithdrawReserves() external nonReentrant {
+        address dao = ISandboxController(sandboxController).dao();
+        if (msg.sender != dao) revert Unauthorized();
+
+        accrueInternal();
+        int total = getReserves();
+        if (total <= int(seedReserves)) revert InsufficientReserves();
+
+        uint256 amount = uint256(total) - seedReserves;
+        doTransferOut(baseToken, dao, amount);
+        emit WithdrawReserves(dao, amount);
     }
 
     /**

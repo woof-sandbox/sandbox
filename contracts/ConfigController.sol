@@ -46,6 +46,9 @@ contract ConfigController is IConfigController {
     /// @notice The mapping of comet address => comet Id
     mapping(address => uint) public cometId;
 
+    mapping(address => uint64) public closeQueue;
+
+
     /// @notice Array of all comets created by this controller
     address[] public override comets;
 
@@ -182,15 +185,10 @@ contract ConfigController is IConfigController {
         address comet = ISandboxCometFactory(cometFactory).createComet();
        
         
-        IERC20NonStandard(_cometConfig.baseToken).transferFrom(
+        IERC20Metadata(_cometConfig.baseToken).safeTransferFrom(
             msg.sender,
-            address(this),
-            _sandboxConfig.suggestedAmountOfSeedReserves
-        );
-        
-        IERC20NonStandard(_cometConfig.baseToken).transfer(
             comet,
-            _sandboxConfig.suggestedAmountOfSeedReserves
+            _cometConfig.options.seedReserves
         );
         
         ISandboxComet(comet).initialize(
@@ -203,12 +201,6 @@ contract ConfigController is IConfigController {
         uint256 _cometsLength = comets.length;
         comets.push(comet);
         cometId[comet] = _cometsLength;
-        
-        IERC20Metadata(_cometConfig.baseToken).safeTransferFrom(
-            msg.sender,
-            comet,
-            _sandboxConfig.suggestedAmountOfSeedReserves
-        );
         
         emit CometCreated(
             comet,
@@ -233,8 +225,23 @@ contract ConfigController is IConfigController {
         if (market == ZERO_ADDRESS) revert ZeroAddress();
         if (!_isCometOwned(market)) revert CometNotOwned();
 
-        ISandboxComet comet = ISandboxComet(market);
-        comet.closeMarket();
+        uint64 queued = closeQueue[market];
+        uint64 timelock = ISandboxController(sandboxController)
+                            .controllerConfiguration()
+                            .marketCloseTime;
+
+        if (queued == 0) {
+            closeQueue[market] = uint64(block.timestamp);
+            emit ClosureQueued(market, block.timestamp + timelock);
+            return;
+        }
+
+        if (block.timestamp < queued + timelock) revert TimelockActive();
+
+        delete closeQueue[market];
+
+        ISandboxComet(market).closeMarket();
+        emit ClosureExecuted(market);
     }
 
     /// @notice Withdraws base tokens from the market
