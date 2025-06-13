@@ -787,7 +787,8 @@ contract SandboxComet is ISandboxComet {
         uint amount
     ) internal nonReentrant {
         if (isSupplyPaused()) revert Paused();
-        if (!hasPermission(from, operator)) revert Unauthorized();
+        if (!hasPermission(from, operator, asset, amount)) revert InsufficientAllowance(asset, from, operator);
+        spendAllowance(from, operator, asset, amount);
 
         if (asset == baseToken) {
             if (amount == type(uint256).max) {
@@ -858,7 +859,6 @@ contract SandboxComet is ISandboxComet {
 
         emit SupplyCollateral(from, dst, asset, amount);
     }
-
     /**
      * @notice ERC20 transfer an amount of base token to dst
      * @param dst The recipient address
@@ -931,7 +931,8 @@ contract SandboxComet is ISandboxComet {
         uint amount
     ) internal nonReentrant {
         if (isTransferPaused()) revert Paused();
-        if (!hasPermission(src, operator)) revert Unauthorized();
+        if (!hasPermission(src, operator, asset, amount)) revert InsufficientAllowance(asset, src, operator);
+        spendAllowance(src, operator, asset, amount);
         if (src == dst) revert NoSelfTransfer();
 
         if (asset == baseToken) {
@@ -1077,7 +1078,8 @@ contract SandboxComet is ISandboxComet {
         uint amount
     ) internal nonReentrant {
         if (isWithdrawPaused()) revert Paused();
-        if (!hasPermission(src, operator)) revert Unauthorized();
+        if (!hasPermission(src, operator, asset, amount)) revert InsufficientAllowance(asset, src, operator);
+        spendAllowance(src, operator, asset, amount);
 
         if (asset == baseToken) {
             if (amount == type(uint256).max) {

@@ -178,7 +178,7 @@ contract ConfigController is IConfigController {
         
         ISandboxController.SandboxControllerConfiguration memory _sandboxConfig = ISandboxController(sandboxController).config();
             
-        address comet = ISandboxCometFactory(cometFactory).createComet();
+        address comet = ISandboxCometFactory(cometFactory).createComet(_cometConfig.name);
 
         ISandboxComet(comet).initialize(
             _cometConfig,

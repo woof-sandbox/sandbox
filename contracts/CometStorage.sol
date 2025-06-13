@@ -182,7 +182,8 @@ contract CometStorage {
     mapping(address => uint256) public totalsCollateral;
 
     /// @notice Mapping of users to accounts which may be permitted to manage the user account
-    mapping(address => mapping(address => bool)) public isAllowed;
+    // mapping(address => mapping(address => bool)) public isAllowed;
+    mapping(address => mapping(address => mapping(address => uint))) public allowance;
 
     /// @notice The next expected nonce for an address, for validating authorizations via signature
     mapping(address => uint) public userNonce;

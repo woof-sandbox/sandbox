@@ -16,26 +16,22 @@ contract CometExtension is ICometExtension {
 
     /// @dev The EIP-712 typehash for allowBySig Authorization
     bytes32 internal constant AUTHORIZATION_TYPEHASH = keccak256(
-        "Authorization(address owner,address manager,bool isAllowed,uint256 nonce,uint256 expiry)"
+        "Authorization(address owner,address manager,address asset,uint256 amount,uint256 nonce,uint256 expiry)"
     );
 
     /// @dev The highest valid value for s in an ECDSA signature pair (0 < s < secp256k1n ÷ 2 + 1)
     ///  See https://ethereum.github.io/yellowpaper/paper.pdf #307)
     uint internal constant MAX_VALID_ECDSA_S = 0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5D576E7357A4501DDFE92F46681B20A0;
-
-    /** Immutable symbol **/
-    /// @dev The ERC20 name for wrapped base token
+    
+    /// @dev The name of the SandboxComet
     bytes32 internal immutable name32;
-    /// @dev The ERC20 symbol for wrapped base token
-    bytes32 internal immutable symbol32;
     
     /**
      * @notice Construct a new protocol instance
-     * @param _name32 The ERC20 name for wrapped base token
+     * @param _name32 The name of the SandboxComet
      **/
-    constructor(bytes32 _name32, bytes32 _symbol32) {
+    constructor(bytes32 _name32) {
         name32 = _name32;
-        symbol32 = _symbol32;
     }
 
     /** External getters for internal constants **/
@@ -60,9 +56,8 @@ contract CometExtension is ICometExtension {
         });
     }
 
-    /** Additional ERC20 functionality and approval interface **/
     /**
-     * @notice Get the ERC20 name for wrapped base token
+     * @notice Get the name of the SandboxComet
      * @return The name as a string
      */
     function name() override public view returns (string memory) {
@@ -77,24 +72,6 @@ contract CometExtension is ICometExtension {
             unchecked { j++; }
         }
         return string(name_);
-    }
-
-    /**
-     * @notice Get the ERC20 symbol for wrapped base token
-     * @return The symbol as a string
-     */
-    function symbol() override external view returns (string memory) {
-        uint8 i;
-        for (i = 0; i < 32; ) {
-            if (symbol32[i] == 0) break;
-            unchecked { i++; }
-        }
-        bytes memory symbol_ = new bytes(i);
-        for (uint8 j = 0; j < i; ) {
-            symbol_[j] = symbol32[j];
-            unchecked { j++; }
-        }
-        return string(symbol_);
     }
 
     /**
@@ -117,49 +94,42 @@ contract CometExtension is ICometExtension {
     }
 
     /**
-      * @notice Approve or disallow `spender` to transfer on sender's behalf
-      * @dev Note: this binary approval is unlike most other ERC20 tokens
-      * @dev Note: this grants full approval for spender to manage *all* the owner's assets
-      * @param spender The address of the account which may transfer tokens
-      * @param amount Either uint.max (to allow) or zero (to disallow)
-      * @return Whether or not the approval change succeeded
-      */
-    function approve(address spender, uint256 amount) override external returns (bool) {
-        if (amount == type(uint256).max) {
-            allowInternal(msg.sender, spender, true);
-        } else if (amount == 0) {
-            allowInternal(msg.sender, spender, false);
-        } else {
-            revert BadAmount();
-        }
+     * @notice Approve a spender to transfer a specific amount of an asset on behalf of the sender
+     * @param spender The address of the account which may transfer tokens
+     * @param asset The address of the asset being approved
+     * @param amount The amount of the asset that the spender is allowed to manage
+     * @return Whether or not the approval change succeeded
+     */
+    function approve(address spender, address asset, uint256 amount) override external returns (bool) {
+        allowInternal(msg.sender, spender, asset, amount);
         return true;
     }
 
     /**
-      * @notice Get the current allowance from `owner` for `spender`
-      * @dev Note: this binary allowance is unlike most other ERC20 tokens
-      * @dev Note: this allowance allows spender to manage *all* the owner's assets
-      * @param owner The address of the account which owns the tokens to be spent
-      * @param spender The address of the account which may transfer tokens
-      * @return Either uint.max (spender is allowed) or zero (spender is disallowed)
-      */
-    function allowance(address owner, address spender) override external view returns (uint256) {
-        return hasPermission(owner, spender) ? type(uint256).max : 0;
-    }
-
-    /**
-     * @dev Stores the flag marking whether the manager is allowed to act on behalf of owner
+     * @notice Approve a spender to transfer multiple amounts of assets on behalf of the sender
+     * @note This function assumes that the first asset is the baseToken and the rest are collateral assets
+     * @param spender The address of the account which may transfer tokens
+     * @param amounts The amounts of each asset that the spender is allowed to manage
+     * @dev Note: The first amount corresponds to the baseToken, followed by each collateral asset in order
+     * @dev The length of the amounts array must match the number of assets (baseToken + collateralAssets)
+     * @return Whether or not the approval change succeeded
      */
-    function allowInternal(address owner, address manager, bool isAllowed_) internal {
-        isAllowed[owner][manager] = isAllowed_;
-        emit Approval(owner, manager, isAllowed_ ? type(uint256).max : 0);
+    function approveAll(address spender, uint256[] calldata amounts) override external returns (bool) {
+        uint256 len = collateralAssets.length + 1; // +1 for baseToken
+        if (len != amounts.length) revert InvalidLength();
+        for (uint256 i = 0; i < len; i++) {
+            address asset = i == 0 ? baseToken : collateralAssets[i - 1].collateralToken;
+            allowInternal(msg.sender, spender, asset, amounts[i]);
+        }
+        return true;
     }
 
     /**
      * @notice Sets authorization status for a manager via signature from signatory
      * @param owner The address that signed the signature
      * @param manager The address to authorize (or rescind authorization from)
-     * @param isAllowed_ Whether to authorize or rescind authorization from manager
+     * @param asset The asset for which the authorization applies (must be baseToken or a collateral asset)
+     * @param amount The amount of the asset that the manager is allowed to manage
      * @param nonce The next expected nonce value for the signatory
      * @param expiry Expiration time for the signature
      * @param v The recovery byte of the signature
@@ -169,7 +139,8 @@ contract CometExtension is ICometExtension {
     function allowBySig(
         address owner,
         address manager,
-        bool isAllowed_,
+        address asset,
+        uint256 amount,
         uint256 nonce,
         uint256 expiry,
         uint8 v,
@@ -188,14 +159,14 @@ contract CometExtension is ICometExtension {
                 address(this)
             )
         );
-        bytes32 structHash = keccak256(abi.encode(AUTHORIZATION_TYPEHASH, owner, manager, isAllowed_, nonce, expiry));
+        bytes32 structHash = keccak256(abi.encode(AUTHORIZATION_TYPEHASH, owner, manager, asset, amount, nonce, expiry));
         bytes32 digest = keccak256(abi.encodePacked("\x19\x01", domainSeparator, structHash));
         address signatory = ecrecover(digest, v, r, s);
         if (signatory == address(0)) revert BadSignatory();
         if (owner != signatory) revert BadSignatory();
         if (nonce != userNonce[signatory]++) revert BadNonce();
         if (block.timestamp >= expiry) revert SignatureExpired();
-        allowInternal(signatory, manager, isAllowed_);
+        allowInternal(signatory, manager, asset, amount);
     }
 
 
@@ -239,5 +210,21 @@ contract CometExtension is ICometExtension {
                 unlockTimestamp: uint104(unlockTimestamp),
                 assetConfigs: collateralAssets
             });
+    }
+
+    /**
+     * @dev Allows a manager to spend an owner's allowance on a specific asset
+     * @param owner The owner of the assets
+     * @param manager The manager account
+     * @param asset The asset being spent
+     * @param amount The amount to spend
+     */
+    function allowInternal(address owner, address manager, address asset, uint256 amount) internal {
+        uint8 index = collateralAssetIndex[asset];
+        if (asset != baseToken && (collateralAssets[index].collateralToken != asset)) revert WrongToken(asset);
+        unchecked {   
+            allowance[owner][manager][asset] = amount;
+        }
+        emit Approval(owner, manager, asset, amount);
     }
 }

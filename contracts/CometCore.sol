@@ -9,10 +9,33 @@ abstract contract CometCore is CometStorage, CometMath {
      * @notice Determine if the manager has permission to act on behalf of the owner
      * @param owner The owner account
      * @param manager The manager account
+     * @param asset The address of the asset being checked
+     * @param amount The amount of the asset being checked
      * @return Whether or not the manager has permission
      */
-    function hasPermission(address owner, address manager) public view returns (bool) {
-        return owner == manager || isAllowed[owner][manager];
+    function hasPermission(address owner, address manager, address asset, uint256 amount) public view returns (bool) {
+        return owner == manager || allowance[owner][manager][asset] >= amount;
+    }
+
+    /**
+     * @notice Spend the allowance of an asset for a spender on behalf of an owner
+     * @param owner The owner account
+     * @param manager The spender account
+     * @param asset The asset being spent
+     * @param amount The amount to spend
+     * @return Whether or not the allowance was successfully spent
+     */
+    function spendAllowance(address owner, address manager, address asset, uint256 amount) internal returns(bool) {
+        if (owner == manager) return true;
+
+        uint256 currentAllowance = allowance[owner][manager][asset];
+        if (currentAllowance < type(uint256).max) {
+            // If the allowance is not unlimited, reduce it by the value spent
+            unchecked {
+                allowance[owner][manager][asset] -= amount;
+            }
+        }
+        return true;
     }
 
     /**

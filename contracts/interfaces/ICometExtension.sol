@@ -40,11 +40,14 @@ abstract contract ICometExtension is CometCore {
     error InvalidValueS();
     error InvalidValueV();
     error SignatureExpired();
+    error WrongToken(address token);
+    error InvalidLength();
 
     function allowBySig(
         address owner,
         address manager,
-        bool isAllowed,
+        address asset,
+        uint256 amount,
         uint256 nonce,
         uint256 expiry,
         uint8 v,
@@ -85,8 +88,6 @@ abstract contract ICometExtension is CometCore {
      */
     function name() external view virtual returns (string memory);
 
-    function symbol() external view virtual returns (string memory);
-
     /**
      * @notice Approve `spender` to transfer up to `amount` from `src`
      * @dev This will overwrite the approval amount for `spender`
@@ -96,9 +97,10 @@ abstract contract ICometExtension is CometCore {
      * @return Whether or not the approval succeeded
      */
     function approve(
-        address spender,
-        uint256 amount
+        address spender, address asset, uint256 amount
     ) external virtual returns (bool);
+
+    function approveAll(address spender, uint256[] calldata amounts) external virtual returns (bool);
 
     /**
      * @notice Get the current allowance from `owner` for `spender`
@@ -106,14 +108,14 @@ abstract contract ICometExtension is CometCore {
      * @param spender The address of the account which may transfer tokens
      * @return The number of tokens allowed to be spent (-1 means infinite)
      */
-    function allowance(
-        address owner,
-        address spender
-    ) external view virtual returns (uint256);
+    // function allowance(
+    //     address owner, address spender, address asset
+    // ) external view virtual returns (uint256);
 
     event Approval(
         address indexed owner,
         address indexed spender,
+        address indexed asset,
         uint256 amount
     );
 }

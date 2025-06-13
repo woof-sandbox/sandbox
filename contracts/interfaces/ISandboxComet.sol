@@ -37,6 +37,7 @@ abstract contract ISandboxComet is CometCore {
     error TransferOutFailed();
     error Unauthorized();
     error Locked(uint256 currrentTimestamp, uint256 unlockTimestamp);
+    error InsufficientAllowance(address token, address owner, address manager);
 
     event Supply(address indexed from, address indexed dst, uint amount);
     event Transfer(address indexed from, address indexed to, uint amount);

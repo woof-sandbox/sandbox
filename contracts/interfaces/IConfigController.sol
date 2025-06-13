@@ -30,6 +30,7 @@ abstract contract IConfigController {
         uint baseTokenCurveId;
         CometOptions options;
         CollateralTokenConfig[] collateralTokens;
+        string name;
     }
 
     struct CometOptions {
