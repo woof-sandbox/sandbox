@@ -5,7 +5,7 @@ function assetsWithInitial(symbols: string[]) {
   return Object.fromEntries(symbols.map((s) => [s, { initial: 1e6 }]));
 }
 
-describe('updateAssetsIn', function () {
+describe('14. updateAssetsIn', function () {
   it("adds asset to user's asset list when initialUserBalance = 0 and finalUserBalance > 0", async () => {
     const { comet, tokens, users } = await makeProtocol();
     const [user] = users;
