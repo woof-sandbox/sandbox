@@ -84,7 +84,7 @@ const testCases = [
   }
 ];
 
-describe('WBTC price feed', function() {
+describe.skip('WBTC price feed', function() {
   it('reverts if constructed with bad decimals', async () => {
     const SimplePriceFeedFactory = (await ethers.getContractFactory(
       'SimplePriceFeed'

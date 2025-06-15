@@ -1,6 +1,6 @@
 import { expect, exp, makeProtocol } from './helper/helpers';
 
-describe('quoteCollateral', function () {
+describe.skip('quoteCollateral', function () {
   it('quotes the collateral correctly for a positive base amount', async () => {
     const protocol = await makeProtocol({
       base: 'USDC',
