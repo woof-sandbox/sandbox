@@ -10,6 +10,12 @@ contract ConfigControllerInitializeTest is ConfigController {
     function reinitializeComet(address _comet, CometConfig memory _cometConfig) external {
 
         ISandboxController.SandboxControllerConfiguration memory _sandboxConfig = ISandboxController(sandboxController).config();
-        ISandboxComet(_comet).initialize(_cometConfig, _sandboxConfig);
+        CometGlobalParamsConfig memory _globalConfig = CometGlobalParamsConfig(
+            _sandboxConfig.targetPercent,
+            _sandboxConfig.storeFrontPriceFactor,
+            _sandboxConfig.suggestedAmountOfSeedReserves,
+            _sandboxConfig.suggestedLockTimeOfSeedReserves
+        );
+        ISandboxComet(_comet).initialize(_cometConfig, _globalConfig);
     }
 }

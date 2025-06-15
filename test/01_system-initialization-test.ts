@@ -30,7 +30,7 @@ import {
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { parseEther } from 'ethers/lib/utils';
 
-describe.only("1. System Initialization", function() {
+describe("1. System Initialization", function() {
   // Factories
   let _ConfigControllerFactory: ConfigControllerFactory__factory;
   let _ConfigController: ConfigControllerInitializeTest__factory;
@@ -577,24 +577,16 @@ describe.only("1. System Initialization", function() {
         let collateralTokens: CollateralTokenConfigStruct[] = [];
         collateralTokens.push({
             collateralToken: collateralToken.address,
-            priceFeed: priceFeedCol.address,
             borrowCollateralFactor: exp(0.6, 18),
             liquidateCollateralFactor: exp(0.7, 18),
             liquidationFactor: exp(0.8, 18),
-            supplyCap: exp(1e9, 18),
-            scale: 15,
+            supplyCap: exp(1e9, 18)
         });
 
         marketConfig = {
             baseToken: baseToken.address,
             collateralTokens: collateralTokens.map(obj => ({...obj})),
-            baseTokenCurveId: 0n,
-            options: {
-                baseTrackingSupplySpeed: 1e15,
-                baseTrackingBorrowSpeed: 1e15,
-                trackingIndexScale: 1e15,
-                baseMinForRewards: 1e15,
-            },
+            baseTokenCurveId: 0n
         };
 
         cometAddress = await configController.callStatic.createComet(marketConfig);
