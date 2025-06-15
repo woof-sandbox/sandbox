@@ -154,7 +154,7 @@ abstract contract ISandboxComet is CometCore {
     function factoryInit(address, address) virtual external;
     function initialize(
         IConfigController.CometConfig memory market,
-        ISandboxController.SandboxControllerConfiguration memory config
+        IConfigController.CometGlobalParamsConfig memory config
     ) external virtual;
 
     function absorb(

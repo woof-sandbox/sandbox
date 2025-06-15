@@ -30,20 +30,23 @@ contract SandboxComet is ISandboxComet {
     /// @notice replaces your old constructor
     function initialize(
         IConfigController.CometConfig calldata comet,
-        ISandboxController.SandboxControllerConfiguration calldata config
+        IConfigController.CometGlobalParamsConfig calldata config
     ) external override {
         /// Relies on fact that factory provides correct controller and that it is set by the time of this call
         if (msg.sender != configController) revert IncorrectInitialization();
         sandboxController = IConfigController(msg.sender).sandboxController();
 
+        /// Base asset
+        ///
+
         /// Rely on base token as main characteristic of the market and that it was validated in Controller
         if (baseToken != address(0)) revert AlreadyInitialized();
         baseToken = comet.baseToken;
 
-        uint8 decimals_ = IERC20NonStandard(comet.baseToken).decimals();
-        if (decimals_ > MAX_BASE_DECIMALS) revert BadDecimals();
+        uint8 _decimals = IERC20NonStandard(comet.baseToken).decimals();
+        if (_decimals > MAX_BASE_DECIMALS) revert BadDecimals();
 
-        baseScale = uint64(10 ** decimals_);
+        baseScale = uint64(10 ** _decimals);
         if (baseScale < BASE_ACCRUAL_SCALE) revert BadDecimals();
         accrualDescaleFactor = baseScale / BASE_ACCRUAL_SCALE;
 
@@ -52,21 +55,10 @@ contract SandboxComet is ISandboxComet {
         if (IPriceFeed(_baseTokenPriceFeed).decimals() != PRICE_FEED_DECIMALS) revert BadDecimals();
         baseTokenPriceFeed = _baseTokenPriceFeed;
 
-        trackingIndexScale = comet.options.trackingIndexScale;
-        baseTrackingSupplySpeed = comet.options.baseTrackingSupplySpeed;
-        baseTrackingBorrowSpeed = comet.options.baseTrackingBorrowSpeed;
-        baseMinForRewards = comet.options.baseMinForRewards;
+        /// Collaterals
+        ///
 
-        storeFrontPriceFactor = config.storeFrontPriceFactor;
-
-        targetPercent = config.targetPercent;
-        seedReserves = config.suggestedAmountOfSeedReserves;
-        unlockTimestamp = block.timestamp + config.suggestedLockTimeOfSeedReserves;
-
-        ISandboxController.BaseAssetConfiguration memory bac = ISandboxController(sandboxController).baseAssets(comet.baseToken);
-        baseBorrowMin = bac.minBorrow;
-        ISandboxController.BaseAssetCurve memory curve = bac.baseAssetCurves[comet.baseTokenCurveId];
-
+        /// Availability of collaterals is already checked in Config Controller
         uint8 colTokensLength = uint8(comet.collateralTokens.length);
         if (colTokensLength > MAX_ASSETS) revert TooManyAssets();
         numAssets = colTokensLength;
@@ -91,6 +83,23 @@ contract SandboxComet is ISandboxComet {
             collateralAssetIndex[comet.collateralTokens[i].collateralToken] = i;
         }
 
+        /// Reserves
+        ///
+
+        /// It can be safely assumed, that reserve parameters are validated in Sandbox Controller
+        targetPercent = config.targetPercent;
+        seedReserves = config.suggestedAmountOfSeedReserves;
+        unlockTimestamp = block.timestamp + config.suggestedLockTimeOfSeedReserves;
+
+        /// Interest rate curve
+        ///
+
+        ISandboxController.BaseAssetConfiguration memory bac = ISandboxController(sandboxController).baseAssets(comet.baseToken);
+        ISandboxController.BaseAssetCurve memory curve = bac.baseAssetCurves[comet.baseTokenCurveId];
+
+        /// It can be safely assumed, that curve parameters are validated in Sandbox Controller
+        baseBorrowMin = bac.minBorrow;
+        storeFrontPriceFactor = config.storeFrontPriceFactor;
         unchecked {
             supplyKink = curve.supplyKink;
             supplyPerSecondInterestRateSlopeLow = curve.supplyPerYearInterestRateSlopeLow / SECONDS_PER_YEAR;
@@ -103,9 +112,19 @@ contract SandboxComet is ISandboxComet {
             borrowPerSecondInterestRateBase = curve.borrowPerYearInterestRateBase / SECONDS_PER_YEAR;
         }
         
+        /// Indexes
+        ///
+
         lastAccrualTime = getNowInternal();
         baseSupplyIndex = BASE_INDEX_SCALE;
         baseBorrowIndex = BASE_INDEX_SCALE;
+
+        /// Rewards are disabled by default
+        trackingIndexScale = 1;
+        baseMinForRewards = type(uint256).max;
+        /// to avoid explicit initialization
+        /// baseTrackingSupplySpeed = 0;
+        /// baseTrackingBorrowSpeed = 0;
     }
 
     /**
@@ -646,24 +665,19 @@ contract SandboxComet is ISandboxComet {
         int104 principal = basic.principal;
         basic.principal = principalNew;
 
+        uint indexDelta;
+
         if (principal >= 0) {
-            uint indexDelta = uint256(
-                trackingSupplyIndex - basic.baseTrackingIndex
-            );
-            basic.baseTrackingAccrued += safe64(
-                (uint104(principal) * indexDelta) /
-                    trackingIndexScale /
-                    accrualDescaleFactor
-            );
+            indexDelta = uint256(trackingSupplyIndex - basic.baseTrackingIndex);
         } else {
-            uint indexDelta = uint256(
-                trackingBorrowIndex - basic.baseTrackingIndex
-            );
-            basic.baseTrackingAccrued += safe64(
-                (uint104(-principal) * indexDelta) /
-                    trackingIndexScale /
-                    accrualDescaleFactor
-            );
+            indexDelta = uint256(trackingBorrowIndex - basic.baseTrackingIndex);
+            principal = -principal;
+        }
+
+        // 0 delta means the same block or disabled rewards
+        if (indexDelta > 0) {
+            basic.baseTrackingAccrued += 
+                    safe64((uint104(principal) * indexDelta) / trackingIndexScale / accrualDescaleFactor);
         }
 
         if (principalNew >= 0) {
