@@ -1,7 +1,7 @@
 import { ethers } from 'ethers';
 import { event, expect, exp, factor, defaultAssets, makeProtocol, mulPrice, portfolio, totalsAndReserves, wait, bumpTotalsCollateral, setTotalsBasic, hre } from './helper/helpers';
 
-describe('absorb', function () {
+describe('7. absorb', function () {
   it('reverts if total borrows underflows', async () => {
     const { comet, users: [absorber, underwater] } = await makeProtocol({
       base: 'USDC', targetPercent: 0.5,
@@ -206,7 +206,7 @@ describe('absorb', function () {
           minLiquidateCF: exp(0.5, 18), maxLiquidateCF: exp(0.5, 18),
           minLiquidationFactor: exp(0.1, 18), maxLiquidationFactor: exp(1, 18),
           borrowCF: exp(0.5, 18), liquidateCF: exp(0.5, 18),
-          liquidationFactor: exp(0.1, 18)
+          liquidationFactor: exp(0.5, 18)
         },
         WETH: {
           initial: 1e7, decimals: 18, initialPrice: 1,
@@ -214,7 +214,7 @@ describe('absorb', function () {
           minLiquidateCF: exp(0.5, 18), maxLiquidateCF: exp(0.5, 18),
           minLiquidationFactor: exp(0.1, 18), maxLiquidationFactor: exp(1, 18),
           borrowCF: exp(0.5, 18), liquidateCF: exp(0.5, 18),
-          liquidationFactor: exp(0.1, 18)
+          liquidationFactor: exp(0.5, 18)
         },
         WBTC: {
           initial: 1e7, decimals: 8, initialPrice: 1,
@@ -222,7 +222,7 @@ describe('absorb', function () {
           minLiquidateCF: exp(0.5, 18), maxLiquidateCF: exp(0.5, 18),
           minLiquidationFactor: exp(0.1, 18), maxLiquidationFactor: exp(1, 18),
           borrowCF: exp(0.5, 18), liquidateCF: exp(0.5, 18),
-          liquidationFactor: exp(0.1, 18)
+          liquidationFactor: exp(0.5, 18)
         },
       }
     });
@@ -297,7 +297,7 @@ describe('absorb', function () {
           minLiquidateCF: LIQ_CF, maxLiquidateCF: LIQ_CF,
           borrowCF: BORROW_CF, liquidateCF: LIQ_CF,
           minLiquidationFactor: exp(0.1, 18), maxLiquidationFactor: exp(1, 18),
-          liquidationFactor: exp(0.1, 18),
+          liquidationFactor: exp(1, 18),
         },
         WETH: {
           initial: 1e7, decimals: 18, initialPrice: 1,
@@ -305,7 +305,7 @@ describe('absorb', function () {
           minLiquidateCF: LIQ_CF, maxLiquidateCF: LIQ_CF,
           borrowCF: BORROW_CF, liquidateCF: LIQ_CF,
           minLiquidationFactor: exp(0.1, 18), maxLiquidationFactor: exp(1, 18),
-          liquidationFactor: exp(0.1, 18),
+          liquidationFactor: exp(1, 18),
         },
         WBTC: {
           initial: 1e7, decimals: 8, initialPrice: 1,
@@ -313,7 +313,7 @@ describe('absorb', function () {
           minLiquidateCF: LIQ_CF, maxLiquidateCF: LIQ_CF,
           borrowCF: BORROW_CF, liquidateCF: LIQ_CF,
           minLiquidationFactor: exp(0.1, 18), maxLiquidationFactor: exp(1, 18),
-          liquidationFactor: exp(0.1, 18),
+          liquidationFactor: exp(1, 18),
         },
       }
     });
@@ -444,7 +444,7 @@ describe('absorb', function () {
           minLiquidateCF: LIQ_CF, maxLiquidateCF: LIQ_CF,
           borrowCF: BORROW_CF, liquidateCF: LIQ_CF,
           minLiquidationFactor: exp(0.1, 18), maxLiquidationFactor: exp(1, 18),
-          liquidationFactor: exp(0.1, 18),
+          liquidationFactor: exp(1, 18),
         },
         WETH: {
           initial: 1e7, decimals: 18, initialPrice: 1,
@@ -452,7 +452,7 @@ describe('absorb', function () {
           minLiquidateCF: LIQ_CF, maxLiquidateCF: LIQ_CF,
           borrowCF: BORROW_CF, liquidateCF: LIQ_CF,
           minLiquidationFactor: exp(0.1, 18), maxLiquidationFactor: exp(1, 18),
-          liquidationFactor: exp(0.1, 18),
+          liquidationFactor: exp(1, 18),
         },
       }
     });

@@ -10,7 +10,7 @@ decimals, by default)
 
 */
 
-describe('isLiquidatable', function () {
+describe('10. isLiquidatable', function () {
   it('defaults to false', async () => {
     const protocol = await makeProtocol();
     const {
@@ -55,7 +55,7 @@ describe('isLiquidatable', function () {
           initialPrice: 1,
           borrowCF: exp(1, 18),
           liquidateCF: exp(1, 18),
-          liquidationFactor: exp(0.9, 18),
+          liquidationFactor: exp(1, 18),
           minBorrowCF: exp(0.9, 18),
           maxBorrowCF: exp(1, 18),
           minLiquidateCF: exp(1, 18),
@@ -115,6 +115,7 @@ describe('isLiquidatable', function () {
           initialPrice: 1, // 1 COMP = 1 USDC
           borrowCF: exp(0.8, 18),
           liquidateCF: exp(0.9, 18),
+          liquidationFactor: exp(0.9, 18),
           minBorrowCF: exp(0.6, 18),
           maxBorrowCF: exp(0.9, 18),
           minLiquidateCF: exp(0.7, 18),
@@ -147,7 +148,7 @@ describe('isLiquidatable', function () {
           initialPrice: 1,
           borrowCF: exp(1, 18),
           liquidateCF: exp(1, 18),
-          liquidationFactor: exp(0.9, 18),
+          liquidationFactor: exp(1, 18),
           minBorrowCF: exp(1, 18),
           maxBorrowCF: exp(1, 18),
           minLiquidateCF: exp(1, 18),
