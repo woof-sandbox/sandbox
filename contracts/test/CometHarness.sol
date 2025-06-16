@@ -53,7 +53,7 @@ contract CometHarness is SandboxComet {
         uint256 oldBalance = userCollateral[account][asset];
         userCollateral[account][asset] = balance;
         
-        (IConfigController.CollateralTokenConfig memory assetInfo, uint8 index) = getAssetInfoByAddress(asset);
+        (CollateralAsset memory assetInfo, uint8 index) = getAssetInfoByAddress(asset);
 
         updateAssetsIn(account, index, oldBalance, balance);
     }

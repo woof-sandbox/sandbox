@@ -1,52 +1,40 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
-import "./ISandboxController.sol";
-
-abstract contract IConfigController {
+interface IConfigController {
     /// @notice Comet transfer proposal
     struct CometTransferProposal {
         address comet;
         address newController;
         uint256 expiration;
     }
-    
-    struct CometConfigProposal {
-        address comet;
-        address proposer;
-        uint256 revertTime;
-        IConfigController.CollateralTokenConfig[] collateralTokens;
-    }
 
-    struct CometBaseTokenCurveProposal {
-        address proposer;
-        address comet;
-        uint256 curveId;
-        uint256 revertTime;
+    struct CollateralTokenConfig {
+        address collateralToken;
+        uint128 supplyCap;
+        uint64 borrowCollateralFactor;
+        uint64 liquidateCollateralFactor;
+        uint64 liquidationFactor;
     }
     
     struct CometConfig {
         address baseToken;
         uint baseTokenCurveId;
-        CometOptions options;
         CollateralTokenConfig[] collateralTokens;
     }
 
-    struct CometOptions {
+    struct CometGlobalParamsConfig {
+        uint256 targetPercent;
+        uint256 storeFrontPriceFactor;
+        uint256 suggestedAmountOfSeedReserves;
+        uint256 suggestedLockTimeOfSeedReserves;
+    }
+
+    struct CometRewardOptions {
         uint64 baseTrackingSupplySpeed;
         uint64 baseTrackingBorrowSpeed;
         uint64 trackingIndexScale;
         uint64 baseMinForRewards;
-    }
-
-    struct CollateralTokenConfig {
-        address collateralToken;
-        address priceFeed;
-        uint128 supplyCap;
-        uint64 borrowCollateralFactor;
-        uint64 liquidateCollateralFactor;
-        uint64 liquidationFactor;
-        uint64 scale;
     }
 
     error AlreadyInitialized();
@@ -198,33 +186,33 @@ abstract contract IConfigController {
 
     /// @notice Returns the current curator fee in basis points (1% = 100)
     /// @return The curator fee value
-    function curatorFee() virtual external view returns (uint);
+    function curatorFee() external view returns (uint);
 
-    function curator() virtual external view returns (address);
-    function owner() virtual external view returns (address);
-    function guardian() virtual external view returns (address);
-    function sandboxController() virtual external view returns (address);
-    function cometFactory() virtual external view returns (address);
-    function comets(uint) virtual external view returns (address);
-    function cometsLength() virtual external view returns (uint);
-    function proposedCurator() virtual external view returns (address);
-    function curatorProposalExpiry() virtual external view returns (uint);
-    function name() virtual external view returns (string memory);
+    function curator() external view returns (address);
+    function owner() external view returns (address);
+    function guardian() external view returns (address);
+    function sandboxController() external view returns (address);
+    function cometFactory() external view returns (address);
+    function comets(uint) external view returns (address);
+    function cometsLength() external view returns (uint);
+    function proposedCurator() external view returns (address);
+    function curatorProposalExpiry() external view returns (uint);
+    function name() external view returns (string memory);
     
     /// @notice Removes the current curator
     /// @dev Only callable by the owner
-    function removeCurator() virtual external;
+    function removeCurator() external;
 
     /// @notice Sets a new guardian address
     /// @dev Only callable by the owner
     /// @param _newGuardian The address of the new guardian
-    function setGuardian(address _newGuardian) virtual external;
+    function setGuardian(address _newGuardian) external;
 
     /// @notice Creates a new comet with the specified configuration
     /// @dev Only callable by the owner
     /// @param _cometConfig The configuration parameters for the new comet
     /// @return The address of the newly created comet
-    function createComet(CometConfig memory _cometConfig) virtual external returns(address);
+    function createComet(CometConfig memory _cometConfig) external returns(address);
     
     /// @notice Initializes the ConfigController contract
     /// @param _owner The address of the protocol owner
@@ -243,9 +231,9 @@ abstract contract IConfigController {
         string memory _name,
         uint _curatorProposalDuration,
         uint _proposalDuration
-    ) external virtual;
+    ) external;
 
     /// @notice Returns the address of the ConfigControllerFactory
     /// @return The address of the ConfigControllerFactory
-    function configControllerFactory() external view virtual returns (address);
+    function configControllerFactory() external view returns (address);
 }

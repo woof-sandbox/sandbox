@@ -89,13 +89,11 @@ abstract contract ISandboxComet is CometCore {
 
   function withdrawFrom(address src, address to, address asset, uint amount) external virtual;
 
-  function factoryInit(address, address) external virtual;
-  function initialize(
-    IConfigController.CometConfig memory market,
-    ISandboxController.SandboxControllerConfiguration memory config,
-    address sandboxController_,
-    uint256 baseBorrowMin_
-  ) external virtual;
+    function factoryInit(address, address) virtual external;
+    function initialize(
+        IConfigController.CometConfig memory market,
+        IConfigController.CometGlobalParamsConfig memory config
+    ) external virtual;
 
   function setControllerFee(bool disabled) external virtual;
   function absorb(address absorber, address[] calldata accounts) external virtual;

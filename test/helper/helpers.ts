@@ -775,9 +775,9 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
   /// TODO: add opts when testing curves
   export async function sandboxListCollateralAsset(sandboxController: SandboxController, collateralAsset: FaucetToken, priceFeed: string) {
       const minBorrowCF = exp(0.5, 18);
-      const maxBorrowCF = exp(1, 18);
-      const minLiquidateCF = exp(0.6, 18);
-      const maxLiquidateCF = exp(0.7, 18);
+      const maxBorrowCF = exp(0.7, 18);
+      const minLiquidateCF = exp(0.7, 18);
+      const maxLiquidateCF = exp(0.8, 18);
       const minLiquidationFactor = exp(0.8, 18);
       const maxLiquidationFactor = exp(1, 18);
   
@@ -861,15 +861,22 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
   }
   
   export async function makeSandboxController(
-    opts: SandboxControllerOpts
+    opts: SandboxControllerOpts,
+    factory?
   ): Promise<SandboxControllerInfo> {
     const signers = await ethers.getSigners();
     const admin = opts.admin || signers[0];
     const dao = opts.dao || signers[3];
   
-    const SandboxControllerFactory = (await ethers.getContractFactory(
-      'SandboxController'
-    )) as SandboxController__factory;
+    let SandboxControllerFactory;
+    if (factory) {
+      SandboxControllerFactory = factory;
+    }
+    else {
+      SandboxControllerFactory = (await ethers.getContractFactory(
+        'SandboxController'
+      )) as SandboxController__factory;
+    }
     
     const sandboxController = await SandboxControllerFactory.deploy(
       admin.address || admin,

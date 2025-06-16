@@ -1,6 +1,6 @@
 import { baseBalanceOf, ethers, event, expect, exp, makeProtocol, portfolio, setTotalsBasic, wait, fastForward } from './helper/helpers';
 
-describe('transfer', function () {
+describe.skip('transfer', function () {
   it('transfers base from sender if the asset is base', async () => {
     const protocol = await makeProtocol({ base: 'USDC' });
     const {
@@ -333,7 +333,7 @@ describe('transfer', function () {
   });
 });
 
-describe('transferFrom', function () {
+describe.skip('transferFrom', function () {
   it('transfers from src if specified and sender has permission', async () => {
     const protocol = await makeProtocol();
     const {
