@@ -532,23 +532,6 @@ describe('SandboxController', function () {
       ).to.be.revertedWithCustomError(sandboxController, 'InvalidFactors');
     });
 
-    it('reverts if minLiquidationFactor > 100%', async function() {
-      const token = await makeMockERC20({ name: 'TKN', symbol: 'TKN' });
-      const feed = await makePriceFeed(token.address);
-      await expect(
-        sandboxController.whitelistCollateralAsset(
-          token.address,
-          feed.address,
-          exp(1.1, 17),
-          exp(1.2, 17),
-          exp(1.3, 17),
-          exp(1.4, 17),
-          exp(1.1, 18),
-          exp(1.6, 17)
-        )
-      ).to.be.revertedWithCustomError(sandboxController, 'InvalidFactors');
-    });
-
     it('reverts if maxBorrowCollateralFactor > maxLiquidateCollateralFactor', async function () {
       const token = await makeMockERC20({ name: 'TKN', symbol: 'TKN' });
       const feed = await makePriceFeed(token.address);
@@ -583,7 +566,7 @@ describe('SandboxController', function () {
       ).to.be.revertedWithCustomError(sandboxController, 'InvalidFactors');
     });
 
-    it('reverts if maxLiquidationFactor >= 100%', async function() {
+    it('reverts if maxLiquidationFactor > 100%', async function() {
       const token = await makeMockERC20({ name: 'TKN', symbol: 'TKN' });
       const feed = await makePriceFeed(token.address);
       await expect(
@@ -595,7 +578,7 @@ describe('SandboxController', function () {
           exp(1.3, 17),
           exp(1.4, 17),
           exp(1.5, 17),
-          exp(1.0, 18)
+          exp(1.1, 18)
         )
       ).to.be.revertedWithCustomError(sandboxController, 'InvalidFactors');
     });
