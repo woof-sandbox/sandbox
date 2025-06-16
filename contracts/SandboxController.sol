@@ -280,6 +280,11 @@ contract SandboxController is ISandboxController {
         (, int256 answer, , , ) = IPriceFeed(priceFeed).latestRoundData();
         if (answer <= 0) revert InvalidPriceFeed();
 
+        /** @dev Validates that all collateral factor parameters are within allowed ranges and maintain logical relationships:
+         *  - 10% <= minBorrowCollateralFactor <= minLiquidateCollateralFactor <= minLiquidationFactor <= 100%
+         *  - maxBorrowCollateralFactor <= maxLiquidateCollateralFactor <= maxLiquidationFactor <= 100%
+         *  - min <= max for each factor
+         */
         if (
             minBorrowCollateralFactor < 1e17 || 
             minBorrowCollateralFactor > minLiquidateCollateralFactor || 
@@ -307,7 +312,6 @@ contract SandboxController is ISandboxController {
         _collateralAssets[token].maxLiquidationFactor = maxLiquidationFactor;
 
         collateralAssetTokens.push(token);
-
 
         emit CollateralAssetWhitelisted(
             token,
