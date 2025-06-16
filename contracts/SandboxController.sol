@@ -281,16 +281,15 @@ contract SandboxController is ISandboxController {
         if (answer <= 0) revert InvalidPriceFeed();
 
         if (
-            minBorrowCollateralFactor <= 1e17 || 
+            minBorrowCollateralFactor < 1e17 || 
             minBorrowCollateralFactor > minLiquidateCollateralFactor || 
-            minLiquidateCollateralFactor > minLiquidationFactor || 
-            minLiquidationFactor >= 1e18 || 
+            minLiquidateCollateralFactor > minLiquidationFactor ||  
             maxBorrowCollateralFactor > maxLiquidateCollateralFactor || 
             maxLiquidateCollateralFactor > maxLiquidationFactor || 
-            maxLiquidationFactor >= 1e18 || 
-            minBorrowCollateralFactor >= maxBorrowCollateralFactor || 
-            minLiquidateCollateralFactor >= maxLiquidateCollateralFactor || 
-            minLiquidationFactor >= maxLiquidationFactor
+            maxLiquidationFactor > 1e18 || 
+            minBorrowCollateralFactor > maxBorrowCollateralFactor || 
+            minLiquidateCollateralFactor > maxLiquidateCollateralFactor || 
+            minLiquidationFactor > maxLiquidationFactor
         ) revert InvalidFactors();
 
         tokenToPriceFeed[token] = priceFeed;   
@@ -300,14 +299,10 @@ contract SandboxController is ISandboxController {
         _collateralAssets[token].collateralToken = token;
         _collateralAssets[token].priceFeed = priceFeed;
         _collateralAssets[token].decimals = IERC20NonStandard(token).decimals();
-        _collateralAssets[token]
-            .maxBorrowCollateralFactor = maxBorrowCollateralFactor;
-        _collateralAssets[token]
-            .minBorrowCollateralFactor = minBorrowCollateralFactor;
-        _collateralAssets[token]
-            .minLiquidateCollateralFactor = minLiquidateCollateralFactor;
-        _collateralAssets[token]
-            .maxLiquidateCollateralFactor = maxLiquidateCollateralFactor;
+        _collateralAssets[token].maxBorrowCollateralFactor = maxBorrowCollateralFactor;
+        _collateralAssets[token].minBorrowCollateralFactor = minBorrowCollateralFactor;
+        _collateralAssets[token].minLiquidateCollateralFactor = minLiquidateCollateralFactor;
+        _collateralAssets[token].maxLiquidateCollateralFactor = maxLiquidateCollateralFactor;
         _collateralAssets[token].minLiquidationFactor = minLiquidationFactor;
         _collateralAssets[token].maxLiquidationFactor = maxLiquidationFactor;
 
