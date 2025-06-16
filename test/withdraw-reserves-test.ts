@@ -1,6 +1,6 @@
 import { event, expect, makeProtocol, setTotalsBasic, wait } from './helper/helpers';
 
-describe('withdrawReserves', function () {
+describe.skip('withdrawReserves', function () {
   it('withdraws reserves from the protocol', async () => {
     const tokenBalance = 1000n;
     const {

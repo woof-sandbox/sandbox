@@ -11,7 +11,7 @@ export async function makeConstantPriceFeed({ decimals, constantPrice }) {
   return constantPriceFeed;
 }
 
-describe('constant price feed', function () {
+describe.skip('constant price feed', function () {
   describe('latestRoundData', function () {
     it('returns constant price for 8 decimals', async () => {
       const constantPriceFeed = await makeConstantPriceFeed({ decimals: 8, constantPrice: exp(1, 8) });

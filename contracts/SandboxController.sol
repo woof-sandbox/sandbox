@@ -24,8 +24,8 @@ contract SandboxController is ISandboxController {
     mapping(address => address) public override tokenToPriceFeed;
     mapping(MarketState => uint256) public override reserveCommission;
     mapping(MarketState => uint256) public override protocolCommission;
-    mapping(address => BaseAssetConfiguration) private _baseAssets;
-    mapping(address => CollateralAssetConfiguration) private _collateralAssets;
+    mapping(address => BaseAssetConfiguration) internal _baseAssets;
+    mapping(address => CollateralAssetConfiguration) internal _collateralAssets;
 
     modifier onlyOwner() {
         if (msg.sender != owner) revert NotOwner(msg.sender);

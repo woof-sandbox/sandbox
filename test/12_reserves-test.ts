@@ -1,6 +1,6 @@
 import { expect, makeProtocol, setTotalsBasic } from "./helper/helpers";
 
-describe("getReserves", function() {
+describe("12. getReserves", function() {
   async function netReserves(comet, seedReserves) {
     const raw = await comet.getReserves();
     return BigInt(raw.toString()) - BigInt(seedReserves);

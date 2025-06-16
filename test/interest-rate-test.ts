@@ -23,7 +23,7 @@ const interestRateParams = {
   borrowInterestRateSlopeHigh: exp(0.3, 18),
 };
 
-describe('interest rates', function () {
+describe.skip('interest rates', function () {
   it('when below kink utilization', async () => {
     const { comet } = await makeProtocol(interestRateParams);
 

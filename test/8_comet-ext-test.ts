@@ -15,7 +15,7 @@ import type {
   NonStandardFaucetFeeToken 
 } from '../build/types';
 
-describe('CometExtension', () => {
+describe('8. CometExtension', () => {
   let comet: CometHarnessInterface & {
     factorScale(): Promise<bigint>;
     priceScale(): Promise<bigint>;

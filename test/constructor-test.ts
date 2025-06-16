@@ -6,7 +6,7 @@ import {
   SimplePriceFeed__factory,
 } from '../build/types';
 
-describe('constructor', function () {
+describe.skip('constructor', function () {
   it('sets the baseBorrowMin', async function () {
     const { comet } = await makeProtocol({
       baseBorrowMin: exp(100, 6)

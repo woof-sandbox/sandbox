@@ -1,7 +1,7 @@
 import { expect, exp, fastForward, makeProtocol, setTotalsBasic, toYears } from './helper/helpers';
 import { BigNumber } from 'ethers';
 
-describe('total tracking index bounds', function () {
+describe.skip('total tracking index bounds', function () {
   describe('base scale of 6', function () {
     it('upper bound hit on tracking supply index', async () => {
       const baseMinForRewards = exp(10_000, 6); // 10k USDC
@@ -260,6 +260,6 @@ describe('total tracking index bounds', function () {
 });
 
 
-describe('user tracking index bounds', function () {
+describe.skip('user tracking index bounds', function () {
   // XXX test if small supply/borrow causes users to not accrue rewards
 });

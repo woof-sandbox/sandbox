@@ -53,7 +53,7 @@ async function buildFixture() {
   } as const;
 }
 
-describe("allowBySig — SandboxComet / CometExtension", function() {
+describe("13. allowBySig — SandboxComet / CometExtension", function() {
   type Fixture = Awaited<ReturnType<typeof buildFixture>>;
 
   beforeEach(async function() {
