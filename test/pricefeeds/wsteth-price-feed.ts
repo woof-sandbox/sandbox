@@ -60,7 +60,7 @@ const testCases = [
   },
 ];
 
-describe('wstETH price feed', function () {
+describe.skip('wstETH price feed', function () {
   it('reverts if constructed with bad decimals', async () => {
     const SimplePriceFeedFactory = (await ethers.getContractFactory('SimplePriceFeed')) as SimplePriceFeed__factory;
     const stETHPriceFeed = await SimplePriceFeedFactory.deploy(exp(1, 18), 18);

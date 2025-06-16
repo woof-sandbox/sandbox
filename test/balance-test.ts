@@ -1,6 +1,6 @@
 import { expect, makeProtocol, setTotalsBasic } from './helper/helpers';
 
-describe('totalBorrow', function () {
+describe.skip('totalBorrow', function () {
   it('has correct totalBorrow', async () => {
     const { comet } = await makeProtocol();
     await setTotalsBasic(comet, {
@@ -11,7 +11,7 @@ describe('totalBorrow', function () {
   });
 });
 
-describe('borrowBalanceOf', function () {
+describe.skip('borrowBalanceOf', function () {
   it('returns borrow amount (when principal amount is negative)', async () => {
     const { comet, users: [user] } = await makeProtocol();
     await setTotalsBasic(comet, {

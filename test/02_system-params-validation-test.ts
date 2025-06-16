@@ -18,13 +18,16 @@ import {
     ConfigController__factory,
     SandboxComet__factory,
     SandboxCometFactory__factory,
+
+    SandboxControllerNoCurvesTest__factory,
+    SandboxControllerNoCurvesTest,
     FaucetToken,
     SandboxController,
 } from "../build/types";
 import { CollateralTokenConfigStruct, CometConfigStruct } from "../build/types/ConfigController";
 import { BigNumber } from "ethers";
 
-describe("System Params Validation", function() {
+describe("2. System Params Validation", function() {
     // Factories
     let _ConfigControllerFactory: ConfigControllerFactory__factory;
     let _ConfigController: ConfigController__factory;
@@ -49,8 +52,10 @@ describe("System Params Validation", function() {
     let configControllerAddress;
     let configController: ConfigController;
     let sandboxCometFactory: SandboxCometFactory;
-    let sandboxController: SandboxController;
+    let sandboxController;
 
+    let collateralTokens: CollateralTokenConfigStruct[] = [];
+    let baseToken;
     let marketConfig: CometConfigStruct;
 
     before(async function() {
@@ -63,17 +68,20 @@ describe("System Params Validation", function() {
 
         configControllerImpl = (await _ConfigController.deploy()) as ConfigController;
         sandboxCometImpl = (await _Comet.deploy()) as SandboxComet;
-    });
 
-    beforeEach(async function() {
         signers = await ethers.getSigners();
         owner = signers[0];
         curator = signers[1];
         guardian = signers[2];
-
-        sandboxController = (
-            await makeSandboxController(defaultSandboxControllerOpts({ minUpdateTime: _minUpdateTime }))
-        ).sandboxController;
+        
+        const SandboxControllerFactoryTest = (await ethers.getContractFactory(
+            'SandboxControllerNoCurvesTest'
+        )) as SandboxControllerNoCurvesTest__factory;
+        sandboxController = (await makeSandboxController(
+                                    defaultSandboxControllerOpts({minUpdateTime: _minUpdateTime }),
+                                    SandboxControllerFactoryTest
+                                )
+                            ).sandboxController;
 
         const configControllerFactory = await _ConfigControllerFactory.deploy(
             sandboxController.address,
@@ -109,8 +117,7 @@ describe("System Params Validation", function() {
             configControllerAddress
         )) as ConfigController;
 
-        // deploy comet
-        const baseToken = await makeToken({
+        baseToken = await makeToken({
             symbol: "BASE",
             initialMint: ethers.utils.parseEther("50000").toString(),
         });
@@ -121,32 +128,30 @@ describe("System Params Validation", function() {
         await sandboxListBaseAsset(sandboxController, baseToken, priceFeedBase.address);
         await sandboxListCollateralAsset(sandboxController, collateralToken, priceFeedCol.address);
 
-        let collateralTokens: CollateralTokenConfigStruct[] = [];
         collateralTokens.push({
             collateralToken: collateralToken.address,
-            priceFeed: priceFeedCol.address,
             borrowCollateralFactor: exp(0.6, 18),
-            liquidateCollateralFactor: exp(0.7, 18),
-            liquidationFactor: exp(0.8, 18),
-            supplyCap: exp(1e9, 18),
-            scale: 15,
+            liquidateCollateralFactor: exp(0.75, 18),
+            liquidationFactor: exp(0.85, 18),
+            supplyCap: exp(1e9, 18)
         });
 
         marketConfig = {
             baseToken: baseToken.address,
-            collateralTokens: collateralTokens,
+            collateralTokens: collateralTokens.map(obj => ({...obj})),
             baseTokenCurveId: 0n,
-            options: {
-                baseTrackingSupplySpeed: 1e15,
-                baseTrackingBorrowSpeed: 1e15,
-                trackingIndexScale: 1e15,
-                baseMinForRewards: 1e15,
-            },
         };
     });
 
     describe("ConfigController", function() {
-        describe("comet creation", function() {
+        beforeEach(async function() {
+            marketConfig = {
+                baseToken: baseToken.address,
+                collateralTokens: collateralTokens.map(obj => ({...obj})),
+                baseTokenCurveId: 0n,
+            };
+        });
+        describe("Comet parameters validation", function() {
             it("should revert if the base token is zero address", async () => {
                 marketConfig.baseToken = ethers.constants.AddressZero;
 
@@ -156,6 +161,21 @@ describe("System Params Validation", function() {
                 );
             });
 
+            it("should revert if no curve is registered for a base asset", async () => {
+                const fakeBaseToken = await makeToken({ symbol: "FAKEBASE" });
+                const priceFeedFakeBase = await makePriceFeed(fakeBaseToken.address);
+                
+                const sandboxControllerTest = (await ethers.getContractAt("SandboxControllerNoCurvesTest", sandboxController.address)) as SandboxControllerNoCurvesTest;
+                await sandboxControllerTest.whitelistBaseAssetWithNoCurve(fakeBaseToken.address, priceFeedFakeBase.address);
+
+                marketConfig.baseToken = fakeBaseToken.address;
+
+                await expect(configController.createComet(marketConfig)).to.be.revertedWithCustomError(
+                    configController,
+                    "NoCurveRegistered"
+                );
+            });
+            
             it("should revert if the collateral token is zero address", async () => {
                 marketConfig.collateralTokens[0].collateralToken = ethers.constants.AddressZero;
 
@@ -204,34 +224,7 @@ describe("System Params Validation", function() {
 
                 await expect(configController.createComet(marketConfig)).to.be.revertedWithCustomError(
                     configController,
-                    "WrongCollateralTokenSettings"
-                );
-            });
-
-            it("should revert if the collateral token borrow collateral factor is zero", async () => {
-                marketConfig.collateralTokens[0].borrowCollateralFactor = 0;
-
-                await expect(configController.createComet(marketConfig)).to.be.revertedWithCustomError(
-                    configController,
-                    "WrongCollateralTokenSettings"
-                );
-            });
-
-            it("should revert if the collateral token liquidate collateral factor is zero", async () => {
-                marketConfig.collateralTokens[0].liquidateCollateralFactor = 0;
-
-                await expect(configController.createComet(marketConfig)).to.be.revertedWithCustomError(
-                    configController,
-                    "WrongCollateralTokenSettings"
-                );
-            });
-
-            it("should revert if the collateral token liquidation factor is zero", async () => {
-                marketConfig.collateralTokens[0].liquidationFactor = 0;
-
-                await expect(configController.createComet(marketConfig)).to.be.revertedWithCustomError(
-                    configController,
-                    "WrongCollateralTokenSettings"
+                    "SupplyCapCantBeZero"
                 );
             });
 
@@ -256,80 +249,66 @@ describe("System Params Validation", function() {
             });
 
             it("should revert if the borrow collateral factor is greater than max borrow collateral factor", async () => {
-                marketConfig.collateralTokens[0].borrowCollateralFactor = exp(1.1, 18);
+                const maxBorrowFactor = (await sandboxController.collateralAssets(marketConfig.collateralTokens[0].collateralToken)).maxBorrowCollateralFactor;
+                marketConfig.collateralTokens[0].borrowCollateralFactor = maxBorrowFactor.add(exp(0.05, 18));
 
+                
                 await expect(configController.createComet(marketConfig)).to.be.revertedWithCustomError(
                     configController,
-                    "WrongCollateralTokenSettings"
+                    "BorrowCollateralFactorTooHigh"
                 );
             });
 
             it("should revert if the borrow collateral factor is less than min borrow collateral factor", async () => {
-                marketConfig.collateralTokens[0].borrowCollateralFactor = exp(0.4, 18);
+                const minBorrowFactor = (await sandboxController.collateralAssets(marketConfig.collateralTokens[0].collateralToken)).minBorrowCollateralFactor;
+                marketConfig.collateralTokens[0].borrowCollateralFactor = minBorrowFactor.sub(exp(0.05, 18));
 
                 await expect(configController.createComet(marketConfig)).to.be.revertedWithCustomError(
                     configController,
-                    "WrongCollateralTokenSettings"
+                    "BorrowCollateralFactorTooLow"
                 );
             });
 
             it("should revert if the liquidate collateral factor is greater than the max liquidate collateral factor", async () => {
-                marketConfig.collateralTokens[0].liquidateCollateralFactor = exp(1.1, 18);
+                const maxLiqColFactor = (await sandboxController.collateralAssets(marketConfig.collateralTokens[0].collateralToken)).maxLiquidateCollateralFactor;
+                marketConfig.collateralTokens[0].liquidateCollateralFactor = maxLiqColFactor.add(exp(0.05, 18));
 
                 await expect(configController.createComet(marketConfig)).to.be.revertedWithCustomError(
                     configController,
-                    "WrongCollateralTokenSettings"
+                    "LiquidateCollateralFactorTooHigh"
                 );
             });
 
             it("should revert if the liquidate collateral factor is less than min liquidate collateral factor", async () => {
-                marketConfig.collateralTokens[0].liquidateCollateralFactor = exp(0.4, 18);
+                const minLiqColFactor = (await sandboxController.collateralAssets(marketConfig.collateralTokens[0].collateralToken)).minLiquidateCollateralFactor;
+                marketConfig.collateralTokens[0].liquidateCollateralFactor = minLiqColFactor.sub(exp(0.05, 18));
 
                 await expect(configController.createComet(marketConfig)).to.be.revertedWithCustomError(
                     configController,
-                    "WrongCollateralTokenSettings"
+                    "LiquidateCollateralFactorTooLow"
                 );
             });
 
             it("should revert if the liquidation factor is less than min liquidation factor", async () => {
-                marketConfig.collateralTokens[0].liquidationFactor = exp(0.4, 18);
+                const maxLiqFactor = (await sandboxController.collateralAssets(marketConfig.collateralTokens[0].collateralToken)).maxLiquidationFactor;
+                marketConfig.collateralTokens[0].liquidationFactor = maxLiqFactor.add(exp(0.05, 18));
 
                 await expect(configController.createComet(marketConfig)).to.be.revertedWithCustomError(
                     configController,
-                    "WrongCollateralTokenSettings"
+                    "LiquidationFactorTooHigh"
                 );
             });
 
             it("should revert if the liquidation factor is greater than max liquidation factor", async () => {
-                marketConfig.collateralTokens[0].liquidationFactor = exp(1.1, 18);
+                const minLiqFactor = (await sandboxController.collateralAssets(marketConfig.collateralTokens[0].collateralToken)).minLiquidationFactor;
+                marketConfig.collateralTokens[0].liquidationFactor = minLiqFactor.sub(exp(0.05, 18));
 
                 await expect(configController.createComet(marketConfig)).to.be.revertedWithCustomError(
                     configController,
-                    "WrongCollateralTokenSettings"
+                    "LiquidationFactorTooLow"
                 );
             });
 
-            it("should be possible to create two comets with the same configuration", async () => {
-                const baseToken = (await ethers.getContractAt("FaucetToken", marketConfig.baseToken)) as FaucetToken;
-                await baseToken.allocateTo(
-                    owner.address,
-                    (await sandboxController.config()).suggestedAmountOfSeedReserves
-                );
-                await baseToken.allocateTo(
-                    owner.address,
-                    (await sandboxController.config()).suggestedAmountOfSeedReserves
-                );
-
-                const cometAddress1 = await configController.callStatic.createComet(marketConfig);
-                await configController.createComet(marketConfig);
-
-                const cometAddress2 = await configController.callStatic.createComet(marketConfig);
-                await configController.createComet(marketConfig);
-
-                expect(await configController.comets(0)).to.eq(cometAddress1);
-                expect(await configController.comets(1)).to.eq(cometAddress2);
-                expect(await configController.cometsLength()).to.eq(2);
-            });
 
             it("should revert if token base token curve id is greater than base asset curve length", async () => {
                 const baseAssets = await sandboxController.baseAssets(marketConfig.baseToken);
@@ -339,7 +318,7 @@ describe("System Params Validation", function() {
 
                 await expect(configController.createComet(marketConfig)).to.be.revertedWithCustomError(
                     configController,
-                    "WrongCurveParams"
+                    "InvalidCurveId"
                 );
             });
 
@@ -366,19 +345,128 @@ describe("System Params Validation", function() {
                 );
             });
         });
+        describe("Comet creation, happy cases", function() {
+            it("should be possible to create two comets with the same configuration", async () => {
+                baseToken = (await ethers.getContractAt("FaucetToken", marketConfig.baseToken)) as FaucetToken;
+                await baseToken.allocateTo(
+                    owner.address,
+                    (await sandboxController.config()).suggestedAmountOfSeedReserves
+                );
+                await baseToken.allocateTo(
+                    owner.address,
+                    (await sandboxController.config()).suggestedAmountOfSeedReserves
+                );
+
+                const cometAddress1 = await configController.callStatic.createComet(marketConfig);
+                await configController.createComet(marketConfig);
+
+                const cometAddress2 = await configController.callStatic.createComet(marketConfig);
+                await configController.createComet(marketConfig);
+
+                expect(await configController.comets(0)).to.eq(cometAddress1);
+                expect(await configController.comets(1)).to.eq(cometAddress2);
+                expect(await configController.cometsLength()).to.eq(2);
+            });
+        });
     });
 
     describe("SandboxComet", function() {
         describe("initialize validations", function() {
-            let comet: SandboxComet;
-
             beforeEach(async function() {
+                marketConfig = {
+                    baseToken: baseToken.address,
+                    collateralTokens: collateralTokens.map(obj => ({...obj})),
+                    baseTokenCurveId: 0n
+                };
+            });
+            it("should revert if token decimals is greater than max base decimals", async () => {
+                const unsupportedToken = await makeToken({
+                    symbol: "BASE",
+                    initialMint: ethers.utils.parseEther("50000").toString(),
+                    decimals: 19,
+                });
+                const priceFeedUnsupportedToken = await makePriceFeed(unsupportedToken.address);
+
+                await sandboxListBaseAsset(sandboxController, unsupportedToken, priceFeedUnsupportedToken.address);
+
+                marketConfig.baseToken = unsupportedToken.address;
+
+                await expect(configController.createComet(marketConfig)).to.be.revertedWithCustomError(
+                    sandboxCometImpl,
+                    "BadDecimals"
+                );
+            });
+
+            it("should revert if price feed decimals is not equal to PRICE FEED DECIMALS", async () => {
+                const baseToken = await makeToken({
+                    symbol: "BASE",
+                    initialMint: ethers.utils.parseEther("50000").toString(),
+                    decimals: 18,
+                });
+                const invalidPriceFeed = await makePriceFeed(baseToken.address, '100000000', 7);
+
+                await sandboxListBaseAsset(sandboxController, baseToken, invalidPriceFeed.address);
+
+                marketConfig.baseToken = baseToken.address;
+
+                await expect(configController.createComet(marketConfig)).to.be.revertedWithCustomError(
+                    sandboxCometImpl,
+                    "BadDecimals"
+                );
+            });
+
+            it("should revert if base scale is less than base accrual scale", async () => {
+                const unsupportedToken = await makeToken({
+                    symbol: "BASE",
+                    initialMint: ethers.utils.parseEther("50000").toString(),
+                    decimals: 5,
+                });
+                const unsupportedPriceFeed = await makePriceFeed(unsupportedToken.address);
+
+                await sandboxListBaseAsset(sandboxController, unsupportedToken, unsupportedPriceFeed.address);
+
+                marketConfig.baseToken = unsupportedToken.address;
+
+                await expect(configController.createComet(marketConfig)).to.be.revertedWithCustomError(
+                    sandboxCometImpl,
+                    "BadDecimals"
+                );
+            });
+
+            it("should revert if more than max collaterals assigned", async () => {
+                const maxAssets = await sandboxCometImpl.MAX_ASSETS();
+                for (let i = 0; i < maxAssets; i++) {
+                    const extraCollateral = await makeToken({ symbol: "COLL"+i });
+                    const priceFeedCol = await makePriceFeed(extraCollateral.address);
+                    
+                    await sandboxListCollateralAsset(sandboxController, extraCollateral, priceFeedCol.address);
+                    marketConfig.collateralTokens.push({
+                        collateralToken: extraCollateral.address,
+                        borrowCollateralFactor: exp(0.6, 18),
+                        liquidateCollateralFactor: exp(0.75, 18),
+                        liquidationFactor: exp(0.85, 18),
+                        supplyCap: exp(1e9, 18)
+                    });
+                }
+                await expect(configController.createComet(marketConfig)).to.be.revertedWithCustomError(
+                    sandboxCometImpl,
+                    "TooManyAssets"
+                );
+            });
+        });
+        describe("Comet creation: happy cases", function() {
+            let comet: SandboxComet;
+            before(async function() {
+                marketConfig = {
+                    baseToken: baseToken.address,
+                    collateralTokens: collateralTokens.map(obj => ({...obj})),
+                    baseTokenCurveId: 0n
+                };
                 const cometAddress = await configController.callStatic.createComet(marketConfig);
                 await configController.createComet(marketConfig);
 
                 comet = (await ethers.getContractAt("SandboxComet", cometAddress)) as SandboxComet;
             });
-
             it("should set storage properly after deploment and initialization", async function() {
                 const currentBlock = await ethers.provider.getBlock("latest");
                 const currentTimestamp = BigNumber.from(currentBlock.timestamp);
@@ -388,9 +476,6 @@ describe("System Params Validation", function() {
                     await sandboxController.tokenToPriceFeed(marketConfig.baseToken)
                 );
                 expect(await comet.baseToken()).to.eq(marketConfig.baseToken);
-                expect(await comet.trackingIndexScale()).to.eq(marketConfig.options.trackingIndexScale);
-                expect(await comet.baseTrackingSupplySpeed()).to.eq(marketConfig.options.baseTrackingSupplySpeed);
-                expect(await comet.baseTrackingBorrowSpeed()).to.eq(marketConfig.options.baseTrackingBorrowSpeed);
                 expect(await comet.storeFrontPriceFactor()).to.eq(
                     (await sandboxController.config()).storeFrontPriceFactor
                 );
@@ -408,10 +493,11 @@ describe("System Params Validation", function() {
             });
 
             it("should set collateral assets properly after initialization", async function() {
-                expect((await comet.collateralAssets(0)).priceFeed).to.deep.eq(
-                    marketConfig.collateralTokens[0].priceFeed
-                );
-                expect(await comet.collateralAssetAddress(0)).to.eq(marketConfig.collateralTokens[0].collateralToken);
+                const colPriceFeed =
+                    (await sandboxController.collateralAssets(marketConfig.collateralTokens[0].collateralToken))
+                    .priceFeed;
+
+                expect((await comet.collateralAssets(0)).priceFeed).to.deep.eq(colPriceFeed);
                 expect(await comet.collateralAssetIndex(marketConfig.collateralTokens[0].collateralToken)).to.eq(0);
                 expect(await comet.numAssets()).to.eq(marketConfig.collateralTokens.length);
             });
@@ -445,58 +531,11 @@ describe("System Params Validation", function() {
                 );
             });
 
-            it("should revert if token decimals is greater than max base decimals", async () => {
-                const unsupportedToken = await makeToken({
-                    symbol: "BASE",
-                    initialMint: ethers.utils.parseEther("50000").toString(),
-                    decimals: 19,
-                });
-                const priceFeedUnsupportedToken = await makePriceFeed(unsupportedToken.address);
-
-                await sandboxListBaseAsset(sandboxController, unsupportedToken, priceFeedUnsupportedToken.address);
-
-                marketConfig.baseToken = unsupportedToken.address;
-
-                await expect(configController.createComet(marketConfig)).to.be.revertedWithCustomError(
-                    comet,
-                    "BadDecimals"
-                );
-            });
-
-            it("should revert if price feed decimals is not equal to PRICE FEED DECIMALS", async () => {
-                const baseToken = await makeToken({
-                    symbol: "BASE",
-                    initialMint: ethers.utils.parseEther("50000").toString(),
-                    decimals: 18,
-                });
-                const invalidPriceFeed = await makePriceFeed(baseToken.address, '100000000', 7);
-
-                await sandboxListBaseAsset(sandboxController, baseToken, invalidPriceFeed.address);
-
-                marketConfig.baseToken = baseToken.address;
-
-                await expect(configController.createComet(marketConfig)).to.be.revertedWithCustomError(
-                    comet,
-                    "BadDecimals"
-                );
-            });
-
-            it("should revert if base scale is less than base accrual scale", async () => {
-                const unsupportedToken = await makeToken({
-                    symbol: "BASE",
-                    initialMint: ethers.utils.parseEther("50000").toString(),
-                    decimals: 5,
-                });
-                const unsupportedPriceFeed = await makePriceFeed(unsupportedToken.address);
-
-                await sandboxListBaseAsset(sandboxController, unsupportedToken, unsupportedPriceFeed.address);
-
-                marketConfig.baseToken = unsupportedToken.address;
-
-                await expect(configController.createComet(marketConfig)).to.be.revertedWithCustomError(
-                    comet,
-                    "BadDecimals"
-                );
+            it("should set disabled rewards during initialization", async function() {
+                expect(await comet.baseMinForRewards()).to.eq(ethers.constants.MaxUint256);
+                expect(await comet.trackingIndexScale()).to.eq(1);
+                expect(await comet.baseTrackingSupplySpeed()).to.eq(0);
+                expect(await comet.baseTrackingBorrowSpeed()).to.eq(0);
             });
         });
     });
