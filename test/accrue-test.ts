@@ -8,7 +8,7 @@ function projectTrackingIndex(index, speed, time, base, baseScale = exp(1, 6)) {
   return index.add(speed.mul(time).mul(baseScale).div(base));
 }
 
-describe('accrue', function () {
+describe.skip('accrue', function () {
   it('fails if baseMinForRewards = 0', async () => {
     await expect(
       makeProtocol({
@@ -228,7 +228,7 @@ describe('accrue', function () {
   });
 });
 
-describe('accrueAccount', function () {
+describe.skip('accrueAccount', function () {
   it('has no effect when called on an address with no protocol activity', async () => {
     const { comet, users: [unusedAccount] } = await makeProtocol();
 

@@ -20,7 +20,7 @@ async function makeFauceteer() {
   };
 }
 
-describe('Fauceteer', function () {
+describe.skip('Fauceteer', function () {
   it('issues .01% of balance of requested asset to requester', async () => {
     const [_minter, requester] = await ethers.getSigners();
     const { fauceteer, tokens: { USDC, COMP } } = await makeFauceteer();

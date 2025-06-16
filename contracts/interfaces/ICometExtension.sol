@@ -31,7 +31,7 @@ abstract contract ICometExtension is CometCore {
         uint104 targetPercent;
         uint104 seedReserves;
         uint104 unlockTimestamp;
-        IConfigController.CollateralTokenConfig[] assetConfigs;
+        CollateralAsset[] assetConfigs;
     }
 
     error BadAmount();

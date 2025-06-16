@@ -49,7 +49,7 @@ function makeInvalidCurveKinkTooHigh() {
     };
 }
 
-describe('SandboxController', function () {
+describe('3. SandboxController', function () {
   let owner: any;
   let dao: any;
   let attacker: any;
@@ -173,12 +173,12 @@ describe('SandboxController', function () {
       await sandboxController.whitelistCollateralAsset(
         token.address,
         priceFeedRedStone.address,
-        5000,
-        8000,
-        6000,
-        9000,
-        7000,
-        9500
+        exp(1.1, 17),
+        exp(1.2, 17),
+        exp(1.3, 17),
+        exp(1.4, 17),
+        exp(1.5, 17),
+        exp(1.6, 17)
       )
       /// Try to whitelist token with different price feed vender(for example Chainlink)
       await expect(sandboxController.whitelistBaseAsset(
@@ -236,7 +236,16 @@ describe('SandboxController', function () {
       const priceFeed = await makePriceFeed(token.address);
       const curve = makeValidCurve();
       await sandboxController.whitelistBaseAsset(token.address, priceFeed.address, curve, 777);
-      await sandboxController.whitelistCollateralAsset(token.address, priceFeed.address, 1000, 2000, 1500, 2500, 1200, 2800);
+      await sandboxController.whitelistCollateralAsset(
+        token.address, 
+        priceFeed.address, 
+        exp(1.1, 17),
+        exp(1.2, 17),
+        exp(1.3, 17),
+        exp(1.4, 17),
+        exp(1.5, 17),
+        exp(1.6, 17)
+      );
       expect(await sandboxController.tokenToPriceFeed(token.address)).to.equal(priceFeed.address);
     })
 
@@ -360,24 +369,24 @@ describe('SandboxController', function () {
       await sandboxController.whitelistCollateralAsset(
         token.address,
         priceFeed.address,
-        5000,
-        8000,
-        6000,
-        9000,
-        7000,
-        9500
+        exp(1.1, 17),
+        exp(1.2, 17),
+        exp(1.3, 17),
+        exp(1.4, 17),
+        exp(1.5, 17),
+        exp(1.6, 17)
       );
       const newFeed = await makePriceFeed(token.address);
       await expect(
         sandboxController.whitelistCollateralAsset(
           token.address,
           newFeed.address,
-          5000,
-          8000,
-          6000,
-          9000,
-          7000,
-          9500
+          exp(1.1, 17),
+          exp(1.2, 17),
+          exp(1.3, 17),
+          exp(1.4, 17),
+          exp(1.5, 17),
+          exp(1.6, 17)
         )
       ).to.be.revertedWithCustomError(sandboxController, 'CollateralTokenAlreadyWhitelisted');
     });
@@ -390,12 +399,12 @@ describe('SandboxController', function () {
       await sandboxController.whitelistCollateralAsset(
         tokenA.address,
         priceFeed.address,
-        5000,
-        8000,
-        6000,
-        9000,
-        7000,
-        9500
+        exp(1.1, 17),
+        exp(1.2, 17),
+        exp(1.3, 17),
+        exp(1.4, 17),
+        exp(1.5, 17),
+        exp(1.6, 17)
       );
 
       await expect(
@@ -472,19 +481,104 @@ describe('SandboxController', function () {
       ).to.be.revertedWithCustomError(sandboxController, 'InvalidPriceFeed');
     });
 
-    it('reverts if any factor is zero', async function () {
-      const token = await makeMockERC20({ name: 'CZero', symbol: 'CZero' });
+    it('reverts if minBorrowCollateralFactor < 10%', async function () {
+      const token = await makeMockERC20({ name: 'TKN', symbol: 'TKN' });
       const feed = await makePriceFeed(token.address);
       await expect(
         sandboxController.whitelistCollateralAsset(
           token.address,
           feed.address,
-          0,
-          8000,
-          6000,
-          9000,
-          7000,
-          9500
+          exp(0.9, 17),
+          exp(1.2, 17),
+          exp(1.3, 17),
+          exp(1.4, 17),
+          exp(1.5, 17),
+          exp(1.6, 17)
+        )
+      ).to.be.revertedWithCustomError(sandboxController, 'InvalidFactors');
+    });
+
+    it('reverts if minBorrowCollateralFactor > minLiquidateCollateralFactor', async function() {
+      const token = await makeMockERC20({ name: 'TKN', symbol: 'TKN' });
+      const feed = await makePriceFeed(token.address);
+      await expect(
+        sandboxController.whitelistCollateralAsset(
+          token.address,
+          feed.address,
+          exp(1.1, 17),
+          exp(1.2, 17),
+          exp(1, 17),
+          exp(1.4, 17),
+          exp(1.5, 17),
+          exp(1.6, 17)
+        )
+      ).to.be.revertedWithCustomError(sandboxController, 'InvalidFactors');
+    });
+
+    it('reverts if minLiquidateCollateralFactor > minLiquidationFactor', async function() {
+      const token = await makeMockERC20({ name: 'TKN', symbol: 'TKN' });
+      const feed = await makePriceFeed(token.address);
+      await expect(
+        sandboxController.whitelistCollateralAsset(
+          token.address,
+          feed.address,
+          exp(1.1, 17),
+          exp(1.2, 17),
+          exp(1.3, 17),
+          exp(1.4, 17),
+          exp(1.2, 17),
+          exp(1.6, 17)
+        )
+      ).to.be.revertedWithCustomError(sandboxController, 'InvalidFactors');
+    });
+
+    it('reverts if maxBorrowCollateralFactor > maxLiquidateCollateralFactor', async function () {
+      const token = await makeMockERC20({ name: 'TKN', symbol: 'TKN' });
+      const feed = await makePriceFeed(token.address);
+      await expect(
+        sandboxController.whitelistCollateralAsset(
+          token.address,
+          feed.address,
+          exp(1.1, 17),
+          exp(1.2, 17),
+          exp(1.3, 17),
+          exp(1.1, 17),
+          exp(1.5, 17),
+          exp(1.6, 17)
+        )
+      ).to.be.revertedWithCustomError(sandboxController, 'InvalidFactors');
+    });
+
+    it('reverts if maxLiquidateCollateralFactor > maxLiquidationFactor', async function() {
+      const token = await makeMockERC20({ name: 'TKN', symbol: 'TKN' });
+      const feed = await makePriceFeed(token.address);
+      await expect(
+        sandboxController.whitelistCollateralAsset(
+          token.address,
+          feed.address,
+          exp(1.1, 17),
+          exp(1.2, 17),
+          exp(1.3, 17),
+          exp(1.4, 17),
+          exp(1.5, 17),
+          exp(1.3, 17)
+        )
+      ).to.be.revertedWithCustomError(sandboxController, 'InvalidFactors');
+    });
+
+    it('reverts if maxLiquidationFactor > 100%', async function() {
+      const token = await makeMockERC20({ name: 'TKN', symbol: 'TKN' });
+      const feed = await makePriceFeed(token.address);
+      await expect(
+        sandboxController.whitelistCollateralAsset(
+          token.address,
+          feed.address,
+          exp(1.1, 17),
+          exp(1.2, 17),
+          exp(1.3, 17),
+          exp(1.4, 17),
+          exp(1.5, 17),
+          exp(1.1, 18)
         )
       ).to.be.revertedWithCustomError(sandboxController, 'InvalidFactors');
     });
@@ -496,12 +590,12 @@ describe('SandboxController', function () {
         sandboxController.whitelistCollateralAsset(
           token.address,
           feed.address,
-          6000,
-          5000,
-          6000,
-          9000,
-          7000,
-          9500
+          exp(1.2, 17),
+          exp(1.1, 17),
+          exp(1.3, 17),
+          exp(1.4, 17),
+          exp(1.5, 17),
+          exp(1.6, 17)
         )
       ).to.be.revertedWithCustomError(sandboxController, 'InvalidFactors');
     });
@@ -513,12 +607,12 @@ describe('SandboxController', function () {
         sandboxController.whitelistCollateralAsset(
           token.address,
           feed.address,
-          5000,
-          8000,
-          9000,
-          6000,
-          7000,
-          9500
+          exp(1.1, 17),
+          exp(1.2, 17),
+          exp(1.4, 17),
+          exp(1.3, 17),
+          exp(1.5, 17),
+          exp(1.6, 17)
         )
       ).to.be.revertedWithCustomError(sandboxController, 'InvalidFactors');
     });
@@ -530,12 +624,12 @@ describe('SandboxController', function () {
         sandboxController.whitelistCollateralAsset(
           token.address,
           feed.address,
-          5000,
-          8000,
-          6000,
-          9000,
-          9500,
-          7000
+          exp(1.1, 17),
+          exp(1.2, 17),
+          exp(1.3, 17),
+          exp(1.4, 17),
+          exp(1.6, 17),
+          exp(1.5, 17)
         )
       ).to.be.revertedWithCustomError(sandboxController, 'InvalidFactors');
     });
@@ -544,12 +638,12 @@ describe('SandboxController', function () {
       const token = await makeMockERC20({ name: 'C6', symbol: 'C6' });
       const priceFeed = await makePriceFeed(token.address);
 
-      const maxBorrowCollateralFactor = 8000;
-      const minBorrowCollateralFactor = 5000;
-      const minLiquidateCollateralFactor = 6000;
-      const maxLiquidateCollateralFactor = 9000;
-      const minLiquidationFactor = 7000;
-      const maxLiquidationFactor = 9500;
+      const minBorrowCollateralFactor = exp(1.1, 17);
+      const maxBorrowCollateralFactor =  exp(1.2, 17);
+      const minLiquidateCollateralFactor = exp(1.3, 17);
+      const maxLiquidateCollateralFactor = exp(1.4, 17);
+      const minLiquidationFactor = exp(1.5, 17);
+      const maxLiquidationFactor = exp(1.6, 17);
 
       await sandboxController.whitelistCollateralAsset(
         token.address,
@@ -584,15 +678,22 @@ describe('SandboxController', function () {
       const token = await makeMockERC20({ name: 'C6', symbol: 'C6' });
       const priceFeed = await makePriceFeed(token.address);
 
+      const minBorrowCollateralFactor = exp(1.1, 17);
+      const maxBorrowCollateralFactor =  exp(1.2, 17);
+      const minLiquidateCollateralFactor = exp(1.3, 17);
+      const maxLiquidateCollateralFactor = exp(1.4, 17);
+      const minLiquidationFactor = exp(1.5, 17);
+      const maxLiquidationFactor = exp(1.6, 17);
+
       const tx = await sandboxController.whitelistCollateralAsset(
         token.address,
         priceFeed.address,
-        5000,
-        8000,
-        6000,
-        9000,
-        7000,
-        9500
+        minBorrowCollateralFactor,
+        maxBorrowCollateralFactor,
+        minLiquidateCollateralFactor,
+        maxLiquidateCollateralFactor,
+        minLiquidationFactor,
+        maxLiquidationFactor
       );
       const rcpt = await tx.wait();
 
@@ -601,7 +702,12 @@ describe('SandboxController', function () {
       expect(ev.args.token).to.equal(token.address);
       expect(ev.args.priceFeed).to.equal(priceFeed.address);
       expect(ev.args.decimals).to.equal(18);
-      expect(ev.args.maxBorrowCollateralFactor).to.equal(8000);
+      expect(ev.args.minBorrowCollateralFactor).to.equal(minBorrowCollateralFactor);
+      expect(ev.args.minLiquidateCollateralFactor).to.equal(minLiquidateCollateralFactor);
+      expect(ev.args.maxLiquidateCollateralFactor).to.equal(maxLiquidateCollateralFactor);
+      expect(ev.args.minLiquidationFactor).to.equal(minLiquidationFactor);
+      expect(ev.args.maxLiquidationFactor).to.equal(maxLiquidationFactor);
+      expect(ev.args.maxBorrowCollateralFactor).to.equal(maxBorrowCollateralFactor);
     });
 
     it('owner can do it, dao can do it', async function () {
@@ -612,12 +718,12 @@ describe('SandboxController', function () {
         .whitelistCollateralAsset(
           token1.address,
           feed1.address,
-          4000,
-          9000,
-          5000,
-          9500,
-          7000,
-          9000
+          exp(1.1, 17),
+          exp(1.2, 17),
+          exp(1.3, 17),
+          exp(1.4, 17),
+          exp(1.5, 17),
+          exp(1.6, 17)
         );
 
       const token2 = await makeMockERC20({ name: 'C8', symbol: 'C8' });
@@ -627,12 +733,12 @@ describe('SandboxController', function () {
         .whitelistCollateralAsset(
           token2.address,
           feed2.address,
-          4000,
-          9000,
-          5000,
-          9500,
-          7000,
-          9000
+          exp(1.1, 17),
+          exp(1.2, 17),
+          exp(1.3, 17),
+          exp(1.4, 17),
+          exp(1.5, 17),
+          exp(1.6, 17)
         );
 
       expect(await sandboxController.getCollateralAssetLength()).to.equal(2);
@@ -1170,12 +1276,12 @@ describe('SandboxController', function () {
       await sandboxController.whitelistCollateralAsset(
         token.address, 
         priceFeed.address, 
-        5000, 
-        8000, 
-        6000, 
-        9000, 
-        7000, 
-        9500
+        exp(1.1, 17),
+        exp(1.2, 17),
+        exp(1.3, 17),
+        exp(1.4, 17),
+        exp(1.5, 17),
+        exp(1.6, 17)
       );
       expect(await sandboxController.isCollateralTokenWhitelisted(token.address)).to.equal(true);
     });
