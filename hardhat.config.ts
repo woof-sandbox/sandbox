@@ -58,7 +58,6 @@ export function requireEnv(varName, msg?: string): string {
 
 // required environment variables
 [
-  'ETHERSCAN_KEY',
   'ANKR_KEY',
 ].map((v) => requireEnv(v));
 
@@ -157,8 +156,6 @@ const config: HardhatUserConfig = {
     
   },
 
-  
-
   networks: {
     hardhat: {
       chainId: 1337,
@@ -187,9 +184,7 @@ const config: HardhatUserConfig = {
 
   // See https://hardhat.org/plugins/nomiclabs-hardhat-etherscan.html#multiple-api-keys-and-alternative-block-explorers
   etherscan: {
-    apiKey: {
-      sepolia: ETHERSCAN_KEY,
-    },
+    apiKey: process.env.ETHERSCAN_KEY || "",
     customChains: [      
       // {
       //   network: 'scroll',
@@ -258,6 +253,16 @@ const config: HardhatUserConfig = {
     currency: 'USD',
     coinmarketcap: COINMARKETCAP_API_KEY,
     gasPrice: 200, // gwei
+  },
+
+  docgen: {
+    path: './docs',
+    clear: true,
+    runOnCompile: true,
+    except: ['^contracts/test/.*$', '^contracts/mocks/.*$'],
+    template: './docs/templates/contract.hbs',
+    pages: 'files',
+    exclude: ['^contracts/test/.*$', '^contracts/mocks/.*$'],
   },
 };
 
