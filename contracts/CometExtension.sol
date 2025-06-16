@@ -107,7 +107,7 @@ contract CometExtension is ICometExtension {
 
     /**
      * @notice Approve a spender to transfer multiple amounts of assets on behalf of the sender
-     * @note This function assumes that the first asset is the baseToken and the rest are collateral assets
+     * note This function assumes that the first asset is the baseToken and the rest are collateral assets
      * @param spender The address of the account which may transfer tokens
      * @param amounts The amounts of each asset that the spender is allowed to manage
      * @dev Note: The first amount corresponds to the baseToken, followed by each collateral asset in order

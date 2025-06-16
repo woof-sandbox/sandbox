@@ -1,18 +1,10 @@
-import { ethers, expect, makeProtocol, exp, setTotalsBasic, Comet, makeToken } from './helper/helpers';
-import { CometExtension__factory, SandboxComet__factory, type ConfigController, type SimplePriceFeed } from '../build/types';
-import { CometExtension, CometHarness, CometHarness__factory, FaucetToken, NonStandardFaucetFeeToken } from '../build/types';
-import { CometHarnessInterface } from '../build/types/CometHarness';
+import { ethers, expect, makeProtocol, makeToken } from './helper/helpers';
+import { CometExtension, CometHarness, CometExtension__factory, CometHarness__factory, FaucetToken, NonStandardFaucetFeeToken } from '../build/types';
 import { Interface } from 'ethers/lib/utils';
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
 
-describe('allowance', function () {
-  //   let comet: CometHarnessInterface & {
-  //     factorScale(): Promise<bigint>;
-  //     priceScale(): Promise<bigint>;
-  //     collateralBalanceOf(addr: string, asset: string): Promise<bigint>;
-  //   };
+describe('15. allowance', function () {
   let comet: CometHarness & CometExtension;
-  //   let user: Awaited<ReturnType<typeof ethers.getSigners>>[number];
   let user: SignerWithAddress, alice: SignerWithAddress;
   let tokens: Record<string, FaucetToken | NonStandardFaucetFeeToken>;
   let baseToken: FaucetToken | NonStandardFaucetFeeToken;

@@ -1,6 +1,5 @@
-import { ethers, event, exp, expect, makeProtocol, wait } from './helper/helpers';
-import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
-import { BigNumber, Signature } from 'ethers';
+import { ethers, event, expect, makeProtocol, wait } from './helper/helpers';
+import { BigNumber } from 'ethers';
 import { CometExtension } from '../build/types';
 
 const types = {
