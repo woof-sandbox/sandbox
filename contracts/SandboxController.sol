@@ -279,15 +279,16 @@ contract SandboxController is ISandboxController {
         if (answer <= 0) revert InvalidPriceFeed();
 
         if (
-            minBorrowCollateralFactor == 0 ||
-            maxBorrowCollateralFactor == 0 ||
-            minLiquidateCollateralFactor == 0 ||
-            maxLiquidateCollateralFactor == 0 ||
-            minLiquidationFactor == 0 ||
-            maxLiquidationFactor == 0 ||
-            minBorrowCollateralFactor > maxBorrowCollateralFactor ||
-            minLiquidateCollateralFactor > maxLiquidateCollateralFactor ||
-            minLiquidationFactor > maxLiquidationFactor
+            minBorrowCollateralFactor <= 1e17 || 
+            minBorrowCollateralFactor > minLiquidateCollateralFactor || 
+            minLiquidateCollateralFactor > minLiquidationFactor || 
+            minLiquidationFactor >= 1e18 || 
+            maxBorrowCollateralFactor > maxLiquidateCollateralFactor || 
+            maxLiquidateCollateralFactor > maxLiquidationFactor || 
+            maxLiquidationFactor >= 1e18 || 
+            minBorrowCollateralFactor >= maxBorrowCollateralFactor || 
+            minLiquidateCollateralFactor >= maxLiquidateCollateralFactor || 
+            minLiquidationFactor >= maxLiquidationFactor
         ) revert InvalidFactors();
 
         tokenToPriceFeed[token] = priceFeed;   
