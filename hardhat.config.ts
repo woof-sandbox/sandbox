@@ -58,7 +58,6 @@ export function requireEnv(varName, msg?: string): string {
 
 // required environment variables
 [
-  'ETHERSCAN_KEY',
   'ANKR_KEY',
 ].map((v) => requireEnv(v));
 
