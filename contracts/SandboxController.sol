@@ -241,16 +241,19 @@ contract SandboxController is ISandboxController {
     }
 
     /**
-     * @notice Whitelists a new collateral asset with its full configuration and price feed.
-     * @dev Includes additional validation on the factors.
-     * @param token The address of the collateral token.
-     * @param priceFeed The price feed contract address for the collateral.
-     * @param maxBorrowCollateralFactor The maximum borrow collateral factor, scaled by 1e4, e.g., 8000 = 80%.
-     * @param minBorrowCollateralFactor The minimum borrow collateral factor, scaled by 1e4.
-     * @param minLiquidateCollateralFactor The minimum collateral factor at which liquidation can start.
-     * @param maxLiquidateCollateralFactor The maximum collateral factor for liquidation calculations.
-     * @param minLiquidationFactor Minimum factor for liquidation penalty.
-     * @param maxLiquidationFactor Maximum factor for liquidation penalty.
+     * @notice Whitelists a new collateral asset with specified collateral factor parameters.
+     * @dev Validates that all collateral factor parameters are within allowed ranges and maintain logical relationships:
+     *      - 10% <= minBorrowCollateralFactor <= minLiquidateCollateralFactor <= minLiquidationFactor <= 100%
+     *      - maxBorrowCollateralFactor <= maxLiquidateCollateralFactor <= maxLiquidationFactor <= 100%
+     *      - min <= max for each factor
+     * @param token The address of the collateral asset to whitelist.
+     * @param priceFeed The address of the price feed contract for the collateral asset.
+     * @param minBorrowCollateralFactor The minimum borrow collateral factor (scaled by 1e18, e.g., 10% = 1e17).
+     * @param maxBorrowCollateralFactor The maximum borrow collateral factor (scaled by 1e18).
+     * @param minLiquidateCollateralFactor The minimum liquidate collateral factor (scaled by 1e18).
+     * @param maxLiquidateCollateralFactor The maximum liquidate collateral factor (scaled by 1e18).
+     * @param minLiquidationFactor The minimum liquidation factor (scaled by 1e18).
+     * @param maxLiquidationFactor The maximum liquidation factor (scaled by 1e18).
      */
     function whitelistCollateralAsset(
         address token,
@@ -278,15 +281,19 @@ contract SandboxController is ISandboxController {
         (, int256 answer, , , ) = IPriceFeed(priceFeed).latestRoundData();
         if (answer <= 0) revert InvalidPriceFeed();
 
+        /// @dev Validates that all collateral factor parameters are within allowed ranges and maintain logical relationships:
+        /// - 10% <= minBorrowCollateralFactor <= minLiquidateCollateralFactor <= minLiquidationFactor <= 100%
+        /// - maxBorrowCollateralFactor <= maxLiquidateCollateralFactor <= maxLiquidationFactor <= 100%
+        /// - min <= max for each factor
         if (
-            minBorrowCollateralFactor == 0 ||
-            maxBorrowCollateralFactor == 0 ||
-            minLiquidateCollateralFactor == 0 ||
-            maxLiquidateCollateralFactor == 0 ||
-            minLiquidationFactor == 0 ||
-            maxLiquidationFactor == 0 ||
-            minBorrowCollateralFactor > maxBorrowCollateralFactor ||
-            minLiquidateCollateralFactor > maxLiquidateCollateralFactor ||
+            minBorrowCollateralFactor < 1e17 || 
+            minBorrowCollateralFactor > minLiquidateCollateralFactor || 
+            minLiquidateCollateralFactor > minLiquidationFactor ||  
+            maxBorrowCollateralFactor > maxLiquidateCollateralFactor || 
+            maxLiquidateCollateralFactor > maxLiquidationFactor || 
+            maxLiquidationFactor > 1e18 || 
+            minBorrowCollateralFactor > maxBorrowCollateralFactor || 
+            minLiquidateCollateralFactor > maxLiquidateCollateralFactor || 
             minLiquidationFactor > maxLiquidationFactor
         ) revert InvalidFactors();
 
@@ -297,19 +304,14 @@ contract SandboxController is ISandboxController {
         _collateralAssets[token].collateralToken = token;
         _collateralAssets[token].priceFeed = priceFeed;
         _collateralAssets[token].decimals = IERC20NonStandard(token).decimals();
-        _collateralAssets[token]
-            .maxBorrowCollateralFactor = maxBorrowCollateralFactor;
-        _collateralAssets[token]
-            .minBorrowCollateralFactor = minBorrowCollateralFactor;
-        _collateralAssets[token]
-            .minLiquidateCollateralFactor = minLiquidateCollateralFactor;
-        _collateralAssets[token]
-            .maxLiquidateCollateralFactor = maxLiquidateCollateralFactor;
+        _collateralAssets[token].maxBorrowCollateralFactor = maxBorrowCollateralFactor;
+        _collateralAssets[token].minBorrowCollateralFactor = minBorrowCollateralFactor;
+        _collateralAssets[token].minLiquidateCollateralFactor = minLiquidateCollateralFactor;
+        _collateralAssets[token].maxLiquidateCollateralFactor = maxLiquidateCollateralFactor;
         _collateralAssets[token].minLiquidationFactor = minLiquidationFactor;
         _collateralAssets[token].maxLiquidationFactor = maxLiquidationFactor;
 
         collateralAssetTokens.push(token);
-
 
         emit CollateralAssetWhitelisted(
             token,
