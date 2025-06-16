@@ -241,16 +241,18 @@ contract SandboxController is ISandboxController {
     }
 
     /**
-     * @notice Whitelists a new collateral asset with its full configuration and price feed.
-     * @dev Includes additional validation on the factors.
-     * @param token The address of the collateral token.
-     * @param priceFeed The price feed contract address for the collateral.
-     * @param maxBorrowCollateralFactor The maximum borrow collateral factor, scaled by 1e4, e.g., 8000 = 80%.
-     * @param minBorrowCollateralFactor The minimum borrow collateral factor, scaled by 1e4.
-     * @param minLiquidateCollateralFactor The minimum collateral factor at which liquidation can start.
-     * @param maxLiquidateCollateralFactor The maximum collateral factor for liquidation calculations.
-     * @param minLiquidationFactor Minimum factor for liquidation penalty.
-     * @param maxLiquidationFactor Maximum factor for liquidation penalty.
+     * @notice Whitelists a new collateral asset with specified collateral factor parameters.
+     * @dev Validates that all collateral factor parameters are within allowed ranges and maintain logical relationships:
+     *      - 10% <= minBorrowCollateralFactor <= minLiquidateCollateralFactor <= minLiquidationFactor <= 100%
+     *      - maxBorrowCollateralFactor <= maxLiquidateCollateralFactor <= maxLiquidationFactor <= 100%
+     *      - min <= max for each factor
+     * @param asset The address of the collateral asset to whitelist.
+     * @param minBorrowCollateralFactor The minimum borrow collateral factor (scaled by 1e18, e.g., 10% = 1e17).
+     * @param maxBorrowCollateralFactor The maximum borrow collateral factor (scaled by 1e18).
+     * @param minLiquidateCollateralFactor The minimum liquidate collateral factor (scaled by 1e18).
+     * @param maxLiquidateCollateralFactor The maximum liquidate collateral factor (scaled by 1e18).
+     * @param minLiquidationFactor The minimum liquidation factor (scaled by 1e18).
+     * @param maxLiquidationFactor The maximum liquidation factor (scaled by 1e18).
      */
     function whitelistCollateralAsset(
         address token,
