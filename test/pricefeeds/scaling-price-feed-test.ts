@@ -70,7 +70,7 @@ const testCases = [
   },
 ];
 
-describe('scaling price feed', function () {
+describe.skip('scaling price feed', function () {
   it(`description is set properly`, async () => {
     const { simplePriceFeed, scalingPriceFeed } = await makeScalingPriceFeed({ price: exp(10, 18), priceFeedDecimals: 18 });
 

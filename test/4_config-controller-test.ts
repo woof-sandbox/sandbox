@@ -24,7 +24,7 @@ import {
 } from "../build/types";
 import { BigNumber, ContractTransaction, ContractReceipt, Event } from "ethers";
 
-describe("ConfigController", () => {
+describe("4. ConfigController", () => {
     // describe('setCuratorFee', () => {
     //     it('should set curator fee', async () => {
     //         const { configController } = await makeConfigController();

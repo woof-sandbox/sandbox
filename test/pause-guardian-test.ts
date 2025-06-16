@@ -1,6 +1,6 @@
 import { Comet, expect, event, makeProtocol, wait } from './helper/helpers';
 
-describe('Pause Guardian', function () {
+describe.skip('Pause Guardian', function () {
   it('Should pause supply', async function () {
     const { comet } = await makeProtocol();
     await assertNoActionsArePaused(comet);

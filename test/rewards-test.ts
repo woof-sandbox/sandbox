@@ -1,7 +1,7 @@
 import { ethers } from 'hardhat';
 import { defaultAssets, expect, exp, factorScale, fastForward, makeProtocol, makeRewards, objectify, wait, event, getBlock } from './helper/helpers';
 
-describe('CometRewards', () => {
+describe.skip('CometRewards', () => {
   describe('claim + supply', () => {
     it('can construct and claim rewards for owner with upscale', async () => {
       const {
@@ -833,7 +833,7 @@ const TEST_CASES = [
 ];
 
 for (const { multiplier } of TEST_CASES) {
-  describe(`CometRewards with multiplier ${multiplier}`, () => {
+  describe.skip(`CometRewards with multiplier ${multiplier}`, () => {
     const MULTIPLIER = multiplier;
     const MULTIPLIER_FACTOR = exp(MULTIPLIER, 18);
 

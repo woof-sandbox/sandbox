@@ -14,7 +14,7 @@ import {
   setTotalsBasic,
 } from './helper/helpers';
 
-describe('withdrawTo', function () {
+describe('6. withdrawTo', function () {
   it('withdraws base from sender if the asset is base', async () => {
     const protocol = await makeProtocol({
       base: 'USDC',

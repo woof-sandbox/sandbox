@@ -24,8 +24,8 @@ contract SandboxController is ISandboxController {
     mapping(address => address) public override tokenToPriceFeed;
     mapping(MarketState => uint256) public override reserveCommission;
     mapping(MarketState => uint256) public override protocolCommission;
-    mapping(address => BaseAssetConfiguration) private _baseAssets;
-    mapping(address => CollateralAssetConfiguration) private _collateralAssets;
+    mapping(address => BaseAssetConfiguration) internal _baseAssets;
+    mapping(address => CollateralAssetConfiguration) internal _collateralAssets;
 
     modifier onlyOwner() {
         if (msg.sender != owner) revert NotOwner(msg.sender);
@@ -246,7 +246,8 @@ contract SandboxController is ISandboxController {
      *      - 10% <= minBorrowCollateralFactor <= minLiquidateCollateralFactor <= minLiquidationFactor <= 100%
      *      - maxBorrowCollateralFactor <= maxLiquidateCollateralFactor <= maxLiquidationFactor <= 100%
      *      - min <= max for each factor
-     * @param asset The address of the collateral asset to whitelist.
+     * @param token The address of the collateral asset to whitelist.
+     * @param priceFeed The address of the price feed contract for the collateral asset.
      * @param minBorrowCollateralFactor The minimum borrow collateral factor (scaled by 1e18, e.g., 10% = 1e17).
      * @param maxBorrowCollateralFactor The maximum borrow collateral factor (scaled by 1e18).
      * @param minLiquidateCollateralFactor The minimum liquidate collateral factor (scaled by 1e18).
@@ -280,6 +281,10 @@ contract SandboxController is ISandboxController {
         (, int256 answer, , , ) = IPriceFeed(priceFeed).latestRoundData();
         if (answer <= 0) revert InvalidPriceFeed();
 
+        /// @dev Validates that all collateral factor parameters are within allowed ranges and maintain logical relationships:
+        /// - 10% <= minBorrowCollateralFactor <= minLiquidateCollateralFactor <= minLiquidationFactor <= 100%
+        /// - maxBorrowCollateralFactor <= maxLiquidateCollateralFactor <= maxLiquidationFactor <= 100%
+        /// - min <= max for each factor
         if (
             minBorrowCollateralFactor < 1e17 || 
             minBorrowCollateralFactor > minLiquidateCollateralFactor || 
@@ -307,7 +312,6 @@ contract SandboxController is ISandboxController {
         _collateralAssets[token].maxLiquidationFactor = maxLiquidationFactor;
 
         collateralAssetTokens.push(token);
-
 
         emit CollateralAssetWhitelisted(
             token,
