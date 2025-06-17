@@ -190,13 +190,7 @@ contract SandboxComet is ISandboxComet {
     /**
      * @dev Determine index of asset that matches given address
      */
-    function getAssetInfoByAddress(
-        address asset
-    )
-        public
-        view
-        returns (CollateralAsset memory, uint8 index)
-    {
+    function getAssetInfoByAddress(address asset) public view returns (CollateralAsset memory, uint8 index) {
         index = collateralAssetIndex[asset];
         if (index == 0 && asset != collateralAssets[0].collateralToken) {
             revert BadAsset();
@@ -1351,16 +1345,13 @@ contract SandboxComet is ISandboxComet {
         override
         returns (uint256 amountOut, uint256 feeController, uint256 feeProtocol)
     {   
-        (
-            CollateralAsset memory assetInfo,
-
-        ) = getAssetInfoByAddress(asset);
+        (CollateralAsset memory assetInfo, ) = getAssetInfoByAddress(asset);
         uint256 basePrice = getPrice(baseTokenPriceFeed);
-        uint256 assetPrice = getPrice(info.priceFeed);
+        uint256 assetPrice = getPrice(assetInfo.priceFeed);
         uint256 assetScale = 10 ** IERC20NonStandard(asset).decimals();
         uint256 discountFactor = mulFactor(
           storeFrontPriceFactor,
-          FACTOR_SCALE - info.liquidationFactor 
+          FACTOR_SCALE - assetInfo.liquidationFactor 
         ); 
 
         uint256 discountedPrice = mulFactor(assetPrice, FACTOR_SCALE - discountFactor);
@@ -1474,10 +1465,7 @@ contract SandboxComet is ISandboxComet {
         address asset,
         uint128 amount
     ) internal {
-        (
-            IConfigController.CollateralTokenConfig memory info,
-            uint8 index
-        ) = getAssetInfoByAddress(asset);
+        (CollateralAsset memory info, uint8 index) = getAssetInfoByAddress(asset);
 
         uint totals = totalsCollateral[asset];
         totalsCollateral[asset] += amount;
