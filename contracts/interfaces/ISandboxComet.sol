@@ -108,10 +108,7 @@ abstract contract ISandboxComet is CometCore {
         bool dao_
     );
 
-    event Closure(
-        address indexed caller,
-        uint amoint
-    );
+    event Closure();
 
     function supply(address asset, uint amount) external virtual;
 
@@ -161,6 +158,7 @@ abstract contract ISandboxComet is CometCore {
     ) external virtual;
 
     function factoryInit(address, address) virtual external;
+
     function initialize(
         IConfigController.CometConfig memory market,
         ISandboxController.SandboxControllerConfiguration memory config,
@@ -181,6 +179,8 @@ abstract contract ISandboxComet is CometCore {
         uint baseAmount,
         address recipient
     ) external virtual;
+
+    function isClosed() external view virtual returns (bool);
 
     function quoteCollateral(
         address asset,

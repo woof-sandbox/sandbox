@@ -33,14 +33,7 @@ contract CometStorage {
 
     /** Internal constants **/
 
-    /// @dev The max number of assets this contract is hardcoded to support
-    ///  Do not change this variable without updating all the fields throughout the contract,
-    //    including the size of UserBasic.assetsIn and corresponding integer conversions.
-    uint8 internal constant MAX_ASSETS = 24;
-
-    /// @dev The max number of decimals base token can have
-    ///  Note this cannot just be increased arbitrarily.
-    uint8 internal constant MAX_BASE_DECIMALS = 18;
+    
 
     /// @dev Offsets for specific actions in the pause flag bit array
     uint8 internal constant PAUSE_SUPPLY_OFFSET = 0;
@@ -52,7 +45,15 @@ contract CometStorage {
     uint8 constant PAUSE_SUPPLY_COLLATERAL_OFFSET = 6;
     uint8 constant PAUSE_BORROW_BASE_OFFSET = 7;
 
+    /// @dev The max number of assets this contract is hardcoded to support
+    ///  Do not change this variable without updating all the fields throughout the contract,
+    //    including the size of UserBasic.assetsIn and corresponding integer conversions.
+    uint8 internal constant MAX_ASSETS = 24;
 
+    /// @dev The max number of decimals base token can have
+    ///  Note this cannot just be increased arbitrarily.
+    uint8 internal constant MAX_BASE_DECIMALS = 18;
+    
     /// @dev The decimals required for a price feed
     uint8 internal constant PRICE_FEED_DECIMALS = 8;
 

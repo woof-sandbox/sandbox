@@ -135,6 +135,7 @@ export type ProtocolOpts = {
     baseTokenBalance?: Numeric;
     suggestedAmountOfSeedReserves?: string;
     seedReserves?: Numeric;
+    marketCloseTime?: Numeric;
 };
 
 export type Protocol = {
@@ -227,6 +228,7 @@ export interface SandboxControllerOpts {
   maxUpdateTime?: number;
   suggestedAmountOfSeedReserves?: string;
   suggestedLockTimeOfSeedReserves?: number;
+  marketCloseTime?: number;
 }
 
 export type BulkerInfo = {
@@ -443,9 +445,10 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
       maxUpdateTime: 7 * 24 * 60 * 60,
       suggestedAmountOfSeedReserves: suggestedAmountOfSeedReserves,
       suggestedLockTimeOfSeedReserves: 3600,
-      targetPercent: opts.targetPercent ? ethers.utils.parseEther(opts.targetPercent.toString()).toString() : ethers.utils.parseEther('0.4').toString()
+      targetPercent: opts.targetPercent ? ethers.utils.parseEther(opts.targetPercent.toString()).toString() : ethers.utils.parseEther('0.4').toString(),
+      marketCloseTime: Number(opts.marketCloseTime) || 7 * 24 * 60 * 60
     });
-  
+    
     const sandboxController = (await makeSandboxController(sandboxControllerOpts)).sandboxController;
     
     await baseToken.allocateTo(owner.address, sandboxControllerOpts.suggestedAmountOfSeedReserves);
@@ -485,7 +488,7 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
         opts.assets?.[asset].maxLiquidationFactor ?? exp(1, 18)
       );
     }
-  
+    
     const ConfigControllerFactoryFactory = (await ethers.getContractFactory('ConfigControllerFactory')) as ConfigControllerFactory__factory;
     const CometFactory = (await ethers.getContractFactory('CometHarness')) as CometHarness__factory;
     const cometImpl = await CometFactory.deploy();
@@ -499,7 +502,8 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
       cometImpl, 
       configControllerFactory
     );
-  
+    
+
     await configControllerFactory.createConfigController(
       curator.address,
       guardian.address,
@@ -516,6 +520,7 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
   
     await configController.connect(owner).proposeCurator(curator.address);
     await configController.connect(curator).acceptCuratorRole();
+
   
     const curve = {
       supplyKink,
@@ -575,7 +580,7 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
         });
       }
     }
-  
+    
     let marketConfig: MarketConfigStruct = {
       baseToken: baseToken.address,
       priceFeed: priceFeeds[await baseToken.symbol()].address,
@@ -586,7 +591,7 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
         baseTrackingBorrowSpeed: 1e15,
         trackingIndexScale: 1e15,
         baseMinForRewards: 1e15,
-        seedReserves: opts.seedReserves ? BigInt(opts.seedReserves) : opts.suggestedAmountOfSeedReserves ? BigInt(opts.suggestedAmountOfSeedReserves) : 0n,
+        seedReserves: BigInt(opts.seedReserves ?? opts.suggestedAmountOfSeedReserves ?? 0)
       }
     };
   
@@ -649,7 +654,6 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
   
     await baseToken.approve(configController.address, seedReserves);
     const market = await createComet2(opts, configController, tokens, baseToken, priceFeeds);
-  
     const comet = await ethers.getContractAt('CometHarness', market) as CometHarness;
     return {
       comet,
@@ -802,7 +806,8 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
       minUpdateTime: partial?.minUpdateTime ?? 300,
       maxUpdateTime: partial?.maxUpdateTime ?? 7 * 24 * 60 * 60,
       suggestedAmountOfSeedReserves: partial?.suggestedAmountOfSeedReserves ?? ethers.utils.parseEther('500').toString(),
-      suggestedLockTimeOfSeedReserves: partial?.suggestedLockTimeOfSeedReserves ?? 86400
+      suggestedLockTimeOfSeedReserves: partial?.suggestedLockTimeOfSeedReserves ?? 86400,
+      marketCloseTime: partial?.marketCloseTime ?? 7 * 24 * 60 * 60
     };
   }
   
@@ -857,7 +862,8 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
       opts.minUpdateTime,
       opts.maxUpdateTime,
       opts.suggestedAmountOfSeedReserves,
-      opts.suggestedLockTimeOfSeedReserves
+      opts.suggestedLockTimeOfSeedReserves,
+      opts.marketCloseTime
     );
     await sandboxController.deployed();
   

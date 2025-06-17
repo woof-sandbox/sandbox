@@ -201,6 +201,17 @@ abstract contract IConfigController {
     event ClosureExecuted(
         address indexed comet
     );
+    event PauseExecuted(
+        address indexed comet,
+        bool supplyPaused,
+        bool transferPaused,
+        bool withdrawPaused,
+        bool absorbPaused,
+        bool buyPaused,
+        bool supplyBaseNoDebtPaused,
+        bool supplyCollateralPaused,
+        bool borrowBasePaused
+    );
 
     /// @notice Returns the current curator fee in basis points (1% = 100)
     /// @return The curator fee value
@@ -215,7 +226,7 @@ abstract contract IConfigController {
     function proposedCurator() virtual external view returns (address);
     function curatorProposalExpiry() virtual external view returns (uint);
     function name() virtual external view returns (string memory);
-
+    function closeQueue(address comet) virtual external view returns (uint48);
     /// @notice Withdraws base tokens from the market
     /// @dev Only callable by the owner
     /// @param market The address of the market
@@ -225,6 +236,29 @@ abstract contract IConfigController {
     /// @notice Removes the current curator
     /// @dev Only callable by the owner
     function removeCurator() virtual external;
+
+    /// @notice Pauses the market with the specified parameters
+    /// @dev Only callable by the owner
+    /// @param comet The address of the comet to pause
+    /// @param supplyPaused Whether to pause supply operations
+    /// @param transferPaused Whether to pause transfer operations
+    /// @param withdrawPaused Whether to pause withdraw operations
+    /// @param absorbPaused Whether to pause absorb operations
+    /// @param buyPaused Whether to pause buy operations
+    /// @param supplyBaseNoDebtPaused Whether to pause supply base without debt
+    /// @param supplyCollateralPaused Whether to pause supply collateral operations
+    /// @param borrowBasePaused Whether to pause borrow base operations
+    function pauseMarket(
+        address comet,
+        bool supplyPaused,
+        bool transferPaused,
+        bool withdrawPaused,
+        bool absorbPaused,
+        bool buyPaused,
+        bool supplyBaseNoDebtPaused,
+        bool supplyCollateralPaused,
+        bool borrowBasePaused
+    ) virtual external;
 
     /// @notice Sets a new guardian address
     /// @dev Only callable by the owner

@@ -10,11 +10,10 @@ import "./interfaces/ISandboxComet.sol";
 import "./interfaces/ISandboxCometFactory.sol";
 import "./interfaces/IERC20NonStandard.sol";
 
-
 /**
  * @title ConfigController
  * @author WOOF Software
- * @notice Manages protocol configuration, comet creation, and curator governance
+ * @notice @notice Manages protocol configuration, comet creation, curator governance and comet closure
  * @dev This contract handles the core configuration of the protocol, including:
  * - Comet creation and management
  * - Curator role management
@@ -46,8 +45,8 @@ contract ConfigController is IConfigController {
     /// @notice The mapping of comet address => comet Id
     mapping(address => uint) public cometId;
 
-    mapping(address => uint64) public closeQueue;
-
+    /// @notice The timestamp when comet closure was queued for each comet.
+    mapping(address => uint48) public override closeQueue;
 
     /// @notice Array of all comets created by this controller
     address[] public override comets;
@@ -88,6 +87,12 @@ contract ConfigController is IConfigController {
     /// @notice Modifier to restrict access to guardian only
     modifier onlyGuardian() {
         if (msg.sender != guardian) revert Unauthorized();
+        _;
+    }
+
+    modifier onlyOwnedMarket(address comet) {
+        if (comet == ZERO_ADDRESS) revert ZeroAddress();
+        if (!_isCometOwned(comet)) revert CometNotOwned();
         _;
     }
 
@@ -136,7 +141,7 @@ contract ConfigController is IConfigController {
         curatorProposalDuration = _curatorProposalDuration;
         proposalDuration = _proposalDuration;
 
-        proposeCurator(_curator);
+        _proposeCurator(_curator);
     }
 
     /// @notice Creates a new comet with the specified configuration
@@ -218,42 +223,90 @@ contract ConfigController is IConfigController {
         return comets.length;
     }
 
-    /// @notice Close the market
-    /// @dev Only callable by the owner
-    /// @param market The address of the market to close
-    function closeMarket(address market) external onlyOwner {
-        if (market == ZERO_ADDRESS) revert ZeroAddress();
-        if (!_isCometOwned(market)) revert CometNotOwned();
 
-        uint64 queued = closeQueue[market];
-        uint64 timelock = ISandboxController(sandboxController)
+    /// @notice Pauses the market with the specified parameters
+    /// @dev Only callable by the owner
+    /// @param comet The address of the comet to pause
+    /// @param supplyPaused Whether to pause supply operations
+    /// @param transferPaused Whether to pause transfer operations
+    /// @param withdrawPaused Whether to pause withdraw operations
+    /// @param absorbPaused Whether to pause absorb operations
+    /// @param buyPaused Whether to pause buy operations
+    /// @param supplyBaseNoDebtPaused Whether to pause supply base without debt
+    /// @param supplyCollateralPaused Whether to pause supply collateral operations
+    /// @param borrowBasePaused Whether to pause borrow base operations
+    function pauseMarket(
+        address comet,
+        bool supplyPaused,
+        bool transferPaused,
+        bool withdrawPaused,
+        bool absorbPaused,
+        bool buyPaused,
+        bool supplyBaseNoDebtPaused,
+        bool supplyCollateralPaused,
+        bool borrowBasePaused
+    ) external override onlyGuardian onlyOwnedMarket(comet) {
+        if (comet == ZERO_ADDRESS) revert ZeroAddress();
+        if (!_isCometOwned(comet)) revert CometNotOwned();
+
+        ISandboxComet _comet = ISandboxComet(comet);
+
+        _comet.pause(
+            supplyPaused,
+            transferPaused,
+            withdrawPaused,
+            absorbPaused,
+            buyPaused,
+            supplyBaseNoDebtPaused,
+            supplyCollateralPaused,
+            borrowBasePaused
+        );
+
+        emit PauseExecuted(
+            comet,
+            supplyPaused,
+            transferPaused,
+            withdrawPaused,
+            absorbPaused,
+            buyPaused,
+            supplyBaseNoDebtPaused,
+            supplyCollateralPaused,
+            borrowBasePaused
+        );
+    }
+
+    /// @notice Close the comet
+    /// @dev Only callable by the owner
+    /// @param comet The address of the comet to close
+    function closeMarket(address comet) external onlyOwner onlyOwnedMarket(comet) {
+        uint48 queued = closeQueue[comet];
+        uint48 timelock = ISandboxController(sandboxController)
                             .controllerConfiguration()
                             .marketCloseTime;
 
         if (queued == 0) {
-            closeQueue[market] = uint64(block.timestamp);
-            emit ClosureQueued(market, block.timestamp + timelock);
+            closeQueue[comet] = uint48(block.timestamp);
+            emit ClosureQueued(comet, block.timestamp + timelock);
             return;
         }
 
         if (block.timestamp < queued + timelock) revert TimelockActive();
 
-        delete closeQueue[market];
+        delete closeQueue[comet];
 
-        ISandboxComet(market).closeMarket();
-        emit ClosureExecuted(market);
+        ISandboxComet(comet).closeMarket();
+        emit ClosureExecuted(comet);
     }
 
-    /// @notice Withdraws base tokens from the market
+    /// @notice Withdraws base tokens from the comet
     /// @dev Only callable by the owner
-    /// @param market The address of the market
+    /// @param comet The address of the comet
     /// @param amount The amount of base tokens to withdraw
-    function withdraw(address market, uint256 amount) external override {
-        if (market == ZERO_ADDRESS) revert ZeroAddress();
-        if (msg.sender != owner) revert Unauthorized();
-        ISandboxComet comet = ISandboxComet(market);
-        address baseToken = comet.baseToken();
-        comet.withdraw(baseToken, amount);
+    function withdraw(address comet, uint256 amount) external override onlyOwner {
+        if (comet == ZERO_ADDRESS) revert ZeroAddress();
+        ISandboxComet _comet = ISandboxComet(comet);
+        address baseToken = _comet.baseToken();
+        _comet.withdraw(baseToken, amount);
         IERC20(baseToken).transfer(msg.sender, amount);
         emit Withdrawn(baseToken, msg.sender, amount);
     }
@@ -400,7 +453,7 @@ contract ConfigController is IConfigController {
     /// @return True if the comet is owned by this controller
     function _isCometOwned(address comet) internal view returns (bool) {
         if (cometsLength() == 0) return false;
-        return comets[cometId[comet]] != comet;
+        return comets[cometId[comet]] == comet;
     }
     
 }

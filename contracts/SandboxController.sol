@@ -80,7 +80,7 @@ contract SandboxController is ISandboxController {
         uint256 _maxUpdateTime,
         uint256 _suggestedAmountOfSeedReserves,
         uint256 _suggestedLockTimeOfSeedReserves,
-        uint64 _marketCloseTime
+        uint48 _marketCloseTime
     ) {
         if (_owner == address(0) || _dao == address(0)) {
             revert ZeroAddress();
@@ -104,7 +104,8 @@ contract SandboxController is ISandboxController {
             _storeFrontPriceFactor >= 1e18 ||
             _minUpdateTime == 0 || _maxUpdateTime < _minUpdateTime ||
             _suggestedAmountOfSeedReserves == 0 ||
-            _suggestedLockTimeOfSeedReserves == 0
+            _suggestedLockTimeOfSeedReserves == 0 ||
+            _marketCloseTime < 7 days
         ) {
             revert InvalidFactors();
         }
@@ -350,11 +351,8 @@ contract SandboxController is ISandboxController {
             _config.targetPercent > 5e17
         ) revert InvalidFactors();
 
-        SandboxControllerConfiguration
-            memory oldConfig = _controllerConfiguration;
+        emit ConfigurationChanged(_controllerConfiguration, _config);
         _controllerConfiguration = _config;
-
-        emit ConfigurationChanged(oldConfig, _config);
     }
 
     /**

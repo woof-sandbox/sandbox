@@ -47,7 +47,7 @@ abstract contract ISandboxController is ISandboxErrors {
         uint256 maxUpdateTime;
         uint256 suggestedAmountOfSeedReserves;
         uint256 suggestedLockTimeOfSeedReserves;
-        uint64 marketCloseTime;
+        uint48 marketCloseTime;
     }
     
     event BaseAssetWhitelisted(

@@ -6,6 +6,7 @@ import "./interfaces/IERC20NonStandard.sol";
 import "./interfaces/IPriceFeed.sol";
 import "./interfaces/IConfigController.sol";
 import "./interfaces/ISandboxController.sol";
+import "hardhat/console.sol";
 
 /**
  * @title Compound's Comet Contract
@@ -13,6 +14,7 @@ import "./interfaces/ISandboxController.sol";
  * @author WOOF! Software
  */
 contract SandboxComet is ISandboxComet {
+    receive() external payable {}
     /// @notice can be legally deployed only via the factory which provides correct config controller address
     /// @param _configController legal address of the config controller which triggered the factory
     /// @param _ext extension deployed by the same factory
@@ -65,6 +67,7 @@ contract SandboxComet is ISandboxComet {
         
         baseBorrowMin = baseBorrowMin_;
         targetPercent = config.targetPercent;
+        console.log("comet.options.seedReserves: %s", comet.options.seedReserves);
         seedReserves = comet.options.seedReserves;
 
         unlockTimestamp =
@@ -119,6 +122,11 @@ contract SandboxComet is ISandboxComet {
         nonReentrantAfter();
     }
 
+    modifier onlyConfigController() {
+        if (msg.sender != configController) revert Unauthorized();
+        _;
+    }
+
     /**
      * @dev Checks that the reentrancy flag is not set and then sets the flag
      */
@@ -150,23 +158,31 @@ contract SandboxComet is ISandboxComet {
      * @notice Close the market
      * @dev Only callable by the config controller
      */
-    function closeMarket() external override {
-        if (msg.sender != configController) revert Unauthorized();
+    function closeMarket() external onlyConfigController override {
+
         if (_closed) revert Closed();
 
-        _closed = true; 
-        accrueInternal();
+        pause(
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+        );
 
-        address dao = ISandboxController(sandboxController).dao();
-        int256 totalReserves = getReserves();  
+        _closed = true;
+        emit Closure();
+    }
 
-        uint256 payout;
-        if (totalReserves > int256(seedReserves)) {
-            payout = uint256(totalReserves) - seedReserves;
-            doTransferOut(baseToken, address(0), payout); // TODO add burn address
-        }
-
-        emit Closure(dao, payout);
+    /**
+     * @notice Check if the market is closed
+     * @return Whether the market is closed
+     */
+    function isClosed() external view override returns (bool) {
+        return _closed;
     }
 
     /**
@@ -531,8 +547,8 @@ contract SandboxComet is ISandboxComet {
         bool supplyBaseNoDebtPaused,
         bool supplyCollateralPaused,
         bool borrowBasePaused
-    ) external override {
-        if (msg.sender != configController) revert Unauthorized();
+    ) public override onlyConfigController {
+        if (_closed) revert Closed();
 
         pauseFlags =
             (toUInt8(supplyPaused)           << PAUSE_SUPPLY_OFFSET)              |
@@ -846,7 +862,6 @@ contract SandboxComet is ISandboxComet {
      * @dev Supply an amount of base asset from `from` to dst
      */
     function supplyBase(address from, address dst, uint256 amount) internal {
-        if (_closed) revert Paused();
         if (isSupplyBaseNoDebtPaused() && borrowBalanceOf(dst) == 0) revert Paused();
 
         amount = doTransferIn(baseToken, from, amount);
@@ -886,7 +901,7 @@ contract SandboxComet is ISandboxComet {
         address asset,
         uint256 amount
     ) internal {
-        if (_closed || isSupplyCollateralPaused()) revert Paused();
+        if (isSupplyCollateralPaused()) revert Paused();
         amount = doTransferIn(asset, from, amount);
 
         (IConfigController.CollateralTokenConfig memory assetInfo, uint8 index) = getAssetInfoByAddress(asset);
@@ -977,7 +992,6 @@ contract SandboxComet is ISandboxComet {
         address asset,
         uint amount
     ) internal nonReentrant {
-        if (_closed) revert Paused();
         if (isTransferPaused()) revert Paused();
         if (!hasPermission(src, operator)) revert Unauthorized();
         if (src == dst) revert NoSelfTransfer();
@@ -1017,7 +1031,7 @@ contract SandboxComet is ISandboxComet {
             uint104 borrowAmount
         ) = withdrawAndBorrowAmount(srcPrincipal, srcPrincipalNew);
 
-        if (( _closed || isBorrowBasePaused() ) && borrowAmount > 0) {
+        if ((isBorrowBasePaused() ) && borrowAmount > 0) {
             revert Paused();
         }
         (uint104 repayAmount, uint104 supplyAmount) = repayAndSupplyAmount(
@@ -1149,7 +1163,6 @@ contract SandboxComet is ISandboxComet {
      * @dev Withdraw an amount of base asset from src to `to`, borrowing if possible/necessary
      */
     function withdrawBase(address src, address to, uint256 amount) internal {
-        if (_closed && msg.sender != configController) revert Paused();
         accrueInternal();
         
         if (msg.sender == configController) {
@@ -1229,7 +1242,6 @@ contract SandboxComet is ISandboxComet {
         address dao = ISandboxController(sandboxController).dao();
         if (msg.sender != dao) revert Unauthorized();
 
-        accrueInternal();
         int total = getReserves();
         if (total <= int(seedReserves)) revert InsufficientReserves();
 
