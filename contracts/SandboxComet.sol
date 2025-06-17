@@ -1346,17 +1346,21 @@ contract SandboxComet is ISandboxComet {
         returns (uint256 amountOut, uint256 feeController, uint256 feeProtocol)
     {   
         (CollateralAsset memory assetInfo, ) = getAssetInfoByAddress(asset);
-        uint256 basePrice = getPrice(baseTokenPriceFeed);
         uint256 assetPrice = getPrice(assetInfo.priceFeed);
-        uint256 assetScale = 10 ** IERC20NonStandard(asset).decimals();
+        // Store front discount is derived from the collateral asset's liquidationFactor and storeFrontPriceFactor
+        // discount = storeFrontPriceFactor * (1e18 - liquidationFactor)
         uint256 discountFactor = mulFactor(
-          storeFrontPriceFactor,
-          FACTOR_SCALE - assetInfo.liquidationFactor 
+            storeFrontPriceFactor,
+            FACTOR_SCALE - assetInfo.liquidationFactor 
         ); 
 
-        uint256 discountedPrice = mulFactor(assetPrice, FACTOR_SCALE - discountFactor);
+        uint256 assetPriceDiscounted = mulFactor(assetPrice, FACTOR_SCALE - discountFactor);
+        uint256 basePrice = getPrice(baseTokenPriceFeed);
+        // # of collateral assets
+        // = (TotalValueOfBaseAmount / DiscountedPriceOfCollateralAsset) * assetScale
+        // = ((basePrice * baseAmount / baseScale) / assetPriceDiscounted) * assetScale
+        amountOut = (baseAmount * basePrice * assetInfo.scale) / assetPriceDiscounted / baseScale;
 
-        amountOut = (baseAmount * basePrice * assetScale) / discountedPrice / baseScale;
         uint256 deltaBase = mulFactor(baseAmount, discountFactor);
 
         uint256 curRes = uint256(getReserves());
@@ -1373,8 +1377,8 @@ contract SandboxComet is ISandboxComet {
           controllerBase = deltaBase - reserveBase - protocolBase;
         }
 
-        feeProtocol = (protocolBase * assetScale) / discountedPrice;
-        feeController = (controllerBase * assetScale) / discountedPrice;
+        feeProtocol = (protocolBase * assetInfo.scale) / assetPriceDiscounted;
+        feeController = (controllerBase * assetInfo.scale) / assetPriceDiscounted;
     }
 
     /**

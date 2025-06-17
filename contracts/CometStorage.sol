@@ -174,9 +174,6 @@ contract CometStorage {
     /// @notice Factor to divide by when accruing rewards in order to preserve 6 decimals (i.e. baseScale / 1e6)
     uint internal accrualDescaleFactor;
 
-    /// @notice Suggested reserves
-    uint public suggestedReserves;
-
     /// @dev Aggregate variables tracked for the entire market
     uint64 internal baseSupplyIndex;
     uint64 internal baseBorrowIndex;
