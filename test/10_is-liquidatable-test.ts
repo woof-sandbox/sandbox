@@ -11,13 +11,13 @@ decimals, by default)
 */
 
 describe('10. isLiquidatable', function () {
-  it('defaults to false', async () => {
+  it.only('defaults to false', async () => {
     const protocol = await makeProtocol();
     const {
       comet,
       users: [alice],
     } = protocol;
-
+    console.log('comet', await comet.isLiquidatable(alice.address));
     expect(await comet.isLiquidatable(alice.address)).to.be.false;
   });
 

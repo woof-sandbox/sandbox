@@ -27,11 +27,17 @@ contract SandboxController is ISandboxController {
     mapping(address => BaseAssetConfiguration) internal _baseAssets;
     mapping(address => CollateralAssetConfiguration) internal _collateralAssets;
 
+    /**
+     * @dev Modifier to check if the caller is the owner.
+     */
     modifier onlyOwner() {
         if (msg.sender != owner) revert NotOwner(msg.sender);
         _;
     }
 
+    /**
+     * @dev Modifier to check if the caller is the DAO.
+     */
     modifier onlyDao() {
         if (msg.sender != dao) revert NotDao(msg.sender);
         _;
@@ -43,9 +49,7 @@ contract SandboxController is ISandboxController {
      *      in the relevant functions. For shared powers, use onlyAuthorized.
      */
     modifier onlyAuthorized() {
-        if (msg.sender != owner && msg.sender != dao) {
-            revert Unauthorized();
-        }
+        if (msg.sender != owner && msg.sender != dao) revert Unauthorized();
         _;
     }
 
@@ -81,12 +85,8 @@ contract SandboxController is ISandboxController {
         uint256 _suggestedAmountOfSeedReserves,
         uint256 _suggestedLockTimeOfSeedReserves
     ) {
-        if (_owner == address(0) || _dao == address(0)) {
-            revert ZeroAddress();
-        }
-        if (_owner == _dao) {
-            revert InvalidFactors();
-        }
+        if (_owner == address(0) || _dao == address(0)) revert ZeroAddress();
+        if (_owner == _dao) revert InvalidFactors();
         owner = _owner;
         dao = _dao;
 
@@ -104,14 +104,8 @@ contract SandboxController is ISandboxController {
             _minUpdateTime == 0 || _maxUpdateTime < _minUpdateTime ||
             _suggestedAmountOfSeedReserves == 0 ||
             _suggestedLockTimeOfSeedReserves == 0
-        ) {
-            revert InvalidFactors();
-        }
+        ) revert InvalidFactors();
 
-        protocolFactorBorrow = _protocolFactorBorrow;
-        reserveFactorBorrow = _reserveFactorBorrow;
-        protocolFactorLiquidation = _protocolFactorLiquidation;
-        reserveFactorLiquidation = _reserveFactorLiquidation;
         _controllerConfiguration = SandboxControllerConfiguration(
             _targetPercent,
             _storeFrontPriceFactor,
@@ -124,59 +118,68 @@ contract SandboxController is ISandboxController {
 
     /**
      * @notice Sets the reserve commission factors for each market state.
-     * @param reserveCommissions The new reserve commission factors, scaled by 1e18.
+     * @param _reserveCommissions The new reserve commission factors, scaled by 1e18. 100% = 1e18.
      */
     function setReserveCommissions(
-        uint256[3] calldata reserveCommissions
+        uint256[3] calldata _reserveCommissions
     ) external override onlyOwner {
-        for (uint256 i = 0; i < 3; i++) {
+        for (uint256 i; i < 3;) {
             MarketState state = MarketState(i);
-            if (reserveCommissions[i] + protocolCommission[state] > 8e17) {
-                revert InvalidFactors();
-            }
-            uint256 oldValue = reserveCommission[state];
-            reserveCommission[state] = reserveCommissions[i];
+            /// Check if the sum of the `reserveCommission` and the `protocolCommission` is less than 80%
+            /// This needed to leave something for the ConfigController owner and curator.
+            if (_reserveCommissions[i] + protocolCommission[state] > 8e17) revert InvalidFactors();
+            /// Emit event before updating the `reserveCommission` to save gas. Cheaper than creating a memory variable.
             emit ReserveCommissionChanged(
                 state,
-                oldValue,
-                reserveCommissions[i]
+                reserveCommission[state],
+                _reserveCommissions[i]
             );
+            reserveCommission[state] = _reserveCommissions[i];
+
+            unchecked {
+                ++i;
+            }
+            
         }
     }
 
     /**
      * @notice Sets the protocol commission factors for each market state.
-     * @param protocolCommissions The new protocol commission factors, scaled by 1e18.
+     * @param _protocolCommissions The new protocol commission factors, scaled by 1e18. 100% = 1e18.
      */
     function setProtocolCommissions(
-        uint256[3] calldata protocolCommissions
+        uint256[3] calldata _protocolCommissions
     ) external override onlyOwner {
-        for (uint256 i = 0; i < 3; i++) {
+        for (uint256 i; i < 3;) {
             MarketState state = MarketState(i);
-            if (protocolCommissions[i] + reserveCommission[state] > 8e17) {
-                revert InvalidFactors();
-            }
-            uint256 oldValue = protocolCommission[state];
-            protocolCommission[state] = protocolCommissions[i];
+            /// Check if the sum of the `protocolCommission` and the `reserveCommission` is less than 80%
+            /// This needed to leave something for the ConfigController owner and curator.
+            if (_protocolCommissions[i] + reserveCommission[state] > 8e17) revert InvalidFactors();
+            /// Emit event before updating the `protocolCommission` to save gas. Cheaper than creating a memory variable.
             emit ProtocolCommissionChanged(
                 state,
-                oldValue,
-                protocolCommissions[i]
+                protocolCommission[state],
+                _protocolCommissions[i]
             );
+            protocolCommission[state] = _protocolCommissions[i];
+
+            unchecked {
+                ++i;
+            }
         }
     }
 
     /**
      * @notice Sets the treasury address.
      * @param _treasury The address of the treasury.
+     * @dev This function is only callable by the owner.
+     * @dev The `treasury` address can`t be zero address.
      */
     function setTreasury(address _treasury) external override onlyOwner {
-        if (_treasury == address(0)) {
-            revert ZeroAddress();
-        }
-        address oldTreasury = treasury;
+        if (_treasury == address(0)) revert ZeroAddress();
+        /// Emit event before updating the `treasury` address to save gas. Cheaper than creating a memory variable.
+        emit TreasuryChanged(_treasury, treasury);
         treasury = _treasury;
-        emit TreasuryChanged(oldTreasury, _treasury);
     }
 
     /**
@@ -303,7 +306,7 @@ contract SandboxController is ISandboxController {
 
         _collateralAssets[token].collateralToken = token;
         _collateralAssets[token].priceFeed = priceFeed;
-        _collateralAssets[token].decimals = IERC20NonStandard(token).decimals();
+        _collateralAssets[token].decimals = uint8(decimals);
         _collateralAssets[token].maxBorrowCollateralFactor = maxBorrowCollateralFactor;
         _collateralAssets[token].minBorrowCollateralFactor = minBorrowCollateralFactor;
         _collateralAssets[token].minLiquidateCollateralFactor = minLiquidateCollateralFactor;
@@ -348,12 +351,10 @@ contract SandboxController is ISandboxController {
             _config.suggestedLockTimeOfSeedReserves == 0 ||
             _config.targetPercent > 5e17
         ) revert InvalidFactors();
+        
+        emit ConfigurationChanged(_config, _controllerConfiguration);
 
-        SandboxControllerConfiguration
-            memory oldConfig = _controllerConfiguration;
         _controllerConfiguration = _config;
-
-        emit ConfigurationChanged(oldConfig, _config);
     }
 
     /**
@@ -379,11 +380,7 @@ contract SandboxController is ISandboxController {
         if (!isCurveConfigurationValid(baseAssetCurve)) revert InvalidCurveConfiguration();
 
         _baseAssets[token].baseAssetCurves.push(baseAssetCurve);
-        emit BaseAssetCurveAdded(
-            token, 
-            baseAssetCurve,
-            _baseAssets[token].baseAssetCurves.length - 1
-        );
+        emit BaseAssetCurveAdded(token, baseAssetCurve, _baseAssets[token].baseAssetCurves.length - 1);
     }
 
     /**
@@ -395,18 +392,15 @@ contract SandboxController is ISandboxController {
     function changeBaseAssetCurve(
         address token,
         uint256 curveIndex,
-        BaseAssetCurve memory newCurve
+        BaseAssetCurve calldata newCurve
     ) external override onlyDao {
         if (token == address(0)) revert ZeroAddress();
         if (!isBaseTokenWhitelisted(token)) revert BaseTokenNotWhitelisted();
         if (curveIndex >= _baseAssets[token].baseAssetCurves.length || !isCurveConfigurationValid(newCurve)) revert InvalidCurveConfiguration();
-
-        BaseAssetCurve memory oldCurve = _baseAssets[token].baseAssetCurves[
-            curveIndex
-        ];
+        
+        emit BaseAssetCurveChanged(token, _baseAssets[token].baseAssetCurves[curveIndex], newCurve, curveIndex);
 
         _baseAssets[token].baseAssetCurves[curveIndex] = newCurve;
-        emit BaseAssetCurveChanged(token, oldCurve, newCurve, curveIndex);
     }
 
     /**
@@ -415,10 +409,8 @@ contract SandboxController is ISandboxController {
      */
     function transferOwner(address newOwner) external override onlyOwner {
         if (newOwner == address(0)) revert ZeroAddress();
-        
-        address oldOwner = owner;
+        emit OwnerTransferred(owner, newOwner);
         owner = newOwner;
-        emit OwnerTransferred(oldOwner, newOwner);
     }
 
     /**
@@ -427,10 +419,8 @@ contract SandboxController is ISandboxController {
      */
     function transferDao(address newDao) external override onlyDao {
         if (newDao == address(0)) revert ZeroAddress();
-
-        address oldDao = dao;
+        emit DaoTransferred(dao, newDao);
         dao = newDao;
-        emit DaoTransferred(oldDao, newDao);
     }
 
     /**
@@ -509,15 +499,22 @@ contract SandboxController is ISandboxController {
         return _baseAssets[token].baseAssetCurves;
     }
 
+    /**
+     * @notice Returns the configuration of the sandbox controller.
+     * @return The sandbox controller configuration.
+     */
     function controllerConfiguration() external view override returns (SandboxControllerConfiguration memory) {
         return _controllerConfiguration;
     }
 
-    function proposalBoundaries() external view override returns (uint,uint) {
+    /**
+     * @notice Returns the proposal boundaries of the sandbox controller.
+     * @return The proposal boundaries.
+     */
+    function proposalBoundaries() external view override returns (uint256, uint256) {
         SandboxControllerConfiguration memory _c = _controllerConfiguration;
         return (_c.minUpdateTime, _c.maxUpdateTime);
     }
-
 
     /**
      * @notice Returns the minimum borrow amount for a given base asset token.
