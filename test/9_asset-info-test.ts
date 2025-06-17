@@ -2,7 +2,7 @@ import { expect, exp, makeProtocol, ONE } from './helper/helpers';
 import { ethers } from 'hardhat';
 
 
-describe('asset info — SandboxComet', () => {
+describe('9. asset info — SandboxComet', () => {
 
   it('initializes protocol with 3 collateral assets', async () => {
     const { comet, tokens } = await makeProtocol({

@@ -32,12 +32,22 @@ contract CometStorage {
         uint24 assetsIn;
     }
 
+    struct CollateralAsset {
+        address collateralToken;
+        address priceFeed;
+        uint128 supplyCap;
+        uint64 borrowCollateralFactor;
+        uint64 liquidateCollateralFactor;
+        uint64 liquidationFactor;
+        uint64 scale;
+    }
+
     /** Internal constants **/
 
     /// @dev The max number of assets this contract is hardcoded to support
     ///  Do not change this variable without updating all the fields throughout the contract,
     //    including the size of UserBasic.assetsIn and corresponding integer conversions.
-    uint8 internal constant MAX_ASSETS = 24;
+    uint8 public constant MAX_ASSETS = 24;
 
     /// @dev The max number of decimals base token can have
     ///  Note this cannot just be increased arbitrarily.
@@ -201,6 +211,5 @@ contract CometStorage {
     mapping(address => mapping(address => uint)) public userCollateral;
 
     mapping(address => uint8) public collateralAssetIndex;
-    mapping(uint8 => address) public collateralAssetAddress;
-    IConfigController.CollateralTokenConfig[] public collateralAssets;
+    CollateralAsset[] public collateralAssets;
 }

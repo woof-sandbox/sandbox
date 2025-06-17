@@ -1,6 +1,6 @@
 import { expect, exp, makeProtocol } from './helper/helpers';
 
-describe('isBorrowCollateralized', function () {
+describe('11. isBorrowCollateralized', function () {
   it('defaults to true', async () => {
     const protocol = await makeProtocol({ base: 'USDC' });
     const {
@@ -46,7 +46,7 @@ describe('isBorrowCollateralized', function () {
           initialPrice: 1,
           borrowCF: exp(0.9, 18),
           liquidateCF: exp(1, 18),
-          liquidationFactor: exp(0.9, 18),
+          liquidationFactor: exp(1, 18),
           minBorrowCF: exp(0.8, 18),
           maxBorrowCF: exp(1, 18),
           minLiquidateCF: exp(0.9, 18),
@@ -80,7 +80,7 @@ describe('isBorrowCollateralized', function () {
           initialPrice: 1,
           borrowCF: exp(0.9, 18),
           liquidateCF: exp(1, 18),
-          liquidationFactor: exp(0.9, 18),
+          liquidationFactor: exp(1, 18),
           minBorrowCF: exp(0.8, 18),
           maxBorrowCF: exp(1, 18),
           minLiquidateCF: exp(0.9, 18),
@@ -115,7 +115,7 @@ describe('isBorrowCollateralized', function () {
           initialPrice: 1,
           borrowCF: exp(0.2, 18),
           liquidateCF: exp(1, 18),
-          liquidationFactor: exp(0.9, 18),
+          liquidationFactor: exp(1, 18),
           minBorrowCF: exp(0.2, 18),
           maxBorrowCF: exp(1, 18),
           minLiquidateCF: exp(0.9, 18),

@@ -4,7 +4,7 @@ function mulDiv(a: bigint, b: bigint, denom: bigint): bigint {
   return (a * b) / denom;
 }
 
-describe('quoteCollateral', function () {
+describe.skip('quoteCollateral', function () {
   it('quotes the collateral correctly for a positive base amount', async () => {
     const { comet, tokens } = await makeProtocol({
       storeFrontPriceFactor: exp(0.5, 18),

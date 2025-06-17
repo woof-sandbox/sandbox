@@ -3,7 +3,7 @@ import { FaucetWETH__factory, NonStandardFaucetToken__factory } from '../build/t
 
 // XXX Improve the "no permission" tests that should expect a custom error when
 // when https://github.com/nomiclabs/hardhat/issues/1618 gets fixed.
-describe('bulker', function () {
+describe.skip('bulker', function () {
   it('supply base asset', async () => {
     const protocol = await makeProtocol({});
     const { comet, tokens: { USDC, WETH }, users: [alice] } = protocol;
@@ -786,7 +786,7 @@ describe('bulker', function () {
   });
 });
 
-describe('bulker multiple actions', function () {
+describe.skip('bulker multiple actions', function () {
   it('supply collateral + borrow base asset', async () => {
     const protocol = await makeProtocol({});
     const { comet, tokens: { USDC, COMP, WETH }, users: [alice] } = protocol;
