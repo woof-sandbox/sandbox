@@ -10,18 +10,18 @@ import {ISandboxController} from "./interfaces/ISandboxController.sol";
  * @dev Manages base asset configurations and interest rate baseAssetCurves.
  */
 contract SandboxController is ISandboxController {
-    address public override treasury;
-    address public override owner;
-    address public override dao;
-    bool public override feeEnabled;
-    SandboxControllerConfiguration public _controllerConfiguration;
-    address[] public override baseAssetTokens;
-    address[] public override collateralAssetTokens;
-    mapping(address => address) public override tokenToPriceFeed;
-    mapping(MarketState => uint256) public override reserveCommission;
-    mapping(MarketState => uint256) public override protocolCommission;
-    mapping(address => BaseAssetConfiguration) internal _baseAssets;
-    mapping(address => CollateralAssetConfiguration) internal _collateralAssets;
+    address public treasury; /// 20 bytes
+    address public override owner; /// 20 bytes
+    address public override dao; /// 20 bytes
+    bool public override feeEnabled; /// 1 byte
+    SandboxControllerConfiguration public _controllerConfiguration; /// 32 bytes
+    address[] public override baseAssetTokens; /// 20 bytes
+    address[] public override collateralAssetTokens; /// 20 bytes
+    mapping(address => address) public override tokenToPriceFeed; /// 20 bytes
+    mapping(MarketState => uint256) public override reserveCommission; /// 32 bytes
+    mapping(MarketState => uint256) public override protocolCommission; /// 32 bytes
+    mapping(address => BaseAssetConfiguration) internal _baseAssets; /// 20 bytes
+    mapping(address => CollateralAssetConfiguration) internal _collateralAssets; /// 20 bytes
 
     /**
      * @dev Modifier to check if the caller is the owner.
@@ -502,14 +502,6 @@ contract SandboxController is ISandboxController {
         address token
     ) external view override returns (BaseAssetCurve[] memory) {
         return _baseAssets[token].baseAssetCurves;
-    }
-
-    /**
-     * @notice Returns the configuration of the sandbox controller.
-     * @return The sandbox controller configuration.
-     */
-    function controllerConfiguration() external view override returns (SandboxControllerConfiguration memory) {
-        return _controllerConfiguration;
     }
 
     /**

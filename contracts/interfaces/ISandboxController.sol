@@ -3,7 +3,7 @@ pragma solidity 0.8.28;
 
 import "./ISandboxErrors.sol";
 
-abstract contract ISandboxController is ISandboxErrors {
+interface ISandboxController is ISandboxErrors {
     enum MarketState {
         Low,
         Medium,
@@ -11,42 +11,63 @@ abstract contract ISandboxController is ISandboxErrors {
     }
 
     struct BaseAssetCurve {
-        uint64 supplyKink;
-        uint64 supplyPerYearInterestRateBase;
-        uint64 supplyPerYearInterestRateSlopeLow;
-        uint64 supplyPerYearInterestRateSlopeHigh;
-        uint64 borrowKink;
-        uint64 borrowPerYearInterestRateBase;
-        uint64 borrowPerYearInterestRateSlopeLow;
-        uint64 borrowPerYearInterestRateSlopeHigh;
+        /// First 256 bits (32 bytes)
+        uint64 supplyKink; // 8 bytes
+        uint64 supplyPerYearInterestRateBase; // 8 bytes
+        uint64 supplyPerYearInterestRateSlopeLow; // 8 bytes
+        uint64 supplyPerYearInterestRateSlopeHigh; // 8 bytes
+        /// Last 256 bits (32 bytes)
+        uint64 borrowKink; // 8 bytes
+        uint64 borrowPerYearInterestRateBase; // 8 bytes
+        uint64 borrowPerYearInterestRateSlopeLow; // 8 bytes
+        uint64 borrowPerYearInterestRateSlopeHigh; // 8 bytes
     }
 
     struct BaseAssetConfiguration {
-        address priceFeed;
-        uint8 decimals;
-        uint256 minBorrow;
-        BaseAssetCurve[] baseAssetCurves;
+        /// First 256 bits (32 bytes)
+        address priceFeed; // 20 bytes
+        uint8 decimals; // 1 byte
+        /// Wasted space 11 bytes
+        /// Second 256 bits (32 bytes) 
+        /// TODO: Probarly wasted space.
+        uint256 minBorrow; // 32 bytes
+        /// Third 256 bits (32 bytes)...
+        BaseAssetCurve[] baseAssetCurves; // probarly infinity 
     }
 
     struct CollateralAssetConfiguration {
-        address collateralToken;
-        address priceFeed;
-        uint8 decimals;
-        uint64 maxBorrowCollateralFactor;
-        uint64 minBorrowCollateralFactor;
-        uint64 minLiquidateCollateralFactor;
-        uint64 maxLiquidateCollateralFactor;
-        uint64 minLiquidationFactor;
-        uint64 maxLiquidationFactor;
+        /// First 256 bits (32 bytes)
+        address collateralToken; // 20 bytes
+        /// Wasted space 12 bytes
+        /// Second 256 bits (32 bytes) 
+        address priceFeed; // 20 bytes
+        uint8 decimals; // 1 byte
+        /// Wasted space 11 bytes
+        /// Third 256 bits (32 bytes)
+        uint64 maxBorrowCollateralFactor; // 8 bytes
+        uint64 minBorrowCollateralFactor; // 8 bytes
+        uint64 minLiquidateCollateralFactor; // 8 bytes
+        uint64 maxLiquidateCollateralFactor; // 8 bytes
+        /// Fourth 256 bits (32 bytes)
+        uint64 minLiquidationFactor; // 8 bytes
+        uint64 maxLiquidationFactor; // 8 bytes
+        /// "Free" space 16 bytes
     }
 
+    /// TODO: Probarly A LOT OF WASTED SPACE.
     struct SandboxControllerConfiguration {
-        uint256 targetPercent;
-        uint256 storeFrontPriceFactor;
-        uint256 minUpdateTime;
-        uint256 maxUpdateTime;
-        uint256 suggestedAmountOfSeedReserves;
-        uint256 suggestedLockTimeOfSeedReserves;
+        /// First 256 bits (32 bytes)
+        uint256 targetPercent; // 32 bytes
+        /// Second 256 bits (32 bytes)
+        uint256 storeFrontPriceFactor; // 32 bytes
+        /// Third 256 bits (32 bytes)
+        uint256 minUpdateTime; // 32 bytes
+        /// Fourth 256 bits (32 bytes)
+        uint256 maxUpdateTime; // 32 bytes
+        /// Fifth 256 bits (32 bytes)
+        uint256 suggestedAmountOfSeedReserves; // 32 bytes
+        /// Sixth 256 bits (32 bytes)
+        uint256 suggestedLockTimeOfSeedReserves; // 32 bytes
     }
     
     event BaseAssetWhitelisted(
@@ -87,8 +108,7 @@ abstract contract ISandboxController is ISandboxErrors {
     function owner() external view virtual returns (address);
     function dao() external view virtual returns (address);
     function feeEnabled() external view virtual returns (bool);
-    function controllerConfiguration() external view virtual returns (SandboxControllerConfiguration memory);
-    function proposalBoundaries() external view virtual returns (uint,uint);
+    function proposalBoundaries() external view virtual returns (uint, uint);
     function baseAssetTokens(uint256) external view virtual returns (address);
     function collateralAssetTokens(uint256) external view virtual returns (address);
     function tokenToPriceFeed(address) external view virtual returns (address);
