@@ -26,6 +26,8 @@ contract DeployProtocol is Script {
     address collateralToken3;
     address collateralToken4;
 
+    uint64 internal constant SECONDS_PER_YEAR = 31_536_000;
+
     function run() external {
         // Get owner's private key from .env
         ownerPrivateKey = vm.envUint("OWNER_PRIVATE_KEY");
@@ -304,14 +306,14 @@ contract DeployProtocol is Script {
         
         // Create base asset curve configuration
         ISandboxController.BaseAssetCurve memory curve = ISandboxController.BaseAssetCurve({
-            supplyKink: 8e17, // 80%
-            supplyPerYearInterestRateSlopeLow: 1e16, // 1%
-            supplyPerYearInterestRateSlopeHigh: 2e16, // 2%
-            supplyPerYearInterestRateBase: 1e16, // 1%
-            borrowKink: 8e17, // 80%
-            borrowPerYearInterestRateSlopeLow: 1e16, // 1%
-            borrowPerYearInterestRateSlopeHigh: 2e16, // 2%
-            borrowPerYearInterestRateBase: 1e16 // 1%
+            supplyKink: 9e17, // 90%
+            supplyPerYearInterestRateSlopeLow: 1141552511 * SECONDS_PER_YEAR,
+            supplyPerYearInterestRateSlopeHigh: 101344495180 * SECONDS_PER_YEAR,
+            supplyPerYearInterestRateBase: 0,
+            borrowKink: 9e17, // 90%
+            borrowPerYearInterestRateSlopeLow: 880834601 * SECONDS_PER_YEAR,
+            borrowPerYearInterestRateSlopeHigh: 114155251141 * SECONDS_PER_YEAR,
+            borrowPerYearInterestRateBase: 475646879 * SECONDS_PER_YEAR
         });
 
         // Whitelist base asset
