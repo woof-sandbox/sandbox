@@ -120,6 +120,9 @@ contract DeployProtocol is Script {
             collateralPriceFeeds2
         );
 
+        // Stop broadcasting
+        vm.stopBroadcast();
+
         setupBorrowing(
             comet1,
             baseToken1,
@@ -135,9 +138,6 @@ contract DeployProtocol is Script {
         );
 
         setPrices();
-
-        // Stop broadcasting
-        vm.stopBroadcast();
 
         // Log deployment addresses
         console.log("Owner Address:", owner);
@@ -173,6 +173,8 @@ contract DeployProtocol is Script {
     }
 
     function setPrices() internal {
+        vm.startBroadcast(ownerPrivateKey);
+
         console.log("Setting prices");
         ManagedSimplePriceFeed(basePriceFeed1).setRoundData(
             0,
@@ -210,6 +212,8 @@ contract DeployProtocol is Script {
             0
         ); // LINK 
         console.log("Prices set");
+
+        vm.stopBroadcast();
     }
 
     function deployCometImplementation() internal returns (address) {
@@ -250,7 +254,7 @@ contract DeployProtocol is Script {
             3e17, // protocolFactorLiquidation (30%)
             2e17, // reserveFactorLiquidation (20%)
             2e17, // targetPercent (20%)
-            95e16, // storeFrontPriceFactor (95%)
+            6e17, // storeFrontPriceFactor (60%)
             300, // minUpdateTime (5 minutes)
             3600, // maxUpdateTime (1 hour)
             250, // suggestedAmountOfSeedReserves
@@ -309,7 +313,7 @@ contract DeployProtocol is Script {
             supplyKink: 9e17, // 90%
             supplyPerYearInterestRateSlopeLow: 1141552511 * SECONDS_PER_YEAR,
             supplyPerYearInterestRateSlopeHigh: 101344495180 * SECONDS_PER_YEAR,
-            supplyPerYearInterestRateBase: 0,
+            supplyPerYearInterestRateBase: 140000000 * SECONDS_PER_YEAR,
             borrowKink: 9e17, // 90%
             borrowPerYearInterestRateSlopeLow: 880834601 * SECONDS_PER_YEAR,
             borrowPerYearInterestRateSlopeHigh: 114155251141 * SECONDS_PER_YEAR,
@@ -384,9 +388,9 @@ contract DeployProtocol is Script {
             collateralConfigs[i] = IConfigController.CollateralTokenConfig({
                 collateralToken: collateralTokens[i],
                 supplyCap: 1e24, // 1,000,000 tokens
-                borrowCollateralFactor: 8000, // 80%
-                liquidateCollateralFactor: 8500, // 85%
-                liquidationFactor: 5000 // 50%
+                borrowCollateralFactor: 8.1e17, // 80%
+                liquidateCollateralFactor: 8.5e17, // 85%
+                liquidationFactor: 9e17 // 90%
             });
         }
 
