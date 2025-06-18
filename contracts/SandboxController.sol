@@ -10,10 +10,6 @@ import {ISandboxController} from "./interfaces/ISandboxController.sol";
  * @dev Manages base asset configurations and interest rate baseAssetCurves.
  */
 contract SandboxController is ISandboxController {
-    uint256 public override protocolFactorBorrow;
-    uint256 public override reserveFactorBorrow;
-    uint256 public override protocolFactorLiquidation;
-    uint256 public override reserveFactorLiquidation;
     address public override treasury;
     address public override owner;
     address public override dao;
@@ -59,53 +55,61 @@ contract SandboxController is ISandboxController {
      * @param _owner  The address of the protocol owner.
      * @param _dao    The address of the DAO (governance).
      * @param _feeEnabled Global fee flag for the entire protocol.
-     * @param _protocolFactorBorrow  Nonzero. Will combine with reserveFactorBorrow.
-     * @param _reserveFactorBorrow   Nonzero. Sum with _protocolFactorBorrow <= 1e18.
-     * @param _protocolFactorLiquidation Nonzero. Sum with _reserveFactorLiquidation <= 1e18.
-     * @param _reserveFactorLiquidation  Nonzero.
      * @param _targetPercent            < 0.5 (50%)
      * @param _storeFrontPriceFactor     < 1e18
      * @param _minUpdateTime             > 0
      * @param _maxUpdateTime            reasonable time for the proposal duration
-     * @param _suggestedAmountOfSeedReserves > 0
-     * @param _suggestedLockTimeOfSeedReserves > 0
+     * @param _suggestedAmountOfSeedReserves The suggested amount of seed reserves in $. Decimals are 6.
+     * @param _suggestedLockTimeOfSeedReserves The suggested lock time of seed reserves in seconds.
+     * @dev The `_suggestedAmountOfSeedReserves` and `_suggestedLockTimeOfSeedReserves` must be greater than 0.
+     * @param _reserveCommissions The reserve commission factors for each market state.
+     * @param _protocolCommissions The protocol commission factors for each market state.
+     * @dev The length of the `_reserveCommissions` and `_protocolCommissions` arrays must be 3.
      */
     constructor(
         address _owner,
         address _dao,
+        address _treasury,
         bool _feeEnabled,
-        uint256 _protocolFactorBorrow,
-        uint256 _reserveFactorBorrow,
-        uint256 _protocolFactorLiquidation,
-        uint256 _reserveFactorLiquidation,
         uint256 _targetPercent,
         uint256 _storeFrontPriceFactor,
         uint256 _minUpdateTime,
         uint256 _maxUpdateTime,
         uint256 _suggestedAmountOfSeedReserves,
-        uint256 _suggestedLockTimeOfSeedReserves
+        uint256 _suggestedLockTimeOfSeedReserves,
+        uint64[3] memory _reserveCommissions,
+        uint64[3] memory _protocolCommissions
     ) {
         if (_owner == address(0) || _dao == address(0)) revert ZeroAddress();
         if (_owner == _dao) revert InvalidFactors();
+        if (_treasury == address(0)) revert ZeroAddress();
         owner = _owner;
         dao = _dao;
-
         feeEnabled = _feeEnabled;
+        treasury = _treasury;
 
         if (
-            _protocolFactorBorrow == 0 ||
-            _reserveFactorBorrow == 0 ||
-            (_protocolFactorBorrow + _reserveFactorBorrow) > 1e18 ||
-            _protocolFactorLiquidation == 0 ||
-            _reserveFactorLiquidation == 0 ||
-            (_protocolFactorLiquidation + _reserveFactorLiquidation) > 1e18 ||
-            _targetPercent > 5e17 ||
-            _storeFrontPriceFactor >= 1e18 ||
-            _minUpdateTime == 0 || _maxUpdateTime < _minUpdateTime ||
-            _suggestedAmountOfSeedReserves == 0 ||
-            _suggestedLockTimeOfSeedReserves == 0
+            _targetPercent > 5e17 || /// Validate that the targetPercent is not bigger than 50%.
+            _storeFrontPriceFactor >= 1e18 || /// Validate that the storeFrontPriceFactor is not bigger than 100%.
+            _minUpdateTime == 0 || _maxUpdateTime < _minUpdateTime || /// Validate that the minUpdateTime is not 0 and the maxUpdateTime is bigger than the minUpdateTime.
+            _suggestedAmountOfSeedReserves == 0 || /// Validate that the suggestedAmountOfSeedReserves is not 0.
+            _suggestedLockTimeOfSeedReserves == 0 /// Validate that the suggestedLockTimeOfSeedReserves is not 0.
         ) revert InvalidFactors();
-
+        
+        for (uint256 i; i < 3;) {
+            MarketState state = MarketState(i);
+            /// Validate that the reserveCommissions and protocolCommissions are not bigger than 80%. 100% = 1e18.
+            /// This needed to leave something for the ConfigController owner and curator.
+            if (reserveCommission[state] + protocolCommission[state] > 8e17) revert InvalidFactors();
+            
+            reserveCommission[state] = _reserveCommissions[i];
+            protocolCommission[state] = _protocolCommissions[i];
+            
+            unchecked {
+                ++i;
+            }
+        }
+        
         _controllerConfiguration = SandboxControllerConfiguration(
             _targetPercent,
             _storeFrontPriceFactor,
@@ -121,8 +125,9 @@ contract SandboxController is ISandboxController {
      * @param _reserveCommissions The new reserve commission factors, scaled by 1e18. 100% = 1e18.
      */
     function setReserveCommissions(
-        uint256[3] calldata _reserveCommissions
+        uint64[3] calldata _reserveCommissions
     ) external override onlyOwner {
+        
         for (uint256 i; i < 3;) {
             MarketState state = MarketState(i);
             /// Check if the sum of the `reserveCommission` and the `protocolCommission` is less than 80%
@@ -139,7 +144,6 @@ contract SandboxController is ISandboxController {
             unchecked {
                 ++i;
             }
-            
         }
     }
 
@@ -148,8 +152,9 @@ contract SandboxController is ISandboxController {
      * @param _protocolCommissions The new protocol commission factors, scaled by 1e18. 100% = 1e18.
      */
     function setProtocolCommissions(
-        uint256[3] calldata _protocolCommissions
+        uint64[3] calldata _protocolCommissions
     ) external override onlyOwner {
+
         for (uint256 i; i < 3;) {
             MarketState state = MarketState(i);
             /// Check if the sum of the `protocolCommission` and the `reserveCommission` is less than 80%
@@ -178,7 +183,7 @@ contract SandboxController is ISandboxController {
     function setTreasury(address _treasury) external override onlyOwner {
         if (_treasury == address(0)) revert ZeroAddress();
         /// Emit event before updating the `treasury` address to save gas. Cheaper than creating a memory variable.
-        emit TreasuryChanged(_treasury, treasury);
+        emit TreasuryChanged(treasury, _treasury);
         treasury = _treasury;
     }
 
@@ -352,7 +357,7 @@ contract SandboxController is ISandboxController {
             _config.targetPercent > 5e17
         ) revert InvalidFactors();
         
-        emit ConfigurationChanged(_config, _controllerConfiguration);
+        emit ConfigurationChanged(_controllerConfiguration, _config);
 
         _controllerConfiguration = _config;
     }

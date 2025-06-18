@@ -679,10 +679,10 @@ describe("1. System Initialization", function() {
     });
 });
 
-
   describe("Sandbox Controller deployment", function() {
     
     beforeEach(async function() {
+      opts = defaultSandboxControllerOpts();
       opts.dao = dao.address;
       opts.admin = owner.address;
     });
@@ -691,11 +691,13 @@ describe("1. System Initialization", function() {
       const { sandboxController } = await makeSandboxController(opts);
       expect(await sandboxController.owner()).to.equal(owner.address);
       expect(await sandboxController.dao()).to.equal(dao.address);
-      expect(await sandboxController.feeEnabled()).to.equal(true);
-      expect(await sandboxController.protocolFactorBorrow()).to.equal(parseEther('0.5').toString());
-      expect(await sandboxController.reserveFactorBorrow()).to.equal(parseEther('0.2').toString());
-      expect(await sandboxController.protocolFactorLiquidation()).to.equal(parseEther('0.3').toString());
-      expect(await sandboxController.reserveFactorLiquidation()).to.equal(parseEther('0.4').toString());
+      expect(await sandboxController.feeEnabled()).to.equal(false);
+      expect(await sandboxController.reserveCommission(0)).to.equal(exp(0.01, 18));
+      expect(await sandboxController.reserveCommission(1)).to.equal(exp(0.02, 18));
+      expect(await sandboxController.reserveCommission(2)).to.equal(exp(0.03, 18));
+      expect(await sandboxController.protocolCommission(0)).to.equal(exp(0.01, 18));
+      expect(await sandboxController.protocolCommission(1)).to.equal(exp(0.02, 18));
+      expect(await sandboxController.protocolCommission(2)).to.equal(exp(0.03, 18));
       expect((await sandboxController.controllerConfiguration()).storeFrontPriceFactor).to.equal(parseEther('0.9999999999').toString());
       expect((await sandboxController.controllerConfiguration()).minUpdateTime).to.equal(300);
       expect((await sandboxController.controllerConfiguration()).maxUpdateTime).to.equal(604800);
@@ -730,45 +732,25 @@ describe("1. System Initialization", function() {
       ).to.be.revertedWithCustomError(_SandboxControllerFactory, 'InvalidFactors');
     });
 
-    it('reverts if protocolFactorBorrow = 0', async function () {
-      opts.protocolFactorBorrow = '0';
+    it('reverts if the sum of reserveCommissions elements + protocolCommissions elements > 1e18(first set)', async function () {
+      opts.reserveCommissions = [exp(0.5, 18), exp(0.5, 18), exp(0.5, 18)];
+      opts.protocolCommissions = [exp(0.5, 18), exp(0.5, 18), exp(0.5, 18)];
       await expect(
         _SandboxControllerFactory.deploy(...Object.values(opts))
       ).to.be.revertedWithCustomError(_SandboxControllerFactory, 'InvalidFactors');
     });
 
-    it('reverts if reserveFactorBorrow = 0', async function () {
-      opts.reserveFactorBorrow = '0';
+    it('reverts if the sum of reserveCommissions elements + protocolCommissions elements > 1e18(second set)', async function () {
+      opts.reserveCommissions = [exp(0.8, 18), exp(0.9, 18), exp(0.99, 18)];
+      opts.protocolCommissions = [exp(0.3, 18), exp(0.2, 18), exp(0.1, 18)];
       await expect(
         _SandboxControllerFactory.deploy(...Object.values(opts))
       ).to.be.revertedWithCustomError(_SandboxControllerFactory, 'InvalidFactors');
     });
-
-    it('reverts if protocolFactorBorrow+reserveFactorBorrow > 1e18', async function () {
-      opts.protocolFactorBorrow = ethers.utils.parseEther('0.6').toString();
-      opts.reserveFactorBorrow = ethers.utils.parseEther('0.5').toString();
-      await expect(
-        _SandboxControllerFactory.deploy(...Object.values(opts))
-      ).to.be.revertedWithCustomError(_SandboxControllerFactory, 'InvalidFactors');
-    });
-
-    it('reverts if protocolFactorLiquidation = 0', async function () {
-      opts.protocolFactorLiquidation = '0';
-      await expect(
-        _SandboxControllerFactory.deploy(...Object.values(opts))
-      ).to.be.revertedWithCustomError(_SandboxControllerFactory, 'InvalidFactors');
-    });
-
-    it('reverts if reserveFactorLiquidation = 0', async function () {
-      opts.reserveFactorLiquidation = '0';
-      await expect(
-        _SandboxControllerFactory.deploy(...Object.values(opts))
-      ).to.be.revertedWithCustomError(_SandboxControllerFactory, 'InvalidFactors');
-    });
-
-    it('reverts if protocolFactorLiquidation+reserveFactorLiquidation > 1e18', async function () {
-      opts.protocolFactorLiquidation = ethers.utils.parseEther('0.6').toString();
-      opts.reserveFactorLiquidation = ethers.utils.parseEther('0.5').toString();
+    /// TODO: add fuzzing for this case
+    it('reverts if the sum of reserveCommissions elements + protocolCommissions elements > 1e18(third set)', async function () {
+      opts.reserveCommissions = [exp(0.5, 18), exp(0.5, 18), exp(0.5, 18)];
+      opts.protocolCommissions = [exp(0.8, 18), exp(0.7, 18), exp(0.9, 18)];
       await expect(
         _SandboxControllerFactory.deploy(...Object.values(opts))
       ).to.be.revertedWithCustomError(_SandboxControllerFactory, 'InvalidFactors');

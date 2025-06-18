@@ -81,10 +81,6 @@ abstract contract ISandboxController is ISandboxErrors {
     event OwnerTransferred(address oldOwner, address newOwner);
     event DaoTransferred(address oldDao, address newDao);
 
-    function protocolFactorBorrow() external view virtual returns (uint256);
-    function reserveFactorBorrow() external view virtual returns (uint256);
-    function protocolFactorLiquidation() external view virtual returns (uint256);
-    function reserveFactorLiquidation() external view virtual returns (uint256);
     function getBaseAssetLength() external view virtual returns (uint256);
     function getCollateralAssetLength() external view virtual returns (uint256);
     function treasury() external view virtual returns (address);
@@ -119,8 +115,8 @@ abstract contract ISandboxController is ISandboxErrors {
 
     function addBaseAssetCurve(address token, BaseAssetCurve memory baseAssetCurve) external virtual;
     function changeBaseAssetCurve(address token, uint256 curveIndex, BaseAssetCurve memory newCurve) external virtual;
-    function setReserveCommissions(uint256[3] calldata reserveCommissions) external virtual;
-    function setProtocolCommissions(uint256[3] calldata protocolCommissions) external virtual;
+    function setReserveCommissions(uint64[3] calldata reserveCommissions) external virtual;
+    function setProtocolCommissions(uint64[3] calldata protocolCommissions) external virtual;
     function setTreasury(address _treasury) external virtual;
     function setConfiguration(SandboxControllerConfiguration memory _config) external virtual;
     function setFeeEnabled(bool _feeEnabled) external virtual;
