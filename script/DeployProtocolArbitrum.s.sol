@@ -246,12 +246,12 @@ contract DeployProtocol is Script {
         sandboxController.whitelistCollateralAsset(
             collateralToken,
             collateralPriceFeed,
-            8000, // minBorrowCollateralFactor (80%)
-            9000, // maxBorrowCollateralFactor (90%)
-            8500, // minLiquidateCollateralFactor (85%)
-            9500, // maxLiquidateCollateralFactor (95%)
-            5000, // minLiquidationFactor (50%)
-            9000 // maxLiquidationFactor (90%)
+            8e17, // minBorrowCollateralFactor (80%)
+            9e17, // maxBorrowCollateralFactor (90%)
+            8.5e17, // minLiquidateCollateralFactor (85%)
+            9.5e17, // maxLiquidateCollateralFactor (95%)
+            8.5e17, // minLiquidationFactor (85%)
+            9.5e17 // maxLiquidationFactor (95%)
         );
     }
 
@@ -293,12 +293,10 @@ contract DeployProtocol is Script {
         for (uint i = 0; i < collateralTokens.length; i++) {
             collateralConfigs[i] = IConfigController.CollateralTokenConfig({
                 collateralToken: collateralTokens[i],
-                priceFeed: collateralPriceFeeds[i],
+                supplyCap: 1e24, // 1,000,000 tokens
                 borrowCollateralFactor: 8000, // 80%
                 liquidateCollateralFactor: 8500, // 85%
-                liquidationFactor: 5000, // 50%
-                supplyCap: 1e24, // 1,000,000 tokens
-                scale: 15 // 15 decimals
+                liquidationFactor: 5000 // 50%
             });
         }
 
@@ -306,13 +304,7 @@ contract DeployProtocol is Script {
         IConfigController.CometConfig memory cometConfig = IConfigController.CometConfig({
             baseToken: baseToken,
             baseTokenCurveId: 0, // Use first curve
-            collateralTokens: collateralConfigs,
-            options: IConfigController.CometOptions({
-                baseTrackingSupplySpeed: 1e18, // 1x
-                baseTrackingBorrowSpeed: 1e18, // 1x
-                trackingIndexScale: 1e18, // 1x
-                baseMinForRewards: 1e18 // 1x
-            })
+            collateralTokens: collateralConfigs
         });
 
         // Create comet
