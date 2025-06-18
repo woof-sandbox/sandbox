@@ -357,7 +357,7 @@ describe("1. System Initialization", function() {
     });
 
     it("should revert on deployment with proposals duration is too short", async function() {
-        const { minUpdateTime } = await sandboxController.controllerConfiguration();
+        const { minUpdateTime } = await sandboxController.config();
 
         await expect(
             configControllerFactory.createConfigController(
@@ -698,11 +698,11 @@ describe("1. System Initialization", function() {
       expect(await sandboxController.protocolCommission(0)).to.equal(exp(0.01, 18));
       expect(await sandboxController.protocolCommission(1)).to.equal(exp(0.02, 18));
       expect(await sandboxController.protocolCommission(2)).to.equal(exp(0.03, 18));
-      expect((await sandboxController.controllerConfiguration()).storeFrontPriceFactor).to.equal(parseEther('0.9999999999').toString());
-      expect((await sandboxController.controllerConfiguration()).minUpdateTime).to.equal(300);
-      expect((await sandboxController.controllerConfiguration()).maxUpdateTime).to.equal(604800);
-      expect((await sandboxController.controllerConfiguration()).suggestedAmountOfSeedReserves).to.equal(ethers.utils.parseEther('500').toString());
-      expect((await sandboxController.controllerConfiguration()).suggestedLockTimeOfSeedReserves).to.equal(86400);
+      expect((await sandboxController.config()).storeFrontPriceFactor).to.equal(parseEther('0.9999999999').toString());
+      expect((await sandboxController.config()).minUpdateTime).to.equal(300);
+      expect((await sandboxController.config()).maxUpdateTime).to.equal(604800);
+      expect((await sandboxController.config()).suggestedAmountOfSeedReserves).to.equal(ethers.utils.parseEther('500').toString());
+      expect((await sandboxController.config()).suggestedLockTimeOfSeedReserves).to.equal(86400);
     });
 
     it('reverts if admin = 0', async function () {

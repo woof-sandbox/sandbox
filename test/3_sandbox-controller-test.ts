@@ -90,11 +90,11 @@ describe('3. SandboxController', function () {
       
       expect(await sandboxController.getBaseAssetLength()).to.equal(0);
       expect(await sandboxController.getCollateralAssetLength()).to.equal(0);
-      expect((await sandboxController.controllerConfiguration()).storeFrontPriceFactor).to.equal(parseEther("0.1").toString());
-      expect((await sandboxController.controllerConfiguration()).minUpdateTime).to.equal(300);
-      expect((await sandboxController.controllerConfiguration()).maxUpdateTime).to.equal(604800);
-      expect((await sandboxController.controllerConfiguration()).suggestedAmountOfSeedReserves).to.equal("1000");
-      expect((await sandboxController.controllerConfiguration()).suggestedLockTimeOfSeedReserves).to.equal(3600);
+      expect((await sandboxController.config()).storeFrontPriceFactor).to.equal(parseEther("0.1").toString());
+      expect((await sandboxController.config()).minUpdateTime).to.equal(300);
+      expect((await sandboxController.config()).maxUpdateTime).to.equal(604800);
+      expect((await sandboxController.config()).suggestedAmountOfSeedReserves).to.equal("1000");
+      expect((await sandboxController.config()).suggestedLockTimeOfSeedReserves).to.equal(3600);
     });
   });
 
@@ -799,12 +799,12 @@ describe('3. SandboxController', function () {
     });
 
     it('updates configuration with valid values and emits event', async function () {
-      expect((await sandboxController.controllerConfiguration()).storeFrontPriceFactor).to.equal(parseEther('0.9999999999').toString());
-      expect((await sandboxController.controllerConfiguration()).minUpdateTime).to.equal(300);
-      expect((await sandboxController.controllerConfiguration()).maxUpdateTime).to.equal(7 * 24 * 60 * 60);
-      expect((await sandboxController.controllerConfiguration()).suggestedAmountOfSeedReserves).to.equal(ethers.utils.parseEther('500').toString());
-      expect((await sandboxController.controllerConfiguration()).suggestedLockTimeOfSeedReserves).to.equal(86400);
-      expect((await sandboxController.controllerConfiguration()).targetPercent).to.equal(ethers.utils.parseEther('0.5').toString());
+      expect((await sandboxController.config()).storeFrontPriceFactor).to.equal(parseEther('0.9999999999').toString());
+      expect((await sandboxController.config()).minUpdateTime).to.equal(300);
+      expect((await sandboxController.config()).maxUpdateTime).to.equal(7 * 24 * 60 * 60);
+      expect((await sandboxController.config()).suggestedAmountOfSeedReserves).to.equal(ethers.utils.parseEther('500').toString());
+      expect((await sandboxController.config()).suggestedLockTimeOfSeedReserves).to.equal(86400);
+      expect((await sandboxController.config()).targetPercent).to.equal(ethers.utils.parseEther('0.5').toString());
       
       const tx = await sandboxController.setConfiguration({
         storeFrontPriceFactor: parseEther('0.4').toString(),

@@ -54,7 +54,7 @@ interface ISandboxController is ISandboxErrors {
         /// "Free" space 16 bytes
     }
 
-    /// TODO: Probarly A LOT OF WASTED SPACE.
+    /// TODO: Probarly A LOT OF WASTED SPACE. Decide the biggest variable value.
     struct SandboxControllerConfiguration {
         /// First 256 bits (32 bytes)
         uint256 targetPercent; // 32 bytes
@@ -93,9 +93,8 @@ interface ISandboxController is ISandboxErrors {
         uint64 maxLiquidationFactor
     );
 
-    event ThresholdChanged(MarketState state, uint256 oldValue, uint256 newValue);
-    event ReserveCommissionChanged(MarketState state, uint256 oldValue, uint256 newValue);
-    event ProtocolCommissionChanged(MarketState state, uint256 oldValue, uint256 newValue);
+    event ReserveCommissionChanged(MarketState state, uint64 oldValue, uint64 newValue);
+    event ProtocolCommissionChanged(MarketState state, uint64 oldValue, uint64 newValue);
     event TreasuryChanged(address oldTreasury, address newTreasury);
     event ConfigurationChanged(SandboxControllerConfiguration oldConfig, SandboxControllerConfiguration newConfig);
     event FeeEnabledSet(bool feeEnabled);
@@ -112,8 +111,8 @@ interface ISandboxController is ISandboxErrors {
     function baseAssetTokens(uint256) external view virtual returns (address);
     function collateralAssetTokens(uint256) external view virtual returns (address);
     function tokenToPriceFeed(address) external view virtual returns (address);
-    function reserveCommission(MarketState) external view virtual returns (uint256);
-    function protocolCommission(MarketState) external view virtual returns (uint256);
+    function reserveCommission(MarketState) external view virtual returns (uint64);
+    function protocolCommission(MarketState) external view virtual returns (uint64);
 
     function whitelistBaseAsset(
         address token,

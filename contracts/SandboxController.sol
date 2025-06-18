@@ -10,18 +10,29 @@ import {ISandboxController} from "./interfaces/ISandboxController.sol";
  * @dev Manages base asset configurations and interest rate baseAssetCurves.
  */
 contract SandboxController is ISandboxController {
+    /// @notice treasury address. This is the address that will receive the fees.
     address public treasury; /// 20 bytes
+    /// @notice owner address. This is the address that will be able to call the functions that require the owner role.
     address public override owner; /// 20 bytes
+    /// @notice dao address. This is the address that will be able to call the functions that require the dao role.
     address public override dao; /// 20 bytes
+    /// @notice feeEnabled flag. This is the flag that will be used to enable/disable the fees for all markets.
     bool public override feeEnabled; /// 1 byte
+    /// @notice controller configuration. Holds: targetPercent, storeFrontPriceFactor, minUpdateTime, maxUpdateTime, suggestedAmountOfSeedReserves, suggestedLockTimeOfSeedReserves.
     SandboxControllerConfiguration public _controllerConfiguration; /// 32 bytes
-    address[] public override baseAssetTokens; /// 20 bytes
-    address[] public override collateralAssetTokens; /// 20 bytes
-    mapping(address => address) public override tokenToPriceFeed; /// 20 bytes
-    mapping(MarketState => uint256) public override reserveCommission; /// 32 bytes
-    mapping(MarketState => uint256) public override protocolCommission; /// 32 bytes
-    mapping(address => BaseAssetConfiguration) internal _baseAssets; /// 20 bytes
-    mapping(address => CollateralAssetConfiguration) internal _collateralAssets; /// 20 bytes
+    /// @notice base asset tokens. Whitelisted base asset tokens.
+    address[] public override baseAssetTokens; 
+    /// @notice collateral asset tokens. Whitelisted collateral asset tokens.
+    address[] public override collateralAssetTokens; 
+    /// @notice token to price feed.
+    mapping(address => address) public override tokenToPriceFeed; 
+    /// @notice reserve commission. This is the mapping of the market state to the percentage of the reserve commission.
+    mapping(MarketState => uint64) public override reserveCommission; 
+    /// @notice protocol commission. This is the mapping of the market state to the percentage of the protocol commission.
+    mapping(MarketState => uint64) public override protocolCommission; 
+    /// @notice base asset configurations. This is the mapping of the base asset token to the base asset configuration.
+    mapping(address => BaseAssetConfiguration) internal _baseAssets;
+    mapping(address => CollateralAssetConfiguration) internal _collateralAssets; 
 
     /**
      * @dev Modifier to check if the caller is the owner.
