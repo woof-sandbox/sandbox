@@ -123,20 +123,6 @@ contract DeployProtocol is Script {
         // Stop broadcasting
         vm.stopBroadcast();
 
-        setupBorrowing(
-            comet1,
-            baseToken1,
-            collateralTokens1,
-            curator
-        );
-
-        setupBorrowing(
-            comet2,
-            baseToken1,
-            collateralTokens2,
-            curator
-        );
-
         setPrices();
 
         // Log deployment addresses
@@ -405,46 +391,5 @@ contract DeployProtocol is Script {
         address comet = configController.createComet(cometConfig);
 
         return comet;
-    }
-
-    function setupBorrowing(
-        address cometAddr,
-        address baseToken,
-        address[] memory collateralTokens,
-        address user
-    ) internal {
-        ISandboxComet comet = ISandboxComet(cometAddr);
-        ManagedFaucetToken baseTokenContract = ManagedFaucetToken(baseToken);
-
-        // Supply base token to the comet
-        uint256 baseAmount = 1e24; // 1,000,000 base tokens
-        vm.startBroadcast(ownerPrivateKey);
-        baseTokenContract.allocateTo(owner, baseAmount);
-        baseTokenContract.approve(cometAddr, baseAmount);
-        comet.supply(baseToken, baseAmount);
-        vm.stopBroadcast();
-
-        // Supply collateral tokens
-        for (uint i = 0; i < collateralTokens.length; i++) {
-            ManagedFaucetToken collateralToken = ManagedFaucetToken(collateralTokens[i]);
-            uint256 collateralAmount = 1e24; // 1,000,000 collateral tokens
-            vm.startBroadcast(ownerPrivateKey);
-            collateralToken.allocateTo(user, collateralAmount);
-            vm.stopBroadcast();
-            vm.startBroadcast(userPrivateKey);
-            collateralToken.approve(cometAddr, collateralAmount);
-            comet.supply(collateralTokens[i], collateralAmount);
-            vm.stopBroadcast();
-        }
-        
-        // Borrow base token
-        uint256 borrowAmount = 500 * 10 ** baseTokenContract.decimals();
-        vm.startBroadcast(userPrivateKey);
-        comet.withdraw(baseToken, borrowAmount);
-        vm.stopBroadcast();
-
-        console.log("Setup borrowing for Comet:", cometAddr);
-        console.log("Supplied base token amount:", baseAmount);
-        console.log("Borrowed amount:", borrowAmount);
     }
 } 
