@@ -27,13 +27,8 @@ abstract contract CometCore is CometStorage, CometMath {
      */
     function spendAllowance(address owner, address manager, address asset, uint256 amount) internal returns(bool) {
         if (owner == manager) return true;
-
-        uint256 currentAllowance = allowance[owner][manager][asset];
-        if (currentAllowance < type(uint256).max) {
-            // If the allowance is not unlimited, reduce it by the value spent
-            unchecked {
-                allowance[owner][manager][asset] -= amount;
-            }
+        unchecked {
+            allowance[owner][manager][asset] -= amount;
         }
         return true;
     }

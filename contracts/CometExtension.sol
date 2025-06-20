@@ -114,11 +114,14 @@ contract CometExtension is ICometExtension {
      * @dev The length of the amounts array must match the number of assets (baseToken + collateralAssets)
      * @return Whether or not the approval change succeeded
      */
-    function approveAll(address spender, uint256[] calldata amounts) override external returns (bool) {
-        uint256 len = collateralAssets.length + 1; // +1 for baseToken
+    function approveAll(address spender, uint256 baseTokenAmount, uint256[] calldata amounts) override external returns (bool) {
+        uint256 len = collateralAssets.length;
         if (len != amounts.length) revert InvalidLength();
+        
+        allowInternal(msg.sender, spender, baseToken, baseTokenAmount);
+
         for (uint256 i = 0; i < len; i++) {
-            address asset = i == 0 ? baseToken : collateralAssets[i - 1].collateralToken;
+            address asset = collateralAssets[i].collateralToken;
             allowInternal(msg.sender, spender, asset, amounts[i]);
         }
         return true;

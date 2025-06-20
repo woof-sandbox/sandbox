@@ -93,24 +93,24 @@ abstract contract ICometExtension is CometCore {
      * @dev This will overwrite the approval amount for `spender`
      *  and is subject to issues noted [here](https://eips.ethereum.org/EIPS/eip-20#approve)
      * @param spender The address of the account which may transfer tokens
-     * @param amount The number of tokens that are approved (-1 means infinite)
+     * @param amount The number of tokens that are approved
      * @return Whether or not the approval succeeded
      */
     function approve(
         address spender, address asset, uint256 amount
     ) external virtual returns (bool);
 
-    function approveAll(address spender, uint256[] calldata amounts) external virtual returns (bool);
-
     /**
-     * @notice Get the current allowance from `owner` for `spender`
-     * @param owner The address of the account which owns the tokens to be spent
-     * @param spender The address of the account which may transfer tokens
-     * @return The number of tokens allowed to be spent (-1 means infinite)
+     * @notice Approve `spender` to transfer up to `baseTokenAmount` from `src`
+     *  and `amounts` from each collateral asset
+     * @dev This will overwrite the approval amount for `spender`
+     * @param spender The address of the account which may operate the tokens
+     * @param baseTokenAmount The number of base tokens that are approved
+     * @param amounts The number of collateral tokens that are approved
+     * @notice The order list of collateral assets must match the order of `collateralAssets`
+     * @return Whether or not the approval succeeded
      */
-    // function allowance(
-    //     address owner, address spender, address asset
-    // ) external view virtual returns (uint256);
+    function approveAll(address spender, uint256 baseTokenAmount, uint256[] calldata amounts) external virtual returns (bool);
 
     event Approval(
         address indexed owner,
