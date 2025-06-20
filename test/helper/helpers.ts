@@ -474,11 +474,11 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
         tokens[asset].address,
         priceFeeds[asset].address,
         opts.assets?.[asset].minBorrowCF ?? exp(0.5, 18),
-        opts.assets?.[asset].maxBorrowCF ?? exp(1, 18),
+        opts.assets?.[asset].maxBorrowCF ?? exp(0.6, 18),
         opts.assets?.[asset].minLiquidateCF ?? exp(0.6, 18),
         opts.assets?.[asset].maxLiquidateCF ?? exp(0.7, 18),
         opts.assets?.[asset].minLiquidationFactor ?? exp(0.8, 18),
-        opts.assets?.[asset].maxLiquidationFactor ?? exp(1, 18)
+        opts.assets?.[asset].maxLiquidationFactor ?? exp(0.9, 18)
       );
     }
   

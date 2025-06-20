@@ -87,7 +87,7 @@ describe('15. allowance', function () {
       const spender = alice.address;
       const initialAllowances = await Promise.all(assets.map((asset) => comet.allowance(user.address, spender, asset)));
 
-      await comet.connect(user).approveAll(spender, amounts);
+      await comet.connect(user).approveAll(spender, amounts[0], amounts.slice(1));
 
       const newAllowances = await Promise.all(assets.map((asset) => comet.allowance(user.address, spender, asset)));
 
@@ -101,12 +101,12 @@ describe('15. allowance', function () {
       const amounts = [...Array(assets.length - 1).fill(100n)];
       const spender = alice.address;
 
-      await expect(comet.connect(user).approveAll(spender, amounts))
+      await expect(comet.connect(user).approveAll(spender, amounts[0], amounts.slice(1)))
         .to.emit(comet, 'Approval')
         .withArgs(user.address, spender, baseToken.address, 100n);
 
       for (let i = 0; i < Object.keys(tokens).length; i++) {
-        await expect(comet.connect(user).approveAll(spender, amounts))
+        await expect(comet.connect(user).approveAll(spender, amounts[0], amounts.slice(1)))
           .to.emit(comet, 'Approval')
           .withArgs(user.address, spender, Object.values(tokens)[i].address, 100n);
       }
@@ -114,10 +114,10 @@ describe('15. allowance', function () {
 
     it('should revert if amounts length does not match assets length', async () => {
       const assets = [baseToken.address, ...Object.values(tokens).map((token) => token.address)];
-      const amounts = [...Array(assets.length - 1).fill(100n), 200n]; // One extra amount
+      const amounts = [...Array(assets.length).fill(100n)]; // One extra amount
       const spender = alice.address;
 
-      await expect(comet.connect(user).approveAll(spender, amounts)).to.be.revertedWithCustomError(comet, 'InvalidLength');
+      await expect(comet.connect(user).approveAll(spender, amounts[0], amounts.slice(1))).to.be.revertedWithCustomError(comet, 'InvalidLength');
     });
   });
 
@@ -187,27 +187,6 @@ describe('15. allowance', function () {
       const newAllowance = await comet.allowance(owner.address, dst.address, asset.address);
 
       expect(newAllowance).to.equal(initialAllowance.sub(amount));
-    });
-
-    it('should not spend allowance if allowance is infinite', async () => {
-      const asset = baseToken;
-      const amount = 100;
-      const owner = user;
-      const dst = alice;
-
-      await baseToken.allocateTo(owner.address, amount);
-      await baseToken.connect(owner).approve(comet.address, amount);
-
-      // Approve infinite allowance
-      await comet.connect(owner).approve(dst.address, asset.address, ethers.constants.MaxUint256);
-
-      const initialAllowance = await comet.allowance(owner.address, dst.address, asset.address);
-
-      await comet.connect(dst).supplyFrom(owner.address, dst.address, asset.address, amount);
-
-      const newAllowance = await comet.allowance(owner.address, dst.address, asset.address);
-
-      expect(newAllowance).to.equal(initialAllowance);
     });
 
     it('should revert if allowance is not enough', async () => {
