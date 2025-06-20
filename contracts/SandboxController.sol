@@ -32,6 +32,7 @@ contract SandboxController is ISandboxController {
     mapping(MarketState => uint64) public override protocolCommission; 
     /// @notice base asset configurations. This is the mapping of the base asset token to the base asset configuration.
     mapping(address => BaseAssetConfiguration) internal _baseAssets;
+    /// @notice collateral asset configurations. Holds: priceFeed, decimals, maxBorrowCollateralFactor, minBorrowCollateralFactor, minLiquidateCollateralFactor, maxLiquidateCollateralFactor, minLiquidationFactor, maxLiquidationFactor
     mapping(address => CollateralAssetConfiguration) internal _collateralAssets; 
 
     /**

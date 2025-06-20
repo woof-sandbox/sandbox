@@ -101,25 +101,25 @@ interface ISandboxController is ISandboxErrors {
     event OwnerTransferred(address oldOwner, address newOwner);
     event DaoTransferred(address oldDao, address newDao);
 
-    function getBaseAssetLength() external view virtual returns (uint256);
-    function getCollateralAssetLength() external view virtual returns (uint256);
-    function treasury() external view virtual returns (address);
-    function owner() external view virtual returns (address);
-    function dao() external view virtual returns (address);
-    function feeEnabled() external view virtual returns (bool);
-    function proposalBoundaries() external view virtual returns (uint, uint);
-    function baseAssetTokens(uint256) external view virtual returns (address);
-    function collateralAssetTokens(uint256) external view virtual returns (address);
-    function tokenToPriceFeed(address) external view virtual returns (address);
-    function reserveCommission(MarketState) external view virtual returns (uint64);
-    function protocolCommission(MarketState) external view virtual returns (uint64);
+    function getBaseAssetLength() external view returns (uint256);
+    function getCollateralAssetLength() external view returns (uint256);
+    function treasury() external view returns (address);
+    function owner() external view returns (address);
+    function dao() external view returns (address);
+    function feeEnabled() external view returns (bool);
+    function proposalBoundaries() external view returns (uint, uint);
+    function baseAssetTokens(uint256) external view returns (address);
+    function collateralAssetTokens(uint256) external view returns (address);
+    function tokenToPriceFeed(address) external view returns (address);
+    function reserveCommission(MarketState) external view returns (uint64);
+    function protocolCommission(MarketState) external view returns (uint64);
 
     function whitelistBaseAsset(
         address token,
         address priceFeed,
         BaseAssetCurve memory baseAssetCurve,
         uint256 minBorrow
-    ) external virtual;
+    ) external;
 
     function whitelistCollateralAsset(
         address token,
@@ -130,23 +130,23 @@ interface ISandboxController is ISandboxErrors {
         uint64 maxLiquidateCollateralFactor,
         uint64 minLiquidationFactor,
         uint64 maxLiquidationFactor
-    ) external virtual;
+    ) external;
 
-    function addBaseAssetCurve(address token, BaseAssetCurve memory baseAssetCurve) external virtual;
-    function changeBaseAssetCurve(address token, uint256 curveIndex, BaseAssetCurve memory newCurve) external virtual;
-    function setReserveCommissions(uint64[3] calldata reserveCommissions) external virtual;
-    function setProtocolCommissions(uint64[3] calldata protocolCommissions) external virtual;
-    function setTreasury(address _treasury) external virtual;
-    function setConfiguration(SandboxControllerConfiguration memory _config) external virtual;
-    function setFeeEnabled(bool _feeEnabled) external virtual;
-    function transferOwner(address newOwner) external virtual;
-    function transferDao(address newDao) external virtual;
-    function isBaseTokenWhitelisted(address token) external view virtual returns (bool);
-    function isCollateralTokenWhitelisted(address token) external view virtual returns (bool);
-    function isCurveConfigurationValid(BaseAssetCurve memory curve) external pure virtual returns (bool);
-    function baseAssets(address token) external view virtual returns (BaseAssetConfiguration memory);
-    function collateralAssets(address token) external view virtual returns (CollateralAssetConfiguration memory);
-    function curves(address token) external view virtual returns (BaseAssetCurve[] memory);
+    function addBaseAssetCurve(address token, BaseAssetCurve memory baseAssetCurve) external;
+    function changeBaseAssetCurve(address token, uint256 curveIndex, BaseAssetCurve memory newCurve) external;
+    function setReserveCommissions(uint64[3] calldata reserveCommissions) external;
+    function setProtocolCommissions(uint64[3] calldata protocolCommissions) external;
+    function setTreasury(address _treasury) external;
+    function setConfiguration(SandboxControllerConfiguration memory _config) external;
+    function setFeeEnabled(bool _feeEnabled) external;
+    function transferOwner(address newOwner) external;
+    function transferDao(address newDao) external;
+    function isBaseTokenWhitelisted(address token) external view returns (bool);
+    function isCollateralTokenWhitelisted(address token) external view returns (bool);
+    function isCurveConfigurationValid(BaseAssetCurve memory curve) external pure returns (bool);
+    function baseAssets(address token) external view returns (BaseAssetConfiguration memory);
+    function collateralAssets(address token) external view returns (CollateralAssetConfiguration memory);
+    function curves(address token) external view returns (BaseAssetCurve[] memory);
 
-    function config() external view virtual returns (SandboxControllerConfiguration memory);
+    function config() external view returns (SandboxControllerConfiguration memory);
 }
