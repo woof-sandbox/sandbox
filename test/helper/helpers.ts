@@ -223,18 +223,17 @@ export type BulkerOpts = {
 export interface SandboxControllerOpts {
   admin?: any;
   dao?: any;
+  treasury?: any;
   feeEnabled?: boolean;
   storeFrontPriceFactor?: string;
-  protocolFactorBorrow?: string;
-  reserveFactorBorrow?: string;
-  protocolFactorLiquidation?: string;
-  reserveFactorLiquidation?: string;
-  targetPercent: string;
+  targetPercent?: string;
   minUpdateTime?: number;
   maxUpdateTime?: number;
   maxCollateralAssets?: number;
   suggestedAmountOfSeedReserves?: string;
   suggestedLockTimeOfSeedReserves?: number;
+  reserveCommissions?: [bigint, bigint, bigint];
+  protocolCommissions?: [bigint, bigint, bigint];
 }
 
 export type BulkerInfo = {
@@ -405,7 +404,6 @@ export async function makeCometFactory(
 }
 
 export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Protocol> {
-
     const signers = await ethers.getSigners();
   
     const assets = opts.assets || defaultAssets();
@@ -463,19 +461,16 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
       dao: dao,
       feeEnabled: false,
       storeFrontPriceFactor:  (opts.storeFrontPriceFactor ?? exp(0.1, 18)).toString(),
-      protocolFactorBorrow: '100000000000000000',
-      reserveFactorBorrow: '100000000000000000',
-      protocolFactorLiquidation: '100000000000000000',
-      reserveFactorLiquidation: '100000000000000000',
       minUpdateTime: 300,
       maxUpdateTime: 7 * 24 * 60 * 60,
       suggestedAmountOfSeedReserves: suggestedAmountOfSeedReserves,
       suggestedLockTimeOfSeedReserves: 3600,
-      targetPercent: opts.targetPercent ? ethers.utils.parseEther(opts.targetPercent.toString()).toString() : ethers.utils.parseEther('0.4').toString()
+      targetPercent: opts.targetPercent ? ethers.utils.parseEther(opts.targetPercent.toString()).toString() : ethers.utils.parseEther('0.4').toString(),
+      reserveCommissions: opts.reserveCommissions ?? [exp(0.01, 18), exp(0.02, 18), exp(0.03, 18)],
+      protocolCommissions: opts.protocolCommissions ?? [exp(0.01, 18), exp(0.02, 18), exp(0.03, 18)]
     });
   
     const sandboxController = (await makeSandboxController(sandboxControllerOpts)).sandboxController;
-    
     await baseToken.allocateTo(owner.address, sandboxControllerOpts.suggestedAmountOfSeedReserves);
     // --- Whitelist the base token ---
     await sandboxController.whitelistBaseAsset(
@@ -506,14 +501,14 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
         tokens[asset].address,
         priceFeeds[asset].address,
         opts.assets?.[asset].minBorrowCF ?? exp(0.5, 18),
-        opts.assets?.[asset].maxBorrowCF ?? exp(1, 18),
+        opts.assets?.[asset].maxBorrowCF ?? exp(0.6, 18),
         opts.assets?.[asset].minLiquidateCF ?? exp(0.6, 18),
         opts.assets?.[asset].maxLiquidateCF ?? exp(0.7, 18),
         opts.assets?.[asset].minLiquidationFactor ?? exp(0.8, 18),
         opts.assets?.[asset].maxLiquidationFactor ?? exp(1, 18)
       );
     }
-  
+
     const ConfigControllerFactoryFactory = (await ethers.getContractFactory('ConfigControllerFactory')) as ConfigControllerFactory__factory;
     const CometFactory = (await ethers.getContractFactory('CometHarness')) as CometHarness__factory;
     const cometImpl = await CometFactory.deploy();
@@ -814,22 +809,20 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
       return token;
   }
   
-  
   export function defaultSandboxControllerOpts(partial?: Partial<SandboxControllerOpts>): SandboxControllerOpts {
     return {
       admin: partial?.admin,
       dao: partial?.dao,
+      treasury: partial?.treasury ?? ethers.Wallet.createRandom().address,
       feeEnabled: partial?.feeEnabled ?? false,
       storeFrontPriceFactor: partial?.storeFrontPriceFactor ?? ethers.utils.parseEther('0.9999999999').toString(),
-      protocolFactorBorrow: partial?.protocolFactorBorrow ?? ethers.utils.parseEther('0.5').toString(),
-      reserveFactorBorrow: partial?.reserveFactorBorrow ?? ethers.utils.parseEther('0.2').toString(),
-      protocolFactorLiquidation: partial?.protocolFactorLiquidation ?? ethers.utils.parseEther('0.3').toString(),
-      reserveFactorLiquidation: partial?.reserveFactorLiquidation ?? ethers.utils.parseEther('0.4').toString(),
       targetPercent: partial?.targetPercent ?? ethers.utils.parseEther('0.5').toString(),
       minUpdateTime: partial?.minUpdateTime ?? 300,
       maxUpdateTime: partial?.maxUpdateTime ?? 7 * 24 * 60 * 60,
       suggestedAmountOfSeedReserves: partial?.suggestedAmountOfSeedReserves ?? ethers.utils.parseEther('500').toString(),
-      suggestedLockTimeOfSeedReserves: partial?.suggestedLockTimeOfSeedReserves ?? 86400
+      suggestedLockTimeOfSeedReserves: partial?.suggestedLockTimeOfSeedReserves ?? 86400,
+      reserveCommissions: partial?.reserveCommissions ?? [exp(0.01, 18), exp(0.02, 18), exp(0.03, 18)],
+      protocolCommissions: partial?.protocolCommissions ?? [exp(0.01, 18), exp(0.02, 18), exp(0.03, 18)]
     };
   }
   
@@ -881,17 +874,16 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
     const sandboxController = await SandboxControllerFactory.deploy(
       admin.address || admin,
       dao.address || dao,
+      opts.treasury,
       opts.feeEnabled,
-      opts.protocolFactorBorrow,
-      opts.reserveFactorBorrow,
-      opts.protocolFactorLiquidation,
-      opts.reserveFactorLiquidation,
       opts.targetPercent,
       opts.storeFrontPriceFactor,
       opts.minUpdateTime,
       opts.maxUpdateTime,
       opts.suggestedAmountOfSeedReserves,
-      opts.suggestedLockTimeOfSeedReserves
+      opts.suggestedLockTimeOfSeedReserves,
+      opts.reserveCommissions,
+      opts.protocolCommissions
     );
     await sandboxController.deployed();
   
