@@ -14,6 +14,7 @@ abstract contract ISandboxComet is CometCore {
 
     error Absurd();
     error AlreadyInitialized();
+    error AmountTooSmall();
     error BadAsset();
     error BadDecimals();
     error BadDiscount();
@@ -37,6 +38,7 @@ abstract contract ISandboxComet is CometCore {
     error TransferOutFailed();
     error Unauthorized();
     error Locked(uint256 currrentTimestamp, uint256 unlockTimestamp);
+    error ZeroAddress();
 
     event Supply(address indexed from, address indexed dst, uint amount);
     event Transfer(address indexed from, address indexed to, uint amount);
@@ -84,6 +86,14 @@ abstract contract ISandboxComet is CometCore {
         address indexed asset,
         uint baseAmount,
         uint collateralAmount
+    );
+
+    /// @notice Event emitted when fees are extracted either to DAO or to protocol
+    event FeesExtracted(
+        address indexed comet,
+        address indexed asset,
+        uint amoint,
+        address to
     );
 
     /// @notice Event emitted when an action is paused/unpaused
@@ -159,14 +169,10 @@ abstract contract ISandboxComet is CometCore {
         IConfigController.CometGlobalParamsConfig memory config
     ) external virtual;
 
-    function setControllerFee(bool disabled) virtual external;
     function absorb(address absorber, address[] calldata accounts) virtual external;
     function buyCollateral(address asset, uint minAmount, uint baseAmount, address recipient) virtual external;
 
-    function quoteCollateral(
-        address asset,
-        uint baseAmount
-    ) public view virtual returns (uint, uint, uint);
+    function quoteCollateral(address asset, uint baseAmount) public view virtual returns (uint, uint, uint, uint);
 
     function getCollateralReserves(
         address asset
@@ -197,6 +203,7 @@ abstract contract ISandboxComet is CometCore {
         bool absorbPaused,
         bool buyPaused
     ) external virtual;
+    function extractFees(address) external virtual;
 
     function isSupplyPaused() public view virtual returns (bool);
 

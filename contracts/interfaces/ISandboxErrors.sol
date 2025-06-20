@@ -5,6 +5,7 @@ interface ISandboxErrors {
     error ZeroAddress();
     error ZeroAmount();
     error ZeroCollateralAssets();
+    error IncorrectSetting();
 
     error BaseTokenAlreadyWhitelisted();
     error CollateralTokenAlreadyWhitelisted();

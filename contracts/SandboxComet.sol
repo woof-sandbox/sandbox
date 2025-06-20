@@ -126,17 +126,6 @@ contract SandboxComet is ISandboxComet {
         /// baseTrackingBorrowSpeed = 0;
     }
 
-   /**
-   * @notice Disables the controller fee
-   * @param disabled Whether the controller fee is disabled
-   * @dev Only callable by the config controller
-   */
-    function setControllerFee(bool disabled) external override {
-        if (msg.sender != configController) revert Unauthorized();
-        controllerFeeDisabled = disabled;
-        emit ControllerFeeDisabled(disabled);
-    }
-
     /**
      * @dev Prevents marked functions from being reentered
      * Note: this restrict contracts from calling comet functions in their hooks.
@@ -368,16 +357,14 @@ contract SandboxComet is ISandboxComet {
     }
 
     /**
-     * @notice Gets the total balance of protocol collateral reserves for an asset
+     * @notice Gets the total balance of protocol collateral reserves for an asset (with planned fees deducted)
      * @dev Note: Reverts if collateral reserves are somehow negative, which should not be possible
      * @param asset The collateral asset
      */
-    function getCollateralReserves(
-        address asset
-    ) public view override returns (uint) {
+    function getCollateralReserves(address asset) public view override returns (uint) {
         return
             IERC20NonStandard(asset).balanceOf(address(this)) -
-            totalsCollateral[asset];
+            totalsCollateral[asset] - assetFeesController[asset] - assetFeesDAO[asset];
     }
 
     /**
@@ -516,6 +503,10 @@ contract SandboxComet is ISandboxComet {
         }
     }
 
+
+    /// Administrative segment
+    /// 
+
     /**
      * @notice Pauses different actions within Comet
      * @param supplyPaused Boolean for pausing supply actions
@@ -532,7 +523,7 @@ contract SandboxComet is ISandboxComet {
         bool buyPaused
     ) external override {
         address dao = ISandboxController(sandboxController).dao();
-        if (msg.sender != configController && dao != msg.sender)
+        if (msg.sender != configController && msg.sender != dao)
             revert Unauthorized();
 
         pauseFlags =
@@ -550,6 +541,35 @@ contract SandboxComet is ISandboxComet {
             absorbPaused,
             buyPaused
         );
+    }
+
+    /**
+     * @notice Extracts all accumulated fees to a respective caller
+     * @dev access control check is within the function and restricts it to dao and controller only
+     * @param asset Asset (collateral or base) to extract
+     */
+    function extractFees(address asset) external override {
+        if (asset == address(0)) revert ZeroAddress();
+        // Note: we do not check if asset is registered, as it might be already delisted collateral
+        // and there is no difference between base asset or collateral
+
+        uint256 amount;
+        address dao = ISandboxController(sandboxController).dao();
+
+        if (msg.sender == dao) {
+            amount = assetFeesDAO[asset];
+            assetFeesDAO[asset] = 0;
+        }
+        else if (msg.sender == configController) {
+            amount = assetFeesController[asset];
+            assetFeesController[asset] = 0;
+        }
+        else revert Unauthorized();
+
+        if (amount == 0) revert AmountTooSmall();
+
+        doTransferOut(asset, msg.sender, amount);
+        emit FeesExtracted(address(this), asset, amount, msg.sender);
     }
 
     /**
@@ -1302,15 +1322,17 @@ contract SandboxComet is ISandboxComet {
 
         (
             uint256 amountOut,
-            uint256 feeController,
-            uint256 feeProtocol
+            ,
+            uint256 feeProtocol,
+            uint256 feeController
         ) = quoteCollateral(asset, baseAmount);
 
         // Note: Re-entrancy can skip the reserves check above on a second buyCollateral call.
 
         if (amountOut < minAmount) revert TooMuchSlippage();
 
-        if (amountOut > getCollateralReserves(asset))
+        // Note: we do no use the reserve part of the profit, as it stays in the Comet anyway
+        if (amountOut + feeProtocol + feeController > getCollateralReserves(asset))
             revert InsufficientReserves();
 
         // Note: Pre-transfer hook can re-enter buyCollateral with a stale collateral ERC20 balance.
@@ -1319,16 +1341,12 @@ contract SandboxComet is ISandboxComet {
         doTransferOut(asset, recipient, safe128(amountOut));
 
         if (feeProtocol > 0) {
-            _creditCollateral(
-                ISandboxController(sandboxController).treasury(),
-                asset,
-                safe128(feeProtocol)
-            );
+            assetFeesDAO[asset] += feeController;
         }
         if (feeController > 0) {
-            _creditCollateral(configController, asset, safe128(feeController));
+            assetFeesController[asset] += feeController;
         }
-
+        
         emit BuyCollateral(msg.sender, asset, baseAmount, amountOut);
     }
 
@@ -1336,14 +1354,8 @@ contract SandboxComet is ISandboxComet {
      * @param asset The collateral asset to get the quote for
      * @param baseAmount The amount of the base asset to get the quote for
      */
-    function quoteCollateral(
-        address asset,
-        uint256 baseAmount
-    )
-        public
-        view
-        override
-        returns (uint256 amountOut, uint256 feeController, uint256 feeProtocol)
+    function quoteCollateral(address asset, uint256 baseAmount) public view override
+        returns (uint256 amountOut, uint256 feeReserve, uint256 feeProtocol, uint256 feeController)
     {   
         (CollateralAsset memory assetInfo, ) = getAssetInfoByAddress(asset);
         uint256 assetPrice = getPrice(assetInfo.priceFeed);
@@ -1361,24 +1373,61 @@ contract SandboxComet is ISandboxComet {
         // = ((basePrice * baseAmount / baseScale) / assetPriceDiscounted) * assetScale
         amountOut = (baseAmount * basePrice * assetInfo.scale) / assetPriceDiscounted / baseScale;
 
-        uint256 deltaBase = mulFactor(baseAmount, discountFactor);
+        /// Protocol's profit calculation
+        /*
 
-        uint256 curRes = uint256(getReserves());
-        (uint256 reservePct, uint256 protocolPct) = _commissions(curRes);
+        During the absorbtion, the protocol seizes the whole user's collateral, which is distributed in the next way:
 
-        uint256 reserveBase = mulFactor(deltaBase, reservePct);
-        uint256 protocolBase = mulFactor(deltaBase, protocolPct);
-        uint256 controllerBase = deltaBase - reserveBase - protocolBase;
+        user's collateral
+        |----- 100%
+        |           <- a certain % (LP) is seized directly into protoco's reserves
+        |----- LF = 1 - LP, this % of collateral's value is used to cover debt
+        |           <- part of the collateral's value is supplied to a user's account as a refund
+        |----- debt (a collateral value which corresponds to the debt value)
+        |
+        |           <- this part of collateral is used to compensate the debt to the protocol
+        |
+        |
+        ------
+        LF, liquidation factor (e.g. 90%)
+        LP = 1 - LF, Liquidation Penalty, e.g for  LF = 90%, LP = 10%
 
-        if (reservePct == 0 && protocolPct == 0) {
-          reserveBase = deltaBase;
-          controllerBase = 0;
-        } else {
-          controllerBase = deltaBase - reserveBase - protocolBase;
-        }
+        So, seized collateral value can be represented as:
+            value = collateral * LP% + debt value + refunded collateral
 
-        feeProtocol = (protocolBase * assetInfo.scale) / assetPriceDiscounted;
-        feeController = (controllerBase * assetInfo.scale) / assetPriceDiscounted;
+        - debt is denominated in base asset, and that is the amount the protocol expects to be returned during purchase
+        - refunded collateral is added as supply, thus can be viewed as a subsidized by the protocol, and so
+          it should be compensated during purchase as well
+        So, we can see a collateral value as:
+            value = collateral * LP% + base asset value to return
+
+        - in general we may assume that unless bad debt happens, LP% of user's collateral value is greater than LP% of user's debt
+        value = collateral * LP% + base asset value to return >= base asset value to return * LP% + base asset value to return = 
+              = base asset value to return * (1 + LP) = base asset value to return * (2 - LF)
+
+        ---------------------------
+        for every baseAmount of base asset, the protocol has (2 - LF) * baseAmount * basePrice / assetPrice of collateral
+        ---------------------------
+        The protocol sells: baseAmount * basePrice / (assetPrice * (1 - discount)) of collateral
+            discount = SFF * (1-LF)
+        So, the profit can be expressed in terms of collateral value:
+
+            collateral value = baseAmount * basePrice / assetPrice
+            profit = collateral value * (2 - LF) - collateral value / (1 - discount) =
+                   = collateral value * (1 - LF - 2*discount + LF*discount) / (1 - discount)
+        Example: SFF = 60%, LF = 90%, LP = 10%
+            with 1.1 of collateral value initially
+            selling 1.064 of collateral value
+            profit = collateral value * (1 - 0.9 - 2 * 0.06 + 0.9 * 0.06) / (1 - 0.06) = collateral value * 0.036
+        3.6% of the base asset value supplied during purchase can be extracted from the collateral reserves as a profit
+        */
+
+        uint256 scaledBaseAmount = mulFactor(baseAmount, 2*FACTOR_SCALE - assetInfo.liquidationFactor);
+        uint256 scaledCollateralValue = (scaledBaseAmount * basePrice * assetInfo.scale) / assetPrice / baseScale;
+        uint256 profit = scaledCollateralValue - amountOut;
+
+        // function guarantees that reserve+protocol+controller == profit
+        (feeReserve, feeProtocol, feeController) = _distributeProfit(profit);
     }
 
     /**
@@ -1436,53 +1485,30 @@ contract SandboxComet is ISandboxComet {
                 : 0;
     }
 
-    function _commissions(uint256 reserves) internal view returns (uint256, uint256) {
-        uint256 price = getPrice(baseTokenPriceFeed);
-        uint256 reservesUsd = (reserves * price) / baseScale;
-        uint256 seedUsd = (seedReserves * price) / baseScale;
-        uint256 targetUsd = (targetReserves() * price) / baseScale;
+    /// @notice Calculates fees distribution (reserves % and dao fees %)
+    /// @dev Internal function for calculation over the liquidation profit or interest profit
+    /// @param profitAmount The amount to calculate fees from - it is expected to be denominated in USD already
+    /// @return _reserveFee Profit accumulated in Comet's reserves
+    /// @return _daoFee Fee on profit in favour of DAO
+    /// @return _controllerFee Fee on profit in favour of Config Controller
+    function _distributeProfit(uint256 profitAmount) internal view returns (uint256 _reserveFee, uint256 _daoFee, uint256 _controllerFee) {
+        int256 _reserves = getReserves();
+        uint256 reserves = _reserves > 0 ? uint256(_reserves) : 0;
 
-        ISandboxController.MarketState state;
-        if (reservesUsd < seedUsd) {
-        state = ISandboxController.MarketState.High;
-        } else if (reservesUsd < targetUsd) {
-        state = ISandboxController.MarketState.Medium;
-        } else {
-        state = ISandboxController.MarketState.Low;
+        uint256 basePrice = getPrice(baseTokenPriceFeed);
+        uint256 reservesUsd = (reserves * basePrice) / baseScale;
+        uint256 seedUsd = (seedReserves * basePrice) / baseScale;
+        uint256 targetUsd = (targetReserves() * basePrice) / baseScale;
+
+        (uint256 reservePct, uint256 protocolPct) = ISandboxController(sandboxController).getCommissions(reservesUsd, seedUsd, targetUsd);
+
+        _reserveFee = mulFactor(profitAmount, reservePct);
+        _daoFee = mulFactor(profitAmount, protocolPct);
+        _controllerFee = IConfigController(configController).cometFeeEnabled(address(this)) ? profitAmount - _reserveFee - _daoFee : 0;
+        
+        if (_controllerFee == 0) {
+            _reserveFee = profitAmount - _daoFee;
         }
-
-        ISandboxController sandboxController = ISandboxController(sandboxController);
-        uint256 reserveCommission = sandboxController.reserveCommission(state);
-        uint256 protocolCommission = sandboxController.feeEnabled() ? sandboxController.protocolCommission(state) : 0;
-
-        return (reserveCommission, protocolCommission);
-  }
-
-    /**
-     * @dev Credits amount of asset to recipients internal collateral
-     * balance **without** moving tokens out of the contract.
-     * Reuses the normal collateral-accounting path so that
-     * supply-caps and assetsIn flags stay consistent.
-     */
-    function _creditCollateral(
-        address recipient,
-        address asset,
-        uint128 amount
-    ) internal {
-        (CollateralAsset memory info, uint8 index) = getAssetInfoByAddress(asset);
-
-        uint totals = totalsCollateral[asset];
-        totalsCollateral[asset] += amount;
-        if (totals > info.supplyCap)
-            revert SupplyCapExceeded();
-        totalsCollateral[asset] = totals;
-        uint256 balBefore = userCollateral[recipient][asset];
-        uint256 balAfter = balBefore + amount;
-        userCollateral[recipient][asset] = balAfter;
-
-        updateAssetsIn(recipient, index, balBefore, balAfter);
-
-        emit SupplyCollateral(address(this), recipient, asset, amount);
     }
 
     /**

@@ -4,6 +4,9 @@ pragma solidity 0.8.28;
 import "./ISandboxErrors.sol";
 
 abstract contract ISandboxController is ISandboxErrors {
+    uint256 public constant MARKET_STATES = 3;
+    uint256 public constant COMMISSION_SCALE = 1e18; //100%
+    uint256 public constant MAX_COMMISSIONS = 8e17;  //80%
     enum MarketState {
         Low,
         Medium,
@@ -96,8 +99,10 @@ abstract contract ISandboxController is ISandboxErrors {
     function baseAssetTokens(uint256) external view virtual returns (address);
     function collateralAssetTokens(uint256) external view virtual returns (address);
     function tokenToPriceFeed(address) external view virtual returns (address);
-    function reserveCommission(MarketState) external view virtual returns (uint256);
-    function protocolCommission(MarketState) external view virtual returns (uint256);
+
+    function reserveCommission(uint) external view virtual returns (uint256);
+    function protocolCommission(uint) external view virtual returns (uint256);
+    function getCommissions(uint256, uint256, uint256) external view virtual returns(uint256, uint256);
 
     function whitelistBaseAsset(
         address token,

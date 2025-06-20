@@ -22,4 +22,7 @@ interface IConfigControllerEvents {
         uint newProposalDuration
     );
 
+
+    event CometFeeEnabled(address indexed controller, address indexed comet, bool enabled);
+
 }

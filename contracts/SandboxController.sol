@@ -21,9 +21,13 @@ contract SandboxController is ISandboxController {
     SandboxControllerConfiguration public _controllerConfiguration;
     address[] public override baseAssetTokens;
     address[] public override collateralAssetTokens;
+
+    /// @dev % of the Comet's profit left in the comet as a reserve
+    uint256[MARKET_STATES] public override reserveCommission;
+    /// @dev % of the Comet's profit extracted from reserves for the DAO
+    uint256[MARKET_STATES] public override protocolCommission;
+
     mapping(address => address) public override tokenToPriceFeed;
-    mapping(MarketState => uint256) public override reserveCommission;
-    mapping(MarketState => uint256) public override protocolCommission;
     mapping(address => BaseAssetConfiguration) internal _baseAssets;
     mapping(address => CollateralAssetConfiguration) internal _collateralAssets;
 
@@ -122,46 +126,50 @@ contract SandboxController is ISandboxController {
         );
     }
 
+    ///
+    /// COMMISSIONS SEGMENT
+    ///
+
     /**
      * @notice Sets the reserve commission factors for each market state.
-     * @param reserveCommissions The new reserve commission factors, scaled by 1e18.
+     * @param _reserveCommissions The new reserve commission factors, scaled by 1e18 (100%).
      */
     function setReserveCommissions(
-        uint256[3] calldata reserveCommissions
+        uint256[MARKET_STATES] calldata _reserveCommissions
     ) external override onlyOwner {
-        for (uint256 i = 0; i < 3; i++) {
-            MarketState state = MarketState(i);
-            if (reserveCommissions[i] + protocolCommission[state] > 8e17) {
+        for (uint256 i = 0; i < MARKET_STATES; i++) {
+            /// Config controller will receive non less than 20% of profit fee (upon reserves and dao fee)
+            if (_reserveCommissions[i] + protocolCommission[i] > MAX_COMMISSIONS) {
                 revert InvalidFactors();
             }
-            uint256 oldValue = reserveCommission[state];
-            reserveCommission[state] = reserveCommissions[i];
+            uint256 oldValue = reserveCommission[i];
+            reserveCommission[i] = _reserveCommissions[i];
             emit ReserveCommissionChanged(
-                state,
+                MarketState(i),
                 oldValue,
-                reserveCommissions[i]
+                _reserveCommissions[i]
             );
         }
     }
 
     /**
      * @notice Sets the protocol commission factors for each market state.
-     * @param protocolCommissions The new protocol commission factors, scaled by 1e18.
+     * @param _protocolCommissions The new protocol commission factors, scaled by 1e18 (100%).
      */
     function setProtocolCommissions(
-        uint256[3] calldata protocolCommissions
+        uint256[MARKET_STATES] calldata _protocolCommissions
     ) external override onlyOwner {
-        for (uint256 i = 0; i < 3; i++) {
-            MarketState state = MarketState(i);
-            if (protocolCommissions[i] + reserveCommission[state] > 8e17) {
+        for (uint256 i = 0; i < MARKET_STATES; i++) {
+            /// Config controller will receive non less than 20% of profit fee (upon reserves and dao fee)
+            if (_protocolCommissions[i] + reserveCommission[i] > MAX_COMMISSIONS) {
                 revert InvalidFactors();
             }
-            uint256 oldValue = protocolCommission[state];
-            protocolCommission[state] = protocolCommissions[i];
+            uint256 oldValue = protocolCommission[i];
+            protocolCommission[i] = _protocolCommissions[i];
             emit ProtocolCommissionChanged(
-                state,
+                MarketState(i),
                 oldValue,
-                protocolCommissions[i]
+                _protocolCommissions[i]
             );
         }
     }
@@ -178,6 +186,45 @@ contract SandboxController is ISandboxController {
         treasury = _treasury;
         emit TreasuryChanged(oldTreasury, _treasury);
     }
+
+    /**
+     * @notice Sets the global feeEnabled flag for the entire protocol.
+     * @param _feeEnabled True to enable fees, false to disable.
+     */
+    function setFeeEnabled(bool _feeEnabled) external override onlyDao {
+        if (feeEnabled == _feeEnabled) revert IncorrectSetting();
+        feeEnabled = _feeEnabled;
+        emit FeeEnabledSet(_feeEnabled);
+    }
+
+    /**
+     * @notice Returns profit fee distribution based on the reserves
+     * @dev THe function expects same denomination units for all 3 reserves parameters
+     * @param _currentReserves Current Comet reserves
+     * @param _seedReserves Amount of reserves transferred to the Comet during the initialization
+     * @param _targetReserves Expected target for the Comet
+     * @return _reserveCommission Part of profit to be left in reserves
+     * @return _protocolCommission Part of profit for the DAO
+     */
+    function getCommissions(uint256 _currentReserves, uint256 _seedReserves, uint256 _targetReserves) external override view 
+        returns(uint256 _reserveCommission, uint256 _protocolCommission)
+    {
+        MarketState state;
+        if (_currentReserves < _seedReserves) {
+            state = MarketState.High;
+        } else if (_currentReserves < _targetReserves) {
+            state = MarketState.Medium;
+        } else {
+            state = MarketState.Low;
+        }
+
+        _reserveCommission = reserveCommission[uint(state)];
+        _protocolCommission = feeEnabled ? protocolCommission[uint(state)] : 0;
+    }
+
+    ///
+    /// ASSETS LISTING SEGMENT
+    ///
 
     /**
      * @notice Whitelists a new base asset with its price feed and curve configuration.
@@ -352,15 +399,6 @@ contract SandboxController is ISandboxController {
         _controllerConfiguration = _config;
 
         emit ConfigurationChanged(oldConfig, _config);
-    }
-
-    /**
-     * @notice Sets the global feeEnabled flag for the entire protocol.
-     * @param _feeEnabled True to enable fees, false to disable.
-     */
-    function setFeeEnabled(bool _feeEnabled) external override onlyDao {
-        feeEnabled = _feeEnabled;
-        emit FeeEnabledSet(_feeEnabled);
     }
 
     /**
