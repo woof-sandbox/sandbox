@@ -867,16 +867,8 @@ describe('supplyFrom', function () {
     const cometAsC = comet.connect(charlie);
 
     // Approve Charlie the comet to transfer COMP on behalf of bob
-    const cometExtention = await ethers.getContractAt("CometExtension", await comet.extension()) as CometExtension;
-    const approveCalldata = cometExtention.interface.encodeFunctionData(
-      "approve",
-      [charlie.address, ethers.constants.MaxUint256]
-    );
-    await bob.sendTransaction({
-      to: comet.address,
-      data: approveCalldata,
-      gasLimit: 1_000_000
-    });
+    const cometExtention = await ethers.getContractAt("CometExtension", comet.address) as CometExtension;
+    await cometExtention.connect(bob).approve(charlie.address, COMP.address, supplyAmount);
 
     await wait(baseAsB.approve(comet.address, supplyAmount));
     const p0 = await portfolio(protocol, alice.address);
@@ -922,11 +914,11 @@ describe('supplyFrom', function () {
     const { comet, tokens, users: [alice, bob, charlie] } = protocol;
     const { COMP } = tokens;
 
-    const _i0 = await COMP.allocateTo(bob.address, 7);
-    const cometAsC = comet.connect(charlie);
+    await COMP.allocateTo(bob.address, 7);
 
-    await expect(cometAsC.supplyFrom(bob.address, alice.address, COMP.address, 7))
-      .to.be.revertedWith("custom error 'Unauthorized()'");
+    await expect(comet.connect(charlie).supplyFrom(bob.address, alice.address, COMP.address, 7))
+      .to.be.revertedWithCustomError(comet, "InsufficientAllowance")
+      .withArgs(COMP.address, bob.address, charlie.address);
   });
 
   it('reverts if supply is paused', async () => {

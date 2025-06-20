@@ -184,7 +184,7 @@ describe("ConfigController", () => {
     describe("setProposalDurations", function() {
         it("should allow owner to set valid durations", async function() {
             const { configController, owner } = await makeConfigController();
-            const newDuration = 14 * 24 * 60 * 60; // 14 days
+            const newDuration = 1000;
             await expect(configController.connect(owner).setProposalDurations(newDuration, newDuration))
                 .to.emit(configController, "ProposalDurationsUpdated")
                 .withArgs(7 * 24 * 60 * 60, newDuration, 7 * 24 * 60 * 60, newDuration);
@@ -202,7 +202,7 @@ describe("ConfigController", () => {
 
         it("should revert when minUpdate is higher than new duration", async function() {
             const { configController, owner, sandboxController } = await makeConfigController();
-            const minUpdateTime = (await sandboxController.controllerConfiguration()).minUpdateTime;
+            const minUpdateTime = (await sandboxController.proposalBoundaries())[0];
             const newDuration = 7 * 24 * 60 * 60; // 7 days
             await expect(
                 configController.connect(owner).setProposalDurations(newDuration, minUpdateTime.sub(1))
@@ -228,7 +228,7 @@ describe("ConfigController", () => {
         it("should emit event with correct old and new values", async function() {
             const { configController, owner } = await makeConfigController();
             const oldDuration = 7 * 24 * 60 * 60; // 7 days
-            const newDuration = 14 * 24 * 60 * 60; // 14 days
+            const newDuration = 1000; // 1000 seconds
             await expect(configController.connect(owner).setProposalDurations(newDuration, newDuration))
                 .to.emit(configController, "ProposalDurationsUpdated")
                 .withArgs(oldDuration, newDuration, oldDuration, newDuration);

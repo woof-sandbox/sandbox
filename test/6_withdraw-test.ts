@@ -1038,16 +1038,8 @@ describe('withdrawFrom', function () {
 
     const _i1 = await comet.setCollateralBalance(bob.address, COMP.address, 7);
 
-    const cometExtention = await ethers.getContractAt('CometExtension', await comet.extension()) as CometExtension;
-    const approveCalldata = cometExtention.interface.encodeFunctionData(
-      "approve",
-      [charlie.address, ethers.constants.MaxUint256]
-    );
-    await bob.sendTransaction({
-      to: comet.address,
-      data: approveCalldata,
-      gasLimit: 1_000_000
-    });
+    const cometExtention = await ethers.getContractAt('CometExtension', comet.address) as CometExtension;
+    await wait(cometExtention.connect(bob).approve(charlie.address, COMP.address, exp(1000, 18)));
 
     const cometAsB = comet.connect(bob);
     const cometAsC = comet.connect(charlie);
@@ -1101,9 +1093,9 @@ describe('withdrawFrom', function () {
     } = protocol;
     const { COMP } = tokens;
 
-    const cometAsC = comet.connect(charlie);
-
-    await expect(cometAsC.withdrawFrom(bob.address, alice.address, COMP.address, 7)).to.be.revertedWith("custom error 'Unauthorized()'");
+    await expect(comet.connect(charlie).withdrawFrom(bob.address, alice.address, COMP.address, 7))
+      .to.be.revertedWithCustomError(comet, "InsufficientAllowance")
+      .withArgs(COMP.address, bob.address, charlie.address);
   });
 
   it('reverts if withdraw is paused', async () => {
