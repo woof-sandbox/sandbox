@@ -67,20 +67,7 @@ contract SandboxComet is ISandboxComet {
         /// Collateral parameters are validated in ConfigController (including non-repeatability)
         /// Thus collaterals can be safely added directly into the storage
         for (uint8 i; i < colTokensLength; ++i) {
-            address collateralToken = comet.collateralTokens[i].collateralToken;
-            uint64 scale = uint64(10 ** IERC20NonStandard(collateralToken).decimals());
-            address priceFeed = ISandboxController(sandboxController).tokenToPriceFeed(collateralToken);
-
-            collateralAssets.push(CollateralAsset(
-                comet.collateralTokens[i].collateralToken,
-                priceFeed,
-                comet.collateralTokens[i].supplyCap,
-                comet.collateralTokens[i].borrowCollateralFactor,
-                comet.collateralTokens[i].liquidateCollateralFactor,
-                comet.collateralTokens[i].liquidationFactor,
-                scale
-            ));
-            collateralAssetIndex[comet.collateralTokens[i].collateralToken] = i;
+            _addCollateralAsset(comet.collateralTokens[i], i);
         }
 
         /// Reserves
@@ -159,8 +146,8 @@ contract SandboxComet is ISandboxComet {
      */
     function nonReentrantAfter() internal {
         bytes32 slot = REENTRANCY_GUARD_FLAG_SLOT;
-        uint256 status;
-        assembly ("memory-safe") {
+        // uint256 status; // @ todo unused local variable
+        assembly ('memory-safe') {
             sstore(slot, REENTRANCY_GUARD_NOT_ENTERED)
         }
     }
@@ -1428,5 +1415,47 @@ contract SandboxComet is ISandboxComet {
                 return(0, returndatasize())
             }
         }
+    }
+
+    receive() external payable {
+        // @ todo This contract has a payable fallback function, but no receive ether function. Consider adding a receive ether function
+    }
+
+    function addCollateralAsset(IConfigController.CollateralTokenConfig calldata collateralTokenConfig) external override {
+        if (msg.sender != configController) revert Unauthorized();
+        if (numAssets >= MAX_ASSETS) revert TooManyAssets();
+
+        (uint64 scale, address priceFeed) = _addCollateralAsset(collateralTokenConfig, numAssets++);
+
+        emit CollateralAssetAdded(
+            collateralTokenConfig.collateralToken,
+            priceFeed,
+            collateralTokenConfig.supplyCap,
+            collateralTokenConfig.borrowCollateralFactor,
+            collateralTokenConfig.liquidateCollateralFactor,
+            collateralTokenConfig.liquidationFactor,
+            scale
+        );
+    }
+
+    function _addCollateralAsset(IConfigController.CollateralTokenConfig calldata collateralTokenConfig, uint8 numAsset) internal returns (uint64 scale, address priceFeed) {
+        scale = uint64(10 ** IERC20NonStandard(collateralTokenConfig.collateralToken).decimals());
+        priceFeed = ISandboxController(sandboxController).tokenToPriceFeed(collateralTokenConfig.collateralToken);
+
+        if (priceFeed == address(0)) revert PriceFeedNotFound();
+
+        collateralAssets.push(
+            CollateralAsset(
+                collateralTokenConfig.collateralToken,
+                priceFeed,
+                collateralTokenConfig.supplyCap,
+                collateralTokenConfig.borrowCollateralFactor,
+                collateralTokenConfig.liquidateCollateralFactor,
+                collateralTokenConfig.liquidationFactor,
+                scale
+            )
+        );
+
+        collateralAssetIndex[collateralTokenConfig.collateralToken] = numAsset;
     }
 }

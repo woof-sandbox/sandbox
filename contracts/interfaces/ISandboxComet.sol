@@ -37,6 +37,7 @@ abstract contract ISandboxComet is CometCore {
     error TransferOutFailed();
     error Unauthorized();
     error Locked(uint256 currrentTimestamp, uint256 unlockTimestamp);
+    error PriceFeedNotFound();
 
     event Supply(address indexed from, address indexed dst, uint amount);
     event Transfer(address indexed from, address indexed to, uint amount);
@@ -103,6 +104,29 @@ abstract contract ISandboxComet is CometCore {
         uint baseTrackingBorrowSpeed,
         bool dao_
     );
+
+    /**
+     * @notice Add a new collateral asset to the market (only configController)
+     * @dev Only callable by the configController. No validation is performed here.
+     * @param collateralToken The address of the collateral token
+     * @param priceFeed The address of the price feed for the collateral
+     * @param supplyCap The maximum supply cap for this collateral
+     * @param borrowCollateralFactor The borrow collateral factor
+     * @param liquidateCollateralFactor The liquidate collateral factor
+     * @param liquidationFactor The liquidation factor
+     * @param scale The scale (decimals) of the collateral token
+     */
+    event CollateralAssetAdded(
+        address indexed collateralToken,
+        address priceFeed,
+        uint128 supplyCap,
+        uint64 borrowCollateralFactor,
+        uint64 liquidateCollateralFactor,
+        uint64 liquidationFactor,
+        uint64 scale
+    );
+
+    function addCollateralAsset(IConfigController.CollateralTokenConfig calldata collateralTokenConfig) external virtual;
 
     function supply(address asset, uint amount) external virtual;
 

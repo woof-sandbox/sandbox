@@ -6,7 +6,7 @@ import "../ConfigController.sol";
 /**
  * @title ConfigController for testing purposes
  */
-contract ConfigControllerInitializeTest is ConfigController {
+contract ConfigControllerCallerTest is ConfigController {
     function reinitializeComet(address _comet, CometConfig memory _cometConfig) external {
 
         ISandboxController.SandboxControllerConfiguration memory _sandboxConfig = ISandboxController(sandboxController).config();
@@ -17,5 +17,12 @@ contract ConfigControllerInitializeTest is ConfigController {
             _sandboxConfig.suggestedLockTimeOfSeedReserves
         );
         ISandboxComet(_comet).initialize(_cometConfig, _globalConfig);
+    }
+
+    function addCollateralAsset(
+        address _comet,
+        CollateralTokenConfig memory _assetConfig
+    ) external {
+        ISandboxComet(_comet).addCollateralAsset( _assetConfig);
     }
 }
