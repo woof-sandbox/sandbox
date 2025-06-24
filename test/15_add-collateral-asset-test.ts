@@ -22,7 +22,9 @@ import {
     SandboxComet__factory,
     SandboxCometFactory__factory,
     SandboxControllerNoCurvesTest__factory,
-    FaucetToken
+    FaucetToken,
+    FaucetToken__factory,
+    SimplePriceFeed__factory
 } from '../build/types';
 
 
@@ -119,11 +121,23 @@ describe('15. addCollateralAsset', function () {
             symbol: "WETH",
             initialMint: ethers.utils.parseEther("50000").toString(),
         });
-        const collateralToken = await makeToken({ symbol: "DAI" });
-        const priceFeedBase = await makePriceFeed(baseToken.address);
-        const priceFeedCol = await makePriceFeed(collateralToken.address);
+        let collateralToken = await makeToken({ symbol: "DAI" });
+        let priceFeedCol = await makePriceFeed(collateralToken.address, "2");
+        const priceFeedBase = await makePriceFeed(baseToken.address, "2");
 
         await sandboxListBaseAsset(sandboxController, baseToken, priceFeedBase.address);
+        await sandboxListCollateralAsset(sandboxController, collateralToken, priceFeedCol.address);
+
+        collateralTokens.push({
+            collateralToken: collateralToken.address,
+            borrowCollateralFactor: exp(0.6, 18),
+            liquidateCollateralFactor: exp(0.75, 18),
+            liquidationFactor: exp(0.85, 18),
+            supplyCap: exp(1e9, 18)
+        });
+
+        collateralToken = await makeToken({ symbol: "USDC" });
+        priceFeedCol = await makePriceFeed(collateralToken.address, "2");
         await sandboxListCollateralAsset(sandboxController, collateralToken, priceFeedCol.address);
 
         collateralTokens.push({
@@ -143,7 +157,7 @@ describe('15. addCollateralAsset', function () {
 
         before(async function () {
             newCollateralToken = await makeToken({ symbol: "USDT" });
-            const priceFeedCol = await makePriceFeed(newCollateralToken.address);
+            const priceFeedCol = await makePriceFeed(newCollateralToken.address, "2");
             // List the new collateral token in the sandbox controller
             await sandboxListCollateralAsset(sandboxController, newCollateralToken, priceFeedCol.address);
             // Calculate the scale factor for the new collateral token
@@ -237,14 +251,81 @@ describe('15. addCollateralAsset', function () {
                 .to.equal(supplyAmount);
 
             // Borrow against the collateral
-            // @todo implement borrowing logic
+            const borrowAmount = exp(50, 18);
+            await comet.connect(user).withdraw(baseToken.address, borrowAmount);
 
-            // const borrowAmount = exp(50, 18);
-            // await comet.connect(user).withdraw(baseToken, borrowAmount);
+            // Check the user's balance after borrowing
+            const userBalance = await comet.borrowBalanceOf(user.address);
+            expect(userBalance).to.be.equal(borrowAmount);
+        });
 
-            // // Check the user's balance after borrowing
-            // const userBalance = await comet.borrowBalanceOf(user.address);
-            // expect(userBalance).to.be.greaterThan(borrowAmount);
+        it('should prevent liquidation by allowing user to deposit newly added collateral asset', async () => {
+            let collateralAddress = collateralTokens[0].collateralToken;
+            let contractToken = FaucetToken__factory.connect(collateralAddress, provider);
+            // We change the price feed to the first collateral token
+            const priceFeedAddress = await sandboxController.tokenToPriceFeed(collateralAddress);
+            const contractPriceFeed = SimplePriceFeed__factory.connect(priceFeedAddress, owner);
+            // Create a balance for the user for the first collateral token
+            await contractToken.connect(user).allocateTo(user.address, exp(1000, 18));
+            // Approve the comet contract to spend the user's collateral token
+            await contractToken.connect(user).approve(comet.address, ethers.constants.MaxUint256);
+            // Deposit first collateral into the comet contract
+            let supplyAmount = await contractToken.balanceOf(user.address);
+            await comet.connect(user).supply(collateralAddress, supplyAmount);
+            // Check the user's balance after supplying first collateral
+            expect(await cometExtension.collateralBalanceOf(user.address, collateralAddress))
+                .to.equal(supplyAmount);
+
+            collateralAddress = collateralTokens[1].collateralToken;
+            contractToken = FaucetToken__factory.connect(collateralAddress, provider);
+            // Create a balance for the user for the second collateral token
+            await contractToken.connect(user).allocateTo(user.address, exp(1000, 18));
+            // Approve the comet contract to spend the user's collateral token
+            await contractToken.connect(user).approve(comet.address, ethers.constants.MaxUint256);
+            // Deposit second collateral into the comet contract
+            supplyAmount = await contractToken.balanceOf(user.address);
+            await comet.connect(user).supply(collateralAddress, supplyAmount);
+            // Check the user's balance after supplying second collateral
+            expect(await cometExtension.collateralBalanceOf(user.address, collateralAddress))
+                .to.equal(supplyAmount);
+
+            // Borrow base token 
+            const borrowAmount = exp(1200, 18);
+            await comet.connect(user).withdraw(baseToken.address, borrowAmount);
+            // Check the user's balance after borrowing
+            const userBalance = await comet.connect(user).borrowBalanceOf(user.address);
+            expect(userBalance).to.be.equal(borrowAmount);
+
+            // Check the liquidation status before update the collateral price feed
+            expect(await comet.isLiquidatable(user.address)).to.be.false;
+
+            // Update the price feed to simulate a price drop
+            const latestRoundData = await contractPriceFeed.latestRoundData();
+            const newPrice = latestRoundData[1].div(2); // Halve the price
+            // Set the new price in the price feed
+            await contractPriceFeed.setRoundData(latestRoundData[0], newPrice, latestRoundData[2], latestRoundData[3], latestRoundData[4]);
+
+            // Check the liquidation status after price drop
+            expect(await comet.isLiquidatable(user.address)).to.be.true;
+
+            // Add the new collateral asset
+            expect(await configController.addCollateralAsset(
+                comet.address,
+                newCollateralTokenConfig
+            )).to.emit(comet, 'CollateralAssetAdded');
+
+            // Deposit the new collateral asset to cover the liquidation
+            await newCollateralToken.connect(user).allocateTo(user.address, exp(1000, 18));
+            // Approve the comet contract to spend the user's new collateral token
+            await newCollateralToken.connect(user).approve(comet.address, ethers.constants.MaxUint256);
+            supplyAmount = await newCollateralToken.balanceOf(user.address);
+            await comet.connect(user).supply(newCollateralToken.address, supplyAmount);
+            // Check the user's balance after supplying new collateral
+            expect(await cometExtension.collateralBalanceOf(user.address, newCollateralToken.address))
+                .to.equal(supplyAmount);
+            // Check the liquidation status after adding new collateral
+            expect(await comet.isLiquidatable(user.address)).to.be.false;
+
         });
 
     });
@@ -253,7 +334,8 @@ describe('15. addCollateralAsset', function () {
         before(async function () {
             const maxAssets = 24;
             // Create a collateral token configuration for each asset
-            for (let i = 1; i < maxAssets; i++) {
+            // Start with 2 collateral tokens already added
+            for (let i = 2; i < maxAssets; i++) {
                 const symbol = `ANY_ASSET${i + 1}`;
                 const collateralToken = await makeToken({ symbol });
                 const priceFeedCol = await makePriceFeed(collateralToken.address);

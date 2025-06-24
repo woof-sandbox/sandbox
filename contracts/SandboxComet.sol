@@ -66,8 +66,9 @@ contract SandboxComet is ISandboxComet {
         /// Collateral and pricefeed for collateral are listed in SandboxController
         /// Collateral parameters are validated in ConfigController (including non-repeatability)
         /// Thus collaterals can be safely added directly into the storage
-        for (uint8 i; i < colTokensLength; ++i) {
+        for (uint8 i; i < colTokensLength; ) {
             _addCollateralAsset(comet.collateralTokens[i], i);
+            unchecked { ++i; }
         }
 
         /// Reserves
@@ -1417,10 +1418,6 @@ contract SandboxComet is ISandboxComet {
         }
     }
 
-    receive() external payable {
-        // @ todo This contract has a payable fallback function, but no receive ether function. Consider adding a receive ether function
-    }
-
     function addCollateralAsset(IConfigController.CollateralTokenConfig calldata collateralTokenConfig) external override {
         if (msg.sender != configController) revert Unauthorized();
         if (numAssets >= MAX_ASSETS) revert TooManyAssets();
@@ -1441,8 +1438,6 @@ contract SandboxComet is ISandboxComet {
     function _addCollateralAsset(IConfigController.CollateralTokenConfig calldata collateralTokenConfig, uint8 numAsset) internal returns (uint64 scale, address priceFeed) {
         scale = uint64(10 ** IERC20NonStandard(collateralTokenConfig.collateralToken).decimals());
         priceFeed = ISandboxController(sandboxController).tokenToPriceFeed(collateralTokenConfig.collateralToken);
-
-        if (priceFeed == address(0)) revert PriceFeedNotFound();
 
         collateralAssets.push(
             CollateralAsset(
