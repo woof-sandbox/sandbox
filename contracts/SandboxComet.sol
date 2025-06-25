@@ -1335,17 +1335,17 @@ contract SandboxComet is ISandboxComet {
         if (amountOut + feeProtocol + feeController > getCollateralReserves(asset))
             revert InsufficientReserves();
 
-        // Note: Pre-transfer hook can re-enter buyCollateral with a stale collateral ERC20 balance.
-        //  Assets should not be listed which allow re-entry from pre-transfer now, as too much collateral could be bought.
-        //  This is also a problem if quoteCollateral derives its discount from the collateral ERC20 balance.
-        doTransferOut(asset, recipient, safe128(amountOut));
-
         if (feeProtocol > 0) {
             assetFeesDAO[asset] += feeController;
         }
         if (feeController > 0) {
             assetFeesController[asset] += feeController;
         }
+
+        // Note: Pre-transfer hook can re-enter buyCollateral with a stale collateral ERC20 balance.
+        //  Assets should not be listed which allow re-entry from pre-transfer now, as too much collateral could be bought.
+        //  This is also a problem if quoteCollateral derives its discount from the collateral ERC20 balance.
+        doTransferOut(asset, recipient, safe128(amountOut));
         
         emit BuyCollateral(msg.sender, asset, baseAmount, amountOut);
     }
@@ -1380,7 +1380,7 @@ contract SandboxComet is ISandboxComet {
 
         user's collateral
         |----- 100%
-        |           <- a certain % (LP) is seized directly into protoco's reserves
+        |           <- a certain % (LP) is seized directly into protocol's reserves
         |----- LF = 1 - LP, this % of collateral's value is used to cover debt
         |           <- part of the collateral's value is supplied to a user's account as a refund
         |----- debt (a collateral value which corresponds to the debt value)
