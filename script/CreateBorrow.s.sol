@@ -9,6 +9,7 @@ import "../contracts/SandboxComet.sol";
 import "../contracts/test/ManagedFaucetToken.sol";
 import "../contracts/test/ManagedSimplePriceFeed.sol";
 import "../contracts/interfaces/ISandboxComet.sol";
+import "forge-std/console.sol";
 
 contract DeployProtocol is Script {
     address owner;
@@ -24,15 +25,13 @@ contract DeployProtocol is Script {
         owner = vm.addr(ownerPrivateKey);
         userPrivateKey = vm.envUint("USER_PRIVATE_KEY");
         user = vm.addr(userPrivateKey);
-        comet = 0x752CBab5343AD101144d0dFc6eBC2d5e40bCCcA8;
+        comet = 0xdC502E9bad9396b4d3916b4510460C49449D75F5;
         // Initialize arrays with correct sizes
         address[] memory collateralTokens = new address[](4);
-        collateralTokens[0] = 0x617b62AA26Ea878788Cb7fa05f14396956774Cf1;
-        collateralTokens[1] = 0xa5D440b5626cf6e46c19541D793647193CC9CC84;
-        collateralTokens[2] = 0xEe0893D5AF0319aEE9cA89b0223812B970ED438a;
-        collateralTokens[3] = 0xAe3f194f413aB4f772B89cb6E92E7c321959F373;
-        baseToken = 0x210B11A468b3Ceb098a20dCACe7eB6E74479e522;
-
+        collateralTokens[0] = 0x4F8037F0A814A191fBF03E7F31e77cc118F19A95;
+        collateralTokens[1] = 0xb01f67f936b018edf565311A0ab55F3e1A05dBaf;
+        baseToken = 0x306134121e8B55dfA9faBA05De590E639a1F7D6B;
+        
         setupBorrowing(
             comet, 
             baseToken, 
@@ -49,7 +48,6 @@ contract DeployProtocol is Script {
     ) internal {
         ISandboxComet comet = ISandboxComet(cometAddr);
         ManagedFaucetToken baseTokenContract = ManagedFaucetToken(baseToken);
-
         // Supply base token to the comet
         uint256 baseAmount = 1e24; // 1,000,000 base tokens
         vm.startBroadcast(ownerPrivateKey);
@@ -59,17 +57,17 @@ contract DeployProtocol is Script {
         vm.stopBroadcast();
 
         // Supply collateral tokens
-        // for (uint i = 0; i < collateralTokens.length; i++) {
-        //     ManagedFaucetToken collateralToken = ManagedFaucetToken(collateralTokens[i]);
-        //     uint256 collateralAmount = 1e24; // 1,000,000 collateral tokens
-        //     vm.startBroadcast(ownerPrivateKey);
-        //     collateralToken.allocateTo(user, collateralAmount);
-        //     vm.stopBroadcast();
-        //     vm.startBroadcast(userPrivateKey);
-        //     collateralToken.approve(cometAddr, collateralAmount);
-        //     comet.supply(collateralTokens[i], collateralAmount);
-        //     vm.stopBroadcast();
-        // }
+        for (uint i = 0; i < collateralTokens.length; i++) {
+            ManagedFaucetToken collateralToken = ManagedFaucetToken(collateralTokens[i]);
+            uint256 collateralAmount = 1e24; // 1,000,000 collateral tokens
+            vm.startBroadcast(ownerPrivateKey);
+            collateralToken.allocateTo(user, collateralAmount);
+            vm.stopBroadcast();
+            vm.startBroadcast(userPrivateKey);
+            collateralToken.approve(cometAddr, collateralAmount);
+            comet.supply(collateralTokens[i], collateralAmount);
+            vm.stopBroadcast();
+        }
         
         // Borrow base token
         uint256 borrowAmount = 500 * 10 ** baseTokenContract.decimals(); 
