@@ -18,6 +18,7 @@ interface ISandboxErrors {
     error DifferentPriceFeedAlreadyUsedForToken();
     error WrongPriceFeedUnderlying();
     error InvalidFactors();
+    error InvalidCommissions();
 
     error LiquidateCollateralFactorTooLow();
     error LiquidateCollateralFactorTooHigh();

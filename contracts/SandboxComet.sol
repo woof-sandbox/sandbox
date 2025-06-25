@@ -1500,10 +1500,10 @@ contract SandboxComet is ISandboxComet {
         uint256 seedUsd = (seedReserves * basePrice) / baseScale;
         uint256 targetUsd = (targetReserves() * basePrice) / baseScale;
 
-        (uint256 reservePct, uint256 protocolPct) = ISandboxController(sandboxController).getCommissions(reservesUsd, seedUsd, targetUsd);
+        (uint64 reservePct, uint64 protocolPct) = ISandboxController(sandboxController).getCommissions(reservesUsd, seedUsd, targetUsd);
 
-        _reserveFee = mulFactor(profitAmount, reservePct);
-        _daoFee = mulFactor(profitAmount, protocolPct);
+        _reserveFee = mulFactor(profitAmount, uint256(reservePct));
+        _daoFee = mulFactor(profitAmount, uint256(protocolPct));
         _controllerFee = IConfigController(configController).cometFeeEnabled(address(this)) ? profitAmount - _reserveFee - _daoFee : 0;
         
         if (_controllerFee == 0) {
