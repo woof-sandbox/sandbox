@@ -1418,23 +1418,36 @@ contract SandboxComet is ISandboxComet {
         }
     }
 
+    /**
+     * @notice Add a new collateral asset to the protocol
+     * @param collateralTokenConfig The configuration for the collateral token
+     * @dev Note: Only the config controller can add new collateral assets
+     * @dev Note: Reverts if the maximum number of assets has been reached
+     */
     function addCollateralAsset(IConfigController.CollateralTokenConfig calldata collateralTokenConfig) external override {
         if (msg.sender != configController) revert Unauthorized();
-        if (numAssets >= MAX_ASSETS) revert TooManyAssets();
+        if (numAssets == MAX_ASSETS) revert TooManyAssets();
 
         (uint64 scale, address priceFeed) = _addCollateralAsset(collateralTokenConfig, numAssets++);
 
         emit CollateralAssetAdded(
             collateralTokenConfig.collateralToken,
+            scale,
             priceFeed,
-            collateralTokenConfig.supplyCap,
             collateralTokenConfig.borrowCollateralFactor,
+            collateralTokenConfig.supplyCap,
             collateralTokenConfig.liquidateCollateralFactor,
-            collateralTokenConfig.liquidationFactor,
-            scale
+            collateralTokenConfig.liquidationFactor
         );
     }
 
+    /**
+     * @dev Internal function to add a collateral asset to the protocol
+     * @param collateralTokenConfig The configuration for the collateral token
+     * @param numAsset The index of the asset being added
+     * @return scale The scale of the collateral asset
+     * @return priceFeed The price feed address for the collateral asset
+     */
     function _addCollateralAsset(IConfigController.CollateralTokenConfig calldata collateralTokenConfig, uint8 numAsset) internal returns (uint64 scale, address priceFeed) {
         scale = uint64(10 ** IERC20NonStandard(collateralTokenConfig.collateralToken).decimals());
         priceFeed = ISandboxController(sandboxController).tokenToPriceFeed(collateralTokenConfig.collateralToken);
@@ -1442,12 +1455,12 @@ contract SandboxComet is ISandboxComet {
         collateralAssets.push(
             CollateralAsset(
                 collateralTokenConfig.collateralToken,
+                scale,
                 priceFeed,
-                collateralTokenConfig.supplyCap,
                 collateralTokenConfig.borrowCollateralFactor,
+                collateralTokenConfig.supplyCap,
                 collateralTokenConfig.liquidateCollateralFactor,
-                collateralTokenConfig.liquidationFactor,
-                scale
+                collateralTokenConfig.liquidationFactor
             )
         );
 

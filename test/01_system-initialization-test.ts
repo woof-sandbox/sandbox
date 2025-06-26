@@ -12,13 +12,13 @@ import {
 } from "./helper/helpers";
 import {
   ConfigController,
-  ConfigControllerCallerTest,
+  ConfigControllerInitializeTest,
   ConfigControllerFactory,
   SandboxComet,
   SandboxCometFactory,
   ConfigControllerFactory__factory,
   ConfigController__factory,
-  ConfigControllerCallerTest__factory,
+  ConfigControllerInitializeTest__factory,
   SandboxComet__factory,
   SandboxCometFactory__factory,
   SandboxController__factory,
@@ -33,7 +33,7 @@ import { parseEther } from 'ethers/lib/utils';
 describe("1. System Initialization", function() {
   // Factories
   let _ConfigControllerFactory: ConfigControllerFactory__factory;
-  let _ConfigController: ConfigControllerCallerTest__factory;
+  let _ConfigController: ConfigControllerInitializeTest__factory;
   let _Comet: SandboxComet__factory;
   let _SandboxCometFactory: SandboxCometFactory__factory;
   let _SandboxControllerFactory: SandboxController__factory;
@@ -62,7 +62,7 @@ describe("1. System Initialization", function() {
     _ConfigControllerFactory = (await ethers.getContractFactory("ConfigControllerFactory")) as ConfigControllerFactory__factory;
 
     /// Note: we are deploying the test wrapper over the config controller
-    _ConfigController = (await ethers.getContractFactory("ConfigControllerCallerTest")) as ConfigControllerCallerTest__factory;
+    _ConfigController = (await ethers.getContractFactory("ConfigControllerInitializeTest")) as ConfigControllerInitializeTest__factory;
     _Comet = (await ethers.getContractFactory("SandboxComet")) as SandboxComet__factory;
     _SandboxCometFactory = (await ethers.getContractFactory("SandboxCometFactory")) as SandboxCometFactory__factory;
     _SandboxControllerFactory = (await ethers.getContractFactory("SandboxController")) as SandboxController__factory;
@@ -507,7 +507,7 @@ describe("1. System Initialization", function() {
     let sandboxController;
 
     let configControllerAddress;
-    let configController: ConfigControllerCallerTest;
+    let configController: ConfigControllerInitializeTest;
     let sandboxCometFactory: SandboxCometFactory;
 
     const configControllerOpts = {
@@ -558,9 +558,9 @@ describe("1. System Initialization", function() {
                 configControllerOpts._proposalDuration
             );
         configController = (await ethers.getContractAt(
-            "ConfigControllerCallerTest",
+            "ConfigControllerInitializeTest",
             configControllerAddress
-        )) as ConfigControllerCallerTest;
+        )) as ConfigControllerInitializeTest;
 
         // deploy comet
         const baseToken = await makeToken({

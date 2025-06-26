@@ -45,7 +45,7 @@ describe('15. addCollateralAsset', function () {
         _proposalDuration: 7 * 24 * 60 * 60,
     };
 
-    let owner, curator, guardian, user;
+    let owner, curator, guardian, user, randomCaller;
 
     let configControllerAddress;
     let configController: ConfigControllerCallerTest;
@@ -62,7 +62,7 @@ describe('15. addCollateralAsset', function () {
     const provider = ethers.provider;
 
     before(async function () {
-        [owner, curator, guardian, user] = await ethers.getSigners();
+        [owner, curator, guardian, user, randomCaller ] = await ethers.getSigners();
 
         const configControllerFactory_factory = new ConfigControllerFactory__factory(owner);
         const configController_factory = new ConfigControllerCallerTest__factory(owner);
@@ -204,12 +204,12 @@ describe('15. addCollateralAsset', function () {
             // Check event emission
             await expect(tx).to.emit(comet, 'CollateralAssetAdded').withArgs(
                 newCollateralTokenConfig.collateralToken,
+                scale,
                 priceFeed,
-                newCollateralTokenConfig.supplyCap,
                 newCollateralTokenConfig.borrowCollateralFactor,
+                newCollateralTokenConfig.supplyCap,
                 newCollateralTokenConfig.liquidateCollateralFactor,
-                newCollateralTokenConfig.liquidationFactor,
-                scale
+                newCollateralTokenConfig.liquidationFactor
             );
 
             // Check numAssets after adding
@@ -221,12 +221,12 @@ describe('15. addCollateralAsset', function () {
             const assetInfo = await comet.getAssetInfo(newAssetIndex);
             expect(assetInfo).to.deep.equal([
                 newCollateralTokenConfig.collateralToken,
+                scale,
                 priceFeed,
-                newCollateralTokenConfig.supplyCap,
                 newCollateralTokenConfig.borrowCollateralFactor,
+                newCollateralTokenConfig.supplyCap,
                 newCollateralTokenConfig.liquidateCollateralFactor,
                 newCollateralTokenConfig.liquidationFactor,
-                scale
             ]);
 
         });
@@ -407,7 +407,7 @@ describe('15. addCollateralAsset', function () {
             };
 
             // Attempt to add the new collateral asset from a non-controller account
-            await expect(comet.connect(owner).addCollateralAsset(
+            await expect(comet.connect(randomCaller).addCollateralAsset(
                 newCollateralTokenConfig
             )).to.be.revertedWithCustomError(comet, 'Unauthorized');
         }

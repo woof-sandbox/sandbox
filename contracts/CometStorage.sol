@@ -33,12 +33,12 @@ contract CometStorage {
 
     struct CollateralAsset {
         address collateralToken;
+        uint64 scale;
         address priceFeed;
-        uint128 supplyCap;
         uint64 borrowCollateralFactor;
+        uint128 supplyCap;
         uint64 liquidateCollateralFactor;
         uint64 liquidationFactor;
-        uint64 scale;
     }
 
     /** Internal constants **/
