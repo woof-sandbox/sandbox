@@ -19,7 +19,8 @@ contract SandboxControllerNoCurvesTest is SandboxController {
         uint256 _suggestedAmountOfSeedReserves,
         uint256 _suggestedLockTimeOfSeedReserves,
         uint64[3] memory _reserveCommissions,
-        uint64[3] memory _protocolCommissions
+        uint64[3] memory _protocolCommissions,
+        uint40 _transitionDuration
     )
     SandboxController(
         _owner,
@@ -33,7 +34,8 @@ contract SandboxControllerNoCurvesTest is SandboxController {
         _suggestedAmountOfSeedReserves,
         _suggestedLockTimeOfSeedReserves,
         _reserveCommissions,
-        _protocolCommissions
+        _protocolCommissions,
+        _transitionDuration
     ) { }
 
     function whitelistBaseAssetWithNoCurve(address token, address priceFeed) external {

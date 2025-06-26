@@ -110,4 +110,12 @@ contract CometHarness is SandboxComet {
     function accrue() external {
         accrueInternal();
     }
+
+    function setTransactionActive(bool active) external {
+        isTransitionActive = active;
+    }
+
+    function updateCurveTransition() external {
+        accrueInternal();
+    }
 }

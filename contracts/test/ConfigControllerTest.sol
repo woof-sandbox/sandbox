@@ -1,0 +1,11 @@
+// SPDX-License-Identifier: BUSL-1.1
+pragma solidity 0.8.28;
+
+import { ConfigController } from "contracts/ConfigController.sol";
+import { ISandboxComet } from "contracts/interfaces/ISandboxComet.sol";
+
+contract ConfigControllerTest is ConfigController {
+    function startCurveTransitionOnComet(address comet, uint8 curveId) external {
+        ISandboxComet(comet).startCurveTransition(curveId);
+    }
+}

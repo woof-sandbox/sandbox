@@ -249,6 +249,86 @@ contract SandboxComet is ISandboxComet {
             }
             lastAccrualTime = now_;
         }
+
+        if (isTransitionActive) progressTransition(now_);
+    }
+
+    function progressTransition(uint40 now_) internal {
+        uint40 duration = transition.endTime - transition.startTime;
+        uint40 elapsed = now_ < transition.endTime ? now_ - transition.startTime : duration;
+ 
+        if (now_ <= transition.lastUpdateTime) {
+            return; // no update needed
+        }
+
+        Curve memory start = transition.startCurveParams;
+        Curve memory target = transition.targetCurveParams;
+        
+        supplyKink = updateCurveValue(start.supplyKink, target.supplyKink, supplyKink, elapsed, duration);
+        supplyPerSecondInterestRateSlopeLow = updateCurveValue(
+            start.supplyPerSecondInterestRateSlopeLow,
+            target.supplyPerSecondInterestRateSlopeLow,
+            supplyPerSecondInterestRateSlopeLow,
+            elapsed,
+            duration
+        );
+        supplyPerSecondInterestRateSlopeHigh = updateCurveValue(
+            start.supplyPerSecondInterestRateSlopeHigh,
+            target.supplyPerSecondInterestRateSlopeHigh,
+            supplyPerSecondInterestRateSlopeHigh,
+            elapsed,
+            duration
+        );
+        supplyPerSecondInterestRateBase = updateCurveValue(
+            start.supplyPerSecondInterestRateBase,
+            target.supplyPerSecondInterestRateBase,
+            supplyPerSecondInterestRateBase,
+            elapsed,
+            duration
+        );
+        borrowKink = updateCurveValue(
+            start.borrowKink,
+            target.borrowKink,
+            borrowKink,
+            elapsed,
+            duration
+        );
+        borrowPerSecondInterestRateSlopeLow = updateCurveValue(
+            start.borrowPerSecondInterestRateSlopeLow,
+            target.borrowPerSecondInterestRateSlopeLow,
+            borrowPerSecondInterestRateSlopeLow,
+            elapsed,
+            duration
+        );
+        borrowPerSecondInterestRateSlopeHigh = updateCurveValue(
+            start.borrowPerSecondInterestRateSlopeHigh,
+            target.borrowPerSecondInterestRateSlopeHigh,
+            borrowPerSecondInterestRateSlopeHigh,
+            elapsed,
+            duration
+        );
+        borrowPerSecondInterestRateBase = updateCurveValue(
+            start.borrowPerSecondInterestRateBase,
+            target.borrowPerSecondInterestRateBase,
+            borrowPerSecondInterestRateBase,
+            elapsed,
+            duration
+        );
+
+        transition.lastUpdateTime = now_;
+
+        if (now_ >= transition.endTime) {
+            isTransitionActive = false;
+            return;
+        }   
+    }
+
+    function updateCurveValue(uint256 startValue, uint256 targetValue, uint256 currentValue, uint40 elapsed, uint40 duration) internal pure returns (uint256) {
+        if (targetValue > startValue) {
+            return currentValue + (((targetValue - startValue) * elapsed / duration) - (currentValue - startValue));
+        } else {
+            return currentValue - (((startValue - targetValue) * elapsed / duration) - (startValue - currentValue));
+        }
     }
 
     /**
@@ -1275,6 +1355,52 @@ contract SandboxComet is ISandboxComet {
                 presentValueSupply(baseSupplyIndex, unsigned104(newPrincipal))
             );
         }
+    }
+
+    function startCurveTransition(uint8 curveId) external override {
+        if (msg.sender != configController) revert Unauthorized();
+
+        ISandboxController.BaseAssetCurve memory targetCurve = ISandboxController(sandboxController).baseAssets(baseToken).baseAssetCurves[curveId];
+
+        Curve memory startCurveParams = Curve({
+            supplyKink: safe64(supplyKink),
+            supplyPerSecondInterestRateSlopeLow: safe64(supplyPerSecondInterestRateSlopeLow),
+            supplyPerSecondInterestRateSlopeHigh: safe64(supplyPerSecondInterestRateSlopeHigh),
+            supplyPerSecondInterestRateBase: safe64(supplyPerSecondInterestRateBase),
+            borrowKink: safe64(borrowKink),
+            borrowPerSecondInterestRateSlopeLow: safe64(borrowPerSecondInterestRateSlopeLow),
+            borrowPerSecondInterestRateSlopeHigh: safe64(borrowPerSecondInterestRateSlopeHigh),
+            borrowPerSecondInterestRateBase: safe64(borrowPerSecondInterestRateBase)
+        });
+        
+        Curve memory targetCurveParams = Curve({
+            supplyKink: targetCurve.supplyKink,
+            supplyPerSecondInterestRateSlopeLow: targetCurve.supplyPerYearInterestRateSlopeLow / SECONDS_PER_YEAR,
+            supplyPerSecondInterestRateSlopeHigh: targetCurve.supplyPerYearInterestRateSlopeHigh / SECONDS_PER_YEAR,
+            supplyPerSecondInterestRateBase: targetCurve.supplyPerYearInterestRateBase / SECONDS_PER_YEAR,
+            borrowKink: targetCurve.borrowKink,
+            borrowPerSecondInterestRateSlopeLow: targetCurve.borrowPerYearInterestRateSlopeLow / SECONDS_PER_YEAR,
+            borrowPerSecondInterestRateSlopeHigh: targetCurve.borrowPerYearInterestRateSlopeHigh / SECONDS_PER_YEAR,
+            borrowPerSecondInterestRateBase: targetCurve.borrowPerYearInterestRateBase / SECONDS_PER_YEAR
+        });
+
+        uint40 timestamp = getNowInternal();
+
+        transition = Transition({
+            startTime: timestamp,
+            endTime: timestamp + ISandboxController(sandboxController).transitionDuration(),
+            lastUpdateTime: timestamp,
+            startCurveParams: startCurveParams,
+            targetCurveParams: targetCurveParams
+        });
+        isTransitionActive = true;
+
+        emit CurveTranstionStarted(
+            transition.startTime,
+            transition.endTime,
+            startCurveParams,
+            targetCurveParams
+        );
     }
 
     /**

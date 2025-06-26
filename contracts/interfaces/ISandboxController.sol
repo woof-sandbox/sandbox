@@ -113,6 +113,7 @@ interface ISandboxController is ISandboxErrors {
     function tokenToPriceFeed(address) external view returns (address);
     function reserveCommission(MarketState) external view returns (uint64);
     function protocolCommission(MarketState) external view returns (uint64);
+    function transitionDuration() external view returns (uint40);
 
     function whitelistBaseAsset(
         address token,

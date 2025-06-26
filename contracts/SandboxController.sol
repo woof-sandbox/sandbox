@@ -24,6 +24,8 @@ contract SandboxController is ISandboxController {
     address[] public override baseAssetTokens; 
     /// @notice collateral asset tokens. Whitelisted collateral asset tokens.
     address[] public override collateralAssetTokens; 
+    /// @notice transition duration. This is the duration of the transition period for the interest rate curve.
+    uint40 public override transitionDuration;
     /// @notice token to price feed.
     mapping(address => address) public override tokenToPriceFeed; 
     /// @notice reserve commission. This is the mapping of the market state to the percentage of the reserve commission.
@@ -90,7 +92,8 @@ contract SandboxController is ISandboxController {
         uint256 _suggestedAmountOfSeedReserves,
         uint256 _suggestedLockTimeOfSeedReserves,
         uint64[3] memory _reserveCommissions,
-        uint64[3] memory _protocolCommissions
+        uint64[3] memory _protocolCommissions,
+        uint40 _transitionDuration
     ) {
         if (_owner == address(0) || _dao == address(0)) revert ZeroAddress();
         if (_owner == _dao) revert InvalidFactors();
@@ -130,6 +133,8 @@ contract SandboxController is ISandboxController {
             _suggestedAmountOfSeedReserves,
             _suggestedLockTimeOfSeedReserves
         );
+
+        transitionDuration = _transitionDuration;
     }
 
     /**

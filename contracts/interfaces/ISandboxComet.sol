@@ -3,7 +3,6 @@ pragma solidity 0.8.28;
 
 import "../CometCore.sol";
 import "./IConfigController.sol";
-import "./ISandboxController.sol";
 
 /**
  * @title Compound's Comet Main Interface (without Ext)
@@ -95,6 +94,14 @@ abstract contract ISandboxComet is CometCore {
         bool buyPaused
     );
 
+    /// @notice Event emitted when a curve transition is started
+    event CurveTranstionStarted(
+        uint40 startTime,
+        uint40 endTime,
+        Curve startCurveParams,
+        Curve targetCurveParams
+    );
+
     /// @notice Event emitted when reserves are withdrawn by the governor
     event WithdrawReserves(address indexed to, uint amount);
 
@@ -161,6 +168,8 @@ abstract contract ISandboxComet is CometCore {
         address absorber,
         address[] calldata accounts
     ) external virtual;
+
+    function startCurveTransition(uint8 curveId) external virtual;
 
     function buyCollateral(
         address asset,

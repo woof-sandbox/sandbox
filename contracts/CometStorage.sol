@@ -41,6 +41,25 @@ contract CometStorage {
         uint64 scale;
     }
 
+    struct Curve {
+        uint64 supplyKink;
+        uint64 supplyPerSecondInterestRateSlopeLow;
+        uint64 supplyPerSecondInterestRateSlopeHigh;
+        uint64 supplyPerSecondInterestRateBase;
+        uint64 borrowKink;
+        uint64 borrowPerSecondInterestRateSlopeLow;
+        uint64 borrowPerSecondInterestRateSlopeHigh;
+        uint64 borrowPerSecondInterestRateBase;
+    }
+
+    struct Transition {
+        uint40 startTime;
+        uint40 endTime;
+        uint40 lastUpdateTime;
+        Curve startCurveParams;
+        Curve targetCurveParams;
+    }
+
     /** Internal constants **/
 
     /// @dev The max number of assets this contract is hardcoded to support
@@ -187,6 +206,11 @@ contract CometStorage {
     uint8 public numAssets;
     /// @notice Marker that the market is closed
     bool internal _closed;
+    /// @notice Marker that the curve transition is active
+    bool public isTransitionActive;
+
+    /// @notice The curve transition parameters
+    Transition public transition;
 
     /// @notice Aggregate variables tracked for each collateral asset
     mapping(address => uint256) public totalsCollateral;
