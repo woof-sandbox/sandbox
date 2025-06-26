@@ -61,9 +61,6 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
     /// @notice The address of the proposed curator
     address public override proposedCurator;
 
-    /// @notice The timestamp when the curator proposal expires
-    uint public override curatorProposalExpiry;
-
     /// @notice The duration of curator proposals in seconds
     uint public curatorProposalDuration;
 
@@ -137,6 +134,83 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
         proposalDuration = _proposalDuration;
         
         _proposeCurator(_curator);
+    }
+
+    struct Proposal {
+        address proposer;
+        bytes[] calldatas;
+        uint8 proposalType;
+        uint48 expirationTime;
+    }
+
+    mapping(ProposalType => Proposal) public proposals;
+
+    enum ProposalType {
+        ProposeCurator
+    }
+
+    /// @notice Creates a proposal
+    /// @param _uintValues Array of uint values
+    /// @param _addressValues Array of address values
+    /// @param _proposalType Type of the proposal
+    function createProposal(
+        uint256[] memory _uintValues,
+        address[] memory _addressValues,
+        uint8 _proposalType
+    ) external {
+        /// The curator proposal can be recreated by the owner.
+        /// For curator proposal, we need only address of the proposed curator.
+        if (_proposalType == ProposalType.ProposeCurator) {
+            /// Only owner can propose curator.
+            if (msg.sender != owner) revert Unauthorized();
+            /// Encode the values to bytes.
+            /// In the bytes we have to decode the calldata for the function _acceptCuratorRole.
+            /// We need to cheeck that this address is exists.
+            if (_addressValues[0] == ZERO_ADDRESS) revert ZeroAddress();
+            /// We must ensure that this address is not the same as the current curator.
+            if (_addressValues[0] == curator) revert InvalidCurator();
+            /// We must ensure that this address is not the same as the proposed curator.
+            if (_addressValues[0] == proposedCurator) revert InvalidCurator();
+            
+            bytes memory _calldata = abi.encodeWithSelector(IConfigController._acceptCuratorRole.selector);
+
+            /// If we have a proposal, we don't need to check if it exists.
+            /// We can just update the proposal.
+            /// Save a proposal.
+            Proposal memory _proposal = Proposal({
+                proposer: msg.sender,
+                calldatas: _calldata,
+                proposalType: _proposalType,
+                expirationTime: block.timestamp + curatorProposalDuration
+            });
+            proposals[_proposalType] = _proposal;
+            proposedCurator = _addressValues[0];
+
+            emit CuratorProposed(curator, proposedCurator, _proposal.expirationTime);
+        }
+        
+    }
+
+    /// @notice Accepts a proposal
+    /// Types of proposals:
+    /// - ProposeCurator
+    function acceptProposal(ProposalType _proposalType) external {
+        Proposal memory _proposal = proposals[_proposalType];
+        /// If there is no active proposal, we can't accept it.
+        if (_proposal.expirationTime == 0) revert NoActiveProposal();
+        
+        /// Accept the curator role proposal.
+        if (_proposal.proposalType == ProposalType.ProposeCurator) {
+            /// Check if the proposal has expired.
+            if (block.timestamp > _proposal.expirationTime) revert ProposalExpired();
+            /// Check if the proposed curator is the same as the one who is accepting the proposal.
+            if (msg.sender != proposedCurator) revert Unauthorized();
+            
+            emit CuratorAccepted(curator, proposedCurator);
+            /// Switch the curator role.
+            curator = proposedCurator;
+            proposedCurator = ZERO_ADDRESS;
+        }
     }
 
     /// @notice Creates a new comet with the specified configuration
@@ -227,39 +301,6 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
         owner = _newOwner;
     }
 
-    /// @notice Proposes a new curator
-    /// @dev Only callable by the owner. Emits a CuratorProposed event
-    /// @param _proposedCurator The address of the proposed curator
-    function proposeCurator(address _proposedCurator) public onlyOwner {
-        _proposeCurator(_proposedCurator);
-    }
-
-    /// @notice Proposes a new curator
-    /// @dev Only callable by the owner. Emits a CuratorProposed event
-    /// @param _proposedCurator The address of the proposed curator
-    function _proposeCurator(address _proposedCurator) internal {
-        if (_proposedCurator == ZERO_ADDRESS) revert ZeroAddress();
-        if (_proposedCurator == curator) revert InvalidCurator();
-
-        proposedCurator = _proposedCurator;
-        curatorProposalExpiry = block.timestamp + curatorProposalDuration;
-
-        emit CuratorProposed(curator, _proposedCurator, curatorProposalExpiry);
-    }
-
-    /// @notice Accepts the curator role proposal
-    /// @dev Only callable by the proposed curator. Emits a CuratorAccepted event
-    function acceptCuratorRole() external {
-        if (msg.sender != proposedCurator) revert Unauthorized();
-        if (block.timestamp > curatorProposalExpiry) revert ProposalExpired();
-
-        address oldCurator = curator;
-        curator = proposedCurator;
-        proposedCurator = ZERO_ADDRESS;
-        curatorProposalExpiry = 0;
-
-        emit CuratorAccepted(oldCurator, curator);
-    }
 
     /// @notice Cancels the curator role proposal
     /// @dev Only callable by the owner. Emits a CuratorProposalCancelled event
