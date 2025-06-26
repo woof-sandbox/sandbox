@@ -179,11 +179,26 @@ describe("ConfigController", () => {
 
     describe("setProposalDurations", function() {
         it("should allow owner to set valid durations", async function() {
+<<<<<<< HEAD:test/4_config-controller-test.ts
             const newDuration = 2 * 24 * 60 * 60; // 2 days
             const oldDuration = 7 * 24 * 60 * 60; // 7 days
             await expect(configController.connect(owner).setProposalDurations(newDuration, newDuration))
                 .to.emit(configController, "ProposalDurationsUpdated")
                 .withArgs(oldDuration, newDuration, oldDuration, newDuration);
+=======
+            const { configController, owner, sandboxController } = await makeConfigController();
+
+            const maxUpdateTime = (await sandboxController.proposalBoundaries())[1];
+            const newDuration = maxUpdateTime.sub(1*24*60*60); // 6 days
+
+            const oldCuratorDuration = await configController.curatorProposalDuration();
+            const oldProposalDuration = await configController.proposalDuration();
+
+            await expect(configController.connect(owner).setProposalDurations(newDuration, newDuration))
+                .to.emit(configController, "ProposalDurationsUpdated")
+                .withArgs(oldCuratorDuration, newDuration, oldProposalDuration, newDuration);
+
+>>>>>>> 5c3a483 (Liquidation commissions (#14)):test/04_config-controller-test.ts
             expect(await configController.proposalDuration()).to.equal(newDuration);
             expect(await configController.curatorProposalDuration()).to.equal(newDuration);
         });
@@ -196,11 +211,22 @@ describe("ConfigController", () => {
         });
 
         it("should revert when minUpdate is higher than new duration", async function() {
+<<<<<<< HEAD:test/4_config-controller-test.ts
             const boundaries = await sandboxController.proposalBoundaries();
             const minUpdateTime = boundaries[0]
             const newDuration = 7 * 24 * 60 * 60; // 7 days
+=======
+            const { configController, owner, sandboxController } = await makeConfigController();
+
+            const minUpdateTime = (await sandboxController.proposalBoundaries())[0];
+            const newDuration = minUpdateTime.add(1 * 60 * 24 * 24); // +1 days
+>>>>>>> 5c3a483 (Liquidation commissions (#14)):test/04_config-controller-test.ts
             await expect(
                 configController.connect(owner).setProposalDurations(newDuration, minUpdateTime.sub(1))
+            ).to.be.revertedWithCustomError(configController, "ProposalDurationTooShort");
+
+            await expect(
+                configController.connect(owner).setProposalDurations(minUpdateTime.sub(1), newDuration)
             ).to.be.revertedWithCustomError(configController, "ProposalDurationTooShort");
         });
 
@@ -219,11 +245,22 @@ describe("ConfigController", () => {
         });
 
         it("should emit event with correct old and new values", async function() {
+<<<<<<< HEAD:test/4_config-controller-test.ts
             const oldDuration = 7 * 24 * 60 * 60; // 7 days
             const newDuration = 2 * 24 * 60 * 60; // 2 days
+=======
+            const { configController, owner, sandboxController } = await makeConfigController();
+
+            const maxUpdateTime = (await sandboxController.proposalBoundaries())[1];
+            const newDuration = maxUpdateTime.sub(1*24*60*60); // 6 days
+
+            const oldCuratorDuration = await configController.curatorProposalDuration();
+            const oldProposalDuration = await configController.proposalDuration();
+
+>>>>>>> 5c3a483 (Liquidation commissions (#14)):test/04_config-controller-test.ts
             await expect(configController.connect(owner).setProposalDurations(newDuration, newDuration))
                 .to.emit(configController, "ProposalDurationsUpdated")
-                .withArgs(oldDuration, newDuration, oldDuration, newDuration);
+                .withArgs(oldCuratorDuration, newDuration, oldProposalDuration, newDuration);
         });
     });
 });

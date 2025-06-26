@@ -13,6 +13,7 @@ abstract contract ISandboxComet is CometCore {
 
     error Absurd();
     error AlreadyInitialized();
+    error AmountTooSmall();
     error BadAsset();
     error BadDecimals();
     error BadDiscount();
@@ -36,6 +37,7 @@ abstract contract ISandboxComet is CometCore {
     error TransferOutFailed();
     error Unauthorized();
     error Locked(uint256 currrentTimestamp, uint256 unlockTimestamp);
+    error ZeroAddress();
 
     event Supply(address indexed from, address indexed dst, uint amount);
     event Transfer(address indexed from, address indexed to, uint amount);
@@ -85,6 +87,14 @@ abstract contract ISandboxComet is CometCore {
         uint collateralAmount
     );
 
+    /// @notice Event emitted when fees are extracted either to DAO or to protocol
+    event FeesExtracted(
+        address indexed comet,
+        address indexed asset,
+        uint amoint,
+        address to
+    );
+
     /// @notice Event emitted when an action is paused/unpaused
     event PauseAction(
         bool supplyPaused,
@@ -110,6 +120,8 @@ abstract contract ISandboxComet is CometCore {
         uint baseTrackingBorrowSpeed,
         bool dao_
     );
+
+    event ControllerFeeDisabled(bool disabled);
 
     function supply(address asset, uint amount) external virtual;
 
@@ -178,10 +190,7 @@ abstract contract ISandboxComet is CometCore {
         address recipient
     ) external virtual;
 
-    function quoteCollateral(
-        address asset,
-        uint baseAmount
-    ) public view virtual returns (uint);
+    function quoteCollateral(address asset, uint baseAmount) public view virtual returns (uint, uint, uint, uint);
 
     function getCollateralReserves(
         address asset
@@ -196,9 +205,7 @@ abstract contract ISandboxComet is CometCore {
     ) public view virtual returns (bool);
 
     function isLiquidatable(address account) public view virtual returns (bool);
-
-    function totalSupply() external view virtual returns (uint256);
-
+    
     function totalBorrow() external view virtual returns (uint256);
 
     function balanceOf(address owner) public view virtual returns (uint256);
@@ -214,6 +221,7 @@ abstract contract ISandboxComet is CometCore {
         bool absorbPaused,
         bool buyPaused
     ) external virtual;
+    function extractFees(address) external virtual;
 
     function isSupplyPaused() public view virtual returns (bool);
 

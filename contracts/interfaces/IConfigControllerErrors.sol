@@ -26,4 +26,6 @@ interface IConfigControllerErrors {
     error ProposalDurationTooShort();
     error ProposalDurationTooLong();
     error InvalidCurveId();
+    error IncorrectValue();
+    error UnknownComet();
 }

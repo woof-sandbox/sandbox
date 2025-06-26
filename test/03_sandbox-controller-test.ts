@@ -1369,7 +1369,7 @@ describe('3. SandboxController', function () {
         ];
         await expect(
           sandboxController.connect(owner).setReserveCommissions(newReserveCommissions)
-        ).to.be.revertedWithCustomError(sandboxController, 'InvalidFactors');
+        ).to.be.revertedWithCustomError(sandboxController, 'InvalidCommissions');
       });
 
       it('updates reserve commissions and emits events', async function () {
@@ -1422,7 +1422,7 @@ describe('3. SandboxController', function () {
         ];
         await expect(
           sandboxController.connect(owner).setProtocolCommissions(protocolCommissions)
-        ).to.be.revertedWithCustomError(sandboxController, 'InvalidFactors');
+        ).to.be.revertedWithCustomError(sandboxController, 'InvalidCommissions');
       });
 
       it('updates protocol commissions and emits events', async function () {
