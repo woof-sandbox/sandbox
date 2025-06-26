@@ -8,6 +8,16 @@ import {
   wait,
   setTotalsBasic,
 } from "./helper/helpers";
+import {
+  ethers,
+  expect,
+  exp,
+  fastForward,
+  getBlock,
+  makeProtocol,
+  wait,
+  setTotalsBasic,
+} from "./helper/helpers";
 
 function projectBaseIndex(index, rate, time, factorScale = exp(1, 18)) {
   return index.add(index.mul(rate.mul(time)).div(factorScale));
@@ -27,7 +37,7 @@ describe.skip('accrue', function () {
   });
 
   it("accrue initially succeeds and has the right parameters", async () => {
-    await ethers.provider.send("hardhat_reset", []);
+    await ethers.provider.send("hardhat_reset", []); // ensure clean start...
 
     const start = (await getBlock()).timestamp + 100;
     const params = {
@@ -165,6 +175,8 @@ describe.skip('accrue', function () {
       start,
     };
     const { comet, dao } = await makeProtocol(params);
+    const { comet } = await makeProtocol(params);
+    await setTotalsBasic(comet, { lastAccrualTime: start }); 
 
     await wait(
       comet.connect(dao).setDaoBaseSpeeds(params.trackingIndexScale, params.trackingIndexScale),
@@ -244,7 +256,9 @@ describe.skip('accrue', function () {
     await fastForward(998);
     await wait(comet.setTotalsBasic(t1));
     await fastForward(2);
-    await expect(wait(comet.accrue())).to.be.reverted;
+    await expect(wait(comet.accrue())).to.be.revertedWith(
+      "code 0x11 (Arithmetic operation underflowed or overflowed outside of an unchecked block)"
+    );
 
     const t2 = Object.assign({}, t0, {
       baseBorrowIndex: 2n ** 64n - 1n,
@@ -252,7 +266,9 @@ describe.skip('accrue', function () {
     await fastForward(998);
     await wait(comet.setTotalsBasic(t2));
     await fastForward(2);
-    await expect(wait(comet.accrue())).to.be.reverted;
+    await expect(wait(comet.accrue())).to.be.revertedWith(
+      "code 0x11 (Arithmetic operation underflowed or overflowed outside of an unchecked block)"
+    );
   });
 
   it("supports up to the maximum timestamp then breaks", async () => {

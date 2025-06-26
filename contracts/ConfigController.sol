@@ -14,7 +14,6 @@ import "./interfaces/ISandboxComet.sol";
 import "./interfaces/ISandboxCometFactory.sol";
 import "./interfaces/IERC20NonStandard.sol";
 
-
 /**
  * @title ConfigController
  * @author WOOF Software
@@ -73,6 +72,9 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
 
     /// @notice The address of the ConfigControllerFactory contract
     address public override configControllerFactory;
+
+    /// @notice Controller fee from the Comet's profit
+    mapping(address => bool) public override cometFeeEnabled;
 
     /// @notice Modifier to restrict access to owner only
     modifier onlyOwner() {
@@ -219,6 +221,7 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
             IERC20(_cometConfig.baseToken).safeTransferFrom(msg.sender, comet, _sandboxConfig.suggestedAmountOfSeedReserves);
         }
         
+        
         emit CometCreated(
             comet,
             _cometConfig.baseToken,
@@ -234,6 +237,33 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
     function cometsLength() public view override returns (uint) {
         return comets.length;
     }
+
+    /// @notice Disables/Enables the controller fee for a specific comet
+    /// @param comet Comet which should be registered in Controller
+    /// @param feeEnabled Flag for fees enabling (true -> fees are enabled)
+    function setCometFee(address comet, bool feeEnabled) external onlyOwner {
+        if (comet == address(0)) revert ZeroAddress();
+        if (!_isCometOwned(comet)) revert UnknownComet();
+        if (cometFeeEnabled[comet] == feeEnabled) revert IncorrectValue();
+
+        cometFeeEnabled[comet] = feeEnabled;
+        emit CometFeeEnabled(address(this), comet, feeEnabled);
+    }
+
+
+    /// @notice Extracts fees to a self and distributes it
+    /// @param comet Comet which should be registered in Controller
+    /// @param asset Asset (collateral or base asset) to extract
+    function extractFees(address comet, address asset) external onlyOwner {
+        if (comet == address(0)) revert ZeroAddress();
+        if (!_isCometOwned(comet)) revert UnknownComet();
+
+        ISandboxComet(comet).extractFees(asset);
+        /// Note: Comet emits the respective event
+
+        /// TODO: extend method once fee distribution is finished
+    }
+
 
     /// @notice Transfers ownership of the protocol to a new address
     /// @dev Only callable by the current owner

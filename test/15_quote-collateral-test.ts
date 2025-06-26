@@ -1,6 +1,10 @@
 import { expect, exp, makeProtocol } from './helper/helpers';
 
-describe.skip('quoteCollateral', function () {
+function mulDiv(a: bigint, b: bigint, denom: bigint): bigint {
+  return (a * b) / denom;
+}
+
+describe.skip('15. quoteCollateral', function () {
   it('quotes the collateral correctly for a positive base amount', async () => {
     const { comet, tokens } = await makeProtocol({
       storeFrontPriceFactor: exp(0.5, 18),

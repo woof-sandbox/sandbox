@@ -111,8 +111,10 @@ interface ISandboxController is ISandboxErrors {
     function baseAssetTokens(uint256) external view returns (address);
     function collateralAssetTokens(uint256) external view returns (address);
     function tokenToPriceFeed(address) external view returns (address);
-    function reserveCommission(MarketState) external view returns (uint64);
-    function protocolCommission(MarketState) external view returns (uint64);
+
+    function reserveCommission(uint) external view returns (uint64);
+    function protocolCommission(uint) external view returns (uint64);
+    function getCommissions(uint256, uint256, uint256) external view returns(uint64, uint64);
 
     function whitelistBaseAsset(
         address token,

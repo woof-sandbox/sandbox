@@ -19,7 +19,7 @@ import {
   hre,
 } from "./helper/helpers";
 
-describe.skip("buyCollateral", function() {
+describe.skip("16. buyCollateral", function() {
   async function mintUserCollateral(
     comet: SandboxComet,
     token: FaucetToken,

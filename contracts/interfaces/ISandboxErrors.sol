@@ -5,6 +5,7 @@ interface ISandboxErrors {
     error ZeroAddress();
     error ZeroAmount();
     error ZeroCollateralAssets();
+    error IncorrectSetting();
 
     error BaseTokenAlreadyWhitelisted();
     error CollateralTokenAlreadyWhitelisted();
@@ -17,6 +18,7 @@ interface ISandboxErrors {
     error DifferentPriceFeedAlreadyUsedForToken();
     error WrongPriceFeedUnderlying();
     error InvalidFactors();
+    error InvalidCommissions();
 
     error LiquidateCollateralFactorTooLow();
     error LiquidateCollateralFactorTooHigh();
