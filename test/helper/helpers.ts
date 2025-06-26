@@ -56,6 +56,8 @@ import {
     SandboxComet__factory,
     IConfigController,
     ISandboxComet,
+    ConfigControllerTest,
+    ConfigControllerTest__factory,
 } from "../../build/types";
 import { SandboxCometFactory } from "../../build/types/SandboxCometFactory";
 import { SandboxCometFactory__factory } from "../../build/types/factories/SandboxCometFactory__factory";
@@ -137,6 +139,7 @@ export type ProtocolOpts = {
     suggestedLockTimeOfSeedReserves?: number;
     reserveCommissions?: [bigint, bigint, bigint];
     protocolCommissions?: [bigint, bigint, bigint];
+    transitionDuration?: number;
 };
 
 export type Protocol = {
@@ -179,7 +182,7 @@ export type Protocol = {
         [symbol: string]: SimplePriceFeed;
     };
     configControllerFactory: ConfigControllerFactory;
-    configController: ConfigController;
+    configController: ConfigControllerTest;
     sandboxController: ISandboxController;
     cometImpl: ISandboxMarket;
     cometFactory: ISandboxCometFactory;
@@ -228,6 +231,7 @@ export interface SandboxControllerOpts {
   suggestedLockTimeOfSeedReserves?: number;
   reserveCommissions?: [bigint, bigint, bigint];
   protocolCommissions?: [bigint, bigint, bigint];
+  transitionDuration?: number;
 }
 
 export type BulkerInfo = {
@@ -438,7 +442,8 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
       suggestedLockTimeOfSeedReserves: 3600,
       targetPercent: opts.targetPercent ? ethers.utils.parseEther(opts.targetPercent.toString()).toString() : ethers.utils.parseEther('0.4').toString(),
       reserveCommissions: opts.reserveCommissions ?? [exp(0.01, 18), exp(0.02, 18), exp(0.03, 18)],
-      protocolCommissions: opts.protocolCommissions ?? [exp(0.01, 18), exp(0.02, 18), exp(0.03, 18)]
+      protocolCommissions: opts.protocolCommissions ?? [exp(0.01, 18), exp(0.02, 18), exp(0.03, 18)],
+      transitionDuration: opts.transitionDuration ?? 7 * 24 * 60 * 60
     });
   
     const sandboxController = (await makeSandboxController(sandboxControllerOpts)).sandboxController;
@@ -484,7 +489,8 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
     const CometFactory = (await ethers.getContractFactory('CometHarness')) as CometHarness__factory;
     const cometImpl = await CometFactory.deploy();
   
-    const ConfigControllerFactory = (await ethers.getContractFactory('ConfigController')) as ConfigController__factory;
+    // const ConfigControllerFactory = (await ethers.getContractFactory('ConfigController')) as ConfigController__factory;
+    const ConfigControllerFactory = (await ethers.getContractFactory('ConfigControllerTest')) as ConfigControllerTest__factory;
   
     const configControllerImpl = await ConfigControllerFactory.deploy();
     const configControllerFactory = await ConfigControllerFactoryFactory.deploy(sandboxController.address, configControllerImpl.address);
@@ -506,7 +512,7 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
   
     const configController = await ConfigControllerFactory.attach(
       await configControllerFactory.controllerAddresses(0)
-    ) as ConfigController;
+    ) as ConfigControllerTest;
   
     await configController.connect(owner).proposeCurator(curator.address);
     await configController.connect(curator).acceptCuratorRole();
@@ -793,7 +799,8 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
       suggestedAmountOfSeedReserves: partial?.suggestedAmountOfSeedReserves ?? ethers.utils.parseEther('500').toString(),
       suggestedLockTimeOfSeedReserves: partial?.suggestedLockTimeOfSeedReserves ?? 86400,
       reserveCommissions: partial?.reserveCommissions ?? [exp(0.01, 18), exp(0.02, 18), exp(0.03, 18)],
-      protocolCommissions: partial?.protocolCommissions ?? [exp(0.01, 18), exp(0.02, 18), exp(0.03, 18)]
+      protocolCommissions: partial?.protocolCommissions ?? [exp(0.01, 18), exp(0.02, 18), exp(0.03, 18)],
+      transitionDuration: partial?.transitionDuration ?? 7 * 24 * 60 * 60,
     };
   }
   
@@ -854,7 +861,8 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
       opts.suggestedAmountOfSeedReserves,
       opts.suggestedLockTimeOfSeedReserves,
       opts.reserveCommissions,
-      opts.protocolCommissions
+      opts.protocolCommissions,
+      opts.transitionDuration
     );
     await sandboxController.deployed();
   
