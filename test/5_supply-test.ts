@@ -570,11 +570,17 @@ describe("5. supplyTo", function () {
       assets: {
         USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
         COMP: {
+<<<<<<< HEAD
           initial: 1e7,
           decimals: 18,
           initialPrice: 1,
           liquidationFactor: exp(0.8, 18),
           supplyCap: exp(100, 18),
+=======
+          initial: 1e7, decimals: 18, initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
+          supplyCap: exp(100, 18) 
+>>>>>>> 5c3a483 (Liquidation commissions (#14))
         },
         WETH: {
           initial: 1e7,

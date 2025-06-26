@@ -1,4 +1,17 @@
+<<<<<<< HEAD
 import { ethers, expect, exp, fastForward, getBlock, makeProtocol, wait, setTotalsBasic } from "./helper/helpers";
+=======
+import {
+  ethers,
+  expect,
+  exp,
+  fastForward,
+  getBlock,
+  makeProtocol,
+  wait,
+  setTotalsBasic,
+} from "./helper/helpers";
+>>>>>>> 5c3a483 (Liquidation commissions (#14))
 
 function projectBaseIndex(index, rate, time, factorScale = exp(1, 18)) {
   return index.add(index.mul(rate.mul(time)).div(factorScale));
@@ -43,9 +56,15 @@ describe.skip("accrue", function () {
     expect(t0.lastAccrualTime).to.equal(start);
 
     const _a0 = await wait(comet.accrue());
-    expect(await comet.baseMinForRewards()).to.be.equal(params.baseMinForRewards);
-    expect(await comet.baseTrackingSupplySpeed()).to.be.equal(params.baseTrackingSupplySpeed);
-    expect(await comet.baseTrackingBorrowSpeed()).to.be.equal(params.baseTrackingBorrowSpeed);
+    expect(await comet.baseMinForRewards()).to.be.equal(
+      params.baseMinForRewards
+    );
+    expect(await comet.baseTrackingSupplySpeed()).to.be.equal(
+      params.baseTrackingSupplySpeed
+    );
+    expect(await comet.baseTrackingBorrowSpeed()).to.be.equal(
+      params.baseTrackingBorrowSpeed
+    );
   });
 
   it("accrues correctly with no time elapsed", async () => {
@@ -116,8 +135,12 @@ describe.skip("accrue", function () {
     const timeElapsed = t2.lastAccrualTime - t1.lastAccrualTime;
     expect(timeElapsed).to.be.equal(1000);
 
-    expect(t2.baseSupplyIndex).to.be.equal(projectBaseIndex(t1.baseSupplyIndex, supplyRate, timeElapsed));
-    expect(t2.baseBorrowIndex).to.be.equal(projectBaseIndex(t1.baseBorrowIndex, borrowRate, timeElapsed));
+    expect(t2.baseSupplyIndex).to.be.equal(
+      projectBaseIndex(t1.baseSupplyIndex, supplyRate, timeElapsed)
+    );
+    expect(t2.baseBorrowIndex).to.be.equal(
+      projectBaseIndex(t1.baseBorrowIndex, borrowRate, timeElapsed)
+    );
     expect(t2.trackingSupplyIndex).to.be.equal(t1.trackingSupplyIndex);
     expect(t2.trackingBorrowIndex).to.be.equal(t1.trackingBorrowIndex);
   });
@@ -132,7 +155,11 @@ describe.skip("accrue", function () {
       start,
     };
     const { comet } = await makeProtocol(params);
+<<<<<<< HEAD
     await setTotalsBasic(comet, { lastAccrualTime: start });
+=======
+    await setTotalsBasic(comet, { lastAccrualTime: start }); 
+>>>>>>> 5c3a483 (Liquidation commissions (#14))
 
     const t0 = await comet.totalsBasic();
     const t1 = await setTotalsBasic(comet, {
@@ -160,10 +187,28 @@ describe.skip("accrue", function () {
     const timeElapsed = t2.lastAccrualTime - t0.lastAccrualTime;
     expect(timeElapsed).to.be.equal(1000);
 
-    expect(t2.baseSupplyIndex).to.be.equal(projectBaseIndex(t1.baseSupplyIndex, supplyRate, timeElapsed));
-    expect(t2.baseBorrowIndex).to.be.equal(projectBaseIndex(t1.baseBorrowIndex, borrowRate, timeElapsed));
-    expect(t2.trackingSupplyIndex).to.be.equal(projectTrackingIndex(t1.trackingSupplyIndex, supplySpeed, timeElapsed, t1.totalSupplyBase));
-    expect(t2.trackingBorrowIndex).to.be.equal(projectTrackingIndex(t1.trackingBorrowIndex, borrowSpeed, timeElapsed, t1.totalBorrowBase));
+    expect(t2.baseSupplyIndex).to.be.equal(
+      projectBaseIndex(t1.baseSupplyIndex, supplyRate, timeElapsed)
+    );
+    expect(t2.baseBorrowIndex).to.be.equal(
+      projectBaseIndex(t1.baseBorrowIndex, borrowRate, timeElapsed)
+    );
+    expect(t2.trackingSupplyIndex).to.be.equal(
+      projectTrackingIndex(
+        t1.trackingSupplyIndex,
+        supplySpeed,
+        timeElapsed,
+        t1.totalSupplyBase
+      )
+    );
+    expect(t2.trackingBorrowIndex).to.be.equal(
+      projectTrackingIndex(
+        t1.trackingBorrowIndex,
+        borrowSpeed,
+        timeElapsed,
+        t1.totalBorrowBase
+      )
+    );
   });
 
   it("overflows if baseMinRewards is set too low and accrues no interest", async () => {
@@ -181,7 +226,9 @@ describe.skip("accrue", function () {
     await fastForward(998);
     const _s0 = await wait(comet.setTotalsBasic(t1));
     await fastForward(2);
-    await expect(wait(comet.accrue())).to.be.revertedWith("custom error 'InvalidUInt64()'");
+    await expect(wait(comet.accrue())).to.be.revertedWith(
+      "custom error 'InvalidUInt64()'"
+    );
     const t2 = await comet.totalsBasic();
 
     const utilization = await comet.getUtilization();
@@ -190,8 +237,12 @@ describe.skip("accrue", function () {
     const timeElapsed = t2.lastAccrualTime - t0.lastAccrualTime;
     expect(timeElapsed).to.be.equal(0);
 
-    expect(t2.baseSupplyIndex).to.be.equal(projectBaseIndex(t1.baseSupplyIndex, supplyRate, timeElapsed));
-    expect(t2.baseBorrowIndex).to.be.equal(projectBaseIndex(t1.baseBorrowIndex, borrowRate, timeElapsed));
+    expect(t2.baseSupplyIndex).to.be.equal(
+      projectBaseIndex(t1.baseSupplyIndex, supplyRate, timeElapsed)
+    );
+    expect(t2.baseBorrowIndex).to.be.equal(
+      projectBaseIndex(t1.baseBorrowIndex, borrowRate, timeElapsed)
+    );
     expect(t2.trackingSupplyIndex).to.be.equal(t1.trackingSupplyIndex);
     expect(t2.trackingBorrowIndex).to.be.equal(t1.trackingBorrowIndex);
   });
@@ -230,7 +281,13 @@ describe.skip("accrue", function () {
     const _a0 = await wait(comet.accrue());
 
     await fastForward(2 ** 40);
+<<<<<<< HEAD
     await expect(wait(comet.accrue())).to.be.revertedWith("custom error 'TimestampTooLarge()'");
+=======
+    await expect(wait(comet.accrue())).to.be.revertedWith(
+      "custom error 'TimestampTooLarge()'"
+    );
+>>>>>>> 5c3a483 (Liquidation commissions (#14))
     await ethers.provider.send("hardhat_reset", []); // dont break downstream tests...
   });
 });

@@ -7,10 +7,33 @@ import {
   SandboxComet,
   CometHarness,
 } from "../build/types";
+<<<<<<< HEAD
 import { ethers, event, expect, exp, getBlock, makeProtocol, portfolio, ReentryAttack, wait, hre } from "./helper/helpers";
 // TODO: Fix this.
 describe.skip("16. buyCollateral", function () {
   async function mintUserCollateral(comet: SandboxComet, token: FaucetToken, user: string, amount: bigint) {
+=======
+import {
+  ethers,
+  event,
+  expect,
+  exp,
+  getBlock,
+  makeProtocol,
+  portfolio,
+  ReentryAttack,
+  wait,
+  hre,
+} from "./helper/helpers";
+
+describe.skip("16. buyCollateral", function() {
+  async function mintUserCollateral(
+    comet: SandboxComet,
+    token: FaucetToken,
+    user: string,
+    amount: bigint
+  ) {
+>>>>>>> 5c3a483 (Liquidation commissions (#14))
     await token.allocateTo(user, amount);
     await token.connect(await ethers.getSigner(user)).approve(comet.address, amount);
     await comet.connect(await ethers.getSigner(user)).supply(token.address, amount);
@@ -24,6 +47,35 @@ describe.skip("16. buyCollateral", function () {
     await comet.connect(signer).withdraw(base.address, amountBaseWei);
   }
 
+<<<<<<< HEAD
+=======
+  const FACTOR_SCALE = BigInt("1000000000000000000");
+
+  function discountPrice() {
+    // Uses global storeFront=0.5, LF=0.8, oracle price=1
+    const discount =
+      (exp(0.5, 18) * (FACTOR_SCALE - exp(0.8, 18))) / FACTOR_SCALE;
+    return (1n * 10n ** 8n * (FACTOR_SCALE - discount)) / FACTOR_SCALE;
+  }
+
+  const compToBase = (compAmt: bigint) =>
+    (compAmt * discountPrice()) / 10n ** 18n;
+
+  async function feeBalances(
+    comet: SandboxComet,
+    asset: string,
+    treasury: string,
+    controller: string
+  ) {
+    const tBal = await comet.userCollateral(treasury, asset);
+    const cBal = await comet.userCollateral(controller, asset);
+    return {
+      treasury: tBal.toBigInt(),
+      controller: cBal.toBigInt(),
+    };
+  }
+
+>>>>>>> 5c3a483 (Liquidation commissions (#14))
   it("allows buying collateral when reserves < target reserves", async () => {
     const protocol = await makeProtocol({
       base: "USDC",

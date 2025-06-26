@@ -1274,10 +1274,9 @@ describe("3. SandboxController", function () {
           parseEther("0.3").toString(),
           parseEther("0.2").toString(),
         ];
-        await expect(sandboxController.connect(owner).setReserveCommissions(newReserveCommissions)).to.be.revertedWithCustomError(
-          sandboxController,
-          "InvalidCommissions"
-        );
+        await expect(
+          sandboxController.connect(owner).setReserveCommissions(newReserveCommissions)
+        ).to.be.revertedWithCustomError(sandboxController, 'InvalidCommissions');
       });
 
       it("updates reserve commissions and emits events", async function () {
@@ -1317,11 +1316,14 @@ describe("3. SandboxController", function () {
           .connect(owner)
           .setReserveCommissions([parseEther("0.1").toString(), parseEther("0.3").toString(), parseEther("0.1").toString()]);
 
-        const protocolCommissions = [parseEther("0.1").toString(), parseEther("0.600000000000000001"), parseEther("0.1").toString()];
-        await expect(sandboxController.connect(owner).setProtocolCommissions(protocolCommissions)).to.be.revertedWithCustomError(
-          sandboxController,
-          "InvalidCommissions"
-        );
+        const protocolCommissions = [
+          parseEther('0.1').toString(),
+          parseEther('0.600000000000000001'),
+          parseEther('0.1').toString()
+        ];
+        await expect(
+          sandboxController.connect(owner).setProtocolCommissions(protocolCommissions)
+        ).to.be.revertedWithCustomError(sandboxController, 'InvalidCommissions');
       });
 
       it("updates protocol commissions and emits events", async function () {

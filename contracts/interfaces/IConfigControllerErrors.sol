@@ -28,4 +28,6 @@ interface IConfigControllerErrors {
     error InvalidCurveId();
     error IncorrectValue();
     error UnknownComet();
+    error IncorrectValue();
+    error UnknownComet();
 }
