@@ -138,7 +138,6 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
 
     struct Proposal {
         address proposer;
-        bytes[] calldatas;
         uint8 proposalType;
         uint48 expirationTime;
     }
@@ -149,45 +148,27 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
         ProposeCurator
     }
 
-    /// @notice Creates a proposal
-    /// @param _uintValues Array of uint values
-    /// @param _addressValues Array of address values
-    /// @param _proposalType Type of the proposal
+    function _proposeCurator(address _curator) internal {
+        /// Check if the curator is the same as the current curator.
+        if (_curator == curator) revert InvalidCurator();
+        /// Check if the curator is the same as the proposed curator.
+        if (_curator == _proposedCurator) revert InvalidCurator();
+        /// Check if the curator is the same as the owner.
+        if (_curator == owner) revert InvalidCurator();
+        /// Check if the curator is the same as the guardian.
+        if (_curator == guardian) revert InvalidCurator();
+        
+        emit CuratorProposed(curator, _curator, block.timestamp + curatorProposalDuration);
+        proposedCurator = _curator;
+        
+        
+    }
+
     function createProposal(
-        uint256[] memory _uintValues,
-        address[] memory _addressValues,
+        bytes memory _calldata,
         uint8 _proposalType
     ) external {
-        /// The curator proposal can be recreated by the owner.
-        /// For curator proposal, we need only address of the proposed curator.
-        if (_proposalType == ProposalType.ProposeCurator) {
-            /// Only owner can propose curator.
-            if (msg.sender != owner) revert Unauthorized();
-            /// Encode the values to bytes.
-            /// In the bytes we have to decode the calldata for the function _acceptCuratorRole.
-            /// We need to cheeck that this address is exists.
-            if (_addressValues[0] == ZERO_ADDRESS) revert ZeroAddress();
-            /// We must ensure that this address is not the same as the current curator.
-            if (_addressValues[0] == curator) revert InvalidCurator();
-            /// We must ensure that this address is not the same as the proposed curator.
-            if (_addressValues[0] == proposedCurator) revert InvalidCurator();
-            
-            bytes memory _calldata = abi.encodeWithSelector(IConfigController._acceptCuratorRole.selector);
-
-            /// If we have a proposal, we don't need to check if it exists.
-            /// We can just update the proposal.
-            /// Save a proposal.
-            Proposal memory _proposal = Proposal({
-                proposer: msg.sender,
-                calldatas: _calldata,
-                proposalType: _proposalType,
-                expirationTime: block.timestamp + curatorProposalDuration
-            });
-            proposals[_proposalType] = _proposal;
-            proposedCurator = _addressValues[0];
-
-            emit CuratorProposed(curator, proposedCurator, _proposal.expirationTime);
-        }
+        
         
     }
 
