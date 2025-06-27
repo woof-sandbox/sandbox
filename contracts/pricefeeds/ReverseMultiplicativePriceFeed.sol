@@ -74,14 +74,16 @@ contract ReverseMultiplicativePriceFeed is IPriceFeed {
      * @return answeredInRound Round id in which the answer was computed; passed on from price feed B
      * @dev Note: Only the `answer` really matters for downstream contracts that use this price feed (e.g. Comet)
      **/
-    function latestRoundData() override external view returns (uint80, int256, uint256, uint256, uint80) {
+    function latestRoundData() external view override returns (uint80, int256, uint256, uint256, uint80) {
         (, int256 priceA, , , ) = AggregatorV3Interface(priceFeedA).latestRoundData();
-        (uint80 roundId_, int256 priceB, uint256 startedAt_, uint256 updatedAt_, uint80 answeredInRound_) = AggregatorV3Interface(priceFeedB).latestRoundData();
+        (uint80 roundId_, int256 priceB, uint256 startedAt_, uint256 updatedAt_, uint80 answeredInRound_) = AggregatorV3Interface(
+            priceFeedB
+        ).latestRoundData();
 
         if (priceA <= 0 || priceB <= 0) return (roundId_, 0, startedAt_, updatedAt_, answeredInRound_);
 
         // int256 price = priceA * (priceFeedBScale/priceB) * priceFeedScale / priceFeedAScale;
-        int256 price = priceA * priceFeedBScale * priceFeedScale / priceB / priceFeedAScale;
+        int256 price = (priceA * priceFeedBScale * priceFeedScale) / priceB / priceFeedAScale;
         return (roundId_, price, startedAt_, updatedAt_, answeredInRound_);
     }
 
