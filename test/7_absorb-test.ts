@@ -204,7 +204,7 @@ describe('7. absorb', function () {
           initial: 1e7, decimals: 18, initialPrice: 1,
           minBorrowCF: exp(0.5, 18), maxBorrowCF: exp(0.5, 18),
           minLiquidateCF: exp(0.5, 18), maxLiquidateCF: exp(0.5, 18),
-          minLiquidationFactor: exp(0.1, 18), maxLiquidationFactor: exp(1, 18),
+          minLiquidationFactor: exp(0.5, 18), maxLiquidationFactor: exp(1, 18),
           borrowCF: exp(0.5, 18), liquidateCF: exp(0.5, 18),
           liquidationFactor: exp(0.5, 18)
         },
@@ -212,7 +212,7 @@ describe('7. absorb', function () {
           initial: 1e7, decimals: 18, initialPrice: 1,
           minBorrowCF: exp(0.5, 18), maxBorrowCF: exp(0.5, 18),
           minLiquidateCF: exp(0.5, 18), maxLiquidateCF: exp(0.5, 18),
-          minLiquidationFactor: exp(0.1, 18), maxLiquidationFactor: exp(1, 18),
+          minLiquidationFactor: exp(0.5, 18), maxLiquidationFactor: exp(1, 18),
           borrowCF: exp(0.5, 18), liquidateCF: exp(0.5, 18),
           liquidationFactor: exp(0.5, 18)
         },
@@ -220,7 +220,7 @@ describe('7. absorb', function () {
           initial: 1e7, decimals: 8, initialPrice: 1,
           minBorrowCF: exp(0.5, 18), maxBorrowCF: exp(0.5, 18),
           minLiquidateCF: exp(0.5, 18), maxLiquidateCF: exp(0.5, 18),
-          minLiquidationFactor: exp(0.1, 18), maxLiquidationFactor: exp(1, 18),
+          minLiquidationFactor: exp(0.5, 18), maxLiquidationFactor: exp(1, 18),
           borrowCF: exp(0.5, 18), liquidateCF: exp(0.5, 18),
           liquidationFactor: exp(0.5, 18)
         },
@@ -296,7 +296,7 @@ describe('7. absorb', function () {
           minBorrowCF: BORROW_CF, maxBorrowCF: BORROW_CF,
           minLiquidateCF: LIQ_CF, maxLiquidateCF: LIQ_CF,
           borrowCF: BORROW_CF, liquidateCF: LIQ_CF,
-          minLiquidationFactor: exp(0.1, 18), maxLiquidationFactor: exp(1, 18),
+          minLiquidationFactor: LIQ_CF, maxLiquidationFactor: exp(1, 18),
           liquidationFactor: exp(1, 18),
         },
         WETH: {
@@ -304,7 +304,7 @@ describe('7. absorb', function () {
           minBorrowCF: BORROW_CF, maxBorrowCF: BORROW_CF,
           minLiquidateCF: LIQ_CF, maxLiquidateCF: LIQ_CF,
           borrowCF: BORROW_CF, liquidateCF: LIQ_CF,
-          minLiquidationFactor: exp(0.1, 18), maxLiquidationFactor: exp(1, 18),
+          minLiquidationFactor: LIQ_CF, maxLiquidationFactor: exp(1, 18),
           liquidationFactor: exp(1, 18),
         },
         WBTC: {
@@ -312,7 +312,7 @@ describe('7. absorb', function () {
           minBorrowCF: BORROW_CF, maxBorrowCF: BORROW_CF,
           minLiquidateCF: LIQ_CF, maxLiquidateCF: LIQ_CF,
           borrowCF: BORROW_CF, liquidateCF: LIQ_CF,
-          minLiquidationFactor: exp(0.1, 18), maxLiquidationFactor: exp(1, 18),
+          minLiquidationFactor: LIQ_CF, maxLiquidationFactor: exp(1, 18),
           liquidationFactor: exp(1, 18),
         },
       }
@@ -441,7 +441,7 @@ describe('7. absorb', function () {
           minBorrowCF: BORROW_CF, maxBorrowCF: BORROW_CF,
           minLiquidateCF: LIQ_CF, maxLiquidateCF: LIQ_CF,
           borrowCF: BORROW_CF, liquidateCF: LIQ_CF,
-          minLiquidationFactor: exp(0.1, 18), maxLiquidationFactor: exp(1, 18),
+          minLiquidationFactor: LIQ_CF, maxLiquidationFactor: exp(1, 18),
           liquidationFactor: exp(1, 18),
         },
         WETH: {
@@ -449,7 +449,7 @@ describe('7. absorb', function () {
           minBorrowCF: BORROW_CF, maxBorrowCF: BORROW_CF,
           minLiquidateCF: LIQ_CF, maxLiquidateCF: LIQ_CF,
           borrowCF: BORROW_CF, liquidateCF: LIQ_CF,
-          minLiquidationFactor: exp(0.1, 18), maxLiquidationFactor: exp(1, 18),
+          minLiquidationFactor: LIQ_CF, maxLiquidationFactor: exp(1, 18),
           liquidationFactor: exp(1, 18),
         },
       }
