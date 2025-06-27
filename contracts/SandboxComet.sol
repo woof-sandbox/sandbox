@@ -6,7 +6,6 @@ import "./interfaces/IERC20NonStandard.sol";
 import "./interfaces/IPriceFeed.sol";
 import "./interfaces/IConfigController.sol";
 import "./interfaces/ISandboxController.sol";
-
 /**
  * @title Compound's Comet Contract
  * @notice An efficient monolithic money comet protocol
@@ -180,13 +179,7 @@ contract SandboxComet is ISandboxComet {
     /**
      * @dev Determine index of asset that matches given address
      */
-    function getAssetInfoByAddress(
-        address asset
-    )
-        public
-        view
-        returns (CollateralAsset memory, uint8 index)
-    {
+    function getAssetInfoByAddress(address asset) public view returns (CollateralAsset memory, uint8 index) {
         index = collateralAssetIndex[asset];
         if (index == 0 && asset != collateralAssets[0].collateralToken) {
             revert BadAsset();
@@ -198,6 +191,7 @@ contract SandboxComet is ISandboxComet {
      * @return The current timestamp
      **/
     function getNowInternal() internal view virtual returns (uint40) {
+        if (block.timestamp > type(uint40).max) revert TimestampTooLarge();
         return uint40(block.timestamp);
     }
 
@@ -227,6 +221,7 @@ contract SandboxComet is ISandboxComet {
         uint40 now_ = getNowInternal();
         uint timeElapsed = uint256(now_ - lastAccrualTime);
 
+     
         if (timeElapsed != 0) {
             (baseSupplyIndex, baseBorrowIndex) = accruedInterestIndices(
                 timeElapsed
@@ -362,16 +357,14 @@ contract SandboxComet is ISandboxComet {
     }
 
     /**
-     * @notice Gets the total balance of protocol collateral reserves for an asset
+     * @notice Gets the total balance of protocol collateral reserves for an asset (with planned fees deducted)
      * @dev Note: Reverts if collateral reserves are somehow negative, which should not be possible
      * @param asset The collateral asset
      */
-    function getCollateralReserves(
-        address asset
-    ) public view override returns (uint) {
+    function getCollateralReserves(address asset) public view override returns (uint) {
         return
             IERC20NonStandard(asset).balanceOf(address(this)) -
-            totalsCollateral[asset];
+            totalsCollateral[asset] - assetFeesController[asset] - assetFeesDAO[asset];
     }
 
     /**
@@ -510,6 +503,10 @@ contract SandboxComet is ISandboxComet {
         }
     }
 
+
+    /// Administrative segment
+    /// 
+
     /**
      * @notice Pauses different actions within Comet
      * @param supplyPaused Boolean for pausing supply actions
@@ -526,7 +523,7 @@ contract SandboxComet is ISandboxComet {
         bool buyPaused
     ) external override {
         address dao = ISandboxController(sandboxController).dao();
-        if (msg.sender != configController && dao != msg.sender)
+        if (msg.sender != configController && msg.sender != dao)
             revert Unauthorized();
 
         pauseFlags =
@@ -544,6 +541,35 @@ contract SandboxComet is ISandboxComet {
             absorbPaused,
             buyPaused
         );
+    }
+
+    /**
+     * @notice Extracts all accumulated fees to a respective caller
+     * @dev access control check is within the function and restricts it to dao and controller only
+     * @param asset Asset (collateral or base) to extract
+     */
+    function extractFees(address asset) external override {
+        if (asset == address(0)) revert ZeroAddress();
+        // Note: we do not check if asset is registered, as it might be already delisted collateral
+        // and there is no difference between base asset or collateral
+
+        uint256 amount;
+        address dao = ISandboxController(sandboxController).dao();
+
+        if (msg.sender == dao) {
+            amount = assetFeesDAO[asset];
+            assetFeesDAO[asset] = 0;
+        }
+        else if (msg.sender == configController) {
+            amount = assetFeesController[asset];
+            assetFeesController[asset] = 0;
+        }
+        else revert Unauthorized();
+
+        if (amount == 0) revert AmountTooSmall();
+
+        doTransferOut(asset, msg.sender, amount);
+        emit FeesExtracted(address(this), asset, amount, msg.sender);
     }
 
     /**
@@ -1045,7 +1071,7 @@ contract SandboxComet is ISandboxComet {
      * @notice Withdraw an amount of asset from the protocol
      * @param asset The asset to withdraw
      * @param amount The quantity to withdraw
-     */
+     */  
     function withdraw(address asset, uint amount) external override {
         return
             withdrawInternal(msg.sender, msg.sender, msg.sender, asset, amount);
@@ -1294,54 +1320,114 @@ contract SandboxComet is ISandboxComet {
         if (isBuyPaused()) revert Paused();
         baseAmount = doTransferIn(baseToken, msg.sender, baseAmount);
 
-        uint collateralAmount = quoteCollateral(asset, baseAmount);
-        // Note: Re-entrancy can skip the reserves check above on a second buyCollateral call.
-        if (collateralAmount < minAmount) revert TooMuchSlippage();
+        (
+            uint256 amountOut,
+            ,
+            uint256 feeProtocol,
+            uint256 feeController
+        ) = quoteCollateral(asset, baseAmount);
 
-        if (collateralAmount > getCollateralReserves(asset))
+        // Note: Re-entrancy can skip the reserves check above on a second buyCollateral call.
+
+        if (amountOut < minAmount) revert TooMuchSlippage();
+
+        // Note: we do no use the reserve part of the profit, as it stays in the Comet anyway
+        if (amountOut + feeProtocol + feeController > getCollateralReserves(asset))
             revert InsufficientReserves();
+
+        if (feeProtocol > 0) {
+            assetFeesDAO[asset] += feeController;
+        }
+        if (feeController > 0) {
+            assetFeesController[asset] += feeController;
+        }
 
         // Note: Pre-transfer hook can re-enter buyCollateral with a stale collateral ERC20 balance.
         //  Assets should not be listed which allow re-entry from pre-transfer now, as too much collateral could be bought.
         //  This is also a problem if quoteCollateral derives its discount from the collateral ERC20 balance.
-        doTransferOut(asset, recipient, safe128(collateralAmount));
-
-        emit BuyCollateral(msg.sender, asset, baseAmount, collateralAmount);
+        doTransferOut(asset, recipient, safe128(amountOut));
+        
+        emit BuyCollateral(msg.sender, asset, baseAmount, amountOut);
     }
 
     /**
-     * @notice Gets the quote for a collateral asset in exchange for an amount of base asset
      * @param asset The collateral asset to get the quote for
      * @param baseAmount The amount of the base asset to get the quote for
-     * @return The quote in terms of the collateral asset
      */
-    function quoteCollateral(
-        address asset,
-        uint baseAmount
-    ) public view override returns (uint) {
-        (
-            CollateralAsset memory assetInfo,
-
-        ) = getAssetInfoByAddress(asset);
+    function quoteCollateral(address asset, uint256 baseAmount) public view override
+        returns (uint256 amountOut, uint256 feeReserve, uint256 feeProtocol, uint256 feeController)
+    {   
+        (CollateralAsset memory assetInfo, ) = getAssetInfoByAddress(asset);
         uint256 assetPrice = getPrice(assetInfo.priceFeed);
         // Store front discount is derived from the collateral asset's liquidationFactor and storeFrontPriceFactor
         // discount = storeFrontPriceFactor * (1e18 - liquidationFactor)
         uint256 discountFactor = mulFactor(
             storeFrontPriceFactor,
-            FACTOR_SCALE - assetInfo.liquidationFactor
-        );
-        uint256 assetPriceDiscounted = mulFactor(
-            assetPrice,
-            FACTOR_SCALE - discountFactor
-        );
+            FACTOR_SCALE - assetInfo.liquidationFactor 
+        ); 
+
+        uint256 assetPriceDiscounted = mulFactor(assetPrice, FACTOR_SCALE - discountFactor);
         uint256 basePrice = getPrice(baseTokenPriceFeed);
         // # of collateral assets
         // = (TotalValueOfBaseAmount / DiscountedPriceOfCollateralAsset) * assetScale
         // = ((basePrice * baseAmount / baseScale) / assetPriceDiscounted) * assetScale
-        return
-            (basePrice * baseAmount * assetInfo.scale) /
-            assetPriceDiscounted /
-            baseScale;
+        amountOut = (baseAmount * basePrice * assetInfo.scale) / assetPriceDiscounted / baseScale;
+
+        /// Protocol's profit calculation
+        /*
+
+        During the absorbtion, the protocol seizes the whole user's collateral, which is distributed in the next way:
+
+        user's collateral
+        |----- 100%
+        |           <- a certain % (LP) is seized directly into protocol's reserves
+        |----- LF = 1 - LP, this % of collateral's value is used to cover debt
+        |           <- part of the collateral's value is supplied to a user's account as a refund
+        |----- debt (a collateral value which corresponds to the debt value)
+        |
+        |           <- this part of collateral is used to compensate the debt to the protocol
+        |
+        |
+        ------
+        LF, liquidation factor (e.g. 90%)
+        LP = 1 - LF, Liquidation Penalty, e.g for  LF = 90%, LP = 10%
+
+        So, seized collateral value can be represented as:
+            value = collateral * LP% + debt value + refunded collateral
+
+        - debt is denominated in base asset, and that is the amount the protocol expects to be returned during purchase
+        - refunded collateral is added as supply, thus can be viewed as a subsidized by the protocol, and so
+          it should be compensated during purchase as well
+        So, we can see a collateral value as:
+            value = collateral * LP% + base asset value to return
+
+        - in general we may assume that unless bad debt happens, LP% of user's collateral value is greater than LP% of user's debt
+        value = collateral * LP% + base asset value to return >= base asset value to return * LP% + base asset value to return = 
+              = base asset value to return * (1 + LP) = base asset value to return * (2 - LF)
+
+        ---------------------------
+        for every baseAmount of base asset, the protocol has (2 - LF) * baseAmount * basePrice / assetPrice of collateral
+        ---------------------------
+        The protocol sells: baseAmount * basePrice / (assetPrice * (1 - discount)) of collateral
+            discount = SFF * (1-LF)
+        So, the profit can be expressed in terms of collateral value:
+
+            collateral value = baseAmount * basePrice / assetPrice
+            profit = collateral value * (2 - LF) - collateral value / (1 - discount) =
+                   = collateral value * (1 - LF - 2*discount + LF*discount) / (1 - discount)
+        Example: SFF = 60%, LF = 90%, LP = 10%
+            with 1.1 of collateral value initially
+            selling 1.064 of collateral value
+            profit = collateral value * (1 - 0.9 - 2 * 0.06 + 0.9 * 0.06) / (1 - 0.06) = collateral value * 0.036
+        3.6% of the base asset value supplied during purchase can be extracted from the collateral reserves as a profit
+        */
+
+        uint256 scaledBaseAmount = mulFactor(baseAmount, 2*FACTOR_SCALE - assetInfo.liquidationFactor);
+        uint256 scaledCollateralValue = (scaledBaseAmount * basePrice * assetInfo.scale) / assetPrice / baseScale;
+        uint256 profit = scaledCollateralValue - amountOut;
+
+        // function guarantees that reserve+protocol+controller == profit
+        (feeReserve, feeProtocol, feeController) = _distributeProfit(profit);
     }
 
     /**
@@ -1399,16 +1485,30 @@ contract SandboxComet is ISandboxComet {
                 : 0;
     }
 
-    /**
-     * @notice Get the total number of tokens in circulation
-     * @dev Note: uses updated interest indices to calculate
-     * @return The supply of tokens
-     **/
-    function totalSupply() external view override returns (uint256) {
-        (uint64 baseSupplyIndex_, ) = accruedInterestIndices(
-            getNowInternal() - lastAccrualTime
-        );
-        return presentValueSupply(baseSupplyIndex_, totalSupplyBase);
+    /// @notice Calculates fees distribution (reserves % and dao fees %)
+    /// @dev Internal function for calculation over the liquidation profit or interest profit
+    /// @param profitAmount The amount to calculate fees from - it is expected to be denominated in USD already
+    /// @return _reserveFee Profit accumulated in Comet's reserves
+    /// @return _daoFee Fee on profit in favour of DAO
+    /// @return _controllerFee Fee on profit in favour of Config Controller
+    function _distributeProfit(uint256 profitAmount) internal view returns (uint256 _reserveFee, uint256 _daoFee, uint256 _controllerFee) {
+        int256 _reserves = getReserves();
+        uint256 reserves = _reserves > 0 ? uint256(_reserves) : 0;
+
+        uint256 basePrice = getPrice(baseTokenPriceFeed);
+        uint256 reservesUsd = (reserves * basePrice) / baseScale;
+        uint256 seedUsd = (seedReserves * basePrice) / baseScale;
+        uint256 targetUsd = (targetReserves() * basePrice) / baseScale;
+
+        (uint64 reservePct, uint64 protocolPct) = ISandboxController(sandboxController).getCommissions(reservesUsd, seedUsd, targetUsd);
+
+        _reserveFee = mulFactor(profitAmount, uint256(reservePct));
+        _daoFee = mulFactor(profitAmount, uint256(protocolPct));
+        _controllerFee = IConfigController(configController).cometFeeEnabled(address(this)) ? profitAmount - _reserveFee - _daoFee : 0;
+        
+        if (_controllerFee == 0) {
+            _reserveFee = profitAmount - _daoFee;
+        }
     }
 
     /**
@@ -1428,5 +1528,11 @@ contract SandboxComet is ISandboxComet {
                 return(0, returndatasize())
             }
         }
+    }
+
+    receive() external payable {
+        // Fallback function to receive ETH, if needed
+        // Note: This contract does not use ETH, so this is just a placeholder
+        revert("SandboxComet: Cannot receive ETH");
     }
 }

@@ -467,7 +467,8 @@ describe('5. supplyTo', function () {
         USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
         COMP: {
           initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
+          liquidationFactor: exp(0.8, 18),
+          supplyCap: exp(100, 18) 
         },
         WETH: {
           initial: 1e7, decimals: 18, initialPrice: 1,
@@ -705,7 +706,7 @@ describe('5. supplyTo', function () {
     expect(p0.external).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n, FeeToken: 0n });
     expect(q0.internal).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n, FeeToken: 0n });
     expect(q0.external).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n, FeeToken: exp(2000, 8) });
-    expect(p1.internal).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n, FeeToken:  exp(1998,8)});
+    expect(p1.internal).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n, FeeToken: exp(1998, 8) });
     expect(p1.external).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n, FeeToken: 0n });
     expect(q1.internal).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n, FeeToken: 0n });
     expect(q1.external).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n, FeeToken: 0n });

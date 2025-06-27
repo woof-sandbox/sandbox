@@ -44,23 +44,15 @@ describe('11. isBorrowCollateralized', function () {
           initial: 1e7,
           decimals: 18,
           initialPrice: 1,
-          borrowCF: exp(0.9, 18),
-          liquidateCF: exp(1, 18),
-          liquidationFactor: exp(1, 18),
-          minBorrowCF: exp(0.8, 18),
-          maxBorrowCF: exp(1, 18),
-          minLiquidateCF: exp(0.9, 18),
-          maxLiquidateCF: exp(1, 18),
           supplyCap: exp(1_000_000, 18),
         },
       },
     });
     const { COMP } = tokens;
 
-    await COMP.allocateTo(alice.address, exp(1.2, 18));
-    await COMP.connect(alice).approve(comet.address, exp(1.2, 18));
-    await comet.connect(alice).supply(COMP.address, exp(1.2, 18));
-
+    await COMP.allocateTo(alice.address, exp(1.7, 18));
+    await COMP.connect(alice).approve(comet.address, exp(1.7, 18));
+    await comet.connect(alice).supply(COMP.address, exp(1.7, 18));
     await comet.setBasePrincipal(alice.address, -exp(1, 6));
 
     expect(await comet.isBorrowCollateralized(alice.address)).to.be.true;
@@ -78,13 +70,6 @@ describe('11. isBorrowCollateralized', function () {
           initial: 1e7,
           decimals: 18,
           initialPrice: 1,
-          borrowCF: exp(0.9, 18),
-          liquidateCF: exp(1, 18),
-          liquidationFactor: exp(1, 18),
-          minBorrowCF: exp(0.8, 18),
-          maxBorrowCF: exp(1, 18),
-          minLiquidateCF: exp(0.9, 18),
-          maxLiquidateCF: exp(1, 18),
           supplyCap: exp(1_000_000, 18),
         },
       },
@@ -94,6 +79,7 @@ describe('11. isBorrowCollateralized', function () {
     await COMP.allocateTo(alice.address, exp(1, 18));
     await COMP.connect(alice).approve(comet.address, exp(1, 18));
     await comet.connect(alice).supply(COMP.address, exp(1, 18));
+    expect(await comet.isBorrowCollateralized(alice.address)).to.be.true;
 
     await comet.setBasePrincipal(alice.address, -exp(1, 6));
 
@@ -113,22 +99,15 @@ describe('11. isBorrowCollateralized', function () {
           initial: 1e7,
           decimals: 18,
           initialPrice: 1,
-          borrowCF: exp(0.2, 18),
-          liquidateCF: exp(1, 18),
-          liquidationFactor: exp(1, 18),
-          minBorrowCF: exp(0.2, 18),
-          maxBorrowCF: exp(1, 18),
-          minLiquidateCF: exp(0.9, 18),
-          maxLiquidateCF: exp(1, 18),
           supplyCap: exp(1_000_000, 18),
         },
       },
     });
     const { COMP } = tokens;
-
-    await COMP.allocateTo(alice.address, exp(5, 18));
-    await COMP.connect(alice).approve(comet.address, exp(5, 18));
-    await comet.connect(alice).supply(COMP.address, exp(5, 18));
+    
+    await COMP.allocateTo(alice.address, exp(1.7, 18));
+    await COMP.connect(alice).approve(comet.address, exp(1.7, 18));
+    await comet.connect(alice).supply(COMP.address, exp(1.7, 18));
 
     await comet.setBasePrincipal(alice.address, -exp(1, 6));
     expect(await comet.isBorrowCollateralized(alice.address)).to.be.true;
