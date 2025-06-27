@@ -5,19 +5,6 @@ set -e
 
 echo "🚀 Running pre-push checks..."
 
-
-# Run ESLint on all TypeScript files
-echo "🔍 Running ESLint..."
-yarn lint:ts
-
-# Run Solhint on all Solidity files
-echo "🔍 Running Solhint..."
-yarn lint:sol
-
-# Run Prettier check on TypeScript files
-echo "💅 Checking TypeScript formatting..."
-yarn prettier:check
-
 # Run Prettier check on Solidity files
 echo "💅 Checking Solidity formatting..."
 npx prettier --check 'contracts/**/*.sol' --config .prettierrc.json

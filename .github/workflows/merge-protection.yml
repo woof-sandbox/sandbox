@@ -1,0 +1,60 @@
+name: Merge Protection
+
+on:
+  pull_request:
+    branches: [ dev ]
+    types: [ opened, synchronize, reopened ]
+
+jobs:
+  merge-checks:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'yarn'
+        
+    - name: Install dependencies
+      run: yarn install --frozen-lockfile
+      
+    - name: TypeScript compilation check
+      run: npx tsc --noEmit
+      
+    - name: ESLint check
+      run: yarn lint:ts
+      
+    - name: Solhint check
+      run: yarn lint:sol
+      
+    - name: Prettier check
+      run: yarn prettier:check
+      
+    - name: Solidity Prettier check
+      run: npx prettier --check 'contracts/**/*.sol' --config .prettierrc.json
+      
+    - name: Run tests
+      run: yarn test
+      
+    - name: Build contracts
+      run: yarn build
+      
+    - name: Generate documentation
+      run: yarn doc
+      
+    - name: Clean out directory
+      run: yarn clean:out
+      
+    - name: Check for merge conflicts
+      run: |
+        git fetch origin dev
+        if git merge-tree $(git merge-base HEAD origin/dev) HEAD origin/dev | grep -q "<<<<<<<"; then
+          echo "❌ Merge conflicts detected!"
+          exit 1
+        else
+          echo "✅ No merge conflicts detected"
+        fi 
