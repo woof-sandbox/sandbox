@@ -38,10 +38,33 @@ You can enable them by running:
 git config core.hooksPath .githooks
 ```
 
+Or use the npm script:
+
+```
+yarn setup:hooks
+```
+
+### Available hooks:
+
+- **pre-commit**: Runs TypeScript compilation, Solhint, and ESLint on staged files
+- **pre-push**: Runs comprehensive checks before pushing:
+  - TypeScript compilation check
+  - ESLint on all TypeScript files
+  - Solhint on all Solidity files
+  - Prettier formatting checks
+  - All tests
+  - Cleans out directory artifacts
+
 You can skip pre-commit checks with the `-n` flag:
 
 ```
 git commit -n -m "commit without running pre-commit hook"
+```
+
+You can skip pre-push checks with the `--no-verify` flag:
+
+```
+git push --no-verify
 ```
 
 ## Additional Tools

@@ -22,7 +22,7 @@ can be legally deployed only via the factory which provides correct config contr
 ### initialize
 
 ```solidity
-function initialize(struct IConfigController.CometConfig comet, struct ISandboxController.SandboxControllerConfiguration config, address sandboxController_, uint256 baseBorrowMin_) external
+function initialize(struct IConfigController.CometConfig comet, struct IConfigController.CometGlobalParamsConfig config) external
 ```
 
 replaces your old constructor
@@ -56,7 +56,7 @@ _Unsets the reentrancy flag_
 ### getAssetInfo
 
 ```solidity
-function getAssetInfo(uint8 i) public view returns (struct IConfigController.CollateralTokenConfig)
+function getAssetInfo(uint8 i) public view returns (struct CometStorage.CollateralAsset)
 ```
 
 Get the i-th asset info, according to the order they were passed in originally
@@ -71,12 +71,12 @@ Get the i-th asset info, according to the order they were passed in originally
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-| [0] | struct IConfigController.CollateralTokenConfig | The asset info object |
+| [0] | struct CometStorage.CollateralAsset | The asset info object |
 
 ### getAssetInfoByAddress
 
 ```solidity
-function getAssetInfoByAddress(address asset) public view returns (struct IConfigController.CollateralTokenConfig, uint8 index)
+function getAssetInfoByAddress(address asset) public view returns (struct CometStorage.CollateralAsset, uint8 index)
 ```
 
 _Determine index of asset that matches given address_
@@ -195,7 +195,7 @@ Get the current price from a feed
 function getCollateralReserves(address asset) public view returns (uint256)
 ```
 
-Gets the total balance of protocol collateral reserves for an asset
+Gets the total balance of protocol collateral reserves for an asset (with planned fees deducted)
 
 _Note: Reverts if collateral reserves are somehow negative, which should not be possible_
 
@@ -286,6 +286,22 @@ Pauses different actions within Comet
 | withdrawPaused | bool | Boolean for pausing withdraw actions |
 | absorbPaused | bool | Boolean for pausing absorb actions |
 | buyPaused | bool | Boolean for pausing buy actions |
+
+### extractFees
+
+```solidity
+function extractFees(address asset) external
+```
+
+Extracts all accumulated fees to a respective caller
+
+_access control check is within the function and restricts it to dao and controller only_
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| asset | address | Asset (collateral or base) to extract |
 
 ### isSupplyPaused
 
@@ -720,10 +736,8 @@ Buy collateral from the protocol using base tokens, increasing protocol reserves
 ### quoteCollateral
 
 ```solidity
-function quoteCollateral(address asset, uint256 baseAmount) public view returns (uint256)
+function quoteCollateral(address asset, uint256 baseAmount) public view returns (uint256 amountOut, uint256 feeReserve, uint256 feeProtocol, uint256 feeController)
 ```
-
-Gets the quote for a collateral asset in exchange for an amount of base asset
 
 #### Parameters
 
@@ -731,12 +745,6 @@ Gets the quote for a collateral asset in exchange for an amount of base asset
 | ---- | ---- | ----------- |
 | asset | address | The collateral asset to get the quote for |
 | baseAmount | uint256 | The amount of the base asset to get the quote for |
-
-#### Return Values
-
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| [0] | uint256 | The quote in terms of the collateral asset |
 
 ### totalBorrow
 
@@ -814,21 +822,29 @@ _Note: uses updated interest indices to calculate_
 | ---- | ---- | ----------- |
 | [0] | uint256 | The present day base balance magnitude of the account, if negative |
 
-### totalSupply
+### _distributeProfit
 
 ```solidity
-function totalSupply() external view returns (uint256)
+function _distributeProfit(uint256 profitAmount) internal view returns (uint256 _reserveFee, uint256 _daoFee, uint256 _controllerFee)
 ```
 
-Get the total number of tokens in circulation
+Calculates fees distribution (reserves % and dao fees %)
 
-_Note: uses updated interest indices to calculate_
+_Internal function for calculation over the liquidation profit or interest profit_
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| profitAmount | uint256 | The amount to calculate fees from - it is expected to be denominated in USD already |
 
 #### Return Values
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-| [0] | uint256 | The supply of tokens |
+| _reserveFee | uint256 | Profit accumulated in Comet's reserves |
+| _daoFee | uint256 | Fee on profit in favour of DAO |
+| _controllerFee | uint256 | Fee on profit in favour of Config Controller |
 
 ### fallback
 
@@ -837,4 +853,10 @@ fallback() external payable
 ```
 
 Fallback to calling the extension delegate for everything else
+
+### receive
+
+```solidity
+receive() external payable
+```
 

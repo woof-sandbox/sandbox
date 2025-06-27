@@ -4,28 +4,28 @@
 
 _Manages base asset configurations and interest rate baseAssetCurves._
 
-### protocolFactorBorrow
+### MARKET_STATES
 
 ```solidity
-uint256 protocolFactorBorrow
+uint256 MARKET_STATES
 ```
 
-### reserveFactorBorrow
+### PARAMETERS_SCALE
 
 ```solidity
-uint256 reserveFactorBorrow
+uint256 PARAMETERS_SCALE
 ```
 
-### protocolFactorLiquidation
+### MAX_TARGET_PERCENT
 
 ```solidity
-uint256 protocolFactorLiquidation
+uint256 MAX_TARGET_PERCENT
 ```
 
-### reserveFactorLiquidation
+### MAX_COMMISSIONS
 
 ```solidity
-uint256 reserveFactorLiquidation
+uint64 MAX_COMMISSIONS
 ```
 
 ### treasury
@@ -34,11 +34,16 @@ uint256 reserveFactorLiquidation
 address treasury
 ```
 
+treasury address. This is the address that will receive the fees.
+
 ### owner
 
 ```solidity
 address owner
 ```
+
+20 bytes
+owner address. This is the address that will be able to call the functions that require the owner role.
 
 ### dao
 
@@ -46,11 +51,17 @@ address owner
 address dao
 ```
 
+20 bytes
+dao address. This is the address that will be able to call the functions that require the dao role.
+
 ### feeEnabled
 
 ```solidity
 bool feeEnabled
 ```
+
+20 bytes
+feeEnabled flag. This is the flag that will be used to enable/disable the fees for all markets.
 
 ### _controllerConfiguration
 
@@ -58,11 +69,17 @@ bool feeEnabled
 struct ISandboxController.SandboxControllerConfiguration _controllerConfiguration
 ```
 
+1 byte
+controller configuration. Holds: targetPercent, storeFrontPriceFactor, minUpdateTime, maxUpdateTime, suggestedAmountOfSeedReserves, suggestedLockTimeOfSeedReserves.
+
 ### baseAssetTokens
 
 ```solidity
 address[] baseAssetTokens
 ```
+
+32 bytes
+base asset tokens. Whitelisted base asset tokens.
 
 ### collateralAssetTokens
 
@@ -70,23 +87,47 @@ address[] baseAssetTokens
 address[] collateralAssetTokens
 ```
 
+collateral asset tokens. Whitelisted collateral asset tokens.
+
 ### tokenToPriceFeed
 
 ```solidity
 mapping(address => address) tokenToPriceFeed
 ```
 
+token to price feed.
+
 ### reserveCommission
 
 ```solidity
-mapping(enum ISandboxController.MarketState => uint256) reserveCommission
+uint64[3] reserveCommission
 ```
+
+% of the Comet's profit left in the comet as a reserve
 
 ### protocolCommission
 
 ```solidity
-mapping(enum ISandboxController.MarketState => uint256) protocolCommission
+uint64[3] protocolCommission
 ```
+
+% of the Comet's profit extracted from reserves for the DAO
+
+### _baseAssets
+
+```solidity
+mapping(address => struct ISandboxController.BaseAssetConfiguration) _baseAssets
+```
+
+base asset configurations. This is the mapping of the base asset token to the base asset configuration.
+
+### _collateralAssets
+
+```solidity
+mapping(address => struct ISandboxController.CollateralAssetConfiguration) _collateralAssets
+```
+
+collateral asset configurations. Holds: priceFeed, decimals, maxBorrowCollateralFactor, minBorrowCollateralFactor, minLiquidateCollateralFactor, maxLiquidateCollateralFactor, minLiquidationFactor, maxLiquidationFactor
 
 ### onlyOwner
 
@@ -94,11 +135,15 @@ mapping(enum ISandboxController.MarketState => uint256) protocolCommission
 modifier onlyOwner()
 ```
 
+_Modifier to check if the caller is the owner._
+
 ### onlyDao
 
 ```solidity
 modifier onlyDao()
 ```
+
+_Modifier to check if the caller is the DAO._
 
 ### onlyAuthorized
 
@@ -113,10 +158,13 @@ _Both owner and dao are considered "authorized."
 ### constructor
 
 ```solidity
-constructor(address _owner, address _dao, bool _feeEnabled, uint256 _protocolFactorBorrow, uint256 _reserveFactorBorrow, uint256 _protocolFactorLiquidation, uint256 _reserveFactorLiquidation, uint256 _targetPercent, uint256 _storeFrontPriceFactor, uint256 _minUpdateTime, uint256 _maxUpdateTime, uint256 _suggestedAmountOfSeedReserves, uint256 _suggestedLockTimeOfSeedReserves) public
+constructor(address _owner, address _dao, address _treasury, bool _feeEnabled, uint256 _targetPercent, uint256 _storeFrontPriceFactor, uint256 _minUpdateTime, uint256 _maxUpdateTime, uint256 _suggestedAmountOfSeedReserves, uint256 _suggestedLockTimeOfSeedReserves, uint64[3] _reserveCommissions, uint64[3] _protocolCommissions) public
 ```
 
-_Set all global parameters (including owner and DAO) at deployment._
+_Set all global parameters (including owner and DAO) at deployment.
+
+The `_suggestedAmountOfSeedReserves` and `_suggestedLockTimeOfSeedReserves` must be greater than 0.
+The length of the `_reserveCommissions` and `_protocolCommissions` arrays must be 3._
 
 #### Parameters
 
@@ -124,22 +172,21 @@ _Set all global parameters (including owner and DAO) at deployment._
 | ---- | ---- | ----------- |
 | _owner | address | The address of the protocol owner. |
 | _dao | address | The address of the DAO (governance). |
+| _treasury | address |  |
 | _feeEnabled | bool | Global fee flag for the entire protocol. |
-| _protocolFactorBorrow | uint256 | Nonzero. Will combine with reserveFactorBorrow. |
-| _reserveFactorBorrow | uint256 | Nonzero. Sum with _protocolFactorBorrow <= 1e18. |
-| _protocolFactorLiquidation | uint256 | Nonzero. Sum with _reserveFactorLiquidation <= 1e18. |
-| _reserveFactorLiquidation | uint256 | Nonzero. |
 | _targetPercent | uint256 | < 0.5 (50%) |
 | _storeFrontPriceFactor | uint256 | < 1e18 |
 | _minUpdateTime | uint256 | > 0 |
 | _maxUpdateTime | uint256 | reasonable time for the proposal duration |
-| _suggestedAmountOfSeedReserves | uint256 | > 0 |
-| _suggestedLockTimeOfSeedReserves | uint256 | > 0 |
+| _suggestedAmountOfSeedReserves | uint256 | The suggested amount of seed reserves in $. Decimals are 6. |
+| _suggestedLockTimeOfSeedReserves | uint256 | The suggested lock time of seed reserves in seconds. |
+| _reserveCommissions | uint64[3] | The reserve commission factors for each market state. |
+| _protocolCommissions | uint64[3] | The protocol commission factors for each market state. |
 
 ### setReserveCommissions
 
 ```solidity
-function setReserveCommissions(uint256[3] reserveCommissions) external
+function setReserveCommissions(uint64[3] _reserveCommissions) external
 ```
 
 Sets the reserve commission factors for each market state.
@@ -148,12 +195,12 @@ Sets the reserve commission factors for each market state.
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-| reserveCommissions | uint256[3] | The new reserve commission factors, scaled by 1e18. |
+| _reserveCommissions | uint64[3] | The new reserve commission factors, scaled by 1e18 (100%). |
 
 ### setProtocolCommissions
 
 ```solidity
-function setProtocolCommissions(uint256[3] protocolCommissions) external
+function setProtocolCommissions(uint64[3] _protocolCommissions) external
 ```
 
 Sets the protocol commission factors for each market state.
@@ -162,7 +209,7 @@ Sets the protocol commission factors for each market state.
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-| protocolCommissions | uint256[3] | The new protocol commission factors, scaled by 1e18. |
+| _protocolCommissions | uint64[3] | The new protocol commission factors, scaled by 1e18 (100%). |
 
 ### setTreasury
 
@@ -172,11 +219,53 @@ function setTreasury(address _treasury) external
 
 Sets the treasury address.
 
+_This function is only callable by the owner.
+The `treasury` address can`t be zero address._
+
 #### Parameters
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
 | _treasury | address | The address of the treasury. |
+
+### setFeeEnabled
+
+```solidity
+function setFeeEnabled(bool _feeEnabled) external
+```
+
+Sets the global feeEnabled flag for the entire protocol.
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| _feeEnabled | bool | True to enable fees, false to disable. |
+
+### getCommissions
+
+```solidity
+function getCommissions(uint256 _currentReserves, uint256 _seedReserves, uint256 _targetReserves) external view returns (uint64 _reserveCommission, uint64 _protocolCommission)
+```
+
+Returns profit fee distribution based on the reserves
+
+_THe function expects same denomination units for all 3 reserves parameters_
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| _currentReserves | uint256 | Current Comet reserves |
+| _seedReserves | uint256 | Amount of reserves transferred to the Comet during the initialization |
+| _targetReserves | uint256 | Expected target for the Comet |
+
+#### Return Values
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| _reserveCommission | uint64 | Part of profit to be left in reserves |
+| _protocolCommission | uint64 | Part of profit for the DAO |
 
 ### whitelistBaseAsset
 
@@ -217,12 +306,17 @@ function whitelistCollateralAsset(address token, address priceFeed, uint64 minBo
 
 Whitelists a new collateral asset with specified collateral factor parameters.
 
+_Validates that all collateral factor parameters are within allowed ranges and maintain logical relationships:
+     - 10% <= minBorrowCollateralFactor <= minLiquidateCollateralFactor <= minLiquidationFactor <= 100%
+     - maxBorrowCollateralFactor <= maxLiquidateCollateralFactor <= maxLiquidationFactor <= 100%
+     - min <= max for each factor_
+
 #### Parameters
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
 | token | address | The address of the collateral asset to whitelist. |
-| priceFeed | address |  |
+| priceFeed | address | The address of the price feed contract for the collateral asset. |
 | minBorrowCollateralFactor | uint64 | The minimum borrow collateral factor (scaled by 1e18, e.g., 10% = 1e17). |
 | maxBorrowCollateralFactor | uint64 | The maximum borrow collateral factor (scaled by 1e18). |
 | minLiquidateCollateralFactor | uint64 | The minimum liquidate collateral factor (scaled by 1e18). |
@@ -257,20 +351,6 @@ _Emitted when a base asset is whitelisted._
 | Name | Type | Description |
 | ---- | ---- | ----------- |
 | _config | struct ISandboxController.SandboxControllerConfiguration | Configuration of the sandbox controller. |
-
-### setFeeEnabled
-
-```solidity
-function setFeeEnabled(bool _feeEnabled) external
-```
-
-Sets the global feeEnabled flag for the entire protocol.
-
-#### Parameters
-
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| _feeEnabled | bool | True to enable fees, false to disable. |
 
 ### addBaseAssetCurve
 
@@ -439,17 +519,20 @@ Returns base asset baseAssetCurves for a given token.
 | ---- | ---- | ----------- |
 | [0] | struct ISandboxController.BaseAssetCurve[] | The base asset baseAssetCurves. |
 
-### controllerConfiguration
-
-```solidity
-function controllerConfiguration() external view returns (struct ISandboxController.SandboxControllerConfiguration)
-```
-
 ### proposalBoundaries
 
 ```solidity
 function proposalBoundaries() external view returns (uint256, uint256)
 ```
+
+Returns the proposal boundaries of the sandbox controller.
+
+#### Return Values
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| [0] | uint256 | The proposal boundaries. |
+| [1] | uint256 |  |
 
 ### borrowMin
 

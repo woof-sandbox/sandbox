@@ -30,6 +30,20 @@ struct UserBasic {
 }
 ```
 
+### CollateralAsset
+
+```solidity
+struct CollateralAsset {
+  address collateralToken;
+  address priceFeed;
+  uint128 supplyCap;
+  uint64 borrowCollateralFactor;
+  uint64 liquidateCollateralFactor;
+  uint64 liquidationFactor;
+  uint64 scale;
+}
+```
+
 ### MAX_ASSETS
 
 ```solidity
@@ -353,7 +367,7 @@ The minimum base token reserves which must be held before collateral is hodled
 uint256 seedReserves
 ```
 
-Seed reserves
+Seed reserves, initialized during the Comet creation
 
 ### unlockTimestamp
 
@@ -445,6 +459,22 @@ mapping(address => uint256) totalsCollateral
 
 Aggregate variables tracked for each collateral asset
 
+### assetFeesController
+
+```solidity
+mapping(address => uint256) assetFeesController
+```
+
+Fees aggregation for the controller
+
+### assetFeesDAO
+
+```solidity
+mapping(address => uint256) assetFeesDAO
+```
+
+Fees aggregation for the DAO
+
 ### isAllowed
 
 ```solidity
@@ -483,15 +513,9 @@ Mapping of users to collateral data per collateral asset
 mapping(address => uint8) collateralAssetIndex
 ```
 
-### collateralAssetAddress
-
-```solidity
-mapping(uint8 => address) collateralAssetAddress
-```
-
 ### collateralAssets
 
 ```solidity
-struct IConfigController.CollateralTokenConfig[] collateralAssets
+struct CometStorage.CollateralAsset[] collateralAssets
 ```
 

@@ -37,7 +37,10 @@
     "lint:sol": "solhint contracts/**/*.sol contracts/*.sol --config .solhint.json",
     "aderyn": "aderyn --src contracts/ -o ADERYN_REPORT.md",
     "prettier:sol": "prettier --write 'contracts/**/*.sol' --config .prettierrc.json",
-    "prettier:ts": "prettier --write 'test/**/*.ts' 'src/**/*.ts' 'scripts/**/*.ts' 'tasks/**/*.ts' 'plugins/**/*.ts' 'scenario/**/*.ts' 'hardhat.config.ts' --config .prettierrc.json"
+    "prettier:ts": "prettier --write 'test/**/*.ts' 'src/**/*.ts' 'scripts/**/*.ts' 'tasks/**/*.ts' 'plugins/**/*.ts' 'scenario/**/*.ts' 'hardhat.config.ts' --config .prettierrc.json",
+    "doc": "hardhat docgen",
+    "clean:out": "./scripts/clean-out.sh",
+    "setup:hooks": "git config core.hooksPath .githooks"
   },
   "author": "Compound Finance",
   "license": "UNLICENSED",

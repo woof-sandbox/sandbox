@@ -137,6 +137,14 @@ address configControllerFactory
 
 The address of the ConfigControllerFactory contract
 
+### cometFeeEnabled
+
+```solidity
+mapping(address => bool) cometFeeEnabled
+```
+
+Controller fee from the Comet's profit
+
 ### onlyOwner
 
 ```solidity
@@ -211,6 +219,36 @@ function cometsLength() public view returns (uint256)
 ```
 
 The number of comets created by this controller
+
+### setCometFee
+
+```solidity
+function setCometFee(address comet, bool feeEnabled) external
+```
+
+Disables/Enables the controller fee for a specific comet
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| comet | address | Comet which should be registered in Controller |
+| feeEnabled | bool | Flag for fees enabling (true -> fees are enabled) |
+
+### extractFees
+
+```solidity
+function extractFees(address comet, address asset) external
+```
+
+Extracts fees to a self and distributes it
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| comet | address | Comet which should be registered in Controller |
+| asset | address | Asset (collateral or base asset) to extract |
 
 ### grantOwnership
 
@@ -326,7 +364,7 @@ _Only callable by the owner_
 ### _validateCollateralTokenConfig
 
 ```solidity
-function _validateCollateralTokenConfig(struct IConfigController.CollateralTokenConfig collateralTokenConfig, struct ISandboxController.CollateralAssetConfiguration collateralAssetLimitations, address[] addedCollateralTokens) internal view
+function _validateCollateralTokenConfig(struct IConfigController.CollateralTokenConfig collateralTokenConfig) internal view
 ```
 
 Validates comet collateral token configuration
@@ -338,8 +376,6 @@ _Internal function to validate collateral token parameters_
 | Name | Type | Description |
 | ---- | ---- | ----------- |
 | collateralTokenConfig | struct IConfigController.CollateralTokenConfig | The collateral token configuration to validate |
-| collateralAssetLimitations | struct ISandboxController.CollateralAssetConfiguration | The limitations from sandbox controller |
-| addedCollateralTokens | address[] | Array of already added collateral tokens |
 
 ### _isCometOwned
 

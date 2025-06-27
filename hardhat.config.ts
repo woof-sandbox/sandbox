@@ -256,13 +256,9 @@ const config: HardhatUserConfig = {
   },
 
   docgen: {
-    path: './docs',
-    clear: true,
-    runOnCompile: true,
-    except: ['^contracts/test/.*$', '^contracts/mocks/.*$'],
-    template: './docs/templates/contract.hbs',
+    outputDir: './docs',
     pages: 'files',
-    exclude: ['^contracts/test/.*$', '^contracts/mocks/.*$'],
+    exclude: ['./test', './pricefeeds', './interfaces'],
   },
 };
 
