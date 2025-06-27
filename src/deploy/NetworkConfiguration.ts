@@ -1,8 +1,8 @@
-import { AssetConfigStruct } from '../../build/types/Comet';
-import { ConfigurationStruct } from '../../build/types/Configurator';
-import { ProtocolConfiguration } from './index';
-import { ContractMap } from '../../plugins/deployment_manager/ContractMap';
-import { DeploymentManager } from '../../plugins/deployment_manager/DeploymentManager';
+import { AssetConfigStruct } from "../../build/types/Comet";
+import { ConfigurationStruct } from "../../build/types/Configurator";
+import { ProtocolConfiguration } from "./index";
+import { ContractMap } from "../../plugins/deployment_manager/ContractMap";
+import { DeploymentManager } from "../../plugins/deployment_manager/DeploymentManager";
 
 // function address(a: string): string {
 //   if (!a.match(/^0x[a-fA-F0-9]{40}$/)) {
@@ -32,15 +32,15 @@ function percentage(n: number, checkRange: boolean = true): bigint {
 
 // Note: Expects a string in scientific notation format (e.g. 1000e18 or 1_000e18)
 function stringToBigInt(x: ScientificNotation) {
-  if (typeof x !== 'string') {
+  if (typeof x !== "string") {
     throw new Error(`expected argument to be string, got ${x}`);
   }
-  const sanitizedInput = x.replace(/_/g, '');
+  const sanitizedInput = x.replace(/_/g, "");
   if (!sanitizedInput.match(/^[0-9]+([.][0-9]+)?e[0-9]+$/)) {
     throw new Error(`expected string in scientific notation form, got ${x}`);
   }
 
-  const nums = sanitizedInput.split('e');
+  const nums = sanitizedInput.split("e");
   const coefficient = Number(nums[0]);
   const exponent = Number(nums[1]);
   // If exponent is a decimal, then just convert it directly using `number()`.
@@ -48,7 +48,7 @@ function stringToBigInt(x: ScientificNotation) {
   if (!Number.isInteger(coefficient)) {
     return number(Number(sanitizedInput));
   } else {
-    return BigInt(coefficient) * (10n ** BigInt(exponent));
+    return BigInt(coefficient) * 10n ** BigInt(exponent);
   }
 }
 
@@ -104,19 +104,12 @@ function getContractAddress(contractName: string, contracts: ContractMap, fallba
   let contract = contracts.get(contractName);
   if (!contract) {
     if (fallbackAddress) return fallbackAddress;
-    throw new Error(
-      `Cannot find contract \`${contractName}\` in contract map with keys \`${JSON.stringify(
-        [...contracts.keys()]
-      )}\``
-    );
+    throw new Error(`Cannot find contract \`${contractName}\` in contract map with keys \`${JSON.stringify([...contracts.keys()])}\``);
   }
   return contract.address;
 }
 
-function getAssetConfigs(
-  assets: { [name: string]: NetworkAssetConfiguration },
-  contracts: ContractMap,
-): AssetConfigStruct[] {
+function getAssetConfigs(assets: { [name: string]: NetworkAssetConfiguration }, contracts: ContractMap): AssetConfigStruct[] {
   return Object.entries(assets).map(([assetName, assetConfig]) => ({
     asset: getContractAddress(assetName, contracts, assetConfig.address),
     priceFeed: getContractAddress(`${assetName}:priceFeed`, contracts, assetConfig.priceFeed),
@@ -131,7 +124,7 @@ function getAssetConfigs(
 function getOverridesOrConfig(
   overrides: ProtocolConfiguration,
   config: NetworkConfiguration,
-  contracts: ContractMap,
+  contracts: ContractMap
 ): ProtocolConfiguration {
   const interestRateInfoMapping = (rates: NetworkRateConfiguration) => ({
     supplyKink: _ => percentage(rates.supplyKink),
@@ -162,9 +155,10 @@ function getOverridesOrConfig(
     ...interestRateInfoMapping(config.rates),
     ...trackingInfoMapping(config.tracking),
     assetConfigs: _ => getAssetConfigs(config.assets, contracts),
-    rewardTokenAddress: _ => (config.rewardToken || config.rewardTokenAddress) ?
-      getContractAddress(config.rewardToken, contracts, config.rewardTokenAddress) :
-      undefined,
+    rewardTokenAddress: _ =>
+      config.rewardToken || config.rewardTokenAddress
+        ? getContractAddress(config.rewardToken, contracts, config.rewardTokenAddress)
+        : undefined,
   });
   return Object.entries(mapping()).reduce((acc, [k, f]) => {
     return { [k]: overrides[k] ?? f(config), ...acc };
@@ -173,15 +167,15 @@ function getOverridesOrConfig(
 
 export async function getConfiguration(
   deploymentManager: DeploymentManager,
-  configOverrides: ProtocolConfiguration = {},
+  configOverrides: ProtocolConfiguration = {}
 ): Promise<ProtocolConfiguration> {
   const config = await deploymentManager.readConfig<NetworkConfiguration>();
   const contracts = await deploymentManager.contracts();
   const resultConfig = getOverridesOrConfig(configOverrides, config, contracts);
-  if(!resultConfig.governor) {
+  if (!resultConfig.governor) {
     resultConfig.governor = (await deploymentManager.getSigner()).address;
   }
-  if(!resultConfig.pauseGuardian) {
+  if (!resultConfig.pauseGuardian) {
     resultConfig.pauseGuardian = (await deploymentManager.getSigner()).address;
   }
   return resultConfig;
@@ -189,10 +183,10 @@ export async function getConfiguration(
 
 export async function getConfigurationStruct(
   deploymentManager: DeploymentManager,
-  configOverrides: ProtocolConfiguration = {},
+  configOverrides: ProtocolConfiguration = {}
 ): Promise<ConfigurationStruct> {
   const contracts = await deploymentManager.contracts();
   const configuration = (await getConfiguration(deploymentManager, configOverrides)) as ConfigurationStruct;
-  const extensionDelegate = configOverrides.extensionDelegate ?? getContractAddress('comet:implementation:implementation', contracts);
+  const extensionDelegate = configOverrides.extensionDelegate ?? getContractAddress("comet:implementation:implementation", contracts);
   return { ...configuration, extensionDelegate };
 }

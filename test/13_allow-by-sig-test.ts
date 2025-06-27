@@ -24,9 +24,7 @@ async function buildFixture() {
     verifyingContract: comet.address,
   };
 
-  const now = (
-    await ethers.provider.getBlock(await ethers.provider.getBlockNumber())
-  ).timestamp;
+  const now = (await ethers.provider.getBlock(await ethers.provider.getBlockNumber())).timestamp;
 
   const signatureArgs = {
     owner: signer.address,
@@ -36,11 +34,7 @@ async function buildFixture() {
     expiry: now + 10,
   } as const;
 
-  const rawSignature = await signer._signTypedData(
-    domain,
-    types,
-    signatureArgs
-  );
+  const rawSignature = await signer._signTypedData(domain, types, signatureArgs);
   const signature = ethers.utils.splitSignature(rawSignature);
 
   return {
@@ -53,19 +47,17 @@ async function buildFixture() {
   } as const;
 }
 
-describe("13. allowBySig — SandboxComet / CometExtension", function() {
+describe("13. allowBySig — SandboxComet / CometExtension", function () {
   type Fixture = Awaited<ReturnType<typeof buildFixture>>;
 
-  beforeEach(async function() {
+  beforeEach(async function () {
     this.fixture = await buildFixture();
   });
 
-  it("authorizes with a valid signature", async function() {
-    const { cometExt, signatureArgs, signature, signer, manager } = this
-      .fixture as Fixture;
+  it("authorizes with a valid signature", async function () {
+    const { cometExt, signatureArgs, signature, signer, manager } = this.fixture as Fixture;
 
-    expect(await cometExt.isAllowed(signer.address, manager.address)).to.be
-      .false;
+    expect(await cometExt.isAllowed(signer.address, manager.address)).to.be.false;
 
     const tx = await wait(
       cometExt
@@ -82,11 +74,8 @@ describe("13. allowBySig — SandboxComet / CometExtension", function() {
         )
     );
 
-    expect(await cometExt.isAllowed(signer.address, manager.address)).to.be
-      .true;
-    expect(await cometExt.userNonce(signer.address)).to.equal(
-      signatureArgs.nonce.add(1)
-    );
+    expect(await cometExt.isAllowed(signer.address, manager.address)).to.be.true;
+    expect(await cometExt.userNonce(signer.address)).to.equal(signatureArgs.nonce.add(1));
 
     expect(event(tx, 0)).to.deep.equal({
       Approval: {
@@ -97,9 +86,8 @@ describe("13. allowBySig — SandboxComet / CometExtension", function() {
     });
   });
 
-  it("fails if owner argument is altered", async function() {
-    const { cometExt, signatureArgs, signature, manager } = this
-      .fixture as Fixture;
+  it("fails if owner argument is altered", async function () {
+    const { cometExt, signatureArgs, signature, manager } = this.fixture as Fixture;
     const invalidOwnerAddress = ethers.Wallet.createRandom().address;
 
     await expect(
@@ -118,9 +106,8 @@ describe("13. allowBySig — SandboxComet / CometExtension", function() {
     ).to.be.revertedWith("custom error 'BadSignatory()'");
   });
 
-  it("fails if manager argument is altered", async function() {
-    const { cometExt, signatureArgs, signature, manager, signer } = this
-      .fixture as Fixture;
+  it("fails if manager argument is altered", async function () {
+    const { cometExt, signatureArgs, signature, manager, signer } = this.fixture as Fixture;
     const invalidManagerAddress = ethers.Wallet.createRandom().address;
 
     await expect(
@@ -138,13 +125,11 @@ describe("13. allowBySig — SandboxComet / CometExtension", function() {
         )
     ).to.be.revertedWith("custom error 'BadSignatory()'");
 
-    expect(await cometExt.isAllowed(signer.address, invalidManagerAddress)).to
-      .be.false;
+    expect(await cometExt.isAllowed(signer.address, invalidManagerAddress)).to.be.false;
   });
 
-  it("fails if isAllowed argument is altered", async function() {
-    const { cometExt, signatureArgs, signature, manager } = this
-      .fixture as Fixture;
+  it("fails if isAllowed argument is altered", async function () {
+    const { cometExt, signatureArgs, signature, manager } = this.fixture as Fixture;
 
     await expect(
       cometExt
@@ -162,9 +147,8 @@ describe("13. allowBySig — SandboxComet / CometExtension", function() {
     ).to.be.revertedWith("custom error 'BadSignatory()'");
   });
 
-  it("fails if nonce argument is altered", async function() {
-    const { cometExt, signatureArgs, signature, manager } = this
-      .fixture as Fixture;
+  it("fails if nonce argument is altered", async function () {
+    const { cometExt, signatureArgs, signature, manager } = this.fixture as Fixture;
 
     await expect(
       cometExt
@@ -182,9 +166,8 @@ describe("13. allowBySig — SandboxComet / CometExtension", function() {
     ).to.be.revertedWith("custom error 'BadSignatory()'");
   });
 
-  it("fails if expiry argument is altered", async function() {
-    const { cometExt, signatureArgs, signature, manager } = this
-      .fixture as Fixture;
+  it("fails if expiry argument is altered", async function () {
+    const { cometExt, signatureArgs, signature, manager } = this.fixture as Fixture;
 
     await expect(
       cometExt
@@ -202,9 +185,8 @@ describe("13. allowBySig — SandboxComet / CometExtension", function() {
     ).to.be.revertedWith("custom error 'BadSignatory()'");
   });
 
-  it("fails if signature contains invalid nonce", async function() {
-    const { cometExt, signatureArgs, manager, domain } = this
-      .fixture as Fixture;
+  it("fails if signature contains invalid nonce", async function () {
+    const { cometExt, signatureArgs, manager, domain } = this.fixture as Fixture;
 
     const invalidNonce = signatureArgs.nonce.add(1);
     const rawSignature = await (
@@ -228,9 +210,8 @@ describe("13. allowBySig — SandboxComet / CometExtension", function() {
     ).to.be.revertedWith("custom error 'BadNonce()'");
   });
 
-  it("rejects a repeated message", async function() {
-    const { cometExt, signatureArgs, signature, manager } = this
-      .fixture as Fixture;
+  it("rejects a repeated message", async function () {
+    const { cometExt, signatureArgs, signature, manager } = this.fixture as Fixture;
 
     await cometExt
       .connect(manager)
@@ -261,18 +242,13 @@ describe("13. allowBySig — SandboxComet / CometExtension", function() {
     ).to.be.revertedWith("custom error 'BadNonce()'");
   });
 
-  it("fails if signature expiry has passed", async function() {
-    const { cometExt, signatureArgs, manager, domain } = this
-      .fixture as Fixture;
+  it("fails if signature expiry has passed", async function () {
+    const { cometExt, signatureArgs, manager, domain } = this.fixture as Fixture;
 
-    const past =
-      (await ethers.provider.getBlock(await ethers.provider.getBlockNumber()))
-        .timestamp - 1;
+    const past = (await ethers.provider.getBlock(await ethers.provider.getBlockNumber())).timestamp - 1;
 
     const expiredArgs = { ...signatureArgs, expiry: past };
-    const rawSig = await (
-      await ethers.getSigner(signatureArgs.owner)
-    )._signTypedData(domain, types, expiredArgs);
+    const rawSig = await (await ethers.getSigner(signatureArgs.owner))._signTypedData(domain, types, expiredArgs);
     const expiredSignature = ethers.utils.splitSignature(rawSig);
 
     await expect(
@@ -291,9 +267,8 @@ describe("13. allowBySig — SandboxComet / CometExtension", function() {
     ).to.be.revertedWith("custom error 'SignatureExpired()'");
   });
 
-  it("fails if v not in {27,28}", async function() {
-    const { cometExt, signatureArgs, signature, manager } = this
-      .fixture as Fixture;
+  it("fails if v not in {27,28}", async function () {
+    const { cometExt, signatureArgs, signature, manager } = this.fixture as Fixture;
 
     await expect(
       cometExt
@@ -311,12 +286,10 @@ describe("13. allowBySig — SandboxComet / CometExtension", function() {
     ).to.be.revertedWith("custom error 'InvalidValueV()'");
   });
 
-  it("fails if s is too high", async function() {
-    const { cometExt, signatureArgs, signature, manager } = this
-      .fixture as Fixture;
+  it("fails if s is too high", async function () {
+    const { cometExt, signatureArgs, signature, manager } = this.fixture as Fixture;
 
-    const invalidS =
-      "0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5D576E7357A4501DDFE92F46681B20A1";
+    const invalidS = "0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5D576E7357A4501DDFE92F46681B20A1";
 
     await expect(
       cometExt
@@ -334,12 +307,10 @@ describe("13. allowBySig — SandboxComet / CometExtension", function() {
     ).to.be.revertedWith("custom error 'InvalidValueS()'");
   });
 
-  it("fails if owner is zero address", async function() {
+  it("fails if owner is zero address", async function () {
     const { cometExt, manager } = this.fixture as Fixture;
 
-    const now = (
-      await ethers.provider.getBlock(await ethers.provider.getBlockNumber())
-    ).timestamp;
+    const now = (await ethers.provider.getBlock(await ethers.provider.getBlockNumber())).timestamp;
 
     const invalidSig = {
       v: 27,

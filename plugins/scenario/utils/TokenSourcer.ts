@@ -1,10 +1,9 @@
-import { HardhatRuntimeEnvironment } from 'hardhat/types';
-import { BigNumber, Contract, Event, EventFilter } from 'ethers';
-import { erc20 } from './ERC20';
-import { DeploymentManager } from '../../deployment_manager/DeploymentManager';
+import { HardhatRuntimeEnvironment } from "hardhat/types";
+import { BigNumber, Contract, Event, EventFilter } from "ethers";
+import { erc20 } from "./ERC20";
+import { DeploymentManager } from "../../deployment_manager/DeploymentManager";
 
-const getMaxEntry = (args: [string, BigNumber][]) =>
-  args.reduce(([a1, m], [a2, e]) => (m.gte(e) == true ? [a1, m] : [a2, e]));
+const getMaxEntry = (args: [string, BigNumber][]) => args.reduce(([a1, m], [a2, e]) => (m.gte(e) == true ? [a1, m] : [a2, e]));
 
 interface SourceTokenParameters {
   dm: DeploymentManager;
@@ -22,9 +21,9 @@ export async function fetchQuery(
   originalBlock: number,
   MAX_SEARCH_BLOCKS = 40000,
   BLOCK_SPAN = 2048
-): Promise<{ recentLogs: Event[], blocksDelta: number }> {
+): Promise<{ recentLogs: Event[]; blocksDelta: number }> {
   if (originalBlock - fromBlock > MAX_SEARCH_BLOCKS) {
-    throw(new Error(`No events found within ${MAX_SEARCH_BLOCKS} blocks for ${contract.address}`));
+    throw new Error(`No events found within ${MAX_SEARCH_BLOCKS} blocks for ${contract.address}`);
   }
   try {
     const res = await contract.queryFilter(filter, fromBlock, toBlock);
@@ -34,28 +33,22 @@ export async function fetchQuery(
       const nextToBlock = fromBlock;
       const nextFrom = fromBlock - BLOCK_SPAN;
       if (nextFrom < 0) {
-        throw(new Error('No events found by chain genesis'));
+        throw new Error("No events found by chain genesis");
       }
       return fetchQuery(contract, filter, nextFrom, nextToBlock, originalBlock);
     }
   } catch (err) {
-    if (err.message.includes('query returned more')) {
+    if (err.message.includes("query returned more")) {
       const midBlock = (fromBlock + toBlock) / 2;
       return fetchQuery(contract, filter, midBlock, toBlock, originalBlock);
     } else {
-      throw(err);
+      throw err;
     }
   }
 }
 
 /// ETH balance is used for transfer out when amount is negative
-export async function sourceTokens({
-  dm,
-  amount: amount_,
-  asset,
-  address,
-  blacklist,
-}: SourceTokenParameters) {
+export async function sourceTokens({ dm, amount: amount_, asset, address, blacklist }: SourceTokenParameters) {
   let amount = BigNumber.from(amount_);
   if (amount.isZero()) {
     return;
@@ -66,30 +59,25 @@ export async function sourceTokens({
   }
 }
 
-async function removeTokens(
-  dm: DeploymentManager,
-  amount: BigNumber,
-  asset: string,
-  address: string
-) {
+async function removeTokens(dm: DeploymentManager, amount: BigNumber, asset: string, address: string) {
   let ethers = dm.hre.ethers;
   await dm.hre.network.provider.request({
-    method: 'hardhat_impersonateAccount',
+    method: "hardhat_impersonateAccount",
     params: [address],
   });
   let signer = await dm.getSigner(address);
   let tokenContract = new ethers.Contract(asset, erc20, signer);
   let currentBalance = await tokenContract.balanceOf(address);
-  if (currentBalance.lt(amount)) throw 'Error: Insufficient address balance';
-  await dm.hre.network.provider.send('hardhat_setNextBlockBaseFeePerGas', ['0x0']);
-  await tokenContract.transfer('0x0000000000000000000000000000000000000001', amount, { gasPrice: 0 });
+  if (currentBalance.lt(amount)) throw "Error: Insufficient address balance";
+  await dm.hre.network.provider.send("hardhat_setNextBlockBaseFeePerGas", ["0x0"]);
+  await tokenContract.transfer("0x0000000000000000000000000000000000000001", amount, { gasPrice: 0 });
   await dm.hre.network.provider.request({
-    method: 'hardhat_stopImpersonatingAccount',
+    method: "hardhat_stopImpersonatingAccount",
     params: [address],
   });
 }
 
-const testnets = ['hardhat', 'sepolia'];
+const testnets = ["hardhat", "sepolia"];
 
 async function addTokens(
   dm: DeploymentManager,
@@ -107,18 +95,18 @@ async function addTokens(
   block = block ?? (await ethers.provider.getBlockNumber());
   let tokenContract = new ethers.Contract(asset, erc20, ethers.provider);
   let filter = tokenContract.filters.Transfer();
-  if(testnets.includes(dm.network)){
+  if (testnets.includes(dm.network)) {
     const token = await dm.getContractOrThrow(await tokenContract.symbol());
     const admin = await dm.getSigner(await token.admin());
     // impersonate admin
     await dm.hre.network.provider.request({
-      method: 'hardhat_impersonateAccount',
+      method: "hardhat_impersonateAccount",
       params: [await admin.getAddress()],
     });
     await token.connect(admin).allocateTo(address, amount);
     // stop impersonating admin
     await dm.hre.network.provider.request({
-      method: 'hardhat_stopImpersonatingAccount',
+      method: "hardhat_stopImpersonatingAccount",
       params: [await admin.getAddress()],
     });
     return;
@@ -135,15 +123,15 @@ async function addTokens(
   let holder = await searchLogs(recentLogs, amount, tokenContract, ethers, blacklist);
   if (holder) {
     await dm.hre.network.provider.request({
-      method: 'hardhat_impersonateAccount',
+      method: "hardhat_impersonateAccount",
       params: [holder],
     });
     let impersonatedSigner = await dm.getSigner(holder);
     let impersonatedProviderTokenContract = tokenContract.connect(impersonatedSigner);
-    await dm.hre.network.provider.send('hardhat_setNextBlockBaseFeePerGas', ['0x0']);
+    await dm.hre.network.provider.send("hardhat_setNextBlockBaseFeePerGas", ["0x0"]);
     await impersonatedProviderTokenContract.transfer(address, amount, { gasPrice: 0 });
     await dm.hre.network.provider.request({
-      method: 'hardhat_stopImpersonatingAccount',
+      method: "hardhat_stopImpersonatingAccount",
       params: [holder],
     });
   } else {
@@ -156,21 +144,21 @@ async function searchLogs(
   recentLogs: Event[],
   amount: BigNumber,
   tokenContract: Contract,
-  ethers: HardhatRuntimeEnvironment['ethers'],
+  ethers: HardhatRuntimeEnvironment["ethers"],
   blacklist?: string[],
-  logOffset?: number,
+  logOffset?: number
 ): Promise<string | null> {
   let addresses = new Set<string>();
   if ((logOffset ?? 0) >= recentLogs.length) return null;
-  recentLogs.slice(logOffset ?? 0, (logOffset ?? 0) + 20).map((log) => {
+  recentLogs.slice(logOffset ?? 0, (logOffset ?? 0) + 20).map(log => {
     addresses.add(log.args![0]);
     addresses.add(log.args![1]);
   });
   let balancesDict = new Map<string, BigNumber>();
   await Promise.all([
-    ...Array.from(addresses).map(async (address) => {
+    ...Array.from(addresses).map(async address => {
       balancesDict.set(address, await tokenContract.balanceOf(address));
-    })
+    }),
   ]);
   for (let address of blacklist) {
     balancesDict.delete(address);

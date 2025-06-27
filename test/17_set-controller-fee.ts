@@ -1,16 +1,11 @@
-import { expect, makeProtocol } from './helper/helpers';
+import { expect, makeProtocol } from "./helper/helpers";
 
+describe("15. Fees on the profit", () => {
+  describe("Fees boilerplate", () => {});
 
-describe('15. Fees on the profit', () => {
+  describe("Fees on liquidation profit", () => {});
 
-  describe('Fees boilerplate', () => {
+  describe("Fees on interest from repayment", () => {
+    //TODO once implemented
   });
-
-  describe('Fees on liquidation profit', () => {
-  });
-
-  describe('Fees on interest from repayment', () => {
-      //TODO once implemented
-  });
-
 });

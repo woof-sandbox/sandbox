@@ -1,11 +1,11 @@
-import { expect, exp, makeProtocol } from './helper/helpers';
+import { expect, exp, makeProtocol } from "./helper/helpers";
 
 function mulDiv(a: bigint, b: bigint, denom: bigint): bigint {
   return (a * b) / denom;
 }
 
-describe.skip('15. quoteCollateral', function () {
-  it('quotes the collateral correctly for a positive base amount', async () => {
+describe.skip("15. quoteCollateral", function () {
+  it("quotes the collateral correctly for a positive base amount", async () => {
     const { comet, tokens } = await makeProtocol({
       storeFrontPriceFactor: exp(0.5, 18),
       assets: {
@@ -48,7 +48,7 @@ describe.skip('15. quoteCollateral', function () {
     expect(q0.amountOut).to.be.equal(exp(1.25, 18));
   });
 
-  it('quotes the collateral correctly for a zero base amount', async () => {
+  it("quotes the collateral correctly for a zero base amount", async () => {
     const { comet, tokens } = await makeProtocol({
       assets: {
         USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
@@ -77,7 +77,7 @@ describe.skip('15. quoteCollateral', function () {
     expect(q0.amountOut.toBigInt()).to.be.equal(0n);
   });
 
-  it('quotes the collateral at market price when storeFrontPriceFactor is 0%', async () => {
+  it("quotes the collateral at market price when storeFrontPriceFactor is 0%", async () => {
     const { comet, tokens } = await makeProtocol({
       storeFrontPriceFactor: exp(0, 18),
       assets: {
@@ -118,7 +118,7 @@ describe.skip('15. quoteCollateral', function () {
   });
 
   // Should fail before PR 303
-  it('properly calculates price without truncating integer during intermediate calculations', async () => {
+  it("properly calculates price without truncating integer during intermediate calculations", async () => {
     const { comet, tokens } = await makeProtocol({
       storeFrontPriceFactor: exp(0.5, 18),
       assets: {
@@ -152,7 +152,7 @@ describe.skip('15. quoteCollateral', function () {
     expect(q0.amountOut.toBigInt()).to.be.equal(exp(100, 18));
   });
 
-  it('does not overflow for large amounts', async () => {
+  it("does not overflow for large amounts", async () => {
     const { comet, tokens } = await makeProtocol({
       storeFrontPriceFactor: exp(0.8, 18),
       assets: {
@@ -185,7 +185,7 @@ describe.skip('15. quoteCollateral', function () {
     expect(q0.amountOut.toBigInt()).to.be.equal(exp(6.25, 12 + 18));
   });
 
-  it('sets both fees to zero when delt=0', async () => {
+  it("sets both fees to zero when delt=0", async () => {
     const { comet, tokens } = await makeProtocol({
       storeFrontPriceFactor: exp(0.5, 18),
       assets: {
@@ -216,9 +216,9 @@ describe.skip('15. quoteCollateral', function () {
     expect(q.feeProtocol).to.equal(0);
   });
 
-  it('returns correct controller/protocol fees when delta > 0', async () => {
+  it("returns correct controller/protocol fees when delta > 0", async () => {
     const { comet, tokens, sandboxController } = await makeProtocol({
-      storeFrontPriceFactor: exp(0.333333333333333333, 18), 
+      storeFrontPriceFactor: exp(0.333333333333333333, 18),
       assets: {
         USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
         COMP: {

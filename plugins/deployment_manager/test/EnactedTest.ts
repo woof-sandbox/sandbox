@@ -1,7 +1,7 @@
-import { expect, use } from 'chai';
-import chaiAsPromised from 'chai-as-promised';
-import { addEnactedToMigration } from '../Enacted';
-import * as ts from 'typescript';
+import { expect, use } from "chai";
+import chaiAsPromised from "chai-as-promised";
+import { addEnactedToMigration } from "../Enacted";
+import * as ts from "typescript";
 
 use(chaiAsPromised);
 
@@ -149,34 +149,38 @@ export default migration('1_cool', {
 });
 `;
 
-describe('Enacted', () => {
-  it('writes enacted to migration', async () => {
-    const startingSourceFile = ts.createSourceFile('test', migrationWithoutEnacted, ts.ScriptTarget.Latest);
+describe("Enacted", () => {
+  it("writes enacted to migration", async () => {
+    const startingSourceFile = ts.createSourceFile("test", migrationWithoutEnacted, ts.ScriptTarget.Latest);
     expect(addEnactedToMigration(startingSourceFile)).to.equal(migrationWithEnacted);
   });
 
-  it('handles no trailing comma', async () => {
-    const startingSourceFile = ts.createSourceFile('test', migrationWithoutEnactedWithoutTrailingComma, ts.ScriptTarget.Latest);
+  it("handles no trailing comma", async () => {
+    const startingSourceFile = ts.createSourceFile("test", migrationWithoutEnactedWithoutTrailingComma, ts.ScriptTarget.Latest);
     expect(addEnactedToMigration(startingSourceFile)).to.equal(migrationWithEnacted);
   });
 
-  it('handles existing enacted', async () => {
-    const startingSourceFile = ts.createSourceFile('test', migrationWithEnacted, ts.ScriptTarget.Latest);
+  it("handles existing enacted", async () => {
+    const startingSourceFile = ts.createSourceFile("test", migrationWithEnacted, ts.ScriptTarget.Latest);
     expect(addEnactedToMigration(startingSourceFile)).to.equal(migrationWithEnacted);
   });
 
-  it('handles existing enacted without trailing comma', async () => {
-    const startingSourceFile = ts.createSourceFile('test', migrationWithEnactedWithoutTrailingComma, ts.ScriptTarget.Latest);
+  it("handles existing enacted without trailing comma", async () => {
+    const startingSourceFile = ts.createSourceFile("test", migrationWithEnactedWithoutTrailingComma, ts.ScriptTarget.Latest);
     expect(addEnactedToMigration(startingSourceFile)).to.equal(migrationWithEnacted);
   });
 
-  it('handles existing enacted with trailing comment', async () => {
-    const startingSourceFile = ts.createSourceFile('test', migrationWithoutEnactedWithTrailingComment, ts.ScriptTarget.Latest);
+  it("handles existing enacted with trailing comment", async () => {
+    const startingSourceFile = ts.createSourceFile("test", migrationWithoutEnactedWithTrailingComment, ts.ScriptTarget.Latest);
     expect(addEnactedToMigration(startingSourceFile)).to.equal(migrationWithEnactedWithTrailingComment);
   });
 
-  it('handles existing enacted without trailing comma with trailing comment', async () => {
-    const startingSourceFile = ts.createSourceFile('test', migrationWithoutEnactedWithoutTrailingCommaWithTrailingComment, ts.ScriptTarget.Latest);
+  it("handles existing enacted without trailing comma with trailing comment", async () => {
+    const startingSourceFile = ts.createSourceFile(
+      "test",
+      migrationWithoutEnactedWithoutTrailingCommaWithTrailingComment,
+      ts.ScriptTarget.Latest
+    );
     expect(addEnactedToMigration(startingSourceFile)).to.equal(migrationWithEnactedWithoutTrailingCommaWithTrailingComment);
   });
 });

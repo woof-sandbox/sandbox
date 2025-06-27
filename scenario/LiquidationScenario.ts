@@ -1,10 +1,10 @@
-import { scenario } from './context/CometContext';
-import { event, expect } from '../test/helper/helpers';
-import { expectRevertCustom, timeUntilUnderwater } from './utils';
-import { matchesDeployment } from './utils';
+import { scenario } from "./context/CometContext";
+import { event, expect } from "../test/helper/helpers";
+import { expectRevertCustom, timeUntilUnderwater } from "./utils";
+import { matchesDeployment } from "./utils";
 
 scenario(
-  'Comet#liquidation > isLiquidatable=true for underwater position',
+  "Comet#liquidation > isLiquidatable=true for underwater position",
   {
     tokenBalances: {
       $comet: { $base: 1000 },
@@ -23,7 +23,7 @@ scenario(
       await timeUntilUnderwater({
         comet,
         actor: albert,
-        fudgeFactor: 60n * 10n // 10 minutes past when position is underwater
+        fudgeFactor: 60n * 10n, // 10 minutes past when position is underwater
       })
     );
 
@@ -34,7 +34,7 @@ scenario(
 );
 
 scenario(
-  'Comet#liquidation > allows liquidation of underwater positions with token fees',
+  "Comet#liquidation > allows liquidation of underwater positions with token fees",
   {
     tokenBalances: {
       $comet: { $base: 1000 },
@@ -42,22 +42,22 @@ scenario(
     cometBalances: {
       albert: {
         $base: -1000,
-        $asset0: .001
+        $asset0: 0.001,
       },
-      betty: { $base: 10 }
+      betty: { $base: 10 },
     },
-    filter: async (ctx) => matchesDeployment(ctx, [{ network: 'mainnet', deployment: 'usdt' }]),
+    filter: async ctx => matchesDeployment(ctx, [{ network: "mainnet", deployment: "usdt" }]),
   },
   async ({ comet, actors }, context, world) => {
     // Set fees for USDT for testing
-    const USDT = await world.deploymentManager.existing('USDT', await comet.baseToken(), world.base.network);
+    const USDT = await world.deploymentManager.existing("USDT", await comet.baseToken(), world.base.network);
     const USDTAdminAddress = await USDT.owner();
-    await world.deploymentManager.hre.network.provider.send('hardhat_setBalance', [
+    await world.deploymentManager.hre.network.provider.send("hardhat_setBalance", [
       USDTAdminAddress,
-      world.deploymentManager.hre.ethers.utils.hexStripZeros(world.deploymentManager.hre.ethers.utils.parseEther('100').toHexString()),
+      world.deploymentManager.hre.ethers.utils.hexStripZeros(world.deploymentManager.hre.ethers.utils.parseEther("100").toHexString()),
     ]);
     await world.deploymentManager.hre.network.provider.request({
-      method: 'hardhat_impersonateAccount',
+      method: "hardhat_impersonateAccount",
       params: [USDTAdminAddress],
     });
     // mine a block to ensure the impersonation is effective
@@ -71,7 +71,7 @@ scenario(
       await timeUntilUnderwater({
         comet,
         actor: albert,
-        fudgeFactor: 60n * 10n // 10 minutes past when position is underwater
+        fudgeFactor: 60n * 10n, // 10 minutes past when position is underwater
       })
     );
 
@@ -103,14 +103,14 @@ scenario(
 );
 
 scenario(
-  'Comet#liquidation > prevents liquidation when absorb is paused',
+  "Comet#liquidation > prevents liquidation when absorb is paused",
   {
     tokenBalances: {
       $comet: { $base: 1000 },
     },
     cometBalances: {
       albert: { $base: -1000 },
-      betty: { $base: 1000 }
+      betty: { $base: 1000 },
     },
     pause: {
       absorbPaused: true,
@@ -125,21 +125,18 @@ scenario(
       await timeUntilUnderwater({
         comet,
         actor: albert,
-        fudgeFactor: 60n * 10n // 10 minutes past when position is underwater
+        fudgeFactor: 60n * 10n, // 10 minutes past when position is underwater
       })
     );
 
     await betty.withdrawAsset({ asset: baseToken, amount: baseBorrowMin }); // force accrue
 
-    await expectRevertCustom(
-      betty.absorb({ absorber: betty.address, accounts: [albert.address] }),
-      'Paused()'
-    );
+    await expectRevertCustom(betty.absorb({ absorber: betty.address, accounts: [albert.address] }), "Paused()");
   }
 );
 
 scenario(
-  'Comet#liquidation > allows liquidation of underwater positions',
+  "Comet#liquidation > allows liquidation of underwater positions",
   {
     tokenBalances: {
       $comet: { $base: 1000 },
@@ -147,9 +144,9 @@ scenario(
     cometBalances: {
       albert: {
         $base: -1000,
-        $asset0: .001
+        $asset0: 0.001,
       },
-      betty: { $base: 10 }
+      betty: { $base: 10 },
     },
   },
   async ({ comet, actors }, context, world) => {
@@ -159,7 +156,7 @@ scenario(
       await timeUntilUnderwater({
         comet,
         actor: albert,
-        fudgeFactor: 60n * 10n // 10 minutes past when position is underwater
+        fudgeFactor: 60n * 10n, // 10 minutes past when position is underwater
       })
     );
 
@@ -191,7 +188,7 @@ scenario(
 );
 
 scenario(
-  'Comet#liquidation > user can end up with a minted supply',
+  "Comet#liquidation > user can end up with a minted supply",
   {
     tokenBalances: {
       $comet: { $base: 1000 },
@@ -199,7 +196,7 @@ scenario(
     cometBalances: {
       albert: {
         $base: -1000,
-        $asset0: 0.001
+        $asset0: 0.001,
       },
     },
   },
@@ -207,14 +204,16 @@ scenario(
     const { albert, betty } = actors;
 
     await world.increaseTime(
-      Math.round(await timeUntilUnderwater({
-        comet,
-        actor: albert,
-      }) * 1.001) // XXX why is this off? better to use a price constraint?
+      Math.round(
+        (await timeUntilUnderwater({
+          comet,
+          actor: albert,
+        })) * 1.001
+      ) // XXX why is this off? better to use a price constraint?
     );
 
     const ab0 = await betty.absorb({ absorber: betty.address, accounts: [albert.address] });
-    expect(ab0.events?.[2]?.event).to.be.equal('Transfer');
+    expect(ab0.events?.[2]?.event).to.be.equal("Transfer");
 
     const baseBalance = await albert.getCometBaseBalance();
     expect(Number(baseBalance)).to.be.greaterThan(0);
@@ -227,12 +226,12 @@ scenario(
 // permission in Comet, so a new function (e.g. `approveCometPermission`) needs to be created
 // to allow governance to modify which addresses can withdraw assets from Comet's Comet balance.
 scenario.skip(
-  'Comet#liquidation > governor can withdraw collateral after successful liquidation',
+  "Comet#liquidation > governor can withdraw collateral after successful liquidation",
   {
     cometBalances: {
       albert: {
         $base: -10,
-        $asset0: .001
+        $asset0: 0.001,
       },
     },
   },
@@ -246,7 +245,7 @@ scenario.skip(
       await timeUntilUnderwater({
         comet,
         actor: albert,
-        fudgeFactor: 60n * 10n // 10 minutes past when position is underwater
+        fudgeFactor: 60n * 10n, // 10 minutes past when position is underwater
       })
     );
 
@@ -256,15 +255,15 @@ scenario.skip(
       src: comet.address,
       dst: charles.address,
       asset: asset0Address,
-      amount: collateralBalance
+      amount: collateralBalance,
     });
 
     expect(event({ receipt: txReceipt }, 0)).to.deep.equal({
       Transfer: {
         from: comet.address,
         to: charles.address,
-        amount: collateralBalance
-      }
+        amount: collateralBalance,
+      },
     });
 
     expect(event({ receipt: txReceipt }, 1)).to.deep.equal({
@@ -272,8 +271,8 @@ scenario.skip(
         src: comet.address,
         to: charles.address,
         asset: asset0Address,
-        amount: collateralBalance
-      }
+        amount: collateralBalance,
+      },
     });
   }
 );

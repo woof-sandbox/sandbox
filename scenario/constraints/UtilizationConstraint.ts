@@ -1,9 +1,9 @@
-import { Constraint } from '../../plugins/scenario';
-import { CometContext } from '../context/CometContext';
-import { optionalNumber } from '../utils';
-import { defactor, factor, factorScale } from '../../test/helper/helpers';
-import { expect } from 'chai';
-import { Requirements } from './Requirements';
+import { Constraint } from "../../plugins/scenario";
+import { CometContext } from "../context/CometContext";
+import { optionalNumber } from "../utils";
+import { defactor, factor, factorScale } from "../../test/helper/helpers";
+import { expect } from "chai";
+import { Requirements } from "./Requirements";
 
 /**
   # Utilization Constraint
@@ -29,7 +29,7 @@ interface UtilizationConfig {
 
 function getUtilizationConfig(requirements: object): UtilizationConfig {
   return {
-    utilization: optionalNumber(requirements, 'utilization'),
+    utilization: optionalNumber(requirements, "utilization"),
   };
 }
 
@@ -71,7 +71,7 @@ export class UtilizationConstraint<T extends CometContext, R extends Requirement
         let toSupplyBase = totalBorrowBase <= totalSupplyBase ? 10n * baseScale : totalBorrowBase - totalSupplyBase;
 
         let expectedSupplyBase = totalSupplyBase + toSupplyBase;
-        let expectedBorrowBase = utilizationFactor * expectedSupplyBase / factorScale;
+        let expectedBorrowBase = (utilizationFactor * expectedSupplyBase) / factorScale;
         let currentUtilizationFactor = (totalBorrowBase * factorScale) / expectedSupplyBase;
 
         if (currentUtilizationFactor < utilizationFactor) {
@@ -80,7 +80,7 @@ export class UtilizationConstraint<T extends CometContext, R extends Requirement
           let baseBorrowMin = (await comet.baseBorrowMin()).toBigInt();
           if (toBorrowBase < baseBorrowMin) {
             expectedBorrowBase = expectedBorrowBase + baseBorrowMin - toBorrowBase;
-            expectedSupplyBase = expectedBorrowBase * factorScale / utilizationFactor;
+            expectedSupplyBase = (expectedBorrowBase * factorScale) / utilizationFactor;
             toBorrowBase = baseBorrowMin;
             toSupplyBase = expectedSupplyBase - totalSupplyBase;
           }
@@ -88,14 +88,14 @@ export class UtilizationConstraint<T extends CometContext, R extends Requirement
           if (utilizationFactor === 0n) {
             utilizationFactor = 1n; // to avoid dividing by 0
           }
-          toSupplyBase = toSupplyBase + (totalBorrowBase * factorScale / utilizationFactor) - expectedSupplyBase;
+          toSupplyBase = toSupplyBase + (totalBorrowBase * factorScale) / utilizationFactor - expectedSupplyBase;
         }
 
         // It's really hard to target a utilization if we don't have _any_ base token supply, since
         // everything will come out as zero.
         if (toSupplyBase > 0n) {
           // Add some supply, any amount will do
-          let supplyActor = await context.allocateActor('UtilizationConstraint{Supplier}');
+          let supplyActor = await context.allocateActor("UtilizationConstraint{Supplier}");
 
           await baseToken.approve(supplyActor, comet);
           await context.sourceTokens(toSupplyBase, baseToken, supplyActor);
@@ -103,7 +103,7 @@ export class UtilizationConstraint<T extends CometContext, R extends Requirement
         }
 
         if (toBorrowBase > 0n) {
-          const borrowActor = await context.allocateActor('UtilizationConstraint{Borrower}');
+          const borrowActor = await context.allocateActor("UtilizationConstraint{Borrower}");
 
           // To borrow as much, we need to supply some collateral.
           const numAssets = await comet.numAssets();
@@ -127,7 +127,9 @@ export class UtilizationConstraint<T extends CometContext, R extends Requirement
               await borrowActor.safeSupplyAsset({ asset: collateralToken.address, amount: collateralNeeded });
               console.log(`UtilizationConstraint: successfully sourced ${collateralNeeded} from $asset${i}`);
             } catch (error) {
-              console.log(`UtilizationConstraint: failed to source ${collateralNeeded} from $asset${i} (${error.message.slice(0, 512)}...)`);
+              console.log(
+                `UtilizationConstraint: failed to source ${collateralNeeded} from $asset${i} (${error.message.slice(0, 512)}...)`
+              );
             }
           }
 
