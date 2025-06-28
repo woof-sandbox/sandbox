@@ -73,6 +73,7 @@ contract SandboxController is ISandboxController {
      *
      * @param _owner  The address of the protocol owner.
      * @param _dao    The address of the DAO (governance).
+     * @param _treasury The address of the treasury.
      * @param _feeEnabled Global fee flag for the entire protocol.
      * @param _targetPercent            < 0.5 (50%)
      * @param _storeFrontPriceFactor     < 1e18

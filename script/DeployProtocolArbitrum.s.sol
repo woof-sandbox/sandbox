@@ -188,17 +188,16 @@ contract DeployProtocol is Script {
         SandboxController sandboxController = new SandboxController(
             owner, // owner
             address(1), // dao (different from owner)
+            address(2), // treasury (for now random address)
             true, // feeEnabled
-            3e17, // protocolFactorBorrow (30%)
-            2e17, // reserveFactorBorrow (20%)
-            3e17, // protocolFactorLiquidation (30%)
-            2e17, // reserveFactorLiquidation (20%)
             2e17, // targetPercent (20%)
-            95e16, // storeFrontPriceFactor (95%)
+            6e17, // storeFrontPriceFactor (60%)
             300, // minUpdateTime (5 minutes)
             3600, // maxUpdateTime (1 hour)
             250, // suggestedAmountOfSeedReserves
-            3600 // suggestedLockTimeOfSeedReserves (1 hour)
+            3600, // suggestedLockTimeOfSeedReserves (1 hour)
+            [uint64(4e16), uint64(3e16), uint64(2e16)], // reserveCommissions
+            [uint64(4e16), uint64(3e16), uint64(2e16)] // protocolCommissions
         );
         return address(sandboxController);
     }
