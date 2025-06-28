@@ -13,6 +13,10 @@ npx prettier --check 'contracts/**/*.sol' --config .prettierrc.json
 echo "🧪 Running tests..."
 yarn test
 
+# Compile contracts with Foundry to update out directory
+echo "🔨 Compiling contracts with Foundry..."
+forge build
+
 # Clean out directory to remove non-major artifacts
 echo "🧹 Cleaning out directory..."
 yarn clean:out
