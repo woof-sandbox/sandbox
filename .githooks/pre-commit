@@ -4,18 +4,21 @@
 set -e
 
 # STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACMR | sed 's| |\\ |g')
-# [ -z "$STAGED_FILES" ] && exit 0
+[ -z "$STAGED_FILES" ] && exit 0
 
-# # typescript
-# ./node_modules/.bin/tsc
+# typescript
+./node_modules/.bin/tsc
 
-# # solhint
-# echo "$STAGED_FILES" | egrep '\.sol$' | xargs ./node_modules/.bin/solhint --fix
+# eslint
+echo "$STAGED_FILES" | xargs yarn lint
 
-# # eslint
-# echo "$STAGED_FILES" | xargs yarn lint
+# prettier
+echo "$STAGED_FILES" | xargs yarn prettier:sol
 
-# # add back the modified/prettified files to staging
-# echo "$STAGED_FILES" | xargs git add
+# prettier ts
+echo "$STAGED_FILES" | xargs yarn prettier:ts
+
+# add back the modified/prettified files to staging
+echo "$STAGED_FILES" | xargs git add
 
 exit 0
