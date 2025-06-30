@@ -264,16 +264,13 @@ contract SandboxComet is ISandboxComet {
      * @param now_ The current timestamp to use for transition progress calculation.
      */
     function progressTransition(uint40 now_) internal {
-        uint40 duration = transition.endTime - transition.startTime;
-        uint40 elapsed = now_ < transition.endTime ? now_ - transition.startTime : duration;
- 
         if (now_ <= transition.lastUpdateTime) {
             return; // no update needed
         }
-
+        
         Curve memory target = transition.targetCurveParams;
 
-        if (elapsed == duration) {
+        if (now_ >= transition.endTime) {
             supplyKink = target.supplyKink;
             supplyPerSecondInterestRateSlopeLow = target.supplyPerSecondInterestRateSlopeLow;
             supplyPerSecondInterestRateSlopeHigh = target.supplyPerSecondInterestRateSlopeHigh;
@@ -282,8 +279,13 @@ contract SandboxComet is ISandboxComet {
             borrowPerSecondInterestRateSlopeLow = target.borrowPerSecondInterestRateSlopeLow;
             borrowPerSecondInterestRateSlopeHigh = target.borrowPerSecondInterestRateSlopeHigh;
             borrowPerSecondInterestRateBase = target.borrowPerSecondInterestRateBase;
+
+            isTransitionActive = false;
+            return;
         } else {
             Curve memory start = transition.startCurveParams;
+            uint40 duration = transition.endTime - transition.startTime;
+            uint40 elapsed = now_ - transition.startTime;
 
             supplyKink = interpolateValue(
                 start.supplyKink, 
@@ -343,12 +345,7 @@ contract SandboxComet is ISandboxComet {
             );
         }
 
-        transition.lastUpdateTime = now_;
-
-        if (now_ >= transition.endTime) {
-            isTransitionActive = false;
-            return;
-        }   
+        transition.lastUpdateTime = now_; 
     }
 
     /**
