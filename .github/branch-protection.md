@@ -229,6 +229,11 @@ For issues with branch protection or CI/CD:
 - Check the GitHub Actions logs for detailed error information
 
 #### Pre-push Hook
+- TypeScript compilation check
+- ESLint on staged files
+- Solhint on staged Solidity files
+- Prettier formatting
+- **Documentation generation for Solidity contracts**
 - Comprehensive TypeScript compilation
 - Full ESLint and Solhint checks
 - All tests execution

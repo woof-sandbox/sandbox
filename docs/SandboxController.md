@@ -172,7 +172,7 @@ The length of the `_reserveCommissions` and `_protocolCommissions` arrays must b
 | ---- | ---- | ----------- |
 | _owner | address | The address of the protocol owner. |
 | _dao | address | The address of the DAO (governance). |
-| _treasury | address |  |
+| _treasury | address | The address of the treasury. |
 | _feeEnabled | bool | Global fee flag for the entire protocol. |
 | _targetPercent | uint256 | < 0.5 (50%) |
 | _storeFrontPriceFactor | uint256 | < 1e18 |

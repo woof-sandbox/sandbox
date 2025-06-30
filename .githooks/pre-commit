@@ -16,6 +16,9 @@ fi
 
 echo "📁 Staged files: $STAGED_FILES"
 
+# Check if any Solidity files are staged
+SOLIDITY_FILES=$(echo "$STAGED_FILES" | grep '\.sol$' || true)
+
 # TypeScript compilation check
 echo "🔧 Checking TypeScript compilation..."
 ./node_modules/.bin/tsc
@@ -31,6 +34,20 @@ echo "$STAGED_FILES" | xargs yarn prettier:sol
 # Prettier check on TypeScript files
 echo "💅 Checking TypeScript formatting..."
 echo "$STAGED_FILES" | xargs yarn prettier:ts
+
+# Generate documentation if Solidity files were modified
+if [ -n "$SOLIDITY_FILES" ]; then
+    echo "📚 Generating documentation for Solidity contracts..."
+    yarn doc
+    
+    # Check if docs directory exists and has changes
+    if [ -d "./docs" ]; then
+        echo "📝 Adding generated documentation to staging..."
+        git add docs/
+    fi
+else
+    echo "ℹ️  No Solidity files modified, skipping documentation generation"
+fi
 
 # Add back the modified/prettified files to staging
 echo "📝 Adding formatted files back to staging..."
