@@ -1,36 +1,55 @@
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import {
+    CometExtension,
     CometHarness,
     ConfigControllerTest,
     FaucetToken,
     NonStandardFaucetFeeToken,
-    SandboxController,
 } from "../build/types";
-import { defaultSandboxControllerOpts, dfn, ethers, exp, expect, fastForward, makeProtocol } from "./helper/helpers";
+import { ethers, exp, expect, fastForward, makeProtocol, skipTimeAndAccrueAccount, SnapshotRestorer, takeSnapshot } from "./helper/helpers";
 import { BaseAssetCurveStruct, ISandboxController } from "../build/types/ISandboxController";
 import { CurveStruct } from "../build/types/CometCore";
 import { BigNumber } from "ethers";
+import { time } from "@nomicfoundation/hardhat-network-helpers";
 
 describe("16. curve transition", function() {
+    let snapshot: SnapshotRestorer;
+
     let comet: CometHarness;
     let baseToken: FaucetToken | NonStandardFaucetFeeToken;
+    let collateral: FaucetToken | NonStandardFaucetFeeToken;
     let configController: ConfigControllerTest;
     let sandboxController: ISandboxController;
 
     let owner: SignerWithAddress;
     let alice: SignerWithAddress;
+    let bob: SignerWithAddress;
 
     let startCurve: CurveStruct;
     let targetCurve: CurveStruct;
 
-    beforeEach(async function() {
+    // constants
+    const TRANSITION_DURATION = 7 * 24 * 60 * 60; // 7 days
+    const SUPPLY_AMOUNT = exp(10, 18);
+
+    before(async () => {
         ({
             comet,
             baseToken,
             configController,
             sandboxController,
-            users: [owner, alice],
-        } = await makeProtocol());
+            users: [owner, alice, bob],
+            tokens: { COMP: collateral },
+        } = await makeProtocol({
+            base: "USDC",
+            assets: {
+                USDC: { decimals: 6, initialPrice: 1 },
+                COMP: {
+                    decimals: 18,
+                    initialPrice: 100,
+                },
+            },
+        }));
 
         const supplyKink = await comet.supplyKink();
         const supplyPerSecondInterestRateSlopeLow = await comet.supplyPerSecondInterestRateSlopeLow();
@@ -56,11 +75,11 @@ describe("16. curve transition", function() {
             supplyKink: exp(0.7, 18),
             supplyPerYearInterestRateBase: exp(0.005, 18),
             supplyPerYearInterestRateSlopeLow: exp(0.03, 18),
-            supplyPerYearInterestRateSlopeHigh: exp(2.1, 18),
+            supplyPerYearInterestRateSlopeHigh: exp(2.5, 18),
             borrowKink: exp(0.9, 18),
             borrowPerYearInterestRateBase: exp(0.008, 18),
             borrowPerYearInterestRateSlopeLow: exp(0.2, 18),
-            borrowPerYearInterestRateSlopeHigh: exp(2.8, 18),
+            borrowPerYearInterestRateSlopeHigh: exp(4, 18),
         };
 
         const secondsPerYear = 31_536_000n;
@@ -86,7 +105,13 @@ describe("16. curve transition", function() {
 
         // Add new curveId for the base token
         await sandboxController.addBaseAssetCurve(baseToken.address, curve);
+
+        await baseToken.allocateTo(alice.address, exp(1000, 18));
+
+        snapshot = await takeSnapshot();
     });
+
+    afterEach(async () => await snapshot.restore());
 
     describe("start curve transition", function() {
         it("should start curve transition", async function() {
@@ -97,7 +122,7 @@ describe("16. curve transition", function() {
 
             expect(transition.startTime).to.be.closeTo(timestamp, 10);
             expect(transition.lastUpdateTime).to.be.closeTo(timestamp, 10);
-            expect(transition.endTime).to.eq(transition.startTime + (await sandboxController.transitionDuration()));
+            expect(transition.endTime).to.eq(transition.startTime + TRANSITION_DURATION);
             expect(await comet.isTransitionActive()).to.be.true;
             expect(transition.startCurveParams.supplyKink).to.eq(startCurve.supplyKink);
             expect(transition.startCurveParams.supplyPerSecondInterestRateSlopeLow).to.eq(
@@ -179,11 +204,11 @@ describe("16. curve transition", function() {
             expect(currentSupplyKink).to.eq(startCurve.supplyKink);
             expect(currentBorrowKink).to.eq(startCurve.borrowKink);
 
-            const skipTime = (await sandboxController.transitionDuration()) / 4;
+            const skipTime = TRANSITION_DURATION / 4;
             const expectedChangeForEachUpdate = exp(0.025, 18);
 
             await fastForward(skipTime);
-            await comet.updateCurveTransition();
+            await comet.connect(alice).supply(baseToken.address, SUPPLY_AMOUNT);
 
             // Check changes
             const supplyKinkAfterFirstUpdate = await comet.supplyKink();
@@ -192,7 +217,7 @@ describe("16. curve transition", function() {
             expect(borrowKinkAfterFirstUpdate).to.eq(currentBorrowKink.add(expectedChangeForEachUpdate));
 
             await fastForward(skipTime);
-            await comet.updateCurveTransition();
+            await comet.connect(alice).supply(baseToken.address, SUPPLY_AMOUNT);
 
             // Check changes
             const supplyKinkAfterSecondUpdate = await comet.supplyKink();
@@ -201,7 +226,7 @@ describe("16. curve transition", function() {
             expect(borrowKinkAfterSecondUpdate).to.eq(borrowKinkAfterFirstUpdate.add(expectedChangeForEachUpdate));
 
             await fastForward(skipTime);
-            await comet.updateCurveTransition();
+            await comet.connect(alice).supply(baseToken.address, SUPPLY_AMOUNT);
 
             // Check changes
             const supplyKinkAfterThirdUpdate = await comet.supplyKink();
@@ -210,7 +235,7 @@ describe("16. curve transition", function() {
             expect(borrowKinkAfterThirdUpdate).to.eq(borrowKinkAfterSecondUpdate.add(expectedChangeForEachUpdate));
 
             await fastForward(skipTime);
-            await comet.updateCurveTransition();
+            await comet.connect(alice).supply(baseToken.address, SUPPLY_AMOUNT);
 
             // Check changes
             const finalSupplyKink = await comet.supplyKink();
@@ -224,37 +249,115 @@ describe("16. curve transition", function() {
         });
 
         it("should not update curve values if endtime is passed", async function() {
-            const transitionDuration = await sandboxController.transitionDuration();
-
-            await fastForward(transitionDuration);
-            await comet.updateCurveTransition();
+            await fastForward(TRANSITION_DURATION);
+            await comet.connect(alice).supply(baseToken.address, SUPPLY_AMOUNT);
 
             const supplyKink = await comet.supplyKink();
 
-            await fastForward(transitionDuration);
-            await comet.updateCurveTransition();
+            await fastForward(TRANSITION_DURATION);
+            await comet.connect(alice).supply(baseToken.address, SUPPLY_AMOUNT);
 
             const supplyKink2 = await comet.supplyKink();
             expect(supplyKink).to.eq(targetCurve.supplyKink);
             expect(supplyKink2).to.eq(targetCurve.supplyKink);
         });
 
-        it("should not update curve values if transition is not active", async function() {
-            await comet.setTransactionActive(false);
+        it("should set isTransitionActive to false when transition ends", async function() {
+            await fastForward(TRANSITION_DURATION);
+            await comet.connect(alice).supply(baseToken.address, SUPPLY_AMOUNT);
 
-            // Check that transition is not empty
-            const transition = await comet.transition();
-            expect(transition.startTime).to.not.eq(0);
-            expect(transition.endTime).to.not.eq(0);
-            expect(transition.startCurveParams.supplyKink).to.not.eq(targetCurve.supplyKink);
+            const isTransitionActive = await comet.isTransitionActive();
+            expect(isTransitionActive).to.be.false;
+        });
 
-            const supplyKinkBefore = await comet.supplyKink();
+        it("should not effect on user principal during curve transition", async function() {
+            // Provide base tokens to comet
+            await comet.connect(alice).supply(baseToken.address, exp(1000, 18));
 
-            // Skip 2 days
-            await fastForward(2 * 24 * 60 * 60);
+            // Supply collateral from Bob and borrow some base token
+            const bobDepositAmount = exp(1000, 18);
+            await collateral.allocateTo(bob.address, bobDepositAmount);
+            await comet.connect(bob).supply(collateral.address, bobDepositAmount);
+            await comet.connect(bob).withdraw(baseToken.address, exp(10, 6));
+            const principal1 = (await comet.userBasic(bob.address)).principal;
+            await skipTimeAndAccrueAccount(comet, TRANSITION_DURATION / 4, bob.address);
+            const principal2 = (await comet.userBasic(bob.address)).principal;
 
-            const supplyKinkAfter = await comet.supplyKink();
-            expect(supplyKinkAfter).to.eq(supplyKinkBefore);
+            await skipTimeAndAccrueAccount(comet, TRANSITION_DURATION / 4, bob.address);
+            const principal3 = (await comet.userBasic(bob.address)).principal;
+
+            await skipTimeAndAccrueAccount(comet, TRANSITION_DURATION / 4, bob.address);
+            const principal4 = (await comet.userBasic(bob.address)).principal;
+
+            await skipTimeAndAccrueAccount(comet, TRANSITION_DURATION / 4, bob.address);
+            const principal5 = (await comet.userBasic(bob.address)).principal;
+
+            expect(principal1).to.eq(principal2);
+            expect(principal2).to.eq(principal3);
+            expect(principal3).to.eq(principal4);
+            expect(principal4).to.eq(principal5);
+
+            expect(await comet.isTransitionActive()).to.be.false;
+            expect(await comet.borrowKink()).to.eq(targetCurve.borrowKink);
+        });
+
+        it("should not make user liquidatable during curve transition", async function() {
+            // Provide base tokens to comet
+            await comet.connect(alice).supply(baseToken.address, exp(1000, 18));
+
+            // Supply collateral from Bob and borrow some base token
+            const bobDepositAmount = exp(1, 18);
+            await collateral.allocateTo(bob.address, bobDepositAmount);
+            await comet.connect(bob).supply(collateral.address, bobDepositAmount);
+            await comet.connect(bob).withdraw(baseToken.address, exp(60, 6));
+
+            await skipTimeAndAccrueAccount(comet, TRANSITION_DURATION / 4, bob.address);
+            let isLiquidatable = await comet.isLiquidatable(bob.address);
+            expect(isLiquidatable).to.be.false;
+            
+            await skipTimeAndAccrueAccount(comet, TRANSITION_DURATION / 4, bob.address);
+            isLiquidatable = await comet.isLiquidatable(bob.address);
+            expect(isLiquidatable).to.be.false;
+
+            await skipTimeAndAccrueAccount(comet, TRANSITION_DURATION / 4, bob.address);
+            isLiquidatable = await comet.isLiquidatable(bob.address);
+            expect(isLiquidatable).to.be.false;
+
+            await skipTimeAndAccrueAccount(comet, TRANSITION_DURATION / 4, bob.address);
+            isLiquidatable = await comet.isLiquidatable(bob.address);
+            expect(isLiquidatable).to.be.false;
+        });
+
+        it('should not make user liquidatable after curve transition and 1 month', async function() {
+            // Provide base tokens to comet
+            await comet.connect(alice).supply(baseToken.address, exp(1000, 18));
+
+            // Supply collateral from Bob and borrow some base token
+            const bobDepositAmount = exp(1, 18);
+            await collateral.allocateTo(bob.address, bobDepositAmount);
+            await comet.connect(bob).supply(collateral.address, bobDepositAmount);
+            await comet.connect(bob).withdraw(baseToken.address, exp(60, 6));
+
+            await skipTimeAndAccrueAccount(comet, time.duration.weeks(5), bob.address);
+
+            let isLiquidatable = await comet.isLiquidatable(bob.address);
+            expect(isLiquidatable).to.be.false;
+        });
+
+        it('should not make user liquidatable after curve transition and 3 months', async function() {
+            // Provide base tokens to comet
+            await comet.connect(alice).supply(baseToken.address, exp(1000, 18));
+
+            // Supply collateral from Bob and borrow some base token
+            const bobDepositAmount = exp(1, 18);
+            await collateral.allocateTo(bob.address, bobDepositAmount);
+            await comet.connect(bob).supply(collateral.address, bobDepositAmount);
+            await comet.connect(bob).withdraw(baseToken.address, exp(60, 6));
+
+            await skipTimeAndAccrueAccount(comet, time.duration.weeks(13), bob.address);
+
+            let isLiquidatable = await comet.isLiquidatable(bob.address);
+            expect(isLiquidatable).to.be.false;
         });
     });
 });

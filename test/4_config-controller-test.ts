@@ -1,18 +1,31 @@
-import { ethers, expect, makeConfigController } from "./helper/helpers";
+import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
+import { ConfigControllerTest, ISandboxController } from "../build/types";
+import { ethers, expect, makeConfigController, SnapshotRestorer, takeSnapshot } from "./helper/helpers";
 
 describe("ConfigController", () => {
+    let snapshot: SnapshotRestorer;
+
+    let configController: ConfigControllerTest;
+    let users: SignerWithAddress[];
+    let owner: SignerWithAddress;
+    let sandboxController: ISandboxController;
+
+    before(async () => {
+        ({ configController, users, owner, sandboxController } = await makeConfigController());
+
+        snapshot = await takeSnapshot();
+    });
+
+    afterEach(async () => await snapshot.restore());
+
     describe("grantOwnership", () => {
         it("should transfer ownership", async () => {
-            const { configController, users } = await makeConfigController();
-
             await configController.grantOwnership(users[4].address);
 
             expect(await configController.owner()).to.equal(users[4].address);
         });
 
         it("reverts if newOwner is zero address", async () => {
-            const { configController } = await makeConfigController();
-
             await expect(configController.grantOwnership(ethers.constants.AddressZero)).to.be.revertedWithCustomError(
                 configController,
                 "ZeroAddress"
@@ -20,8 +33,6 @@ describe("ConfigController", () => {
         });
 
         it("should revert if not owner", async () => {
-            const { configController, users } = await makeConfigController();
-
             await expect(
                 configController.connect(users[4]).grantOwnership(users[5].address)
             ).to.be.revertedWithCustomError(configController, "Unauthorized");
@@ -30,7 +41,6 @@ describe("ConfigController", () => {
 
     describe("Curator Role Proposal", () => {
         it("should allow owner to propose new curator", async () => {
-            const { configController, users } = await makeConfigController();
             const proposedCurator = users[4].address;
             await expect(configController.proposeCurator(proposedCurator))
                 .to.emit(configController, "CuratorProposed")
@@ -44,7 +54,6 @@ describe("ConfigController", () => {
         });
 
         it("should allow proposed curator to accept the role", async () => {
-            const { configController, users } = await makeConfigController();
             const proposedCurator = users[4].address;
             const currentCurator = await configController.curator();
             await configController.proposeCurator(proposedCurator);
@@ -57,7 +66,6 @@ describe("ConfigController", () => {
         });
 
         it("should allow owner to cancel curator proposal", async () => {
-            const { configController, users } = await makeConfigController();
             const proposedCurator = users[4].address;
             await configController.proposeCurator(proposedCurator);
             await expect(configController.cancelCuratorProposal())
@@ -68,7 +76,6 @@ describe("ConfigController", () => {
         });
 
         it("should revert if non-owner tries to propose curator", async () => {
-            const { configController, users } = await makeConfigController();
             const proposedCurator = users[4].address;
             await expect(
                 configController.connect(users[4]).proposeCurator(proposedCurator)
@@ -76,7 +83,6 @@ describe("ConfigController", () => {
         });
 
         it("should revert if non-proposed curator tries to accept role", async () => {
-            const { configController, users } = await makeConfigController();
             const proposedCurator = users[4].address;
             await configController.proposeCurator(proposedCurator);
             await expect(configController.connect(users[5]).acceptCuratorRole()).to.be.revertedWithCustomError(
@@ -86,7 +92,6 @@ describe("ConfigController", () => {
         });
 
         it("should revert if non-owner tries to cancel proposal", async () => {
-            const { configController, users } = await makeConfigController();
             const proposedCurator = users[4].address;
             await configController.proposeCurator(proposedCurator);
             await expect(configController.connect(users[4]).cancelCuratorProposal()).to.be.revertedWithCustomError(
@@ -96,7 +101,6 @@ describe("ConfigController", () => {
         });
 
         it("should revert if proposing zero address as curator", async () => {
-            const { configController } = await makeConfigController();
             await expect(configController.proposeCurator(ethers.constants.AddressZero)).to.be.revertedWithCustomError(
                 configController,
                 "ZeroAddress"
@@ -104,7 +108,6 @@ describe("ConfigController", () => {
         });
 
         it("should revert if proposing current curator as new curator", async () => {
-            const { configController } = await makeConfigController();
             const currentCurator = await configController.curator();
             await expect(configController.proposeCurator(currentCurator)).to.be.revertedWithCustomError(
                 configController,
@@ -113,7 +116,6 @@ describe("ConfigController", () => {
         });
 
         it("should revert if trying to accept expired proposal", async () => {
-            const { configController, users } = await makeConfigController();
             const proposedCurator = users[4].address;
             await configController.proposeCurator(proposedCurator);
             // Fast forward time past the proposal expiration
@@ -126,7 +128,6 @@ describe("ConfigController", () => {
         });
 
         it("should revert if trying to cancel non-existent proposal", async () => {
-            const { configController } = await makeConfigController();
             await expect(configController.cancelCuratorProposal()).to.be.revertedWithCustomError(
                 configController,
                 "NoActiveProposal"
@@ -134,7 +135,6 @@ describe("ConfigController", () => {
         });
 
         it("should allow owner to remove curator", async () => {
-            const { configController, users } = await makeConfigController();
             const currentCurator = await configController.curator();
             await expect(configController.removeCurator())
                 .to.emit(configController, "CuratorCanceled")
@@ -143,7 +143,6 @@ describe("ConfigController", () => {
         });
 
         it("should revert if non-owner tries to remove curator", async () => {
-            const { configController, users } = await makeConfigController();
             await expect(configController.connect(users[4]).removeCurator()).to.be.revertedWithCustomError(
                 configController,
                 "Unauthorized"
@@ -153,7 +152,6 @@ describe("ConfigController", () => {
 
     describe("setGuardian", () => {
         it("should allow owner to set new guardian", async () => {
-            const { configController, users } = await makeConfigController();
             const newGuardian = users[4].address;
             const currentGuardian = await configController.guardian();
             await expect(configController.setGuardian(newGuardian))
@@ -163,7 +161,6 @@ describe("ConfigController", () => {
         });
 
         it("should allow owner to set guardian to zero address", async () => {
-            const { configController } = await makeConfigController();
             const currentGuardian = await configController.guardian();
             await expect(configController.setGuardian(ethers.constants.AddressZero))
                 .to.emit(configController, "GuardianUpdated")
@@ -172,7 +169,6 @@ describe("ConfigController", () => {
         });
 
         it("should revert if non-owner tries to set guardian", async () => {
-            const { configController, users } = await makeConfigController();
             const newGuardian = users[4].address;
             await expect(configController.connect(users[4]).setGuardian(newGuardian)).to.be.revertedWithCustomError(
                 configController,
@@ -183,17 +179,16 @@ describe("ConfigController", () => {
 
     describe("setProposalDurations", function() {
         it("should allow owner to set valid durations", async function() {
-            const { configController, owner } = await makeConfigController();
-            const newDuration = 14 * 24 * 60 * 60; // 14 days
+            const newDuration = 2 * 24 * 60 * 60; // 2 days
+            const oldDuration = 7 * 24 * 60 * 60; // 7 days
             await expect(configController.connect(owner).setProposalDurations(newDuration, newDuration))
                 .to.emit(configController, "ProposalDurationsUpdated")
-                .withArgs(7 * 24 * 60 * 60, newDuration, 7 * 24 * 60 * 60, newDuration);
+                .withArgs(oldDuration, newDuration, oldDuration, newDuration);
             expect(await configController.proposalDuration()).to.equal(newDuration);
             expect(await configController.curatorProposalDuration()).to.equal(newDuration);
         });
 
         it("should revert when durations are below minimum update time", async function() {
-            const { configController, owner } = await makeConfigController();
             const newDuration = 299;
             await expect(
                 configController.connect(owner).setProposalDurations(newDuration, newDuration)
@@ -201,8 +196,8 @@ describe("ConfigController", () => {
         });
 
         it("should revert when minUpdate is higher than new duration", async function() {
-            const { configController, owner, sandboxController } = await makeConfigController();
-            const minUpdateTime = (await sandboxController.controllerConfiguration()).minUpdateTime;
+            const boundaries = await sandboxController.proposalBoundaries();
+            const minUpdateTime = boundaries[0]
             const newDuration = 7 * 24 * 60 * 60; // 7 days
             await expect(
                 configController.connect(owner).setProposalDurations(newDuration, minUpdateTime.sub(1))
@@ -210,7 +205,6 @@ describe("ConfigController", () => {
         });
 
         it("should revert when durations are set to zero", async function() {
-            const { configController, owner } = await makeConfigController();
             await expect(configController.connect(owner).setProposalDurations(0, 0)).to.be.revertedWithCustomError(
                 configController,
                 "ProposalDurationTooShort"
@@ -218,7 +212,6 @@ describe("ConfigController", () => {
         });
 
         it("should revert when called by non-owner", async function() {
-            const { configController, users } = await makeConfigController();
             const newDuration = 14 * 24 * 60 * 60; // 14 days
             await expect(
                 configController.connect(users[0]).setProposalDurations(newDuration, newDuration)
@@ -226,9 +219,8 @@ describe("ConfigController", () => {
         });
 
         it("should emit event with correct old and new values", async function() {
-            const { configController, owner } = await makeConfigController();
             const oldDuration = 7 * 24 * 60 * 60; // 7 days
-            const newDuration = 14 * 24 * 60 * 60; // 14 days
+            const newDuration = 2 * 24 * 60 * 60; // 2 days
             await expect(configController.connect(owner).setProposalDurations(newDuration, newDuration))
                 .to.emit(configController, "ProposalDurationsUpdated")
                 .withArgs(oldDuration, newDuration, oldDuration, newDuration);

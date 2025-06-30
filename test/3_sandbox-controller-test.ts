@@ -9,6 +9,8 @@ import {
   SandboxControllerOpts
 } from './helper/helpers';
 import { parseEther } from 'ethers/lib/utils';
+import { SandboxController } from "../build/types";
+import { SandboxControllerConfigurationStruct } from "../build/types/SandboxController";
 
 function makeValidCurve() {
     return {
@@ -74,6 +76,7 @@ describe('3. SandboxController', function () {
         suggestedAmountOfSeedReserves: "1000",
         suggestedLockTimeOfSeedReserves: 3600,
         targetPercent: ethers.utils.parseEther("0.5").toString(),
+        transitionDuration: 7 * 24 * 60 * 60 // 7 days
       });
       const { sandboxController } = await makeSandboxController(opts);
       expect(await sandboxController.owner()).to.equal(owner.address);
@@ -99,7 +102,7 @@ describe('3. SandboxController', function () {
   });
 
   describe('whitelistBaseAsset', function () {
-    let sandboxController: any;
+    let sandboxController: SandboxController;
 
     beforeEach(async function () {
       const opts = defaultSandboxControllerOpts({
@@ -111,6 +114,7 @@ describe('3. SandboxController', function () {
         suggestedAmountOfSeedReserves: "1000",
         suggestedLockTimeOfSeedReserves: 1000,
         targetPercent: ethers.utils.parseEther("0.5").toString(),
+        transitionDuration: 7* 24 * 60 * 60 // 7 days
       });
       const c = await makeSandboxController(opts);
       sandboxController = c.sandboxController;
@@ -737,16 +741,8 @@ describe('3. SandboxController', function () {
   });
 
   describe('setConfiguration', function () {
-    let sandboxController: any;
-    type Config = {
-      targetPercent: string;
-      storeFrontPriceFactor: string;
-      minUpdateTime: number;
-      maxUpdateTime: number;
-      suggestedAmountOfSeedReserves: string;
-      suggestedLockTimeOfSeedReserves: number;
-    }
-    let config: Config;
+    let sandboxController: SandboxController;
+    let config: SandboxControllerConfigurationStruct;
 
     beforeEach(async function () {
       const opts = defaultSandboxControllerOpts({admin: owner, dao: dao});
@@ -757,9 +753,10 @@ describe('3. SandboxController', function () {
         storeFrontPriceFactor: parseEther('0.3').toString(),
         minUpdateTime: 400,
         maxUpdateTime: 604800,
-        suggestedAmountOfSeedReserves: '1000',
-        suggestedLockTimeOfSeedReserves: 1000
-      }
+        suggestedAmountOfSeedReserves: 1000,
+        suggestedLockTimeOfSeedReserves: 1000,
+        transitionDuration: 8 * 24 * 60 * 60 // 8 days
+      };
     });
 
     it('reverts if caller is not owner', async function () {
@@ -798,6 +795,13 @@ describe('3. SandboxController', function () {
       ).to.be.revertedWithCustomError(sandboxController, 'InvalidFactors');
     });
 
+    it('reverts if transitionDuration < 1 week', async function () {
+      config.transitionDuration = 6 * 24 * 60 * 60; // 6 days
+      await expect(
+        sandboxController.setConfiguration(config)
+      ).to.be.revertedWithCustomError(sandboxController, 'InvalidFactors');
+    });
+
     it('updates configuration with valid values and emits event', async function () {
       expect((await sandboxController.config()).storeFrontPriceFactor).to.equal(parseEther('0.9999999999').toString());
       expect((await sandboxController.config()).minUpdateTime).to.equal(300);
@@ -812,7 +816,8 @@ describe('3. SandboxController', function () {
         maxUpdateTime: 500,
         suggestedAmountOfSeedReserves: 10,
         suggestedLockTimeOfSeedReserves: 1000,
-        targetPercent: ethers.utils.parseEther('0.4').toString()
+        targetPercent: ethers.utils.parseEther('0.4').toString(),
+        transitionDuration: 8 * 24 * 60 * 60 // 8 days
       });
       const rcpt = await tx.wait();
       const ev = rcpt.events?.find((e: any) => e.event === 'ConfigurationChanged');
@@ -830,6 +835,7 @@ describe('3. SandboxController', function () {
       expect(ev.args.newConfig.suggestedAmountOfSeedReserves).to.equal(10);
       expect(ev.args.newConfig.suggestedLockTimeOfSeedReserves).to.equal(1000);
       expect(ev.args.newConfig.targetPercent).to.equal(ethers.utils.parseEther('0.4').toString());
+      expect(ev.args.newConfig.transitionDuration).to.equal(8 * 24 * 60 * 60);
     });
   });
 

@@ -59,14 +59,16 @@ import {
     ConfigControllerTest,
     ConfigControllerTest__factory,
 } from "../../build/types";
-import { SandboxCometFactory } from "../../build/types/SandboxCometFactory";
-import { SandboxCometFactory__factory } from "../../build/types/factories/SandboxCometFactory__factory";
 import { SandboxController } from "../../build/types/SandboxController";
 import { SandboxController__factory } from "../../build/types/factories/SandboxController__factory";
 import { BigNumber, Contract } from "ethers";
 import { TransactionReceipt, TransactionResponse } from "@ethersproject/abstract-provider";
 import { CometHarness, TotalsBasicStructOutput, TotalsCollateralStructOutput } from "../../build/types/CometHarness";
 import { MarketConfigStruct } from "../../build/types/ConfigController";
+
+// Snapshot
+export type { SnapshotRestorer } from "@nomicfoundation/hardhat-network-helpers";
+export { takeSnapshot } from "@nomicfoundation/hardhat-network-helpers";
 
 export { Comet, ethers, expect, hre };
 
@@ -999,4 +1001,19 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
   
   export function getGasUsed(tx: TransactionResponseExt): bigint {
     return tx.receipt.gasUsed.mul(tx.receipt.effectiveGasPrice).toBigInt();
+  }
+
+  /**
+   * Skip time and accrue interest for a specific account.
+   * @param comet The Comet instance.
+   * @param seconds The number of seconds to skip.
+   * @param account The account to accrue interest for.
+   * @returns A promise that resolves when the operation is complete.
+   */
+  export function skipTimeAndAccrueAccount(comet: CometHarness, seconds: number, account: string): Promise<void> {
+    return new Promise(async (resolve) => {
+        await fastForward(seconds);
+        await comet.accrueAccount(account);
+        resolve();
+    });
   }

@@ -424,14 +424,7 @@ describe('6. withdrawTo', function () {
     const bob1 = await portfolio(protocol, bob.address);
 
     const events = getEvents(s0);
-    console.table(
-      events.map((e) => ({
-        name: e.name,
-        from: e.args?.from,
-        to: e.args?.to,
-        amount: amountOf(e)?.toString(),
-      })),
-    );
+  
     expectTransfer(events, comet.address, alice.address, BigInt(100e6));
     expectWithdraw(events, bob.address, alice.address, BigInt(100e6));
     expectBurn(events, bob.address, 100_000_002n);

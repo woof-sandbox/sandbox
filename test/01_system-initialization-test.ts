@@ -17,11 +17,11 @@ import {
   SandboxComet,
   SandboxCometFactory,
   ConfigControllerFactory__factory,
-  ConfigController__factory,
   ConfigControllerInitializeTest__factory,
   SandboxComet__factory,
   SandboxCometFactory__factory,
   SandboxController__factory,
+  SandboxController,
 } from "../build/types";
 import {
   CollateralTokenConfigStruct,
@@ -29,6 +29,7 @@ import {
 } from "../build/types/ConfigController";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { parseEther } from 'ethers/lib/utils';
+import { CometGlobalParamsConfigStruct } from "../build/types/ISandboxComet";
 
 describe("1. System Initialization", function() {
   // Factories
@@ -504,7 +505,7 @@ describe("1. System Initialization", function() {
   });
 
   describe("Comet deployment", function() {
-    let sandboxController;
+    let sandboxController: SandboxController;
 
     let configControllerAddress;
     let configController: ConfigControllerInitializeTest;
@@ -650,14 +651,21 @@ describe("1. System Initialization", function() {
     });
 
     it("should revert if initialize is called not from config controller", async function() {
-        const SandboxComet = await ethers.getContractFactory("SandboxComet");
+        const SandboxComet = await ethers.getContractFactory("SandboxComet") as SandboxComet__factory;
         const _comet = (await SandboxComet.deploy()) as SandboxComet;
 
         await _comet.factoryInit(configController.address, sandboxCometFactory.address);
         const config = await sandboxController.config();
-
+        const cometConfig: CometGlobalParamsConfigStruct = {
+          targetPercent: config.targetPercent,
+          storeFrontPriceFactor: config.storeFrontPriceFactor,
+          suggestedAmountOfSeedReserves: config.suggestedAmountOfSeedReserves,
+          suggestedLockTimeOfSeedReserves: config.suggestedLockTimeOfSeedReserves,
+          transitionDuration: config.transitionDuration,
+        };
+        
         await expect(
-            _comet.connect(curator).initialize(marketConfig, config)
+            _comet.connect(curator).initialize(marketConfig, cometConfig)
         ).to.be.revertedWithCustomError(_comet, "IncorrectInitialization");
     });
 
@@ -703,6 +711,7 @@ describe("1. System Initialization", function() {
       expect((await sandboxController.config()).maxUpdateTime).to.equal(604800);
       expect((await sandboxController.config()).suggestedAmountOfSeedReserves).to.equal(ethers.utils.parseEther('500').toString());
       expect((await sandboxController.config()).suggestedLockTimeOfSeedReserves).to.equal(86400);
+      expect((await sandboxController.config()).transitionDuration).to.equal(7 * 24 * 60 * 60);
     });
 
     it('reverts if admin = 0', async function () {
@@ -725,6 +734,15 @@ describe("1. System Initialization", function() {
 
     it('reverts if storeFrontPriceFactor >= 1e18', async function () {
       opts.storeFrontPriceFactor = ethers.utils.parseEther('1').toString();
+      await expect(
+        _SandboxControllerFactory.deploy(
+          ...Object.values(opts)
+        )
+      ).to.be.revertedWithCustomError(_SandboxControllerFactory, 'InvalidFactors');
+    });
+
+    it('reverts if transition duration < 1 week', async function () {
+      opts.transitionDuration = 6 * 24 * 60 * 60; // less than 1 week
       await expect(
         _SandboxControllerFactory.deploy(
           ...Object.values(opts)
