@@ -28,6 +28,7 @@ interface IConfigController {
         uint256 storeFrontPriceFactor;
         uint256 suggestedAmountOfSeedReserves;
         uint256 suggestedLockTimeOfSeedReserves;
+        uint40 transitionDuration;
     }
 
     struct CometRewardOptions {

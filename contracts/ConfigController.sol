@@ -189,7 +189,8 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
             _sandboxConfig.targetPercent,
             _sandboxConfig.storeFrontPriceFactor,
             _sandboxConfig.suggestedAmountOfSeedReserves,
-            _sandboxConfig.suggestedLockTimeOfSeedReserves
+            _sandboxConfig.suggestedLockTimeOfSeedReserves,
+            _sandboxConfig.transitionDuration
         );
             
         address comet = ISandboxCometFactory(cometFactory).createComet();
