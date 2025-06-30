@@ -10,6 +10,7 @@ import {ISandboxController} from "./interfaces/ISandboxController.sol";
  * @dev Manages base asset configurations and interest rate baseAssetCurves.
  */
 contract SandboxController is ISandboxController {
+    /// @notice Minimum transition duration for the controller configuration.
     uint32 public constant MIN_TRANSITION_DURATION = 1 weeks; /// 1 week in seconds
     /// @notice treasury address. This is the address that will receive the fees.
     address public treasury; /// 20 bytes
