@@ -90,6 +90,7 @@ contract SandboxComet is ISandboxComet {
         targetPercent = config.targetPercent;
         seedReserves = config.suggestedAmountOfSeedReserves;
         unlockTimestamp = block.timestamp + config.suggestedLockTimeOfSeedReserves;
+        transitionDuration = config.transitionDuration;
 
         /// Interest rate curve
         ///
@@ -227,6 +228,8 @@ contract SandboxComet is ISandboxComet {
         uint40 now_ = getNowInternal();
         uint timeElapsed = uint256(now_ - lastAccrualTime);
 
+        if (isTransitionActive) progressTransition(now_);
+
         if (timeElapsed != 0) {
             (baseSupplyIndex, baseBorrowIndex) = accruedInterestIndices(
                 timeElapsed
@@ -249,10 +252,17 @@ contract SandboxComet is ISandboxComet {
             }
             lastAccrualTime = now_;
         }
-
-        if (isTransitionActive) progressTransition(now_);
     }
 
+    /**
+     * @notice Updates curve parameters according to the current transition progress.
+     * @dev
+     * This function linearly interpolates all curve parameters from their start values to their target values
+     * based on the elapsed time since the transition began. If the transition is complete, it sets all parameters
+     * to their target values and marks the transition as inactive.
+     * Called internally during interest accrual or when updating the curve.
+     * @param now_ The current timestamp to use for transition progress calculation.
+     */
     function progressTransition(uint40 now_) internal {
         uint40 duration = transition.endTime - transition.startTime;
         uint40 elapsed = now_ < transition.endTime ? now_ - transition.startTime : duration;
@@ -261,59 +271,77 @@ contract SandboxComet is ISandboxComet {
             return; // no update needed
         }
 
-        Curve memory start = transition.startCurveParams;
         Curve memory target = transition.targetCurveParams;
-        
-        supplyKink = updateCurveValue(start.supplyKink, target.supplyKink, supplyKink, elapsed, duration);
-        supplyPerSecondInterestRateSlopeLow = updateCurveValue(
-            start.supplyPerSecondInterestRateSlopeLow,
-            target.supplyPerSecondInterestRateSlopeLow,
-            supplyPerSecondInterestRateSlopeLow,
-            elapsed,
-            duration
-        );
-        supplyPerSecondInterestRateSlopeHigh = updateCurveValue(
-            start.supplyPerSecondInterestRateSlopeHigh,
-            target.supplyPerSecondInterestRateSlopeHigh,
-            supplyPerSecondInterestRateSlopeHigh,
-            elapsed,
-            duration
-        );
-        supplyPerSecondInterestRateBase = updateCurveValue(
-            start.supplyPerSecondInterestRateBase,
-            target.supplyPerSecondInterestRateBase,
-            supplyPerSecondInterestRateBase,
-            elapsed,
-            duration
-        );
-        borrowKink = updateCurveValue(
-            start.borrowKink,
-            target.borrowKink,
-            borrowKink,
-            elapsed,
-            duration
-        );
-        borrowPerSecondInterestRateSlopeLow = updateCurveValue(
-            start.borrowPerSecondInterestRateSlopeLow,
-            target.borrowPerSecondInterestRateSlopeLow,
-            borrowPerSecondInterestRateSlopeLow,
-            elapsed,
-            duration
-        );
-        borrowPerSecondInterestRateSlopeHigh = updateCurveValue(
-            start.borrowPerSecondInterestRateSlopeHigh,
-            target.borrowPerSecondInterestRateSlopeHigh,
-            borrowPerSecondInterestRateSlopeHigh,
-            elapsed,
-            duration
-        );
-        borrowPerSecondInterestRateBase = updateCurveValue(
-            start.borrowPerSecondInterestRateBase,
-            target.borrowPerSecondInterestRateBase,
-            borrowPerSecondInterestRateBase,
-            elapsed,
-            duration
-        );
+
+        if (elapsed == duration) {
+            supplyKink = target.supplyKink;
+            supplyPerSecondInterestRateSlopeLow = target.supplyPerSecondInterestRateSlopeLow;
+            supplyPerSecondInterestRateSlopeHigh = target.supplyPerSecondInterestRateSlopeHigh;
+            supplyPerSecondInterestRateBase = target.supplyPerSecondInterestRateBase;
+            borrowKink = target.borrowKink;
+            borrowPerSecondInterestRateSlopeLow = target.borrowPerSecondInterestRateSlopeLow;
+            borrowPerSecondInterestRateSlopeHigh = target.borrowPerSecondInterestRateSlopeHigh;
+            borrowPerSecondInterestRateBase = target.borrowPerSecondInterestRateBase;
+        } else {
+            Curve memory start = transition.startCurveParams;
+
+            supplyKink = interpolateValue(
+                start.supplyKink, 
+                target.supplyKink, 
+                supplyKink, 
+                elapsed, 
+                duration
+            );
+            supplyPerSecondInterestRateSlopeLow = interpolateValue(
+                start.supplyPerSecondInterestRateSlopeLow,
+                target.supplyPerSecondInterestRateSlopeLow,
+                supplyPerSecondInterestRateSlopeLow,
+                elapsed,
+                duration
+            );
+            supplyPerSecondInterestRateSlopeHigh = interpolateValue(
+                start.supplyPerSecondInterestRateSlopeHigh,
+                target.supplyPerSecondInterestRateSlopeHigh,
+                supplyPerSecondInterestRateSlopeHigh,
+                elapsed,
+                duration
+            );
+            supplyPerSecondInterestRateBase = interpolateValue(
+                start.supplyPerSecondInterestRateBase,
+                target.supplyPerSecondInterestRateBase,
+                supplyPerSecondInterestRateBase,
+                elapsed,
+                duration
+            );
+            borrowKink = interpolateValue(
+                start.borrowKink,
+                target.borrowKink,
+                borrowKink,
+                elapsed,
+                duration
+            );
+            borrowPerSecondInterestRateSlopeLow = interpolateValue(
+                start.borrowPerSecondInterestRateSlopeLow,
+                target.borrowPerSecondInterestRateSlopeLow,
+                borrowPerSecondInterestRateSlopeLow,
+                elapsed,
+                duration
+            );
+            borrowPerSecondInterestRateSlopeHigh = interpolateValue(
+                start.borrowPerSecondInterestRateSlopeHigh,
+                target.borrowPerSecondInterestRateSlopeHigh,
+                borrowPerSecondInterestRateSlopeHigh,
+                elapsed,
+                duration
+            );
+            borrowPerSecondInterestRateBase = interpolateValue(
+                start.borrowPerSecondInterestRateBase,
+                target.borrowPerSecondInterestRateBase,
+                borrowPerSecondInterestRateBase,
+                elapsed,
+                duration
+            );
+        }
 
         transition.lastUpdateTime = now_;
 
@@ -323,11 +351,91 @@ contract SandboxComet is ISandboxComet {
         }   
     }
 
-    function updateCurveValue(uint256 startValue, uint256 targetValue, uint256 currentValue, uint40 elapsed, uint40 duration) internal pure returns (uint256) {
+    /**
+     * @notice Linearly interpolates a curve parameter value during a transition period.
+     * @dev
+     * This function is used to smoothly update protocol curve parameters (such as supplyKink, interest rate slopes, etc.)
+     * from a starting value to a target value over a specified duration. It ensures that the parameter changes
+     * at a constant rate, providing a predictable and gradual transition rather than an abrupt jump.
+     *
+     * The algorithm works for both increasing and decreasing transitions. At any point during the transition,
+     * the value is calculated as a function of the elapsed time since the start of the transition.
+     *
+     * The formula used in this implementation is:
+     *   if (targetValue > startValue):
+     *       interpolated = currentValue + (((targetValue - startValue) * elapsed / duration) - (currentValue - startValue))
+     *   else:
+     *       interpolated = currentValue - (((startValue - targetValue) * elapsed / duration) - (startValue - currentValue))
+     *
+     * This means:
+     * - At the start (elapsed = 0):      interpolated = startValue
+     * - At the end (elapsed = duration): interpolated = targetValue
+     * - In between:                      interpolated is proportionally between startValue and targetValue
+     *
+     * Example 1: Increasing transition
+     *   Suppose we want to transition supplyKink from 200 to 800 over 10 seconds.
+     *   - startValue = 200
+     *   - targetValue = 800
+     *   - duration = 10
+     *
+     *   At elapsed = 0, currentValue = 200:
+     *     interpolated = 200 + ((800 - 200) * 0 / 10 - (200 - 200))
+     *                  = 200 + (0 - 0)
+     *                  = 200
+     *
+     *   At elapsed = 5, currentValue = 500:
+     *     interpolated = 500 + ((800 - 200) * 5 / 10 - (500 - 200))
+     *                  = 500 + (300 - 300)
+     *                  = 500
+     *
+     *   At elapsed = 10, currentValue = 800:
+     *     interpolated = 800 + ((800 - 200) * 10 / 10 - (800 - 200))
+     *                  = 800 + (600 - 600)
+     *                  = 800
+     *
+     * Example 2: Decreasing transition
+     *   Suppose we want to transition supplyKink from 900 to 300 over 10 seconds.
+     *   - startValue = 900
+     *   - targetValue = 300
+     *   - duration = 10
+     *
+     *   At elapsed = 0, currentValue = 900:
+     *     interpolated = 900 - ((900 - 300) * 0 / 10 - (900 - 900))
+     *                  = 900 - (0 - 0)
+     *                  = 900
+     *
+     *   At elapsed = 4, currentValue = 660:
+     *     interpolated = 660 - ((900 - 300) * 4 / 10 - (900 - 660))
+     *                  = 660 - (240 - 240)
+     *                  = 660
+     *
+     *   At elapsed = 10, currentValue = 300:
+     *     interpolated = 300 - ((900 - 300) * 10 / 10 - (900 - 300))
+     *                  = 300 - (600 - 600)
+     *                  = 300
+     *
+     * Example 3: No change
+     *   If startValue = targetValue = 500, duration = 10, any elapsed, currentValue = 500:
+     *     interpolated = 500 + ((500 - 500) * elapsed / 10 - (500 - 500))
+     *                  = 500 + (0 - 0)
+     *                  = 500
+     *
+     * Usage:
+     *   This function is called internally by the protocol during a curve transition, typically in a function like
+     *   `progressTransition(now_)`, to update each curve parameter to its correct value for the current time.
+     *
+     * @param startValue   The value of the parameter at the start of the transition.
+     * @param targetValue  The value of the parameter at the end of the transition.
+     * @param currentValue The current value of the parameter (used for incremental calculation).
+     * @param elapsed      The time elapsed since the start of the transition, in seconds.
+     * @param duration     The total duration of the transition, in seconds.
+     * @return The interpolated value as a uint64, representing the parameter's value at the current elapsed time.
+     */
+    function interpolateValue(uint256 startValue, uint256 targetValue, uint256 currentValue, uint40 elapsed, uint40 duration) internal pure returns (uint64) {
         if (targetValue > startValue) {
-            return currentValue + (((targetValue - startValue) * elapsed / duration) - (currentValue - startValue));
+            return safe64(currentValue + (((targetValue - startValue) * elapsed / duration) - (currentValue - startValue)));
         } else {
-            return currentValue - (((startValue - targetValue) * elapsed / duration) - (startValue - currentValue));
+            return safe64(currentValue - (((startValue - targetValue) * elapsed / duration) - (startValue - currentValue)));
         }
     }
 
@@ -1363,14 +1471,14 @@ contract SandboxComet is ISandboxComet {
         ISandboxController.BaseAssetCurve memory targetCurve = ISandboxController(sandboxController).baseAssets(baseToken).baseAssetCurves[curveId];
 
         Curve memory startCurveParams = Curve({
-            supplyKink: safe64(supplyKink),
-            supplyPerSecondInterestRateSlopeLow: safe64(supplyPerSecondInterestRateSlopeLow),
-            supplyPerSecondInterestRateSlopeHigh: safe64(supplyPerSecondInterestRateSlopeHigh),
-            supplyPerSecondInterestRateBase: safe64(supplyPerSecondInterestRateBase),
-            borrowKink: safe64(borrowKink),
-            borrowPerSecondInterestRateSlopeLow: safe64(borrowPerSecondInterestRateSlopeLow),
-            borrowPerSecondInterestRateSlopeHigh: safe64(borrowPerSecondInterestRateSlopeHigh),
-            borrowPerSecondInterestRateBase: safe64(borrowPerSecondInterestRateBase)
+            supplyKink: supplyKink,
+            supplyPerSecondInterestRateSlopeLow: supplyPerSecondInterestRateSlopeLow,
+            supplyPerSecondInterestRateSlopeHigh: supplyPerSecondInterestRateSlopeHigh,
+            supplyPerSecondInterestRateBase: supplyPerSecondInterestRateBase,
+            borrowKink: borrowKink,
+            borrowPerSecondInterestRateSlopeLow: borrowPerSecondInterestRateSlopeLow,
+            borrowPerSecondInterestRateSlopeHigh: borrowPerSecondInterestRateSlopeHigh,
+            borrowPerSecondInterestRateBase: borrowPerSecondInterestRateBase
         });
         
         Curve memory targetCurveParams = Curve({
@@ -1388,7 +1496,7 @@ contract SandboxComet is ISandboxComet {
 
         transition = Transition({
             startTime: timestamp,
-            endTime: timestamp + ISandboxController(sandboxController).transitionDuration(),
+            endTime: timestamp + transitionDuration,
             lastUpdateTime: timestamp,
             startCurveParams: startCurveParams,
             targetCurveParams: targetCurveParams
@@ -1402,6 +1510,8 @@ contract SandboxComet is ISandboxComet {
             targetCurveParams
         );
     }
+
+    
 
     /**
      * @notice Buy collateral from the protocol using base tokens, increasing protocol reserves
@@ -1555,4 +1665,6 @@ contract SandboxComet is ISandboxComet {
             }
         }
     }
+
+    receive() external payable {}
 }
