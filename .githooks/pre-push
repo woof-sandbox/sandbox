@@ -17,6 +17,36 @@ yarn test
 echo "🔨 Compiling contracts with Foundry..."
 forge build
 
+# Generate Aderyn security report
+echo "🔍 Generating Aderyn security report..."
+if command -v aderyn &> /dev/null; then
+    # Check if ADERYN_REPORT.md exists and is tracked
+    if [ -f "ADERYN_REPORT.md" ]; then
+        # Store the original content hash
+        original_hash=$(git hash-object ADERYN_REPORT.md 2>/dev/null || echo "")
+    fi
+    
+    yarn aderyn
+    
+    # Check if the report was updated
+    if [ -f "ADERYN_REPORT.md" ]; then
+        new_hash=$(git hash-object ADERYN_REPORT.md 2>/dev/null || echo "")
+        if [ "$original_hash" != "$new_hash" ] && [ -n "$new_hash" ]; then
+            echo "✅ Aderyn report generated and updated!"
+            echo "📝 Consider committing the updated ADERYN_REPORT.md:"
+            echo "   git add ADERYN_REPORT.md"
+            echo "   git commit -m 'docs: update Aderyn security report'"
+        else
+            echo "✅ Aderyn report generated successfully!"
+        fi
+    else
+        echo "✅ Aderyn report generated successfully!"
+    fi
+else
+    echo "⚠️  Aderyn not available, skipping security report generation..."
+    echo "   Install Aderyn with: brew install cyfrin/tap/aderyn"
+fi
+
 # Clean out directory to remove non-major artifacts
 echo "🧹 Cleaning out directory..."
 yarn clean:out

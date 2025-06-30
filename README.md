@@ -116,6 +116,7 @@ The repository uses Git hooks to ensure code quality:
 - Full ESLint and Solhint checks
 - All tests execution
 - Coverage verification
+- **Aderyn security report generation**
 - Artifact cleanup
 
 **Skip hooks (if needed):**

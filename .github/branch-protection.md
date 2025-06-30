@@ -226,4 +226,12 @@ yarn prettier:sol && yarn prettier:ts
 For issues with branch protection or CI/CD:
 - Create an issue with the `ci/cd` label
 - Contact the DevOps team
-- Check the GitHub Actions logs for detailed error information 
+- Check the GitHub Actions logs for detailed error information
+
+#### Pre-push Hook
+- Comprehensive TypeScript compilation
+- Full ESLint and Solhint checks
+- All tests execution
+- Coverage verification
+- **Aderyn security report generation**
+- Artifact cleanup 
