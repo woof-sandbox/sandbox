@@ -249,7 +249,8 @@ const config: HardhatUserConfig = {
     alphaSort: true,
     disambiguatePaths: false,
     runOnCompile: true,
-    strict: false, // allow tests to run anyway
+    strict: false, // allow tests to run anyway,
+    except: ['contracts/test/', 'contracts/interfaces/', 'contracts/pricefeeds/'],
   },
 
   gasReporter: {
