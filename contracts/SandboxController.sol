@@ -362,8 +362,17 @@ contract SandboxController is ISandboxController {
     }
 
     /**
-     * @dev Emitted when a base asset is whitelisted.
-     * @param _config Configuration of the sandbox controller.
+     * @notice Updates the global configuration parameters of the SandboxController.
+     * @param _config The new SandboxControllerConfiguration struct containing all updated global parameters.
+     *        - targetPercent: Percent for target reserves calculation.
+     *        - storeFrontPriceFactor: Price factor for the store front (max < 1e18).
+     *        - minUpdateTime: Minimum allowed proposal update time (must be > 0).
+     *        - maxUpdateTime: Maximum allowed proposal update time (must be >= minUpdateTime).
+     *        - suggestedAmountOfSeedReserves: Suggested seed reserves.
+     *        - suggestedLockTimeOfSeedReserves: Suggested lock time for seed reserves in seconds (must be > 0).
+     *        - transitionDuration: Duration of curve transition for comet (must be >= 1 week).
+     * @dev reverts InvalidFactors if any parameter is out of allowed bounds.
+     * @dev emits ConfigurationChanged event with old and new configuration.
      */
     function setConfiguration(
         SandboxControllerConfiguration memory _config
