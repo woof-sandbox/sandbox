@@ -53,7 +53,7 @@ contract CometHarness is SandboxComet {
         uint256 oldBalance = userCollateral[account][asset];
         userCollateral[account][asset] = balance;
         
-        (CollateralAsset memory assetInfo, uint8 index) = getAssetInfoByAddress(asset);
+        (, uint8 index) = getAssetInfoByAddress(asset);
 
         updateAssetsIn(account, index, oldBalance, balance);
     }
@@ -105,17 +105,5 @@ contract CometHarness is SandboxComet {
     ) external {
         (, uint8 index) = getAssetInfoByAddress(asset);
         updateAssetsIn(account, index, initialUserBalance, finalUserBalance);
-    }
-
-    function accrue() external {
-        accrueInternal();
-    }
-
-    function setTransactionActive(bool active) external {
-        isTransitionActive = active;
-    }
-
-    function updateCurveTransition() external {
-        accrueInternal();
     }
 }

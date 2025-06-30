@@ -14,7 +14,8 @@ contract ConfigControllerInitializeTest is ConfigController {
             _sandboxConfig.targetPercent,
             _sandboxConfig.storeFrontPriceFactor,
             _sandboxConfig.suggestedAmountOfSeedReserves,
-            _sandboxConfig.suggestedLockTimeOfSeedReserves
+            _sandboxConfig.suggestedLockTimeOfSeedReserves,
+            _sandboxConfig.transitionDuration
         );
         ISandboxComet(_comet).initialize(_cometConfig, _globalConfig);
     }
