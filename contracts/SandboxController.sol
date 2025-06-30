@@ -10,6 +10,7 @@ import {ISandboxController} from "./interfaces/ISandboxController.sol";
  * @dev Manages base asset configurations and interest rate baseAssetCurves.
  */
 contract SandboxController is ISandboxController {
+    uint32 public constant MIN_TRANSITION_DURATION = 1 weeks; /// 1 week in seconds
     /// @notice treasury address. This is the address that will receive the fees.
     address public treasury; /// 20 bytes
     /// @notice owner address. This is the address that will be able to call the functions that require the owner role.
@@ -23,9 +24,7 @@ contract SandboxController is ISandboxController {
     /// @notice base asset tokens. Whitelisted base asset tokens.
     address[] public override baseAssetTokens; 
     /// @notice collateral asset tokens. Whitelisted collateral asset tokens.
-    address[] public override collateralAssetTokens; 
-    /// @notice transition duration. This is the duration of the transition period for the interest rate curve.
-    uint40 public override transitionDuration;
+    address[] public override collateralAssetTokens;
     /// @notice token to price feed.
     mapping(address => address) public override tokenToPriceFeed; 
     /// @notice reserve commission. This is the mapping of the market state to the percentage of the reserve commission.
@@ -108,7 +107,8 @@ contract SandboxController is ISandboxController {
             _storeFrontPriceFactor >= 1e18 || /// Validate that the storeFrontPriceFactor is not bigger than 100%.
             _minUpdateTime == 0 || _maxUpdateTime < _minUpdateTime || /// Validate that the minUpdateTime is not 0 and the maxUpdateTime is bigger than the minUpdateTime.
             _suggestedAmountOfSeedReserves == 0 || /// Validate that the suggestedAmountOfSeedReserves is not 0.
-            _suggestedLockTimeOfSeedReserves == 0 /// Validate that the suggestedLockTimeOfSeedReserves is not 0.
+            _suggestedLockTimeOfSeedReserves == 0 || /// Validate that the suggestedLockTimeOfSeedReserves is not 0.
+            _transitionDuration < MIN_TRANSITION_DURATION /// Validate that the transitionDuration is not less than 1 week.
         ) revert InvalidFactors();
         
         for (uint256 i; i < 3;) {
@@ -131,10 +131,10 @@ contract SandboxController is ISandboxController {
             _minUpdateTime,
             _maxUpdateTime,
             _suggestedAmountOfSeedReserves,
-            _suggestedLockTimeOfSeedReserves
+            _suggestedLockTimeOfSeedReserves,
+            _transitionDuration
         );
 
-        transitionDuration = _transitionDuration;
     }
 
     /**
@@ -371,7 +371,8 @@ contract SandboxController is ISandboxController {
             _config.minUpdateTime == 0 || _config.maxUpdateTime < _config.minUpdateTime ||
             _config.suggestedAmountOfSeedReserves == 0 ||
             _config.suggestedLockTimeOfSeedReserves == 0 ||
-            _config.targetPercent > 5e17
+            _config.targetPercent > 5e17 ||
+            _config.transitionDuration < MIN_TRANSITION_DURATION
         ) revert InvalidFactors();
         
         emit ConfigurationChanged(_controllerConfiguration, _config);

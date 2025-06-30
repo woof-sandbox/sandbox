@@ -68,6 +68,8 @@ interface ISandboxController is ISandboxErrors {
         uint256 suggestedAmountOfSeedReserves; // 32 bytes
         /// Sixth 256 bits (32 bytes)
         uint256 suggestedLockTimeOfSeedReserves; // 32 bytes
+        /// Seventh 256 bits (32 bytes)
+        uint40 transitionDuration; // 5 bytes
     }
     
     event BaseAssetWhitelisted(
@@ -113,7 +115,6 @@ interface ISandboxController is ISandboxErrors {
     function tokenToPriceFeed(address) external view returns (address);
     function reserveCommission(MarketState) external view returns (uint64);
     function protocolCommission(MarketState) external view returns (uint64);
-    function transitionDuration() external view returns (uint40);
 
     function whitelistBaseAsset(
         address token,
