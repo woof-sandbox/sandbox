@@ -3,22 +3,39 @@
 # exit when any command fails
 set -e
 
-# STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACMR | sed 's| |\\ |g')
-[ -z "$STAGED_FILES" ] && exit 0
+echo "🔍 Running pre-commit checks..."
 
-# typescript
+# Get staged files
+STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACMR | sed 's| |\\ |g')
+
+# If no staged files, exit successfully
+if [ -z "$STAGED_FILES" ]; then
+    echo "ℹ️  No staged files to check"
+    exit 0
+fi
+
+echo "📁 Staged files: $STAGED_FILES"
+
+# TypeScript compilation check
+echo "🔧 Checking TypeScript compilation..."
 ./node_modules/.bin/tsc
 
-# eslint
+# ESLint check on staged files
+echo "🔍 Running ESLint on staged files..."
 echo "$STAGED_FILES" | xargs yarn lint
 
-# prettier
+# Prettier check on Solidity files
+echo "💅 Checking Solidity formatting..."
 echo "$STAGED_FILES" | xargs yarn prettier:sol
 
-# prettier ts
+# Prettier check on TypeScript files
+echo "💅 Checking TypeScript formatting..."
 echo "$STAGED_FILES" | xargs yarn prettier:ts
 
-# add back the modified/prettified files to staging
+# Add back the modified/prettified files to staging
+echo "📝 Adding formatted files back to staging..."
 echo "$STAGED_FILES" | xargs git add
+
+echo "✅ All pre-commit checks passed!"
 
 exit 0
