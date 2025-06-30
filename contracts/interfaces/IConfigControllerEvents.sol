@@ -22,4 +22,17 @@ interface IConfigControllerEvents {
         uint newProposalDuration
     );
 
+    event ProposalCreated(
+        uint8 indexed proposalType,
+        address indexed proposer,
+        uint expirationTime,
+        bytes32 proposalData
+    );
+
+    event ProposalAccepted(
+        uint8 indexed proposalType,
+        address indexed accepter,
+        bytes32 proposalData
+    );
+
 }

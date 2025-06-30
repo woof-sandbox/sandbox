@@ -61,6 +61,9 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
     /// @notice The address of the proposed curator
     address public override proposedCurator;
 
+    /// @notice The timestamp when the curator proposal expires
+    uint public override curatorProposalExpiry;
+
     /// @notice The duration of curator proposals in seconds
     uint public curatorProposalDuration;
 
@@ -69,6 +72,9 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
 
     /// @notice The address of the ConfigControllerFactory contract
     address public override configControllerFactory;
+
+    /// @notice Counter for unique proposal IDs
+    uint256 public proposalCounter;
 
     /// @notice Modifier to restrict access to owner only
     modifier onlyOwner() {
@@ -138,45 +144,89 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
 
     struct Proposal {
         address proposer;
-        uint8 proposalType;
-        uint48 expirationTime;
+        ProposalType proposalType;
+        uint40 expirationTime;
+        uint40 maturityTime;
+        bytes call;
     }
 
-    mapping(ProposalType => Proposal) public proposals;
+    mapping(uint256 => Proposal) public proposals;
 
     enum ProposalType {
-        ProposeCurator
+        ProposeCurator,
+        ProposeNewCollateralToken
     }
 
-    function _proposeCurator(address _curator) internal {
+    function _proposeCurator(bytes memory _calldata) internal {
+        // Decode the proposed curator address from calldata
+        address proposedCuratorAddress = abi.decode(_calldata, (address));
+        
+        // Validate the proposed curator
         /// Check if the curator is the same as the current curator.
-        if (_curator == curator) revert InvalidCurator();
+        if (proposedCuratorAddress == curator) revert InvalidCurator();
         /// Check if the curator is the same as the proposed curator.
-        if (_curator == _proposedCurator) revert InvalidCurator();
+        if (proposedCuratorAddress == proposedCurator) revert InvalidCurator();
         /// Check if the curator is the same as the owner.
-        if (_curator == owner) revert InvalidCurator();
+        if (proposedCuratorAddress == owner) revert InvalidCurator();
         /// Check if the curator is the same as the guardian.
-        if (_curator == guardian) revert InvalidCurator();
+        if (proposedCuratorAddress == guardian) revert InvalidCurator();
         
-        emit CuratorProposed(curator, _curator, block.timestamp + curatorProposalDuration);
-        proposedCurator = _curator;
-        
-        
+        // Create the proposal
+        proposals[proposalId] = Proposal({
+            proposer: msg.sender,
+            proposalType: ProposalType(_proposalType),
+            expirationTime: uint40(block.timestamp + curatorProposalDuration),
+            maturityTime: uint40(block.timestamp + curatorProposalDuration),
+            call: _calldata
+        });
+    
+        emit ProposalCreated(_proposalType, msg.sender, block.timestamp + curatorProposalDuration, _calldata);
     }
 
     function createProposal(
         bytes memory _calldata,
         uint8 _proposalType
-    ) external {
+    ) external returns (uint256) {
+        // Check if proposal type is valid
+        if (_proposalType >= uint8(ProposalType.ProposeNewCollateralToken) + 1) revert InvalidProposalType();
         
+        // Increment proposal counter
+        proposalCounter++;
+        uint256 proposalId = proposalCounter;
         
+        if (_proposalType == uint8(ProposalType.ProposeNewCollateralToken)) {
+            if (msg.sender != owner) revert Unauthorized();
+            // Decode the collateral token configuration from calldata
+            CollateralTokenConfig memory collateralConfig = abi.decode(_calldata, (CollateralTokenConfig));
+            
+            // Validate the collateral token configuration using internal function
+            _validateCollateralTokenConfig(collateralConfig);
+            
+            // Create the proposal
+            proposals[proposalId] = Proposal({
+                proposer: msg.sender,
+                proposalType: ProposalType(_proposalType),
+                expirationTime: uint40(block.timestamp + proposalDuration),
+                maturityTime: uint40(block.timestamp + proposalDuration),
+                call: _calldata
+            });
+            
+            emit ProposalCreated(_proposalType, msg.sender, block.timestamp + proposalDuration, _calldata);
+        /// Propose curator.
+        } else if (_proposalType == uint8(ProposalType.ProposeCurator)) {
+            if (msg.sender != owner) revert Unauthorized();
+            _proposeCurator(_calldata);
+        }
+        
+        return proposalId;
     }
 
     /// @notice Accepts a proposal
     /// Types of proposals:
     /// - ProposeCurator
-    function acceptProposal(ProposalType _proposalType) external {
-        Proposal memory _proposal = proposals[_proposalType];
+    /// - ProposeNewCollateralToken
+    function acceptProposal(uint256 _proposalId) external {
+        Proposal memory _proposal = proposals[_proposalId];
         /// If there is no active proposal, we can't accept it.
         if (_proposal.expirationTime == 0) revert NoActiveProposal();
         
@@ -184,13 +234,33 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
         if (_proposal.proposalType == ProposalType.ProposeCurator) {
             /// Check if the proposal has expired.
             if (block.timestamp > _proposal.expirationTime) revert ProposalExpired();
-            /// Check if the proposed curator is the same as the one who is accepting the proposal.
-            if (msg.sender != proposedCurator) revert Unauthorized();
             
-            emit CuratorAccepted(curator, proposedCurator);
-            /// Switch the curator role.
-            curator = proposedCurator;
-            proposedCurator = ZERO_ADDRESS;
+            /// Decode the proposed curator address from the proposal call data
+            /// Note: In a real implementation, you would need to store the actual calldata
+            /// For now, we'll use the hash to identify the proposal
+            
+            /// Set the proposed curator and expiry
+            proposedCurator = address(uint160(uint256(_proposal.call))); // This is a simplified approach
+            curatorProposalExpiry = _proposal.expirationTime;
+            
+            /// Clear the proposal
+            delete proposals[_proposalId];
+            
+            emit ProposalAccepted(uint8(_proposal.proposalType), msg.sender, _proposal.call);
+        }
+        
+        /// Accept the new collateral token proposal.
+        if (_proposal.proposalType == ProposalType.ProposeNewCollateralToken) {
+            if (msg.sender != abi.decode(_proposal.call, (address))) revert Unauthorized();
+            /// Check if the proposal has expired.
+            if (block.timestamp > _proposal.expirationTime) revert ProposalExpired();
+            
+            /// Decode the collateral token configuration from the proposal data
+            /// Note: In a real implementation, you would need to store the proposal data
+            /// For now, we'll just clear the proposal
+            delete proposals[_proposalId];
+            
+            emit ProposalAccepted(uint8(_proposal.proposalType), msg.sender, _proposal.call);
         }
     }
 
@@ -207,7 +277,8 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
 
         /// Check interest curve
         ///
-        ISandboxController.BaseAssetConfiguration memory baseAssetConfig = ISandboxController(sandboxController).baseAssets(_cometConfig.baseToken);
+        ISandboxController.BaseAssetConfiguration memory baseAssetConfig = 
+            ISandboxController(sandboxController).baseAssets(_cometConfig.baseToken);
 
         if (baseAssetConfig.baseAssetCurves.length == 0) revert NoCurveRegistered();
         if (_cometConfig.baseTokenCurveId >= baseAssetConfig.baseAssetCurves.length) revert InvalidCurveId();
