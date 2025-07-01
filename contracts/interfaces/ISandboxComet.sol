@@ -95,7 +95,7 @@ abstract contract ISandboxComet is CometCore {
     );
 
     /// @notice Event emitted when a curve transition is started
-    event CurveTranstionStarted(
+    event CurveTransitionStarted(
         uint40 startTime,
         uint40 endTime,
         Curve startCurveParams,

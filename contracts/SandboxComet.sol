@@ -1500,7 +1500,7 @@ contract SandboxComet is ISandboxComet {
         });
         isTransitionActive = true;
 
-        emit CurveTranstionStarted(
+        emit CurveTransitionStarted(
             transition.startTime,
             transition.endTime,
             startCurveParams,
