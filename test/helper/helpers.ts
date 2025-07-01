@@ -28,7 +28,7 @@ import { SandboxCometFactory } from "../../build/types/SandboxCometFactory";
 import { SandboxCometFactory__factory } from "../../build/types/factories/SandboxCometFactory__factory";
 import { SandboxController } from "../../build/types/SandboxController";
 import { SandboxController__factory } from "../../build/types/factories/SandboxController__factory";
-import { BigNumber, Contract } from "ethers";
+import { BigNumber, Contract, ContractReceipt, ContractTransaction } from "ethers";
 import { TransactionReceipt, TransactionResponse } from "@ethersproject/abstract-provider";
 import { CometHarness, TotalsBasicStructOutput, TotalsCollateralStructOutput } from "../../build/types/CometHarness";
 import { CometConfigStruct } from "../../build/types/ConfigController";
@@ -561,8 +561,7 @@ export const makeProtocol = async (opts: ProtocolOpts = {}) => {
     users,
     guardian,
     owner,
-    unsupportedToken,
-    cometFactory,
+    unsupportedToken
   } = await makeConfigController(opts);
 
   await baseToken.allocateTo(owner.address, seedReserves);
@@ -702,10 +701,15 @@ export function defaultSandboxControllerOpts(partial?: Partial<SandboxController
   };
 }
 
-export async function makeOnlyConfigController(curator, guardian, cometFactory, configControllerFactory): Promise<string> {
-  const ConfigControllerFactory = await ethers.getContractAt("ConfigControllerFactory", configControllerFactory);
+export async function makeOnlyConfigController(
+  curator: string, 
+  guardian: string, 
+  cometFactory: string, 
+  configControllerFactoryAddress: string
+): Promise<string> {
+  const configControllerFactory: ConfigControllerFactory = await ethers.getContractAt("ConfigControllerFactory", configControllerFactoryAddress) as ConfigControllerFactory;  
 
-  const tx = await ConfigControllerFactory.createConfigController(
+  const tx: ContractTransaction = await configControllerFactory.createConfigController(
     curator,
     guardian,
     cometFactory,
@@ -714,9 +718,9 @@ export async function makeOnlyConfigController(curator, guardian, cometFactory, 
     7 * 24 * 60 * 60,
     7 * 24 * 60 * 60
   );
-  const receipt = await tx.wait();
-  const [createConfigControllerEvent] = receipt.events?.filter(event => event.event === "ConfigControllerCreated");
-  const configControllerAddress = createConfigControllerEvent.args.controller;
+  const receipt: ContractReceipt = await tx.wait();
+  const [createConfigControllerEvent] = receipt.events.filter(event => event.event === "ConfigControllerCreated");
+  const configControllerAddress: string = createConfigControllerEvent.args.controller;
 
   return configControllerAddress;
 }
