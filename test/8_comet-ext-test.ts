@@ -1,5 +1,5 @@
 import { ethers, expect, makeProtocol, exp, setTotalsBasic } from "./helper/helpers";
-import type { CometHarnessInterface, ConfigController, SimplePriceFeed } from "../build/types";
+import type { CometHarnessInterface } from "../build/types";
 import type { FaucetToken, NonStandardFaucetFeeToken } from "../build/types";
 
 describe("8. CometExtension", () => {
