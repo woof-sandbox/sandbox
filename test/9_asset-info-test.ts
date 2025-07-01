@@ -1,5 +1,4 @@
-import { expect, exp, makeProtocol, ONE } from "./helper/helpers";
-import { ethers } from "hardhat";
+import { expect, exp, makeProtocol } from "./helper/helpers";
 
 describe("9. asset info — SandboxComet", () => {
   it("initializes protocol with 3 collateral assets", async () => {
