@@ -2,8 +2,12 @@
 
 ## Getting started
 
-1. Clone the repo
-2. Run `npm run setup`
+1. Clone the repo  
+2. Run `yarn` or `yarn install` to install dependencies
+
+> ℹ️ **Note:** External dependencies required for the project are configured as Git submodules.  
+> They will be automatically initialized and updated before installing main packages  
+> via the `preinstall` script when you run `yarn`.
 
 ## Env variables
 
