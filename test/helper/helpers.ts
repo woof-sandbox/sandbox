@@ -521,8 +521,7 @@ async function createComet2(
 export async function createComet(
   configController: ConfigController,
   tokens: Record<string, FaucetToken | NonStandardFaucetFeeToken>,
-  baseToken: FaucetToken | NonStandardFaucetFeeToken,
-  priceFeeds: Record<string, SimplePriceFeed>
+  baseToken: FaucetToken | NonStandardFaucetFeeToken
 ): Promise<string> {
   let marketConfig: CometConfigStruct = {
     baseToken: baseToken.address,
@@ -542,10 +541,10 @@ export async function createComet(
     }
   }
 
-  const createCometTx = await configController.createComet(marketConfig);
-  const createCometReceipt = await createCometTx.wait();
-  const [createCometEvents] = createCometReceipt.events?.filter(event => event.event === "MarketCreated");
-  const marketAddress = createCometEvents.args.market;
+  const createCometTx: ContractTransaction = await configController.createComet(marketConfig);
+  const createCometReceipt: ContractReceipt = await createCometTx.wait();
+  const [createCometEvents] = createCometReceipt.events.filter(event => event.event === "MarketCreated");
+  const marketAddress: string = createCometEvents.args.market;
   return marketAddress;
 }
 
