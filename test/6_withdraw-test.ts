@@ -2,7 +2,6 @@ import { CometExtension, EvilToken, EvilToken__factory, FaucetToken } from "../b
 import {
   baseBalanceOf,
   ethers,
-  event,
   expect,
   exp,
   makeProtocol,
@@ -228,12 +227,12 @@ describe("6. withdrawTo", function () {
 
     const cometAsB = comet.connect(bob);
 
-    const a0 = await portfolio(protocol, alice.address);
+    await portfolio(protocol, alice.address);
     const b0 = await portfolio(protocol, bob.address);
 
     const s0 = await wait(cometAsB.withdrawTo(alice.address, USDC.address, ethers.constants.MaxUint256));
 
-    const a1 = await portfolio(protocol, alice.address);
+    await portfolio(protocol, alice.address);
     const b1 = await portfolio(protocol, bob.address);
 
     const events = getEvents(s0);
@@ -920,7 +919,7 @@ describe("withdraw", function () {
           },
         },
       });
-      const { USDC, EVIL } = <{ USDC: FaucetToken; EVIL: EvilToken }>tokens;
+      const { USDC, EVIL } = <{ USDC: FaucetToken, EVIL: EvilToken }>tokens;
 
       const attack = Object.assign({}, await EVIL.getAttack(), {
         attackType: ReentryAttack.TransferFrom,
@@ -965,7 +964,7 @@ describe("withdraw", function () {
           },
         },
       });
-      const { USDC, EVIL } = <{ USDC: FaucetToken; EVIL: EvilToken }>tokens;
+      const { USDC, EVIL } = <{ USDC: FaucetToken, EVIL: EvilToken }>tokens;
 
       const attack = Object.assign({}, await EVIL.getAttack(), {
         attackType: ReentryAttack.WithdrawFrom,
@@ -1030,13 +1029,13 @@ describe("withdrawFrom", function () {
     } = protocol;
     const { COMP } = tokens;
 
-    const _i0 = await COMP.allocateTo(comet.address, 7);
+    await COMP.allocateTo(comet.address, 7);
     const t0 = Object.assign({}, await comet.totalsCollateral(COMP.address), {
       totalSupplyAsset: 7,
     });
-    const _b0 = await wait(comet.setTotalsCollateral(COMP.address, t0.totalSupplyAsset));
+    await wait(comet.setTotalsCollateral(COMP.address, t0.totalSupplyAsset));
 
-    const _i1 = await comet.setCollateralBalance(bob.address, COMP.address, 7);
+    await comet.setCollateralBalance(bob.address, COMP.address, 7);
 
     const cometExtention = (await ethers.getContractAt("CometExtension", await comet.extension())) as CometExtension;
     const approveCalldata = cometExtention.interface.encodeFunctionData("approve", [charlie.address, ethers.constants.MaxUint256]);
@@ -1046,11 +1045,10 @@ describe("withdrawFrom", function () {
       gasLimit: 1_000_000,
     });
 
-    const cometAsB = comet.connect(bob);
     const cometAsC = comet.connect(charlie);
     const p0 = await portfolio(protocol, alice.address);
     const q0 = await portfolio(protocol, bob.address);
-    const _s0 = await wait(cometAsC.withdrawFrom(bob.address, alice.address, COMP.address, 7));
+    await wait(cometAsC.withdrawFrom(bob.address, alice.address, COMP.address, 7));
     const p1 = await portfolio(protocol, alice.address);
     const q1 = await portfolio(protocol, bob.address);
 
@@ -1139,10 +1137,10 @@ describe("withdrawFrom", function () {
     const { COMP } = tokens;
 
     await COMP.allocateTo(comet.address, 7);
-    const cometAsB = comet.connect(bob);
     const cometAsC = comet.connect(charlie);
 
     // Pause withdraw
+    // TODO: Fix this 
     const configSigner = await ethers.getImpersonatedSigner(configController.address);
     await hre.network.provider.send("hardhat_setBalance", [configController.address, ethers.utils.hexValue(ethers.utils.parseEther("5"))]);
     await wait(comet.connect(configSigner).pause(false, false, true, false, false));
