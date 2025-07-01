@@ -42,14 +42,14 @@ module.exports = {
     'prefer-const': 'off',
     'prefer-spread': 'off',
     // NB: disabling error for this check, as at is buggy
-    'quotes': [
-      'warn',
-      'single',
-      {
-        'avoidEscape': true,
-        'allowTemplateLiterals': true
-      }
-    ],
+    // 'quotes': [
+    //   'warn',
+    //   'single',
+    //   {
+    //     'avoidEscape': true,
+    //     'allowTemplateLiterals': true
+    //   }
+    // ],
     'semi': [
       'error',
       'always'
