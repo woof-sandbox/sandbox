@@ -79,7 +79,7 @@ contract SandboxController is ISandboxController {
         uint256 _minUpdateTime,
         uint256 _maxUpdateTime,
         uint256 _suggestedAmountOfSeedReserves,
-        uint256 _suggestedLockTimeOfSeedReserves
+        uint64 _suggestedLockTimeOfSeedReserves
     ) {
         if (_owner == address(0) || _dao == address(0)) {
             revert ZeroAddress();

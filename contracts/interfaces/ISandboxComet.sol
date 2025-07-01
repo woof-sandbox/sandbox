@@ -45,12 +45,12 @@ abstract contract ISandboxComet is CometCore {
   event TransferCollateral(address indexed from, address indexed to, address indexed asset, uint amount);
   event WithdrawCollateral(address indexed src, address indexed to, address indexed asset, uint amount);
 
-  event BaseSpeedsChanged(uint baseTrackingSupplySpeed, uint baseTrackingBorrowSpeed);
-  event DaoSpeedsChanged(uint daoBaseTrackingSupplySpeed_, uint daoBaseTrackingBorrowSpeed_);
+  event BaseSpeedsChanged(uint64 baseTrackingSupplySpeed, uint64 baseTrackingBorrowSpeed);
+  event DaoSpeedsChanged(uint64 daoBaseTrackingSupplySpeed_, uint64 daoBaseTrackingBorrowSpeed_);
 
-  function setDaoBaseSpeeds(uint daoBaseTrackingSupplySpeed, uint daoBaseTrackingBorrowSpeed) external virtual;
+  function setDaoBaseSpeeds(uint64 daoBaseTrackingSupplySpeed, uint64 daoBaseTrackingBorrowSpeed) external virtual;
 
-  function setBaseSpeeds(uint baseTrackingSupplySpeed, uint baseTrackingBorrowSpeed) external virtual;
+  function setBaseSpeeds(uint64 baseTrackingSupplySpeed, uint64 baseTrackingBorrowSpeed) external virtual;
 
   /// @notice Event emitted when a borrow position is absorbed by the protocol
   event AbsorbDebt(address indexed absorber, address indexed borrower, uint basePaidOut, uint usdValue);

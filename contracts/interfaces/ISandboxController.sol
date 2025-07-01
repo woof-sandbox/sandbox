@@ -42,11 +42,11 @@ abstract contract ISandboxController is ISandboxErrors {
 
     struct SandboxControllerConfiguration {
         uint256 targetPercent;
-        uint256 storeFrontPriceFactor;
         uint256 minUpdateTime;
         uint256 maxUpdateTime;
         uint256 suggestedAmountOfSeedReserves;
         uint256 suggestedLockTimeOfSeedReserves;
+        uint64 storeFrontPriceFactor;
     }
     
     event BaseAssetWhitelisted(

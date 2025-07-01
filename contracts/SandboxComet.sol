@@ -204,8 +204,8 @@ contract SandboxComet is ISandboxComet {
      * @param baseTrackingBorrowSpeed_ The new base tracking borrow speed
      */
     function setBaseSpeeds(
-        uint256 baseTrackingSupplySpeed_,
-        uint256 baseTrackingBorrowSpeed_
+        uint64 baseTrackingSupplySpeed_,
+        uint64 baseTrackingBorrowSpeed_
     ) external override {
         if (msg.sender != configController) revert Unauthorized();
         baseTrackingSupplySpeed = baseTrackingSupplySpeed_;
@@ -223,8 +223,8 @@ contract SandboxComet is ISandboxComet {
      * @param daoBaseTrackingBorrowSpeed_ The new DAO base tracking borrow speed
      */
     function setDaoBaseSpeeds(
-        uint256 daoBaseTrackingSupplySpeed_,
-        uint256 daoBaseTrackingBorrowSpeed_
+        uint64 daoBaseTrackingSupplySpeed_,
+        uint64 daoBaseTrackingBorrowSpeed_
     ) external override {
         address dao = ISandboxController(sandboxController).dao();
         
@@ -686,23 +686,31 @@ contract SandboxComet is ISandboxComet {
      * @dev Write updated principal to store and tracking participation
      */
     function updateBasePrincipal(address account, UserBasic memory basic, int104 principalNew) internal {
-        int104 principalOld = basic.principal;
-        bool   positive     = principalOld >= 0;
-        uint64 marketIdx = positive ? trackingSupplyIndex : trackingBorrowIndex;
-        uint   delta     = uint(marketIdx - basic.baseTrackingIndex);
-        if (delta != 0) {
-            basic.baseTrackingAccrued += safe64(uint104(positive ? principalOld : -principalOld) * delta / trackingIndexScale / accrualDescaleFactor);
-            basic.baseTrackingIndex    = marketIdx;
-        }
-
-        uint64 daoIdx = positive ? daoTrackingSupplyIndex : daoTrackingBorrowIndex;
-        uint   dDelta = uint(daoIdx - basic.daoBaseTrackingIndex);
-        if (dDelta != 0) {
-            basic.daoBaseTrackingAccrued += safe64(uint104(positive ? principalOld : -principalOld) * dDelta / trackingIndexScale / accrualDescaleFactor);
-            basic.daoBaseTrackingIndex    = daoIdx;
-        }
-
+        int104 principal = basic.principal;
         basic.principal = principalNew;
+
+        uint indexDelta;
+        uint daoIndexDelta;
+
+        if (principal >= 0) {
+            indexDelta = uint256(trackingSupplyIndex - basic.baseTrackingIndex);
+            daoIndexDelta = uint256(daoTrackingSupplyIndex - basic.daoBaseTrackingIndex);
+        } else {
+            indexDelta = uint256(trackingBorrowIndex - basic.baseTrackingIndex);
+            daoIndexDelta = uint256(daoTrackingBorrowIndex - basic.daoBaseTrackingIndex);
+            principal = -principal;
+        }
+
+        // 0 delta means the same block or disabled rewards
+        if (indexDelta > 0) {
+            basic.baseTrackingAccrued += 
+                    safe64((uint104(principal) * indexDelta) / trackingIndexScale / accrualDescaleFactor);
+        }
+        if (daoIndexDelta > 0) {
+            basic.daoBaseTrackingAccrued += 
+                    safe64((uint104(principal) * daoIndexDelta) / trackingIndexScale / accrualDescaleFactor);
+        }
+
         if (principalNew >= 0) {
             basic.baseTrackingIndex = trackingSupplyIndex;
             basic.daoBaseTrackingIndex = daoTrackingSupplyIndex;
@@ -710,6 +718,7 @@ contract SandboxComet is ISandboxComet {
             basic.baseTrackingIndex = trackingBorrowIndex;
             basic.daoBaseTrackingIndex = daoTrackingBorrowIndex;
         }
+
         userBasic[account] = basic;
     }
 

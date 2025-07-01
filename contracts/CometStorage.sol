@@ -130,26 +130,26 @@ contract CometStorage {
 
     /// @notice The fraction of the liquidation penalty that goes to buyers of collateral instead of the protocol
     /// @dev uint64
-    uint public storeFrontPriceFactor;
+    uint64 public storeFrontPriceFactor;
 
     /// @notice The scale for base token (must be less than 18 decimals)
     /// @dev uint64
-    uint public baseScale;
+    uint64 public baseScale;
 
     /// @notice The scale for reward tracking
     /// @dev uint64
-    uint public trackingIndexScale;
+    uint64 public trackingIndexScale;
 
     /// @notice The speed at which supply rewards are tracked (in trackingIndexScale)
     /// @dev uint64
-    uint public baseTrackingSupplySpeed;
+    uint64 public baseTrackingSupplySpeed;
 
     /// @notice The speed at which borrow rewards are tracked (in trackingIndexScale)
     /// @dev uint64
-    uint public baseTrackingBorrowSpeed;
+    uint64 public baseTrackingBorrowSpeed;
 
     /// @notice The speed at which DAO supply rewards are tracked (in trackingIndexScale)
-    uint public daoBaseTrackingSupplySpeed;
+    uint64 public daoBaseTrackingSupplySpeed;
 
     /// @notice The speed at which DAO supply rewards are tracked (in trackingIndexScale)
     uint public daoBaseTrackingBorrowSpeed;
@@ -157,7 +157,7 @@ contract CometStorage {
     /// @notice The minimum amount of base principal wei for rewards to accrue
     /// @dev This must be large enough so as to prevent division by base wei from overflowing the 64 bit indices
     /// @dev uint104
-    uint public baseMinForRewards;
+    uint104 public baseMinForRewards;
 
     /// @notice The minimum base amount required to initiate a borrow
     uint public baseBorrowMin;

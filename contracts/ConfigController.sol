@@ -141,11 +141,12 @@ contract ConfigController is IConfigController {
     /// @param comet The address of the comet
     /// @param baseTrackingSupplySpeed_ The new base tracking supply speed
     /// @param baseTrackingBorrowSpeed_ The new base tracking borrow speed
-    function setSpeeds(
+    function setBaseTrackingSpeeds(
         address comet,
-        uint baseTrackingSupplySpeed_,
-        uint baseTrackingBorrowSpeed_
+        uint64 baseTrackingSupplySpeed_,
+        uint64 baseTrackingBorrowSpeed_
     ) external override onlyOwner {
+        if (comet == ZERO_ADDRESS) revert ZeroAddress();
         if (!_isCometOwned(comet)) revert CometNotOwned();
         ISandboxComet(comet).setBaseSpeeds(baseTrackingSupplySpeed_, baseTrackingBorrowSpeed_);
     }

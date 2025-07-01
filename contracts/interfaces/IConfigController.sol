@@ -24,8 +24,6 @@ abstract contract IConfigController {
         uint256 curveId;
         uint256 revertTime;
     }
-
-    
     
     struct CometConfig {
         address baseToken;
@@ -35,10 +33,10 @@ abstract contract IConfigController {
     }
 
     struct CometOptions {
-        uint256 baseTrackingSupplySpeed;
-        uint256 baseTrackingBorrowSpeed;
-        uint256 trackingIndexScale;
-        uint256 baseMinForRewards;
+        uint64 baseTrackingSupplySpeed;
+        uint64 baseTrackingBorrowSpeed;
+        uint64 trackingIndexScale;
+        uint64 baseMinForRewards;
     }
 
     struct CollateralTokenConfig {
@@ -192,10 +190,10 @@ abstract contract IConfigController {
         address indexed newController
     );
 
-    function setSpeeds(
+    function setBaseTrackingSpeeds(
         address _comet,
-        uint _baseTrackingSupplySpeed,
-        uint _baseTrackingBorrowSpeed
+        uint64 _baseTrackingSupplySpeed,
+        uint64 _baseTrackingBorrowSpeed
     ) virtual external;
 
     /// @notice Returns the current curator fee in basis points (1% = 100)
