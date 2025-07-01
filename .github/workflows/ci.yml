@@ -23,6 +23,9 @@ jobs:
     - name: Install dependencies
       run: yarn install --frozen-lockfile
       
+    - name: Run setup
+      run: npm run setup
+      
     - name: TypeScript compilation check
       run: npx tsc --noEmit
       
@@ -72,6 +75,9 @@ jobs:
     - name: Install dependencies
       run: yarn install --frozen-lockfile
       
+    - name: Run setup
+      run: npm run setup
+      
     - name: Build contracts for security analysis
       run: yarn build
       
@@ -109,6 +115,9 @@ jobs:
         
     - name: Install dependencies
       run: yarn install --frozen-lockfile
+      
+    - name: Run setup
+      run: npm run setup
       
     - name: Run tests with coverage
       run: yarn test:coverage
