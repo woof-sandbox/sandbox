@@ -58,18 +58,6 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
     /// @notice The name of this controller
     string public override name;
 
-    /// @notice The address of the proposed curator
-    address public override proposedCurator;
-
-    /// @notice The timestamp when the curator proposal expires
-    uint public override curatorProposalExpiry;
-
-    /// @notice The duration of curator proposals in seconds
-    uint public curatorProposalDuration;
-
-    /// @notice The duration of comet proposals in seconds
-    uint public proposalDuration;
-
     /// @notice The address of the ConfigControllerFactory contract
     address public override configControllerFactory;
 
@@ -109,8 +97,8 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
         address _cometFactory,
         uint _curatorFee,
         string memory _name,
-        uint _curatorProposalDuration,
-        uint _proposalDuration
+        uint _curatorProposalDuration, // TODO: REMOVE
+        uint _proposalDuration // TODO: REMOVE
     ) public override {
         if (configControllerFactory != address(0)) revert AlreadyInitialized();
         /// it is assumed that controller can be initialized only via factory - atomically after the deployment
@@ -136,10 +124,8 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
         cometFactory = _cometFactory;
         curatorFee = _curatorFee;
         name = _name;
-        curatorProposalDuration = _curatorProposalDuration;
-        proposalDuration = _proposalDuration;
         
-        _proposeCurator(_curator);
+        _proposeCurator(abi.encode(_curator), proposalCounter);
     }
 
     struct Proposal {
@@ -157,30 +143,28 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
         ProposeNewCollateralToken
     }
 
-    function _proposeCurator(bytes memory _calldata) internal {
+    function _proposeCurator(bytes memory _calldata, uint256 _proposalId) internal {
         // Decode the proposed curator address from calldata
         address proposedCuratorAddress = abi.decode(_calldata, (address));
         
         // Validate the proposed curator
-        /// Check if the curator is the same as the current curator.
+        /// Check if the curator is the same as the c urrent curator.
         if (proposedCuratorAddress == curator) revert InvalidCurator();
-        /// Check if the curator is the same as the proposed curator.
-        if (proposedCuratorAddress == proposedCurator) revert InvalidCurator();
         /// Check if the curator is the same as the owner.
         if (proposedCuratorAddress == owner) revert InvalidCurator();
         /// Check if the curator is the same as the guardian.
         if (proposedCuratorAddress == guardian) revert InvalidCurator();
         
         // Create the proposal
-        proposals[proposalId] = Proposal({
+        proposals[_proposalId] = Proposal({
             proposer: msg.sender,
-            proposalType: ProposalType(_proposalType),
-            expirationTime: uint40(block.timestamp + curatorProposalDuration),
-            maturityTime: uint40(block.timestamp + curatorProposalDuration),
+            proposalType: ProposalType.ProposeCurator,
+            expirationTime: uint40(block.timestamp + 1 weeks), /// TODO: Change to sandboxController.proposalBoundaries()
+            maturityTime: uint40(block.timestamp + 1 weeks), /// TODO: Change to sandboxController.proposalBoundaries()
             call: _calldata
         });
     
-        emit ProposalCreated(_proposalType, msg.sender, block.timestamp + curatorProposalDuration, _calldata);
+        emit CuratorProposed(curator, proposedCuratorAddress, block.timestamp + 1 weeks);
     }
 
     function createProposal(
@@ -196,8 +180,12 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
         
         if (_proposalType == uint8(ProposalType.ProposeNewCollateralToken)) {
             if (msg.sender != owner) revert Unauthorized();
-            // Decode the collateral token configuration from calldata
-            CollateralTokenConfig memory collateralConfig = abi.decode(_calldata, (CollateralTokenConfig));
+            /// Decode selector
+            bytes4 selector = bytes4(_calldata[:4]);
+            /// Check if the selector is valid
+            if (selector != IConfigController.proposeNewCollateralToken.selector) revert InvalidSelector();
+            /// Decode the collateral token configuration from calldata
+            CollateralTokenConfig memory collateralConfig = abi.decode(_calldata[4:], (CollateralTokenConfig));
             
             // Validate the collateral token configuration using internal function
             _validateCollateralTokenConfig(collateralConfig);
@@ -206,16 +194,15 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
             proposals[proposalId] = Proposal({
                 proposer: msg.sender,
                 proposalType: ProposalType(_proposalType),
-                expirationTime: uint40(block.timestamp + proposalDuration),
-                maturityTime: uint40(block.timestamp + proposalDuration),
+                expirationTime: uint40(block.timestamp + 1 weeks), /// TODO: Change to sandboxController.proposalBoundaries()
+                maturityTime: uint40(block.timestamp + 1 weeks), /// TODO: Change to sandboxController.proposalBoundaries()
                 call: _calldata
             });
-            
-            emit ProposalCreated(_proposalType, msg.sender, block.timestamp + proposalDuration, _calldata);
+            emit ProposeNewCollateralToken(msg.sender, collateralConfig);
         /// Propose curator.
         } else if (_proposalType == uint8(ProposalType.ProposeCurator)) {
             if (msg.sender != owner) revert Unauthorized();
-            _proposeCurator(_calldata);
+            _proposeCurator(_calldata, proposalId);
         }
         
         return proposalId;
@@ -232,35 +219,21 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
         
         /// Accept the curator role proposal.
         if (_proposal.proposalType == ProposalType.ProposeCurator) {
-            /// Check if the proposal has expired.
-            if (block.timestamp > _proposal.expirationTime) revert ProposalExpired();
-            
-            /// Decode the proposed curator address from the proposal call data
-            /// Note: In a real implementation, you would need to store the actual calldata
-            /// For now, we'll use the hash to identify the proposal
-            
-            /// Set the proposed curator and expiry
-            proposedCurator = address(uint160(uint256(_proposal.call))); // This is a simplified approach
-            curatorProposalExpiry = _proposal.expirationTime;
-            
-            /// Clear the proposal
-            delete proposals[_proposalId];
-            
-            emit ProposalAccepted(uint8(_proposal.proposalType), msg.sender, _proposal.call);
-        }
-        
-        /// Accept the new collateral token proposal.
-        if (_proposal.proposalType == ProposalType.ProposeNewCollateralToken) {
             if (msg.sender != abi.decode(_proposal.call, (address))) revert Unauthorized();
             /// Check if the proposal has expired.
             if (block.timestamp > _proposal.expirationTime) revert ProposalExpired();
             
-            /// Decode the collateral token configuration from the proposal data
-            /// Note: In a real implementation, you would need to store the proposal data
-            /// For now, we'll just clear the proposal
-            delete proposals[_proposalId];
+            curator = msg.sender;
+
+            // emit ProposalAccepted(uint8(_proposal.proposalType), msg.sender, _proposal.call);
+        }
+        
+        /// Accept the new collateral token proposal.
+        if (_proposal.proposalType == ProposalType.ProposeNewCollateralToken) {
+            /// Check if the proposal has expired.
+            if (block.timestamp > _proposal.expirationTime) revert ProposalExpired();
             
-            emit ProposalAccepted(uint8(_proposal.proposalType), msg.sender, _proposal.call);
+            // emit ProposalAccepted(uint8(_proposal.proposalType), msg.sender, _proposal.call);
         }
     }
 
@@ -353,19 +326,6 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
         owner = _newOwner;
     }
 
-
-    /// @notice Cancels the curator role proposal
-    /// @dev Only callable by the owner. Emits a CuratorProposalCancelled event
-    function cancelCuratorProposal() external onlyOwner {
-        if (proposedCurator == ZERO_ADDRESS) revert NoActiveProposal();
-
-        address cancelledProposal = proposedCurator;
-        proposedCurator = ZERO_ADDRESS;
-        curatorProposalExpiry = 0;
-
-        emit CuratorProposalCancelled(cancelledProposal);
-    }
-
     /// @notice Removes the current curator
     /// @dev Only callable by the owner
     function removeCurator() external override onlyOwner {
@@ -382,32 +342,6 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
         guardian = _newGuardian;
 
         emit GuardianUpdated(oldGuardian, _newGuardian);
-    }
-
-    /// @notice Sets the duration for curator and comet configuration proposals
-    /// @dev Only callable by the owner
-    /// @param _curatorProposalDuration New duration for curator proposals in seconds
-    /// @param _proposalDuration New duration for comet configuration proposals in seconds
-    function setProposalDurations(
-        uint _curatorProposalDuration,
-        uint _proposalDuration
-    ) external onlyOwner {
-        (uint minUpdateTime, uint maxUpdateTime) = ISandboxController(sandboxController).proposalBoundaries();
-        if (_curatorProposalDuration < minUpdateTime || _proposalDuration < minUpdateTime) revert ProposalDurationTooShort();
-        if (_curatorProposalDuration > maxUpdateTime || _proposalDuration > maxUpdateTime) revert ProposalDurationTooLong();
-
-        uint oldCuratorDuration = curatorProposalDuration;
-        uint oldProposalDuration = proposalDuration;
-
-        curatorProposalDuration = _curatorProposalDuration;
-        proposalDuration = _proposalDuration;
-
-        emit ProposalDurationsUpdated(
-            oldCuratorDuration,
-            _curatorProposalDuration,
-            oldProposalDuration,
-            _proposalDuration
-        );
     }
 
     /// @notice Validates comet collateral token configuration

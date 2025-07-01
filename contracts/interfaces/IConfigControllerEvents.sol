@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
+import "./IConfigController.sol";
+
 interface IConfigControllerEvents {
     event CometCreated(
         address comet,
@@ -15,18 +17,13 @@ interface IConfigControllerEvents {
     event CuratorProposalCancelled(address indexed proposedCurator);
     event GuardianUpdated(address indexed oldGuardian, address indexed newGuardian);
     
+    event ProposeNewCollateralToken(address indexed proposer, IConfigControllerStructs.CollateralTokenConfig collateralConfig);
+
     event ProposalDurationsUpdated(
         uint oldCuratorDuration,
         uint newCuratorDuration,
         uint oldProposalDuration,
         uint newProposalDuration
-    );
-
-    event ProposalCreated(
-        uint8 indexed proposalType,
-        address indexed proposer,
-        uint expirationTime,
-        bytes32 proposalData
     );
 
     event ProposalAccepted(

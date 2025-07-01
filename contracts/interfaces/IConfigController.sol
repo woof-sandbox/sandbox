@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
-interface IConfigController {
+interface IConfigControllerStructs {
     /// @notice Comet transfer proposal
     struct CometTransferProposal {
         address comet;
@@ -36,7 +36,9 @@ interface IConfigController {
         uint256 trackingIndexScale;
         uint256 baseMinForRewards;
     }
+}
 
+interface IConfigController is IConfigControllerStructs {
 
     /// @notice Returns the current curator fee in basis points (1% = 100)
     /// @return The curator fee value
@@ -49,8 +51,6 @@ interface IConfigController {
     function cometFactory() external view returns (address);
     function comets(uint) external view returns (address);
     function cometsLength() external view returns (uint);
-    function proposedCurator() external view returns (address);
-    function curatorProposalExpiry() external view returns (uint);
     function name() external view returns (string memory);
     
     /// @notice Removes the current curator
@@ -67,6 +67,13 @@ interface IConfigController {
     /// @param _cometConfig The configuration parameters for the new comet
     /// @return The address of the newly created comet
     function createComet(CometConfig memory _cometConfig) external returns(address);
+    
+    /// @notice Creates a new proposal
+    /// @dev Only callable by the owner
+    /// @param _calldata The calldata of the proposal
+    /// @param _proposalType The type of the proposal
+    /// @return The id of the newly created proposal
+    function createProposal(bytes memory _calldata, uint8 _proposalType) external returns (uint256);
     
     /// @notice Initializes the ConfigController contract
     /// @param _owner The address of the protocol owner

@@ -27,5 +27,6 @@ interface IConfigControllerErrors {
     error ProposalDurationTooLong();
     error InvalidCurveId();
     error InvalidProposalType();
+    error InvalidSelector();
     error ProposalAlreadyExists();
 }
