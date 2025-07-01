@@ -484,8 +484,7 @@ async function createComet2(
   opts: ProtocolOpts,
   configController: ConfigController,
   tokens: Record<string, FaucetToken | NonStandardFaucetFeeToken>,
-  baseToken: FaucetToken | NonStandardFaucetFeeToken,
-  priceFeeds: Record<string, SimplePriceFeed>
+  baseToken: FaucetToken | NonStandardFaucetFeeToken
 ) {
   const baseSymbol = await baseToken.symbol();
 
@@ -510,10 +509,7 @@ async function createComet2(
     baseTokenCurveId: 0n,
   };
 
-  const createCometTx = await configController.createComet(marketConfig);
-  const receipt = await createCometTx.wait();
-  const filter = configController.filters.CometCreated();
-  const events = await configController.queryFilter(filter, receipt.blockNumber, receipt.blockNumber);
+  await configController.createComet(marketConfig);
 
   return configController.comets(0);
 }
@@ -566,7 +562,7 @@ export const makeProtocol = async (opts: ProtocolOpts = {}) => {
   await baseToken.allocateTo(owner.address, seedReserves);
   await baseToken.approve(configController.address, seedReserves);
 
-  const market = await createComet2(opts, configController, tokens, baseToken, priceFeeds);
+  const market = await createComet2(opts, configController, tokens, baseToken);
 
   const comet = (await ethers.getContractAt("CometHarness", market)) as CometHarness;
   return {
