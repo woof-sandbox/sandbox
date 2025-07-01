@@ -26,9 +26,6 @@ jobs:
     - name: Initialize submodules
       run: git submodule update --init --recursive
         
-    - name: Remove package-lock.json to avoid conflicts
-      run: rm -f package-lock.json
-        
     - name: Install dependencies
       run: yarn install --frozen-lockfile
       
@@ -83,9 +80,6 @@ jobs:
         
     - name: Initialize submodules
       run: git submodule update --init --recursive
-        
-    - name: Remove package-lock.json to avoid conflicts
-      run: rm -f package-lock.json
         
     - name: Install dependencies
       run: yarn install --frozen-lockfile
