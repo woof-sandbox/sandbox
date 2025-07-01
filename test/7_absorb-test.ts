@@ -1,14 +1,11 @@
-import { ethers } from "ethers";
+import { ContractReceipt, ContractTransaction, ethers } from "ethers";
 import {
   event,
   expect,
   exp,
-  factor,
-  defaultAssets,
   makeProtocol,
   mulPrice,
   portfolio,
-  totalsAndReserves,
   wait,
   bumpTotalsCollateral,
   setTotalsBasic,
@@ -37,7 +34,7 @@ describe("7. absorb", function () {
       },
     });
 
-    const _f0 = await comet.setBasePrincipal(underwater.address, -100);
+    await comet.setBasePrincipal(underwater.address, -100);
     await expect(comet.absorb(absorber.address, [underwater.address])).to.be.revertedWith(
       "code 0x11 (Arithmetic operation underflowed or overflowed outside of an unchecked block)"
     );
@@ -126,14 +123,6 @@ describe("7. absorb", function () {
   });
 
   it("absorbs 2 accounts and pays out the absorber", async () => {
-    const params = {
-      supplyInterestRateBase: 0,
-      supplyInterestRateSlopeLow: 0,
-      supplyInterestRateSlopeHigh: 0,
-      borrowInterestRateBase: 0,
-      borrowInterestRateSlopeLow: 0,
-      borrowInterestRateSlopeHigh: 0,
-    };
     const protocol = await makeProtocol({
       base: "USDC",
       targetPercent: 0.5,
@@ -408,10 +397,10 @@ describe("7. absorb", function () {
     expect(await comet.isLiquidatable(borrower.address)).to.equal(true);
 
     const reservesBefore = await comet.getReserves();
-    const tx = await comet.absorb(absorber.address, [borrower.address]);
-    const rcpt = await tx.wait();
+    const tx: ContractTransaction = await comet.absorb(absorber.address, [borrower.address]);
+    const rcpt: ContractReceipt = await tx.wait();
 
-    const absDebtEvt = rcpt.events?.find(e => e.event === "AbsorbDebt")!;
+    const absDebtEvt = rcpt.events.find(e => e.event === "AbsorbDebt")!;
     const basePaidOut = absDebtEvt.args.basePaidOut as ethers.BigNumber;
 
     expect(await comet.getReserves()).to.equal(reservesBefore.sub(basePaidOut));
@@ -421,7 +410,7 @@ describe("7. absorb", function () {
 
     for (const t of [COMP, WETH, WBTC]) expect(await t.balanceOf(borrower.address)).to.equal(0);
 
-    const absColl = rcpt.events?.filter(e => e.event === "AbsorbCollateral") || [];
+    const absColl = rcpt.events.filter(e => e.event === "AbsorbCollateral") || [];
     expect(absColl.length).to.equal(3);
 
     const [evComp, evWeth, evWbtc] = absColl.map(e => e.args);
