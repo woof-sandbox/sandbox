@@ -19,40 +19,69 @@ echo "📁 Staged files: $STAGED_FILES"
 # Check if any Solidity files are staged
 SOLIDITY_FILES=$(echo "$STAGED_FILES" | grep '\.sol$' || true)
 
-# Check if any TypeScript files are staged
-TS_FILES=$(echo "$STAGED_FILES" | grep '\.ts$' || true)
+# Check if any TypeScript/JavaScript files are staged
+TS_FILES=$(echo "$STAGED_FILES" | grep -E '\.(ts|js)$' || true)
 
 # TypeScript compilation check
 echo "🔧 Checking TypeScript compilation..."
-./node_modules/.bin/tsc
+npx tsc --noEmit --project tsconfig.json
 
-# Prettier check on Solidity files
-echo "💅 Checking Solidity formatting..."
-echo "$SOLIDITY_FILES" | xargs yarn prettier:sol
+# Prettier check on Solidity files (only if Solidity files are staged)
+if [ -n "$SOLIDITY_FILES" ]; then
+    echo "💅 Checking Solidity formatting..."
+    yarn prettier:sol
+else
+    echo "ℹ️  No Solidity files to format"
+fi
 
-# Prettier check on TypeScript files
-echo "💅 Checking TypeScript formatting..."
-echo "$STAGED_FILES" | xargs yarn prettier:ts
+# Prettier check on TypeScript files (only if TypeScript files are staged)
+if [ -n "$TS_FILES" ]; then
+    echo "💅 Checking TypeScript formatting..."
+    yarn prettier:ts
+else
+    echo "ℹ️  No TypeScript files to format"
+fi
 
 # ESLint check on staged TypeScript files
 if [ -n "$TS_FILES" ]; then
-    echo "🔍 Running ESLint TS on staged TypeScript files..."
-    echo "$TS_FILES" | xargs yarn lint:ts
+    echo "🔍 Running ESLint TS on staged files..."
+    echo "$TS_FILES" | xargs eslint --config .eslintrc.js
 else
     echo "ℹ️  No TypeScript files to lint"
 fi
 
 # ESLint check on staged Solidity files
 if [ -n "$SOLIDITY_FILES" ]; then
-    echo "🔍 Running ESLint Sol on staged Solidity files..."
+    echo "🔍 Running ESLint Sol on staged files..."
     echo "$SOLIDITY_FILES" | xargs yarn lint:sol
 else
     echo "ℹ️  No Solidity files to lint"
 fi
 
+# Generate documentation if Solidity files were modified
+if [ -n "$SOLIDITY_FILES" ]; then
+    echo "📚 Generating documentation for Solidity contracts..."
+    yarn doc
+    
+    # Check if docs directory exists and has changes
+    if [ -d "./docs" ]; then
+        echo "📝 Adding generated documentation to staging..."
+        git add docs/
+    fi
+else
+    echo "ℹ️  No Solidity files modified, skipping documentation generation"
+fi
+
 # Add back the modified/prettified files to staging
 echo "📝 Adding formatted files back to staging..."
-echo "$STAGED_FILES" | xargs git add
+if [ -n "$SOLIDITY_FILES" ] || [ -n "$TS_FILES" ]; then
+    if [ -n "$SOLIDITY_FILES" ]; then
+        echo "$SOLIDITY_FILES" | xargs git add
+    fi
+    if [ -n "$TS_FILES" ]; then
+        echo "$TS_FILES" | xargs git add
+    fi
+fi
 
 echo "✅ All pre-commit checks passed!"
 

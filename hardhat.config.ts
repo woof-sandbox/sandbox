@@ -238,6 +238,9 @@ const config: HardhatUserConfig = {
 
   paths: {
     tests: './test',
+    sources: './contracts',
+    cache: './cache',
+    artifacts: './build/artifacts',
   },
 
   contractSizer: {
