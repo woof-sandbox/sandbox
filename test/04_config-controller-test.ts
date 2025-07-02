@@ -123,7 +123,7 @@ describe("ConfigController", () => {
     });
 
     it("should allow owner to remove curator", async () => {
-      const { configController, users } = await makeConfigController();
+      const { configController } = await makeConfigController();
       const currentCurator = await configController.curator();
       await expect(configController.removeCurator()).to.emit(configController, "CuratorCanceled").withArgs(currentCurator);
       expect(await configController.curator()).to.equal(ethers.constants.AddressZero);
