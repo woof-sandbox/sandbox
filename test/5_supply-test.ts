@@ -542,13 +542,13 @@ describe("5. supplyTo", function () {
 
     const alice0 = await portfolio(protocol, alice.address);
     const bob0 = await portfolio(protocol, bob.address);
-    const aliceBasic0 = await comet.userBasic(alice.address);
+    await comet.userBasic(alice.address);
 
     await wait(baseAsB.approve(comet.address, 100e6));
     await wait(cometAsB.supplyTo(alice.address, USDC.address, 100e6));
     const alice1 = await portfolio(protocol, alice.address);
     const bob1 = await portfolio(protocol, bob.address);
-    const aliceBasic1 = await comet.userBasic(alice.address);
+    await comet.userBasic(alice.address);
 
     expect(alice0.internal).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n });
     expect(alice0.external).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n });
@@ -558,6 +558,7 @@ describe("5. supplyTo", function () {
     expect(alice1.external).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n });
     expect(bob1.internal).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n });
     expect(bob1.external).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n });
+    // TODO: Fix: Do not check the principal of alice
     //expect(aliceBasic1.principal).to.be.equal(aliceBasic0.principal.add(50e6)); // 100e6 in present value
   });
 
@@ -1113,7 +1114,7 @@ describe("supplyFrom", function () {
     } = protocol;
     const { COMP } = tokens;
 
-    const _i0 = await COMP.allocateTo(bob.address, 7);
+    await COMP.allocateTo(bob.address, 7);
     const cometAsC = comet.connect(charlie);
 
     await expect(cometAsC.supplyFrom(bob.address, alice.address, COMP.address, 7)).to.be.revertedWith("custom error 'Unauthorized()'");
@@ -1156,10 +1157,10 @@ describe("supplyFrom", function () {
 
     await COMP.allocateTo(bob.address, 7);
     const baseAsB = COMP.connect(bob);
-    const cometAsB = comet.connect(bob);
     const cometAsC = comet.connect(charlie);
-
+    
     // Pause supply
+    // TODO: Fix this by creating smart contract that can pause supply
     const configSigner = await ethers.getImpersonatedSigner(configController.address);
     await hre.network.provider.send("hardhat_setBalance", [configController.address, ethers.utils.hexValue(ethers.utils.parseEther("5"))]);
 
