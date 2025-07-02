@@ -209,21 +209,21 @@ const config: HardhatUserConfig = {
       },
     },
   },
-
-  scenario: {
-    bases: [
-      {
-        name: 'development',
-        network: 'hardhat',
-        deployment: 'dai'
-      },
-      {
-        name: 'sepolia-usdc',
-        network: 'sepolia',
-        deployment: 'usdc'
-      },
-    ],
-  },
+  // TODO: Remove this with the deployment manager.
+  // scenario: {
+  //   bases: [
+  //     {
+  //       name: 'development',
+  //       network: 'hardhat',
+  //       deployment: 'dai'
+  //     },
+  //     {
+  //       name: 'sepolia-usdc',
+  //       network: 'sepolia',
+  //       deployment: 'usdc'
+  //     },
+  //   ],
+  // },
 
   mocha: {
     reporter: 'mocha-multi-reporters',
