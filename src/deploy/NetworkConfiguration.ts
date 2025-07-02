@@ -1,8 +1,8 @@
-import { AssetConfigStruct } from "../../build/types/Comet";
-import { ConfigurationStruct } from "../../build/types/Configurator";
-import { ProtocolConfiguration } from "./index";
-import { ContractMap } from "../../plugins/deployment_manager/ContractMap";
-import { DeploymentManager } from "../../plugins/deployment_manager/DeploymentManager";
+import { AssetConfigStruct } from '../../build/types/Comet';
+import { ConfigurationStruct } from '../../build/types/Configurator';
+import { ProtocolConfiguration } from './index';
+import { ContractMap } from '../../plugins/deployment_manager/ContractMap';
+import { DeploymentManager } from '../../plugins/deployment_manager/DeploymentManager';
 
 // function address(a: string): string {
 //   if (!a.match(/^0x[a-fA-F0-9]{40}$/)) {
@@ -32,15 +32,15 @@ function percentage(n: number, checkRange: boolean = true): bigint {
 
 // Note: Expects a string in scientific notation format (e.g. 1000e18 or 1_000e18)
 function stringToBigInt(x: ScientificNotation) {
-  if (typeof x !== "string") {
+  if (typeof x !== 'string') {
     throw new Error(`expected argument to be string, got ${x}`);
   }
-  const sanitizedInput = x.replace(/_/g, "");
+  const sanitizedInput = x.replace(/_/g, '');
   if (!sanitizedInput.match(/^[0-9]+([.][0-9]+)?e[0-9]+$/)) {
     throw new Error(`expected string in scientific notation form, got ${x}`);
   }
 
-  const nums = sanitizedInput.split("e");
+  const nums = sanitizedInput.split('e');
   const coefficient = Number(nums[0]);
   const exponent = Number(nums[1]);
   // If exponent is a decimal, then just convert it directly using `number()`.
@@ -124,38 +124,38 @@ function getAssetConfigs(assets: { [name: string]: NetworkAssetConfiguration }, 
 function getOverridesOrConfig(
   overrides: ProtocolConfiguration,
   config: NetworkConfiguration,
-  contracts: ContractMap
+  contracts: ContractMap,
 ): ProtocolConfiguration {
   const interestRateInfoMapping = (rates: NetworkRateConfiguration) => ({
-    supplyKink: _ => percentage(rates.supplyKink),
-    supplyPerYearInterestRateSlopeLow: _ => percentage(rates.supplySlopeLow),
-    supplyPerYearInterestRateSlopeHigh: _ => percentage(rates.supplySlopeHigh, false),
-    supplyPerYearInterestRateBase: _ => percentage(rates.supplyBase),
-    borrowKink: _ => percentage(rates.borrowKink),
-    borrowPerYearInterestRateSlopeLow: _ => percentage(rates.borrowSlopeLow),
-    borrowPerYearInterestRateSlopeHigh: _ => percentage(rates.borrowSlopeHigh, false),
-    borrowPerYearInterestRateBase: _ => percentage(rates.borrowBase),
+    supplyKink: (_) => percentage(rates.supplyKink),
+    supplyPerYearInterestRateSlopeLow: (_) => percentage(rates.supplySlopeLow),
+    supplyPerYearInterestRateSlopeHigh: (_) => percentage(rates.supplySlopeHigh, false),
+    supplyPerYearInterestRateBase: (_) => percentage(rates.supplyBase),
+    borrowKink: (_) => percentage(rates.borrowKink),
+    borrowPerYearInterestRateSlopeLow: (_) => percentage(rates.borrowSlopeLow),
+    borrowPerYearInterestRateSlopeHigh: (_) => percentage(rates.borrowSlopeHigh, false),
+    borrowPerYearInterestRateBase: (_) => percentage(rates.borrowBase),
   });
   const trackingInfoMapping = (tracking: NetworkTrackingConfiguration) => ({
-    trackingIndexScale: _ => stringToBigInt(tracking.indexScale),
-    baseTrackingSupplySpeed: _ => stringToBigInt(tracking.baseSupplySpeed),
-    baseTrackingBorrowSpeed: _ => stringToBigInt(tracking.baseBorrowSpeed),
-    baseMinForRewards: _ => stringToBigInt(tracking.baseMinForRewards),
+    trackingIndexScale: (_) => stringToBigInt(tracking.indexScale),
+    baseTrackingSupplySpeed: (_) => stringToBigInt(tracking.baseSupplySpeed),
+    baseTrackingBorrowSpeed: (_) => stringToBigInt(tracking.baseBorrowSpeed),
+    baseMinForRewards: (_) => stringToBigInt(tracking.baseMinForRewards),
   });
   const mapping = () => ({
-    name: _ => config.name,
-    symbol: _ => config.symbol,
-    governor: _ => config.governor,
-    pauseGuardian: _ => config.pauseGuardian,
-    baseToken: _ => getContractAddress(config.baseToken, contracts, config.baseTokenAddress),
-    baseTokenPriceFeed: _ => getContractAddress(`${config.baseToken}:priceFeed`, contracts, config.baseTokenPriceFeed),
-    baseBorrowMin: _ => stringToBigInt(config.borrowMin),
-    storeFrontPriceFactor: _ => percentage(config.storeFrontPriceFactor),
-    targetReserves: _ => stringToBigInt(config.targetReserves),
+    name: (_) => config.name,
+    symbol: (_) => config.symbol,
+    governor: (_) => config.governor,
+    pauseGuardian: (_) => config.pauseGuardian,
+    baseToken: (_) => getContractAddress(config.baseToken, contracts, config.baseTokenAddress),
+    baseTokenPriceFeed: (_) => getContractAddress(`${config.baseToken}:priceFeed`, contracts, config.baseTokenPriceFeed),
+    baseBorrowMin: (_) => stringToBigInt(config.borrowMin),
+    storeFrontPriceFactor: (_) => percentage(config.storeFrontPriceFactor),
+    targetReserves: (_) => stringToBigInt(config.targetReserves),
     ...interestRateInfoMapping(config.rates),
     ...trackingInfoMapping(config.tracking),
-    assetConfigs: _ => getAssetConfigs(config.assets, contracts),
-    rewardTokenAddress: _ =>
+    assetConfigs: (_) => getAssetConfigs(config.assets, contracts),
+    rewardTokenAddress: (_) =>
       config.rewardToken || config.rewardTokenAddress
         ? getContractAddress(config.rewardToken, contracts, config.rewardTokenAddress)
         : undefined,
@@ -167,7 +167,7 @@ function getOverridesOrConfig(
 
 export async function getConfiguration(
   deploymentManager: DeploymentManager,
-  configOverrides: ProtocolConfiguration = {}
+  configOverrides: ProtocolConfiguration = {},
 ): Promise<ProtocolConfiguration> {
   const config = await deploymentManager.readConfig<NetworkConfiguration>();
   const contracts = await deploymentManager.contracts();
@@ -183,10 +183,10 @@ export async function getConfiguration(
 
 export async function getConfigurationStruct(
   deploymentManager: DeploymentManager,
-  configOverrides: ProtocolConfiguration = {}
+  configOverrides: ProtocolConfiguration = {},
 ): Promise<ConfigurationStruct> {
   const contracts = await deploymentManager.contracts();
   const configuration = (await getConfiguration(deploymentManager, configOverrides)) as ConfigurationStruct;
-  const extensionDelegate = configOverrides.extensionDelegate ?? getContractAddress("comet:implementation:implementation", contracts);
+  const extensionDelegate = configOverrides.extensionDelegate ?? getContractAddress('comet:implementation:implementation', contracts);
   return { ...configuration, extensionDelegate };
 }

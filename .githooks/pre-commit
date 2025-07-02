@@ -23,10 +23,6 @@ SOLIDITY_FILES=$(echo "$STAGED_FILES" | grep '\.sol$' || true)
 echo "🔧 Checking TypeScript compilation..."
 ./node_modules/.bin/tsc
 
-# ESLint check on staged files
-echo "🔍 Running ESLint on staged files..."
-echo "$STAGED_FILES" | xargs yarn lint
-
 # Prettier check on Solidity files
 echo "💅 Checking Solidity formatting..."
 echo "$STAGED_FILES" | xargs yarn prettier:sol
@@ -34,6 +30,14 @@ echo "$STAGED_FILES" | xargs yarn prettier:sol
 # Prettier check on TypeScript files
 echo "💅 Checking TypeScript formatting..."
 echo "$STAGED_FILES" | xargs yarn prettier:ts
+
+# ESLint check on staged files
+echo "🔍 Running ESLint TS on staged files..."
+echo "$STAGED_FILES" | xargs yarn lint:ts
+
+# ESLint check on staged files
+echo "🔍 Running ESLint Sol on staged files..."
+echo "$STAGED_FILES" | xargs yarn lint:sol
 
 # Generate documentation if Solidity files were modified
 if [ -n "$SOLIDITY_FILES" ]; then

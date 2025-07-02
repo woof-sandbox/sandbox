@@ -19,7 +19,7 @@ import {
   SandboxCometFactory__factory,
   SandboxControllerNoCurvesTest__factory,
   SandboxControllerNoCurvesTest,
-  FaucetToken
+  FaucetToken,
 } from "../build/types";
 import { CollateralTokenConfigStruct, CometConfigStruct } from "../build/types/ConfigController";
 import { BigNumber } from "ethers";

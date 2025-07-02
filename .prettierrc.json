@@ -18,7 +18,7 @@
       }
     },
     {
-      "files": ["test/**/*.ts", "test/**/*.js", "src/**/*.ts", "src/**/*.js", "scripts/**/*.ts", "scripts/**/*.js", "tasks/**/*.ts", "tasks/**/*.js", "plugins/**/*.ts", "plugins/**/*.js", "scenario/**/*.ts", "scenario/**/*.js"],
+      "files": ["test/**/*.ts", "test/**/*.js", "scripts/**/*.ts", "scripts/**/*.js"],
       "options": {
         "printWidth": 140,
         "tabWidth": 2,

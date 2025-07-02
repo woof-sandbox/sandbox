@@ -1158,7 +1158,7 @@ describe("supplyFrom", function () {
     await COMP.allocateTo(bob.address, 7);
     const baseAsB = COMP.connect(bob);
     const cometAsC = comet.connect(charlie);
-    
+
     // Pause supply
     // TODO: Fix this by creating smart contract that can pause supply
     const configSigner = await ethers.getImpersonatedSigner(configController.address);

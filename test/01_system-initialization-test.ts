@@ -646,8 +646,8 @@ describe("1. System Initialization", function () {
   });
 
   describe("Sandbox Controller deployment", function () {
-    type DeployParams = Parameters<typeof _SandboxControllerFactory.deploy>;    
-    
+    type DeployParams = Parameters<typeof _SandboxControllerFactory.deploy>;
+
     beforeEach(async function () {
       opts = defaultSandboxControllerOpts();
       opts.dao = dao.address;
@@ -674,7 +674,7 @@ describe("1. System Initialization", function () {
 
     it("reverts if admin = 0", async function () {
       opts.admin = ethers.constants.AddressZero;
-      await expect(_SandboxControllerFactory.connect(dao).deploy(...Object.values(opts) as DeployParams)).to.be.revertedWithCustomError(
+      await expect(_SandboxControllerFactory.connect(dao).deploy(...(Object.values(opts) as DeployParams))).to.be.revertedWithCustomError(
         _SandboxControllerFactory,
         "ZeroAddress"
       );
@@ -682,7 +682,7 @@ describe("1. System Initialization", function () {
 
     it("reverts if dao = 0", async function () {
       opts.dao = ethers.constants.AddressZero;
-      await expect(_SandboxControllerFactory.deploy(...Object.values(opts) as DeployParams)).to.be.revertedWithCustomError(
+      await expect(_SandboxControllerFactory.deploy(...(Object.values(opts) as DeployParams))).to.be.revertedWithCustomError(
         _SandboxControllerFactory,
         "ZeroAddress"
       );
@@ -690,7 +690,7 @@ describe("1. System Initialization", function () {
 
     it("reverts if storeFrontPriceFactor >= 1e18", async function () {
       opts.storeFrontPriceFactor = ethers.utils.parseEther("1").toString();
-      await expect(_SandboxControllerFactory.deploy(...Object.values(opts) as DeployParams)).to.be.revertedWithCustomError(
+      await expect(_SandboxControllerFactory.deploy(...(Object.values(opts) as DeployParams))).to.be.revertedWithCustomError(
         _SandboxControllerFactory,
         "InvalidFactors"
       );
@@ -699,7 +699,7 @@ describe("1. System Initialization", function () {
     it("reverts if the sum of reserveCommissions elements + protocolCommissions elements > 1e18(first set)", async function () {
       opts.reserveCommissions = [exp(0.5, 18), exp(0.5, 18), exp(0.5, 18)];
       opts.protocolCommissions = [exp(0.5, 18), exp(0.5, 18), exp(0.5, 18)];
-      await expect(_SandboxControllerFactory.deploy(...Object.values(opts) as DeployParams)).to.be.revertedWithCustomError(
+      await expect(_SandboxControllerFactory.deploy(...(Object.values(opts) as DeployParams))).to.be.revertedWithCustomError(
         _SandboxControllerFactory,
         "InvalidFactors"
       );
@@ -708,7 +708,7 @@ describe("1. System Initialization", function () {
     it("reverts if the sum of reserveCommissions elements + protocolCommissions elements > 1e18(second set)", async function () {
       opts.reserveCommissions = [exp(0.8, 18), exp(0.9, 18), exp(0.99, 18)];
       opts.protocolCommissions = [exp(0.3, 18), exp(0.2, 18), exp(0.1, 18)];
-      await expect(_SandboxControllerFactory.deploy(...Object.values(opts) as DeployParams)).to.be.revertedWithCustomError(
+      await expect(_SandboxControllerFactory.deploy(...(Object.values(opts) as DeployParams))).to.be.revertedWithCustomError(
         _SandboxControllerFactory,
         "InvalidFactors"
       );
@@ -717,7 +717,7 @@ describe("1. System Initialization", function () {
     it("reverts if the sum of reserveCommissions elements + protocolCommissions elements > 1e18(third set)", async function () {
       opts.reserveCommissions = [exp(0.5, 18), exp(0.5, 18), exp(0.5, 18)];
       opts.protocolCommissions = [exp(0.8, 18), exp(0.7, 18), exp(0.9, 18)];
-      await expect(_SandboxControllerFactory.deploy(...Object.values(opts) as DeployParams)).to.be.revertedWithCustomError(
+      await expect(_SandboxControllerFactory.deploy(...(Object.values(opts) as DeployParams))).to.be.revertedWithCustomError(
         _SandboxControllerFactory,
         "InvalidFactors"
       );
@@ -725,7 +725,7 @@ describe("1. System Initialization", function () {
 
     it("reverts if minUpdateTime = 0", async function () {
       opts.minUpdateTime = 0;
-      await expect(_SandboxControllerFactory.deploy(...Object.values(opts) as DeployParams)).to.be.revertedWithCustomError(
+      await expect(_SandboxControllerFactory.deploy(...(Object.values(opts) as DeployParams))).to.be.revertedWithCustomError(
         _SandboxControllerFactory,
         "InvalidFactors"
       );
@@ -733,7 +733,7 @@ describe("1. System Initialization", function () {
 
     it("reverts if suggestedAmountOfSeedReserves = 0", async function () {
       opts.suggestedAmountOfSeedReserves = "0";
-      await expect(_SandboxControllerFactory.deploy(...Object.values(opts) as DeployParams)).to.be.revertedWithCustomError(
+      await expect(_SandboxControllerFactory.deploy(...(Object.values(opts) as DeployParams))).to.be.revertedWithCustomError(
         _SandboxControllerFactory,
         "InvalidFactors"
       );
@@ -741,7 +741,7 @@ describe("1. System Initialization", function () {
 
     it("reverts if suggestedLockTimeOfSeedReserves = 0", async function () {
       opts.suggestedLockTimeOfSeedReserves = 0;
-      await expect(_SandboxControllerFactory.deploy(...Object.values(opts) as DeployParams)).to.be.revertedWithCustomError(
+      await expect(_SandboxControllerFactory.deploy(...(Object.values(opts) as DeployParams))).to.be.revertedWithCustomError(
         _SandboxControllerFactory,
         "InvalidFactors"
       );
@@ -749,7 +749,7 @@ describe("1. System Initialization", function () {
 
     it("reverts if targetReserves > 5e17", async function () {
       opts.targetPercent = ethers.utils.parseEther("0.6").toString();
-      await expect(_SandboxControllerFactory.deploy(...Object.values(opts) as DeployParams)).to.be.revertedWithCustomError(
+      await expect(_SandboxControllerFactory.deploy(...(Object.values(opts) as DeployParams))).to.be.revertedWithCustomError(
         _SandboxControllerFactory,
         "InvalidFactors"
       );

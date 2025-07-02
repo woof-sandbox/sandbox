@@ -331,7 +331,7 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Par
     const name = config.name || symbol;
     const factory = config.factory || FaucetFactory;
     let token: FaucetToken;
-    token = tokens[symbol] = await factory.deploy(initial, name, decimals, symbol) as FaucetToken;
+    token = tokens[symbol] = (await factory.deploy(initial, name, decimals, symbol)) as FaucetToken;
     await token.deployed();
   }
 
@@ -554,7 +554,7 @@ export const makeProtocol = async (opts: ProtocolOpts = {}) => {
     users,
     guardian,
     owner,
-    unsupportedToken
+    unsupportedToken,
   } = await makeConfigController(opts);
 
   await baseToken.allocateTo(owner.address, seedReserves);
@@ -695,12 +695,15 @@ export function defaultSandboxControllerOpts(partial?: Partial<SandboxController
 }
 
 export async function makeOnlyConfigController(
-  curator: string, 
-  guardian: string, 
-  cometFactory: string, 
+  curator: string,
+  guardian: string,
+  cometFactory: string,
   configControllerFactoryAddress: string
 ): Promise<string> {
-  const configControllerFactory: ConfigControllerFactory = await ethers.getContractAt("ConfigControllerFactory", configControllerFactoryAddress) as ConfigControllerFactory;  
+  const configControllerFactory: ConfigControllerFactory = (await ethers.getContractAt(
+    "ConfigControllerFactory",
+    configControllerFactoryAddress
+  )) as ConfigControllerFactory;
 
   const tx: ContractTransaction = await configControllerFactory.createConfigController(
     curator,

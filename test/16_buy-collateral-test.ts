@@ -375,12 +375,10 @@ describe.skip("16. buyCollateral", function () {
   /// TODO: FIX of ts compiler error. Check if this is correct.
   // Define the extended interface for the comet contract with additional methods
   interface ExtendedCometHarness extends CometHarness {
-    approve(address,bool): Promise<void>;
+    approve(address, bool): Promise<void>;
   }
   /// TODO: FIX of ts compiler error. Check if this is correct.
-  const extAbi = [
-    "approve(address,bool)",
-  ];
+  const extAbi = ["approve(address,bool)"];
 
   // TODO: Fix this
   describe.skip("reentrancy", function () {
@@ -426,8 +424,11 @@ describe.skip("16. buyCollateral", function () {
       });
       const evilTokens = evilProtocol.tokens;
       /// TODO: FIX of ts compiler error. Check if this is correct.
-      const evilComet = new ethers.Contract(evilProtocol.comet.address, [...evilProtocol.comet.interface.fragments, ...extAbi]) as ExtendedCometHarness;
-      const { WETH: evilWETH, EVIL } = <{ WETH: FaucetToken, EVIL: EvilToken }>evilTokens;
+      const evilComet = new ethers.Contract(evilProtocol.comet.address, [
+        ...evilProtocol.comet.interface.fragments,
+        ...extAbi,
+      ]) as ExtendedCometHarness;
+      const { WETH: evilWETH, EVIL } = <{ WETH: FaucetToken; EVIL: EvilToken }>evilTokens;
       // add attack to EVIL token
       const attack = Object.assign({}, await EVIL.getAttack(), {
         attackType: ReentryAttack.SupplyFrom,
@@ -545,9 +546,12 @@ describe.skip("16. buyCollateral", function () {
         users: [evilAlice, evilBob],
       } = evilProtocol;
       /// TODO: FIX of ts compiler error. Check if this is correct.
-      const evilComet = new ethers.Contract(evilProtocol.comet.address, [...evilProtocol.comet.interface.fragments, ...extAbi]) as ExtendedCometHarness;
+      const evilComet = new ethers.Contract(evilProtocol.comet.address, [
+        ...evilProtocol.comet.interface.fragments,
+        ...extAbi,
+      ]) as ExtendedCometHarness;
 
-      const { WETH: evilWETH, EVIL } = <{ WETH: FaucetToken, EVIL: EvilToken }>evilTokens;
+      const { WETH: evilWETH, EVIL } = <{ WETH: FaucetToken; EVIL: EvilToken }>evilTokens;
 
       // add attack to EVIL token
       const attack = Object.assign({}, await EVIL.getAttack(), {

@@ -919,7 +919,7 @@ describe("withdraw", function () {
           },
         },
       });
-      const { USDC, EVIL } = <{ USDC: FaucetToken, EVIL: EvilToken }>tokens;
+      const { USDC, EVIL } = <{ USDC: FaucetToken; EVIL: EvilToken }>tokens;
 
       const attack = Object.assign({}, await EVIL.getAttack(), {
         attackType: ReentryAttack.TransferFrom,
@@ -964,7 +964,7 @@ describe("withdraw", function () {
           },
         },
       });
-      const { USDC, EVIL } = <{ USDC: FaucetToken, EVIL: EvilToken }>tokens;
+      const { USDC, EVIL } = <{ USDC: FaucetToken; EVIL: EvilToken }>tokens;
 
       const attack = Object.assign({}, await EVIL.getAttack(), {
         attackType: ReentryAttack.WithdrawFrom,
@@ -1140,7 +1140,7 @@ describe("withdrawFrom", function () {
     const cometAsC = comet.connect(charlie);
 
     // Pause withdraw
-    // TODO: Fix this 
+    // TODO: Fix this
     const configSigner = await ethers.getImpersonatedSigner(configController.address);
     await hre.network.provider.send("hardhat_setBalance", [configController.address, ethers.utils.hexValue(ethers.utils.parseEther("5"))]);
     await wait(comet.connect(configSigner).pause(false, false, true, false, false));

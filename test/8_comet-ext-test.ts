@@ -11,7 +11,7 @@ interface ExtendedCometHarness extends CometHarness {
 }
 
 describe("8. CometExtension", () => {
-  let comet: ExtendedCometHarness
+  let comet: ExtendedCometHarness;
   let user: SignerWithAddress;
   let tokens: Record<string, FaucetToken | NonStandardFaucetFeeToken>;
 

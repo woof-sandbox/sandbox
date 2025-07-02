@@ -46,4 +46,12 @@ docs/
 *.md
 
 # Hardhat files
-hardhat.config.ts 
+hardhat.config.ts
+
+# Git files
+.git
+.githooks/
+.gitignore
+.gitattributes
+.gitmodules
+.gitkeep 

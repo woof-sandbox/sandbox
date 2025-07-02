@@ -1,12 +1,6 @@
 import { expect } from "chai";
 import { ethers } from "hardhat";
-import {
-  defaultSandboxControllerOpts,
-  makeSandboxController,
-  makeMockERC20,
-  makePriceFeed,
-  exp
-} from "./helper/helpers";
+import { defaultSandboxControllerOpts, makeSandboxController, makeMockERC20, makePriceFeed, exp } from "./helper/helpers";
 import { parseEther } from "ethers/lib/utils";
 
 function makeValidCurve() {
