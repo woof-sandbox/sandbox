@@ -4,7 +4,6 @@ pragma solidity 0.8.28;
 import "./ISandboxErrors.sol";
 
 interface ISandboxController is ISandboxErrors {
-interface ISandboxController is ISandboxErrors {
     enum MarketState {
         Low,
         Medium,
@@ -12,16 +11,6 @@ interface ISandboxController is ISandboxErrors {
     }
 
     struct BaseAssetCurve {
-        /// First 256 bits (32 bytes)
-        uint64 supplyKink; // 8 bytes
-        uint64 supplyPerYearInterestRateBase; // 8 bytes
-        uint64 supplyPerYearInterestRateSlopeLow; // 8 bytes
-        uint64 supplyPerYearInterestRateSlopeHigh; // 8 bytes
-        /// Last 256 bits (32 bytes)
-        uint64 borrowKink; // 8 bytes
-        uint64 borrowPerYearInterestRateBase; // 8 bytes
-        uint64 borrowPerYearInterestRateSlopeLow; // 8 bytes
-        uint64 borrowPerYearInterestRateSlopeHigh; // 8 bytes
         /// First 256 bits (32 bytes)
         uint64 supplyKink; // 8 bytes
         uint64 supplyPerYearInterestRateBase; // 8 bytes
@@ -66,20 +55,7 @@ interface ISandboxController is ISandboxErrors {
     }
 
     /// TODO: Probarly A LOT OF WASTED SPACE. Decide the biggest variable value.
-    /// TODO: Probarly A LOT OF WASTED SPACE. Decide the biggest variable value.
     struct SandboxControllerConfiguration {
-        /// First 256 bits (32 bytes)
-        uint256 targetPercent; // 32 bytes
-        /// Second 256 bits (32 bytes)
-        uint256 storeFrontPriceFactor; // 32 bytes
-        /// Third 256 bits (32 bytes)
-        uint256 minUpdateTime; // 32 bytes
-        /// Fourth 256 bits (32 bytes)
-        uint256 maxUpdateTime; // 32 bytes
-        /// Fifth 256 bits (32 bytes)
-        uint256 suggestedAmountOfSeedReserves; // 32 bytes
-        /// Sixth 256 bits (32 bytes)
-        uint256 suggestedLockTimeOfSeedReserves; // 32 bytes
         /// First 256 bits (32 bytes)
         uint256 targetPercent; // 32 bytes
         /// Second 256 bits (32 bytes)
@@ -117,8 +93,6 @@ interface ISandboxController is ISandboxErrors {
         uint64 maxLiquidationFactor
     );
 
-    event ReserveCommissionChanged(MarketState state, uint64 oldValue, uint64 newValue);
-    event ProtocolCommissionChanged(MarketState state, uint64 oldValue, uint64 newValue);
     event ReserveCommissionChanged(MarketState state, uint64 oldValue, uint64 newValue);
     event ProtocolCommissionChanged(MarketState state, uint64 oldValue, uint64 newValue);
     event TreasuryChanged(address oldTreasury, address newTreasury);
@@ -165,7 +139,6 @@ interface ISandboxController is ISandboxErrors {
         uint64 minLiquidationFactor,
         uint64 maxLiquidationFactor
     ) external;
-    ) external;
 
     function addBaseAssetCurve(address token, BaseAssetCurve memory baseAssetCurve) external;
 
@@ -197,6 +170,5 @@ interface ISandboxController is ISandboxErrors {
 
     function curves(address token) external view returns (BaseAssetCurve[] memory);
 
-    function config() external view returns (SandboxControllerConfiguration memory);
     function config() external view returns (SandboxControllerConfiguration memory);
 }

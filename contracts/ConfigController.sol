@@ -75,9 +75,6 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
     /// @notice Controller fee from the Comet's profit
     mapping(address => bool) public override cometFeeEnabled;
 
-    /// @notice Controller fee from the Comet's profit
-    mapping(address => bool) public override cometFeeEnabled;
-
     /// @notice Modifier to restrict access to owner only
     modifier onlyOwner() {
         if (msg.sender != owner) revert Unauthorized();
@@ -381,4 +378,3 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
         return comets[cometId[comet]] != comet;
     }
 }
-// Test comment

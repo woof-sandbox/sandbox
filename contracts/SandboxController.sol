@@ -60,17 +60,11 @@ contract SandboxController is ISandboxController {
     /**
      * @dev Modifier to check if the caller is the owner.
      */
-    /**
-     * @dev Modifier to check if the caller is the owner.
-     */
     modifier onlyOwner() {
         if (msg.sender != owner) revert NotOwner(msg.sender);
         _;
     }
 
-    /**
-     * @dev Modifier to check if the caller is the DAO.
-     */
     /**
      * @dev Modifier to check if the caller is the DAO.
      */
@@ -85,7 +79,6 @@ contract SandboxController is ISandboxController {
      *      in the relevant functions. For shared powers, use onlyAuthorized.
      */
     modifier onlyAuthorized() {
-        if (msg.sender != owner && msg.sender != dao) revert Unauthorized();
         if (msg.sender != owner && msg.sender != dao) revert Unauthorized();
         _;
     }
@@ -107,17 +100,10 @@ contract SandboxController is ISandboxController {
      * @param _reserveCommissions The reserve commission factors for each market state.
      * @param _protocolCommissions The protocol commission factors for each market state.
      * @dev The length of the `_reserveCommissions` and `_protocolCommissions` arrays must be 3.
-     * @param _suggestedAmountOfSeedReserves The suggested amount of seed reserves in $. Decimals are 6.
-     * @param _suggestedLockTimeOfSeedReserves The suggested lock time of seed reserves in seconds.
-     * @dev The `_suggestedAmountOfSeedReserves` and `_suggestedLockTimeOfSeedReserves` must be greater than 0.
-     * @param _reserveCommissions The reserve commission factors for each market state.
-     * @param _protocolCommissions The protocol commission factors for each market state.
-     * @dev The length of the `_reserveCommissions` and `_protocolCommissions` arrays must be 3.
      */
     constructor(
         address _owner,
         address _dao,
-        address _treasury,
         address _treasury,
         bool _feeEnabled,
         uint256 _targetPercent,
@@ -224,13 +210,8 @@ contract SandboxController is ISandboxController {
      * @param _treasury The address of the treasury.
      * @dev This function is only callable by the owner.
      * @dev The `treasury` address can`t be zero address.
-     * @dev This function is only callable by the owner.
-     * @dev The `treasury` address can`t be zero address.
      */
     function setTreasury(address _treasury) external override onlyOwner {
-        if (_treasury == address(0)) revert ZeroAddress();
-        /// Emit event before updating the `treasury` address to save gas. Cheaper than creating a memory variable.
-        emit TreasuryChanged(treasury, _treasury);
         if (_treasury == address(0)) revert ZeroAddress();
         /// Emit event before updating the `treasury` address to save gas. Cheaper than creating a memory variable.
         emit TreasuryChanged(treasury, _treasury);
@@ -403,7 +384,6 @@ contract SandboxController is ISandboxController {
         _collateralAssets[token].collateralToken = token;
         _collateralAssets[token].priceFeed = priceFeed;
         _collateralAssets[token].decimals = uint8(decimals);
-        _collateralAssets[token].decimals = uint8(decimals);
         _collateralAssets[token].maxBorrowCollateralFactor = maxBorrowCollateralFactor;
         _collateralAssets[token].minBorrowCollateralFactor = minBorrowCollateralFactor;
         _collateralAssets[token].minLiquidateCollateralFactor = minLiquidateCollateralFactor;
@@ -465,7 +445,6 @@ contract SandboxController is ISandboxController {
 
         _baseAssets[token].baseAssetCurves.push(baseAssetCurve);
         emit BaseAssetCurveAdded(token, baseAssetCurve, _baseAssets[token].baseAssetCurves.length - 1);
-        emit BaseAssetCurveAdded(token, baseAssetCurve, _baseAssets[token].baseAssetCurves.length - 1);
     }
 
     /**
@@ -492,7 +471,6 @@ contract SandboxController is ISandboxController {
     function transferOwner(address newOwner) external override onlyOwner {
         if (newOwner == address(0)) revert ZeroAddress();
         emit OwnerTransferred(owner, newOwner);
-        emit OwnerTransferred(owner, newOwner);
         owner = newOwner;
     }
 
@@ -502,7 +480,6 @@ contract SandboxController is ISandboxController {
      */
     function transferDao(address newDao) external override onlyDao {
         if (newDao == address(0)) revert ZeroAddress();
-        emit DaoTransferred(dao, newDao);
         emit DaoTransferred(dao, newDao);
         dao = newDao;
     }
@@ -571,11 +548,6 @@ contract SandboxController is ISandboxController {
         return _baseAssets[token].baseAssetCurves;
     }
 
-    /**
-     * @notice Returns the proposal boundaries of the sandbox controller.
-     * @return The proposal boundaries.
-     */
-    function proposalBoundaries() external view override returns (uint256, uint256) {
     /**
      * @notice Returns the proposal boundaries of the sandbox controller.
      * @return The proposal boundaries.

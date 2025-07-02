@@ -14,7 +14,6 @@ abstract contract ISandboxComet is CometCore {
     error Absurd();
     error AlreadyInitialized();
     error AmountTooSmall();
-    error AmountTooSmall();
     error BadAsset();
     error BadDecimals();
     error BadDiscount();
@@ -38,7 +37,6 @@ abstract contract ISandboxComet is CometCore {
     error TransferOutFailed();
     error Unauthorized();
     error Locked(uint256 currrentTimestamp, uint256 unlockTimestamp);
-    error ZeroAddress();
     error ZeroAddress();
 
     event Supply(address indexed from, address indexed dst, uint amount);
@@ -109,7 +107,6 @@ abstract contract ISandboxComet is CometCore {
     function buyCollateral(address asset, uint minAmount, uint baseAmount, address recipient) external virtual;
 
     function quoteCollateral(address asset, uint baseAmount) public view virtual returns (uint, uint, uint, uint);
-    function quoteCollateral(address asset, uint baseAmount) public view virtual returns (uint, uint, uint, uint);
 
     function getCollateralReserves(address asset) public view virtual returns (uint);
 
@@ -126,11 +123,8 @@ abstract contract ISandboxComet is CometCore {
     function balanceOf(address owner) public view virtual returns (uint256);
 
     function borrowBalanceOf(address account) public view virtual returns (uint256);
-<<<<<<< HEAD
-=======
 
     function pause(bool supplyPaused, bool transferPaused, bool withdrawPaused, bool absorbPaused, bool buyPaused) external virtual;
->>>>>>> 910c8f3 (Docgen (#35))
 
     function extractFees(address) external virtual;
 

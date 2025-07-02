@@ -181,7 +181,6 @@ contract SandboxComet is ISandboxComet {
      * @dev Determine index of asset that matches given address
      */
     function getAssetInfoByAddress(address asset) public view returns (CollateralAsset memory, uint8 index) {
-    function getAssetInfoByAddress(address asset) public view returns (CollateralAsset memory, uint8 index) {
         index = collateralAssetIndex[asset];
         if (index == 0 && asset != collateralAssets[0].collateralToken) {
             revert BadAsset();
@@ -311,7 +310,6 @@ contract SandboxComet is ISandboxComet {
      * @dev Note: Reverts if collateral reserves are somehow negative, which should not be possible
      * @param asset The collateral asset
      */
-    function getCollateralReserves(address asset) public view override returns (uint) {
     function getCollateralReserves(address asset) public view override returns (uint) {
         return
             IERC20NonStandard(asset).balanceOf(address(this)) - totalsCollateral[asset] - assetFeesController[asset] - assetFeesDAO[asset];
@@ -1247,14 +1245,6 @@ contract SandboxComet is ISandboxComet {
             }
         }
     }
-
-    receive() external payable {
-        // Fallback function to receive ETH, if needed
-        // Note: This contract does not use ETH, so this is just a placeholder
-        revert("SandboxComet: Cannot receive ETH");
-    }
-}
-
 
     receive() external payable {
         // Fallback function to receive ETH, if needed
