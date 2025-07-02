@@ -44,14 +44,6 @@ contract CometHarness is SandboxComet {
         userBasic[account].principal = principal;
     }
 
-    function setBaseMinForRewards(uint104 _baseMinForRewards) external {
-        baseMinForRewards = _baseMinForRewards;
-    }
-
-    function setDaoBaseMinForRewards(uint104 _daoBaseMinForRewards) external {
-        daoBaseMinForRewards = _daoBaseMinForRewards;
-    }
-
     function setCollateralBalance(address account, address asset, uint256 balance) external {
         uint256 oldBalance = userCollateral[account][asset];
         userCollateral[account][asset] = balance;
