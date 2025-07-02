@@ -24,7 +24,6 @@ contract CometStorage {
         uint8 pauseFlags;
     }
 
-
     struct UserBasic {
         int104 principal;
         uint64 baseTrackingIndex;

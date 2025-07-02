@@ -28,6 +28,9 @@ interface IConfigControllerErrors {
     error InvalidCurveId();
     error IncorrectValue();
     error UnknownComet();
+<<<<<<< HEAD
     error IncorrectValue();
     error UnknownComet();
+=======
+>>>>>>> 910c8f3 (Docgen (#35))
 }

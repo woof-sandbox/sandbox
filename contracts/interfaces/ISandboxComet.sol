@@ -62,20 +62,10 @@ abstract contract ISandboxComet is CometCore {
     );
 
     /// @notice Event emitted when a collateral asset is purchased from the protocol
-    event BuyCollateral(
-        address indexed buyer,
-        address indexed asset,
-        uint baseAmount,
-        uint collateralAmount
-    );
+    event BuyCollateral(address indexed buyer, address indexed asset, uint baseAmount, uint collateralAmount);
 
     /// @notice Event emitted when fees are extracted either to DAO or to protocol
-    event FeesExtracted(
-        address indexed comet,
-        address indexed asset,
-        uint amoint,
-        address to
-    );
+    event FeesExtracted(address indexed comet, address indexed asset, uint amoint, address to);
 
     /// @notice Event emitted when an action is paused/unpaused
     event PauseAction(bool supplyPaused, bool transferPaused, bool withdrawPaused, bool absorbPaused, bool buyPaused);
@@ -83,11 +73,7 @@ abstract contract ISandboxComet is CometCore {
     /// @notice Event emitted when reserves are withdrawn by the governor
     event WithdrawReserves(address indexed to, uint amount);
 
-    event SpeedsChanged(
-        uint baseTrackingSupplySpeed,
-        uint baseTrackingBorrowSpeed,
-        bool dao_
-    );
+    event SpeedsChanged(uint baseTrackingSupplySpeed, uint baseTrackingBorrowSpeed, bool dao_);
 
     event ControllerFeeDisabled(bool disabled);
 
@@ -118,8 +104,9 @@ abstract contract ISandboxComet is CometCore {
         IConfigController.CometGlobalParamsConfig memory config
     ) external virtual;
 
-    function absorb(address absorber, address[] calldata accounts) virtual external;
-    function buyCollateral(address asset, uint minAmount, uint baseAmount, address recipient) virtual external;
+    function absorb(address absorber, address[] calldata accounts) external virtual;
+
+    function buyCollateral(address asset, uint minAmount, uint baseAmount, address recipient) external virtual;
 
     function quoteCollateral(address asset, uint baseAmount) public view virtual returns (uint, uint, uint, uint);
     function quoteCollateral(address asset, uint baseAmount) public view virtual returns (uint, uint, uint, uint);
@@ -133,20 +120,18 @@ abstract contract ISandboxComet is CometCore {
     function isBorrowCollateralized(address account) public view virtual returns (bool);
 
     function isLiquidatable(address account) public view virtual returns (bool);
-    
+
     function totalBorrow() external view virtual returns (uint256);
 
     function balanceOf(address owner) public view virtual returns (uint256);
 
     function borrowBalanceOf(address account) public view virtual returns (uint256);
+<<<<<<< HEAD
+=======
 
-    function pause(
-        bool supplyPaused,
-        bool transferPaused,
-        bool withdrawPaused,
-        bool absorbPaused,
-        bool buyPaused
-    ) external virtual;
+    function pause(bool supplyPaused, bool transferPaused, bool withdrawPaused, bool absorbPaused, bool buyPaused) external virtual;
+>>>>>>> 910c8f3 (Docgen (#35))
+
     function extractFees(address) external virtual;
 
     function isSupplyPaused() public view virtual returns (bool);

@@ -8,10 +8,14 @@ import {
   CometHarness,
 } from "../build/types";
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 910c8f3 (Docgen (#35))
 import { ethers, event, expect, exp, getBlock, makeProtocol, portfolio, ReentryAttack, wait, hre } from "./helper/helpers";
 // TODO: Fix this.
 describe.skip("16. buyCollateral", function () {
   async function mintUserCollateral(comet: SandboxComet, token: FaucetToken, user: string, amount: bigint) {
+<<<<<<< HEAD
 =======
 import {
   ethers,
@@ -34,6 +38,8 @@ describe.skip("16. buyCollateral", function() {
     amount: bigint
   ) {
 >>>>>>> 5c3a483 (Liquidation commissions (#14))
+=======
+>>>>>>> 910c8f3 (Docgen (#35))
     await token.allocateTo(user, amount);
     await token.connect(await ethers.getSigner(user)).approve(comet.address, amount);
     await comet.connect(await ethers.getSigner(user)).supply(token.address, amount);
@@ -47,6 +53,7 @@ describe.skip("16. buyCollateral", function() {
     await comet.connect(signer).withdraw(base.address, amountBaseWei);
   }
 
+<<<<<<< HEAD
 <<<<<<< HEAD
 =======
   const FACTOR_SCALE = BigInt("1000000000000000000");
@@ -76,6 +83,8 @@ describe.skip("16. buyCollateral", function() {
   }
 
 >>>>>>> 5c3a483 (Liquidation commissions (#14))
+=======
+>>>>>>> 910c8f3 (Docgen (#35))
   it("allows buying collateral when reserves < target reserves", async () => {
     const protocol = await makeProtocol({
       base: "USDC",

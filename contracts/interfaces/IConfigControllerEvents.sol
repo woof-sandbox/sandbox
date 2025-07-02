@@ -8,15 +8,8 @@ interface IConfigControllerEvents {
     event CuratorCanceled(address indexed oldCurator);
     event CuratorProposalCancelled(address indexed proposedCurator);
     event GuardianUpdated(address indexed oldGuardian, address indexed newGuardian);
-    
-    event ProposalDurationsUpdated(
-        uint oldCuratorDuration,
-        uint newCuratorDuration,
-        uint oldProposalDuration,
-        uint newProposalDuration
-    );
 
+    event ProposalDurationsUpdated(uint oldCuratorDuration, uint newCuratorDuration, uint oldProposalDuration, uint newProposalDuration);
 
     event CometFeeEnabled(address indexed controller, address indexed comet, bool enabled);
-
 }

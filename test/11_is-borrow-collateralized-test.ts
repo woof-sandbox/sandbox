@@ -108,7 +108,7 @@ describe("11. isBorrowCollateralized", function () {
       },
     });
     const { COMP } = tokens;
-    
+
     await COMP.allocateTo(alice.address, exp(1.7, 18));
     await COMP.connect(alice).approve(comet.address, exp(1.7, 18));
     await comet.connect(alice).supply(COMP.address, exp(1.7, 18));

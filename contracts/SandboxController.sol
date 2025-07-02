@@ -13,7 +13,7 @@ contract SandboxController is ISandboxController {
     uint256 public constant MARKET_STATES = 3;
     uint256 public constant PARAMETERS_SCALE = 1e18; //100%
     uint256 public constant MAX_TARGET_PERCENT = 5e17; //50%
-    uint64 public constant MAX_COMMISSIONS = 8e17;  //80%
+    uint64 public constant MAX_COMMISSIONS = 8e17; //80%
 
     /// @notice treasury address. This is the address that will receive the fees.
     address public treasury; /// 20 bytes
@@ -23,14 +23,21 @@ contract SandboxController is ISandboxController {
     address public override dao; /// 20 bytes
     /// @notice feeEnabled flag. This is the flag that will be used to enable/disable the fees for all markets.
     bool public override feeEnabled; /// 1 byte
-    /// @notice controller configuration. Holds: targetPercent, storeFrontPriceFactor, minUpdateTime, maxUpdateTime, suggestedAmountOfSeedReserves, suggestedLockTimeOfSeedReserves.
+    /// @notice controller configuration.
+    /// Holds:
+    /// targetPercent,
+    /// storeFrontPriceFactor,
+    /// minUpdateTime,
+    /// maxUpdateTime,
+    /// suggestedAmountOfSeedReserves,
+    /// suggestedLockTimeOfSeedReserves.
     SandboxControllerConfiguration public _controllerConfiguration; /// 32 bytes
     /// @notice base asset tokens. Whitelisted base asset tokens.
-    address[] public override baseAssetTokens; 
+    address[] public override baseAssetTokens;
     /// @notice collateral asset tokens. Whitelisted collateral asset tokens.
-    address[] public override collateralAssetTokens; 
+    address[] public override collateralAssetTokens;
     /// @notice token to price feed.
-    mapping(address => address) public override tokenToPriceFeed; 
+    mapping(address => address) public override tokenToPriceFeed;
 
     /// @notice % of the Comet's profit left in the comet as a reserve
     uint64[MARKET_STATES] public override reserveCommission;
@@ -39,8 +46,16 @@ contract SandboxController is ISandboxController {
 
     /// @notice base asset configurations. This is the mapping of the base asset token to the base asset configuration.
     mapping(address => BaseAssetConfiguration) internal _baseAssets;
-    /// @notice collateral asset configurations. Holds: priceFeed, decimals, maxBorrowCollateralFactor, minBorrowCollateralFactor, minLiquidateCollateralFactor, maxLiquidateCollateralFactor, minLiquidationFactor, maxLiquidationFactor
-    mapping(address => CollateralAssetConfiguration) internal _collateralAssets; 
+    /// @notice collateral asset configurations.
+    /// Holds:
+    /// priceFeed,
+    /// decimals,
+    /// maxBorrowCollateralFactor,
+    /// minBorrowCollateralFactor,
+    /// minLiquidateCollateralFactor,
+    /// maxLiquidateCollateralFactor,
+    /// minLiquidationFactor, maxLiquidationFactor
+    mapping(address => CollateralAssetConfiguration) internal _collateralAssets;
 
     /**
      * @dev Modifier to check if the caller is the owner.
@@ -125,24 +140,25 @@ contract SandboxController is ISandboxController {
         if (
             _targetPercent > MAX_TARGET_PERCENT || /// Validate that the targetPercent is not bigger than 50%.
             _storeFrontPriceFactor >= PARAMETERS_SCALE || /// Validate that the storeFrontPriceFactor is not bigger than 100%.
-            _minUpdateTime == 0 || _maxUpdateTime < _minUpdateTime || /// Validate that the minUpdateTime is not 0 and the maxUpdateTime is bigger than the minUpdateTime.
+            _minUpdateTime == 0 ||
+            _maxUpdateTime < _minUpdateTime || /// Validate that the minUpdateTime is not 0 and the maxUpdateTime > minUpdateTime.
             _suggestedAmountOfSeedReserves == 0 || /// Validate that the suggestedAmountOfSeedReserves is not 0.
             _suggestedLockTimeOfSeedReserves == 0 /// Validate that the suggestedLockTimeOfSeedReserves is not 0.
         ) revert InvalidFactors();
-        
-        for (uint256 i; i < MARKET_STATES;) {
+
+        for (uint256 i; i < MARKET_STATES; ) {
             /// Validate that the reserveCommissions and protocolCommissions are not bigger than 80%. 100% = 1e18.
             /// This needed to leave something for the ConfigController owner and curator.
             if (reserveCommission[i] + protocolCommission[i] > MAX_COMMISSIONS) revert InvalidCommissions();
-            
+
             reserveCommission[i] = _reserveCommissions[i];
             protocolCommission[i] = _protocolCommissions[i];
-            
+
             unchecked {
                 ++i;
             }
         }
-        
+
         _controllerConfiguration = SandboxControllerConfiguration(
             _targetPercent,
             _storeFrontPriceFactor,
@@ -161,9 +177,7 @@ contract SandboxController is ISandboxController {
      * @notice Sets the reserve commission factors for each market state.
      * @param _reserveCommissions The new reserve commission factors, scaled by 1e18 (100%).
      */
-    function setReserveCommissions(
-        uint64[MARKET_STATES] calldata _reserveCommissions
-    ) external override onlyOwner {
+    function setReserveCommissions(uint64[MARKET_STATES] calldata _reserveCommissions) external override onlyOwner {
         for (uint8 i; i < MARKET_STATES; ) {
             /// Check if the sum of the `reserveCommission` and the `protocolCommission` is less than 80%
             /// This needed to leave something for the ConfigController owner and curator.
@@ -173,11 +187,7 @@ contract SandboxController is ISandboxController {
             }
 
             /// Emit event before updating the `reserveCommission` to save gas. Cheaper than creating a memory variable.
-            emit ReserveCommissionChanged(
-                MarketState(i),
-                reserveCommission[i],
-                _reserveCommissions[i]
-            );
+            emit ReserveCommissionChanged(MarketState(i), reserveCommission[i], _reserveCommissions[i]);
             reserveCommission[i] = _reserveCommissions[i];
 
             unchecked {
@@ -190,10 +200,8 @@ contract SandboxController is ISandboxController {
      * @notice Sets the protocol commission factors for each market state.
      * @param _protocolCommissions The new protocol commission factors, scaled by 1e18 (100%).
      */
-    function setProtocolCommissions(
-        uint64[MARKET_STATES] calldata _protocolCommissions
-    ) external override onlyOwner {
-        for (uint8 i; i < MARKET_STATES;) {
+    function setProtocolCommissions(uint64[MARKET_STATES] calldata _protocolCommissions) external override onlyOwner {
+        for (uint8 i; i < MARKET_STATES; ) {
             /// Check if the sum of the `protocolCommission` and the `reserveCommission` is less than 80%
             /// This needed to leave something for the ConfigController owner and curator.
             /// Config controller will receive non less than 20% of profit fee (upon reserves and dao fee)
@@ -202,11 +210,7 @@ contract SandboxController is ISandboxController {
             }
 
             /// Emit event before updating the `protocolCommission` to save gas. Cheaper than creating a memory variable.
-            emit ProtocolCommissionChanged(
-                MarketState(i),
-                protocolCommission[i],
-                _protocolCommissions[i]
-            );
+            emit ProtocolCommissionChanged(MarketState(i), protocolCommission[i], _protocolCommissions[i]);
             protocolCommission[i] = _protocolCommissions[i];
 
             unchecked {
@@ -252,9 +256,11 @@ contract SandboxController is ISandboxController {
      * @return _reserveCommission Part of profit to be left in reserves
      * @return _protocolCommission Part of profit for the DAO
      */
-    function getCommissions(uint256 _currentReserves, uint256 _seedReserves, uint256 _targetReserves) external override view 
-        returns(uint64 _reserveCommission, uint64 _protocolCommission)
-    {
+    function getCommissions(
+        uint256 _currentReserves,
+        uint256 _seedReserves,
+        uint256 _targetReserves
+    ) external view override returns (uint64 _reserveCommission, uint64 _protocolCommission) {
         MarketState state;
         if (_currentReserves < _seedReserves) {
             state = MarketState.High;
@@ -441,7 +447,7 @@ contract SandboxController is ISandboxController {
             _config.suggestedLockTimeOfSeedReserves == 0 ||
             _config.targetPercent > 5e17
         ) revert InvalidFactors();
-        
+
         emit ConfigurationChanged(_controllerConfiguration, _config);
 
         _controllerConfiguration = _config;
@@ -468,15 +474,12 @@ contract SandboxController is ISandboxController {
      * @param curveIndex The index of the curve to update.
      * @param newCurve The updated interest rate curve.
      */
-    function changeBaseAssetCurve(
-        address token,
-        uint256 curveIndex,
-        BaseAssetCurve calldata newCurve
-    ) external override onlyDao {
+    function changeBaseAssetCurve(address token, uint256 curveIndex, BaseAssetCurve calldata newCurve) external override onlyDao {
         if (token == address(0)) revert ZeroAddress();
         if (!isBaseTokenWhitelisted(token)) revert BaseTokenNotWhitelisted();
-        if (curveIndex >= _baseAssets[token].baseAssetCurves.length || !isCurveConfigurationValid(newCurve)) revert InvalidCurveConfiguration();
-        
+        if (curveIndex >= _baseAssets[token].baseAssetCurves.length || !isCurveConfigurationValid(newCurve))
+            revert InvalidCurveConfiguration();
+
         emit BaseAssetCurveChanged(token, _baseAssets[token].baseAssetCurves[curveIndex], newCurve, curveIndex);
 
         _baseAssets[token].baseAssetCurves[curveIndex] = newCurve;

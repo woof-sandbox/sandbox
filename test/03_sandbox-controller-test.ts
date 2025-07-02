@@ -76,7 +76,7 @@ describe("3. SandboxController", function () {
       expect(await sandboxController.reserveCommission(0)).to.equal(exp(0.01, 18));
       expect(await sandboxController.reserveCommission(1)).to.equal(exp(0.02, 18));
       expect(await sandboxController.reserveCommission(2)).to.equal(exp(0.03, 18));
-      
+
       expect(await sandboxController.getBaseAssetLength()).to.equal(0);
       expect(await sandboxController.getCollateralAssetLength()).to.equal(0);
       expect((await sandboxController.config()).storeFrontPriceFactor).to.equal(parseEther("0.1").toString());
@@ -284,7 +284,7 @@ describe("3. SandboxController", function () {
         admin: owner,
         dao: dao,
         feeEnabled: false,
-        storeFrontPriceFactor: parseEther('0.4').toString(),
+        storeFrontPriceFactor: parseEther("0.4").toString(),
         minUpdateTime: 500,
         suggestedAmountOfSeedReserves: "1000",
         suggestedLockTimeOfSeedReserves: 1000,
@@ -710,16 +710,16 @@ describe("3. SandboxController", function () {
       await expect(sandboxController.setConfiguration(config)).to.be.revertedWithCustomError(sandboxController, "InvalidFactors");
     });
 
-    it('updates configuration with valid values and emits event', async function () {
-      expect((await sandboxController.config()).storeFrontPriceFactor).to.equal(parseEther('0.9999999999').toString());
+    it("updates configuration with valid values and emits event", async function () {
+      expect((await sandboxController.config()).storeFrontPriceFactor).to.equal(parseEther("0.9999999999").toString());
       expect((await sandboxController.config()).minUpdateTime).to.equal(300);
       expect((await sandboxController.config()).maxUpdateTime).to.equal(7 * 24 * 60 * 60);
-      expect((await sandboxController.config()).suggestedAmountOfSeedReserves).to.equal(ethers.utils.parseEther('500').toString());
+      expect((await sandboxController.config()).suggestedAmountOfSeedReserves).to.equal(ethers.utils.parseEther("500").toString());
       expect((await sandboxController.config()).suggestedLockTimeOfSeedReserves).to.equal(86400);
-      expect((await sandboxController.config()).targetPercent).to.equal(ethers.utils.parseEther('0.5').toString());
-      
+      expect((await sandboxController.config()).targetPercent).to.equal(ethers.utils.parseEther("0.5").toString());
+
       const tx = await sandboxController.setConfiguration({
-        storeFrontPriceFactor: parseEther('0.4').toString(),
+        storeFrontPriceFactor: parseEther("0.4").toString(),
         minUpdateTime: 400,
         maxUpdateTime: 500,
         suggestedAmountOfSeedReserves: 10,
@@ -736,7 +736,7 @@ describe("3. SandboxController", function () {
       expect(ev.args.oldConfig.suggestedLockTimeOfSeedReserves).to.equal(86400);
       expect(ev.args.oldConfig.targetPercent).to.equal(ethers.utils.parseEther("0.5").toString());
       /// new config
-      expect(ev.args.newConfig.storeFrontPriceFactor).to.equal(parseEther('0.4').toString());
+      expect(ev.args.newConfig.storeFrontPriceFactor).to.equal(parseEther("0.4").toString());
       expect(ev.args.newConfig.minUpdateTime).to.equal(400);
       expect(ev.args.newConfig.maxUpdateTime).to.equal(500);
       expect(ev.args.newConfig.suggestedAmountOfSeedReserves).to.equal(10);
@@ -753,7 +753,7 @@ describe("3. SandboxController", function () {
         admin: owner,
         dao: dao,
         feeEnabled: false,
-        storeFrontPriceFactor: parseEther('0.3').toString(),
+        storeFrontPriceFactor: parseEther("0.3").toString(),
         minUpdateTime: 400,
         suggestedAmountOfSeedReserves: "1000",
         suggestedLockTimeOfSeedReserves: 1000,
@@ -788,7 +788,7 @@ describe("3. SandboxController", function () {
         admin: owner,
         dao: dao,
         feeEnabled: false,
-        storeFrontPriceFactor: parseEther('0.3').toString(),
+        storeFrontPriceFactor: parseEther("0.3").toString(),
         minUpdateTime: 400,
         suggestedAmountOfSeedReserves: "1000",
         suggestedLockTimeOfSeedReserves: 1000,
@@ -900,7 +900,7 @@ describe("3. SandboxController", function () {
         admin: owner,
         dao: dao,
         feeEnabled: false,
-        storeFrontPriceFactor: parseEther('0.3').toString(),
+        storeFrontPriceFactor: parseEther("0.3").toString(),
         minUpdateTime: 400,
         suggestedAmountOfSeedReserves: "1000",
         suggestedLockTimeOfSeedReserves: 1000,
@@ -1015,7 +1015,7 @@ describe("3. SandboxController", function () {
         admin: owner,
         dao: dao,
         feeEnabled: false,
-        storeFrontPriceFactor: parseEther('0.3').toString(),
+        storeFrontPriceFactor: parseEther("0.3").toString(),
         minUpdateTime: 400,
         suggestedAmountOfSeedReserves: "1000",
         suggestedLockTimeOfSeedReserves: 1000,
@@ -1059,7 +1059,7 @@ describe("3. SandboxController", function () {
         admin: owner,
         dao: dao,
         feeEnabled: false,
-        storeFrontPriceFactor: parseEther('0.3').toString(),
+        storeFrontPriceFactor: parseEther("0.3").toString(),
         minUpdateTime: 400,
         suggestedAmountOfSeedReserves: "1000",
         suggestedLockTimeOfSeedReserves: 1000,
@@ -1103,7 +1103,7 @@ describe("3. SandboxController", function () {
         admin: owner,
         dao: dao,
         feeEnabled: false,
-        storeFrontPriceFactor: parseEther('0.3').toString(),
+        storeFrontPriceFactor: parseEther("0.3").toString(),
         minUpdateTime: 400,
         suggestedAmountOfSeedReserves: "1000",
         suggestedLockTimeOfSeedReserves: 1000,
@@ -1134,7 +1134,7 @@ describe("3. SandboxController", function () {
         admin: owner,
         dao: dao,
         feeEnabled: false,
-        storeFrontPriceFactor: parseEther('0.3').toString(),
+        storeFrontPriceFactor: parseEther("0.3").toString(),
         minUpdateTime: 400,
         suggestedAmountOfSeedReserves: "1000",
         suggestedLockTimeOfSeedReserves: 1000,
@@ -1174,7 +1174,7 @@ describe("3. SandboxController", function () {
         admin: owner,
         dao: dao,
         feeEnabled: false,
-        storeFrontPriceFactor: parseEther('0.3').toString(),
+        storeFrontPriceFactor: parseEther("0.3").toString(),
         minUpdateTime: 400,
         suggestedAmountOfSeedReserves: "1000",
         suggestedLockTimeOfSeedReserves: 1000,
@@ -1245,7 +1245,7 @@ describe("3. SandboxController", function () {
         admin: owner,
         dao: dao,
         feeEnabled: false,
-        storeFrontPriceFactor: parseEther('0.3').toString(),
+        storeFrontPriceFactor: parseEther("0.3").toString(),
         minUpdateTime: 400,
         suggestedAmountOfSeedReserves: "1000",
         suggestedLockTimeOfSeedReserves: 1000,
@@ -1274,9 +1274,10 @@ describe("3. SandboxController", function () {
           parseEther("0.3").toString(),
           parseEther("0.2").toString(),
         ];
-        await expect(
-          sandboxController.connect(owner).setReserveCommissions(newReserveCommissions)
-        ).to.be.revertedWithCustomError(sandboxController, 'InvalidCommissions');
+        await expect(sandboxController.connect(owner).setReserveCommissions(newReserveCommissions)).to.be.revertedWithCustomError(
+          sandboxController,
+          "InvalidCommissions"
+        );
       });
 
       it("updates reserve commissions and emits events", async function () {
@@ -1316,14 +1317,11 @@ describe("3. SandboxController", function () {
           .connect(owner)
           .setReserveCommissions([parseEther("0.1").toString(), parseEther("0.3").toString(), parseEther("0.1").toString()]);
 
-        const protocolCommissions = [
-          parseEther('0.1').toString(),
-          parseEther('0.600000000000000001'),
-          parseEther('0.1').toString()
-        ];
-        await expect(
-          sandboxController.connect(owner).setProtocolCommissions(protocolCommissions)
-        ).to.be.revertedWithCustomError(sandboxController, 'InvalidCommissions');
+        const protocolCommissions = [parseEther("0.1").toString(), parseEther("0.600000000000000001"), parseEther("0.1").toString()];
+        await expect(sandboxController.connect(owner).setProtocolCommissions(protocolCommissions)).to.be.revertedWithCustomError(
+          sandboxController,
+          "InvalidCommissions"
+        );
       });
 
       it("updates protocol commissions and emits events", async function () {
@@ -1360,7 +1358,7 @@ describe("3. SandboxController", function () {
         admin: owner,
         dao: dao,
         feeEnabled: false,
-        storeFrontPriceFactor: parseEther('0.3').toString(),
+        storeFrontPriceFactor: parseEther("0.3").toString(),
         minUpdateTime: 400,
         suggestedAmountOfSeedReserves: "1000",
         suggestedLockTimeOfSeedReserves: 1000,
@@ -1388,14 +1386,14 @@ describe("3. SandboxController", function () {
       );
     });
 
-    it('sets treasury and emits TreasuryChanged event', async function () {
+    it("sets treasury and emits TreasuryChanged event", async function () {
       const newTreasury = attacker.address;
       const oldTreasury = await sandboxController.treasury();
       const oldTreasury = await sandboxController.treasury();
       const tx = await sandboxController.connect(owner).setTreasury(newTreasury);
       const rcpt = await tx.wait();
-      const ev = rcpt.events?.find((e: any) => e.event === 'TreasuryChanged');
-      expect(ev, 'Expected TreasuryChanged event').to.exist;
+      const ev = rcpt.events?.find((e: any) => e.event === "TreasuryChanged");
+      expect(ev, "Expected TreasuryChanged event").to.exist;
       expect(ev.args.oldTreasury).to.equal(oldTreasury);
       expect(ev.args.newTreasury).to.equal(newTreasury);
       expect(await sandboxController.treasury()).to.equal(newTreasury);

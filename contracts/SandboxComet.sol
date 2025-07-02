@@ -6,6 +6,7 @@ import "./interfaces/IERC20NonStandard.sol";
 import "./interfaces/IPriceFeed.sol";
 import "./interfaces/IConfigController.sol";
 import "./interfaces/ISandboxController.sol";
+
 /**
  * @title Compound's Comet Contract
  * @notice An efficient monolithic money comet protocol
@@ -217,7 +218,6 @@ contract SandboxComet is ISandboxComet {
         uint40 now_ = getNowInternal();
         uint timeElapsed = uint256(now_ - lastAccrualTime);
 
-     
         if (timeElapsed != 0) {
             (baseSupplyIndex, baseBorrowIndex) = accruedInterestIndices(timeElapsed);
             if (totalSupplyBase >= baseMinForRewards) {
@@ -314,8 +314,7 @@ contract SandboxComet is ISandboxComet {
     function getCollateralReserves(address asset) public view override returns (uint) {
     function getCollateralReserves(address asset) public view override returns (uint) {
         return
-            IERC20NonStandard(asset).balanceOf(address(this)) -
-            totalsCollateral[asset] - assetFeesController[asset] - assetFeesDAO[asset];
+            IERC20NonStandard(asset).balanceOf(address(this)) - totalsCollateral[asset] - assetFeesController[asset] - assetFeesDAO[asset];
     }
 
     /**
@@ -419,9 +418,8 @@ contract SandboxComet is ISandboxComet {
         }
     }
 
-
     /// Administrative segment
-    /// 
+    ///
 
     /**
      * @notice Pauses different actions within Comet
@@ -433,8 +431,7 @@ contract SandboxComet is ISandboxComet {
      */
     function pause(bool supplyPaused, bool transferPaused, bool withdrawPaused, bool absorbPaused, bool buyPaused) external override {
         address dao = ISandboxController(sandboxController).dao();
-        if (msg.sender != configController && msg.sender != dao)
-            revert Unauthorized();
+        if (msg.sender != configController && msg.sender != dao) revert Unauthorized();
 
         pauseFlags =
             uint8(0) |
@@ -444,13 +441,7 @@ contract SandboxComet is ISandboxComet {
             (toUInt8(absorbPaused) << PAUSE_ABSORB_OFFSET) |
             (toUInt8(buyPaused) << PAUSE_BUY_OFFSET);
 
-        emit PauseAction(
-            supplyPaused,
-            transferPaused,
-            withdrawPaused,
-            absorbPaused,
-            buyPaused
-        );
+        emit PauseAction(supplyPaused, transferPaused, withdrawPaused, absorbPaused, buyPaused);
     }
 
     /**
@@ -469,12 +460,10 @@ contract SandboxComet is ISandboxComet {
         if (msg.sender == dao) {
             amount = assetFeesDAO[asset];
             assetFeesDAO[asset] = 0;
-        }
-        else if (msg.sender == configController) {
+        } else if (msg.sender == configController) {
             amount = assetFeesController[asset];
             assetFeesController[asset] = 0;
-        }
-        else revert Unauthorized();
+        } else revert Unauthorized();
 
         if (amount == 0) revert AmountTooSmall();
 
@@ -881,7 +870,7 @@ contract SandboxComet is ISandboxComet {
      * @notice Withdraw an amount of asset from the protocol
      * @param asset The asset to withdraw
      * @param amount The quantity to withdraw
-     */  
+     */
     function withdraw(address asset, uint amount) external override {
         return withdrawInternal(msg.sender, msg.sender, msg.sender, asset, amount);
     }
@@ -1069,20 +1058,14 @@ contract SandboxComet is ISandboxComet {
         if (isBuyPaused()) revert Paused();
         baseAmount = doTransferIn(baseToken, msg.sender, baseAmount);
 
-        (
-            uint256 amountOut,
-            ,
-            uint256 feeProtocol,
-            uint256 feeController
-        ) = quoteCollateral(asset, baseAmount);
+        (uint256 amountOut, , uint256 feeProtocol, uint256 feeController) = quoteCollateral(asset, baseAmount);
 
         // Note: Re-entrancy can skip the reserves check above on a second buyCollateral call.
 
         if (amountOut < minAmount) revert TooMuchSlippage();
 
         // Note: we do no use the reserve part of the profit, as it stays in the Comet anyway
-        if (amountOut + feeProtocol + feeController > getCollateralReserves(asset))
-            revert InsufficientReserves();
+        if (amountOut + feeProtocol + feeController > getCollateralReserves(asset)) revert InsufficientReserves();
 
         if (feeProtocol > 0) {
             assetFeesDAO[asset] += feeController;
@@ -1095,7 +1078,7 @@ contract SandboxComet is ISandboxComet {
         //  Assets should not be listed which allow re-entry from pre-transfer now, as too much collateral could be bought.
         //  This is also a problem if quoteCollateral derives its discount from the collateral ERC20 balance.
         doTransferOut(asset, recipient, safe128(amountOut));
-        
+
         emit BuyCollateral(msg.sender, asset, baseAmount, amountOut);
     }
 
@@ -1103,17 +1086,15 @@ contract SandboxComet is ISandboxComet {
      * @param asset The collateral asset to get the quote for
      * @param baseAmount The amount of the base asset to get the quote for
      */
-    function quoteCollateral(address asset, uint256 baseAmount) public view override
-        returns (uint256 amountOut, uint256 feeReserve, uint256 feeProtocol, uint256 feeController)
-    {   
+    function quoteCollateral(
+        address asset,
+        uint256 baseAmount
+    ) public view override returns (uint256 amountOut, uint256 feeReserve, uint256 feeProtocol, uint256 feeController) {
         (CollateralAsset memory assetInfo, ) = getAssetInfoByAddress(asset);
         uint256 assetPrice = getPrice(assetInfo.priceFeed);
         // Store front discount is derived from the collateral asset's liquidationFactor and storeFrontPriceFactor
         // discount = storeFrontPriceFactor * (1e18 - liquidationFactor)
-        uint256 discountFactor = mulFactor(
-            storeFrontPriceFactor,
-            FACTOR_SCALE - assetInfo.liquidationFactor 
-        ); 
+        uint256 discountFactor = mulFactor(storeFrontPriceFactor, FACTOR_SCALE - assetInfo.liquidationFactor);
 
         uint256 assetPriceDiscounted = mulFactor(assetPrice, FACTOR_SCALE - discountFactor);
         uint256 basePrice = getPrice(baseTokenPriceFeed);
@@ -1171,7 +1152,7 @@ contract SandboxComet is ISandboxComet {
         3.6% of the base asset value supplied during purchase can be extracted from the collateral reserves as a profit
         */
 
-        uint256 scaledBaseAmount = mulFactor(baseAmount, 2*FACTOR_SCALE - assetInfo.liquidationFactor);
+        uint256 scaledBaseAmount = mulFactor(baseAmount, 2 * FACTOR_SCALE - assetInfo.liquidationFactor);
         uint256 scaledCollateralValue = (scaledBaseAmount * basePrice * assetInfo.scale) / assetPrice / baseScale;
         uint256 profit = scaledCollateralValue - amountOut;
 
@@ -1219,10 +1200,7 @@ contract SandboxComet is ISandboxComet {
     function borrowBalanceOf(address account) public view override returns (uint256) {
         (, uint64 baseBorrowIndex_) = accruedInterestIndices(getNowInternal() - lastAccrualTime);
         int104 principal = userBasic[account].principal;
-        return
-            principal < 0
-                ? presentValueBorrow(baseBorrowIndex_, unsigned104(-principal))
-                : 0;
+        return principal < 0 ? presentValueBorrow(baseBorrowIndex_, unsigned104(-principal)) : 0;
     }
 
     /// @notice Calculates fees distribution (reserves % and dao fees %)
@@ -1245,7 +1223,7 @@ contract SandboxComet is ISandboxComet {
         _reserveFee = mulFactor(profitAmount, uint256(reservePct));
         _daoFee = mulFactor(profitAmount, uint256(protocolPct));
         _controllerFee = IConfigController(configController).cometFeeEnabled(address(this)) ? profitAmount - _reserveFee - _daoFee : 0;
-        
+
         if (_controllerFee == 0) {
             _reserveFee = profitAmount - _daoFee;
         }

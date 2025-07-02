@@ -209,15 +209,8 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
         if (_sandboxConfig.suggestedAmountOfSeedReserves > 0) {
             IERC20(_cometConfig.baseToken).safeTransferFrom(msg.sender, comet, _sandboxConfig.suggestedAmountOfSeedReserves);
         }
-        
-        
-        emit CometCreated(
-            comet,
-            _cometConfig.baseToken,
-            baseAssetConfig.priceFeed,
-            cometsNum + 1,
-            _cometConfig.baseTokenCurveId
-        );
+
+        emit CometCreated(comet, _cometConfig.baseToken, baseAssetConfig.priceFeed, cometsNum + 1, _cometConfig.baseTokenCurveId);
 
         return comet;
     }
@@ -239,7 +232,6 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
         emit CometFeeEnabled(address(this), comet, feeEnabled);
     }
 
-
     /// @notice Extracts fees to a self and distributes it
     /// @param comet Comet which should be registered in Controller
     /// @param asset Asset (collateral or base asset) to extract
@@ -252,7 +244,6 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
 
         /// TODO: extend method once fee distribution is finished
     }
-
 
     /// @notice Transfers ownership of the protocol to a new address
     /// @dev Only callable by the current owner
