@@ -61,30 +61,21 @@ abstract contract ISandboxComet is CometCore {
   /// @notice Event emitted when a user's collateral is absorbed by the protocol
   event AbsorbCollateral(address indexed absorber, address indexed borrower, address indexed asset, uint collateralAbsorbed, uint usdValue);
 
-    /// @notice Event emitted when a collateral asset is purchased from the protocol
-    event BuyCollateral(
-        address indexed buyer,
-        address indexed asset,
-        uint baseAmount,
-        uint collateralAmount
-    );
+  /// @notice Event emitted when a collateral asset is purchased from the protocol
+  event BuyCollateral(
+      address indexed buyer,
+      address indexed asset,
+      uint baseAmount,
+      uint collateralAmount
+  );
 
-    /// @notice Event emitted when fees are extracted either to DAO or to protocol
-    event FeesExtracted(
-        address indexed comet,
-        address indexed asset,
-        uint amoint,
-        address to
-    );
-
-    /// @notice Event emitted when an action is paused/unpaused
-    event PauseAction(
-        bool supplyPaused,
-        bool transferPaused,
-        bool withdrawPaused,
-        bool absorbPaused,
-        bool buyPaused
-    );
+  /// @notice Event emitted when fees are extracted either to DAO or to protocol
+  event FeesExtracted(
+      address indexed comet,
+      address indexed asset,
+      uint amount,
+      address to
+  );
 
   /// @notice Event emitted when an action is paused/unpaused
   event PauseAction(bool supplyPaused, bool transferPaused, bool withdrawPaused, bool absorbPaused, bool buyPaused);
