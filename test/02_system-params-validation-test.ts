@@ -11,7 +11,6 @@ import {
 } from "./helper/helpers";
 import {
   ConfigController,
-  ConfigControllerFactory,
   SandboxComet,
   SandboxCometFactory,
   ConfigControllerFactory__factory,
@@ -20,8 +19,7 @@ import {
   SandboxCometFactory__factory,
   SandboxControllerNoCurvesTest__factory,
   SandboxControllerNoCurvesTest,
-  FaucetToken,
-  SandboxController,
+  FaucetToken
 } from "../build/types";
 import { CollateralTokenConfigStruct, CometConfigStruct } from "../build/types/ConfigController";
 import { BigNumber } from "ethers";
@@ -35,7 +33,7 @@ describe("2. System Params Validation", function () {
 
   let configControllerImpl: ConfigController;
   let sandboxCometImpl: SandboxComet;
-
+  // TODO: Merge in the constant.
   const _minUpdateTime = 7 * 24 * 60 * 60;
 
   const configControllerOpts = {
