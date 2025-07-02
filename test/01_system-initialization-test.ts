@@ -17,7 +17,6 @@ import {
   SandboxComet,
   SandboxCometFactory,
   ConfigControllerFactory__factory,
-  ConfigController__factory,
   ConfigControllerInitializeTest__factory,
   SandboxComet__factory,
   SandboxCometFactory__factory,
