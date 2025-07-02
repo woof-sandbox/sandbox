@@ -5,6 +5,7 @@ import {
   FaucetToken,
   NonStandardFaucetFeeToken,
   SandboxComet,
+  CometHarness,
 } from "../build/types";
 import { ethers, event, expect, exp, getBlock, makeProtocol, portfolio, ReentryAttack, wait, hre } from "./helper/helpers";
 // TODO: Fix this.
@@ -370,6 +371,17 @@ describe.skip("16. buyCollateral", function () {
       },
     });
   });
+
+  /// TODO: FIX of ts compiler error. Check if this is correct.
+  // Define the extended interface for the comet contract with additional methods
+  interface ExtendedCometHarness extends CometHarness {
+    approve(address,bool): Promise<void>;
+  }
+  /// TODO: FIX of ts compiler error. Check if this is correct.
+  const extAbi = [
+    "approve(address,bool)",
+  ];
+
   // TODO: Fix this
   describe.skip("reentrancy", function () {
     it("is blocked during reentrant supply", async () => {
@@ -412,7 +424,9 @@ describe.skip("16. buyCollateral", function () {
         },
         targetPercent: 0.01,
       });
-      const { comet: evilComet, tokens: evilTokens } = evilProtocol;
+      const evilTokens = evilProtocol.tokens;
+      /// TODO: FIX of ts compiler error. Check if this is correct.
+      const evilComet = new ethers.Contract(evilProtocol.comet.address, [...evilProtocol.comet.interface.fragments, ...extAbi]) as ExtendedCometHarness;
       const { WETH: evilWETH, EVIL } = <{ WETH: FaucetToken, EVIL: EvilToken }>evilTokens;
       // add attack to EVIL token
       const attack = Object.assign({}, await EVIL.getAttack(), {
@@ -462,7 +476,7 @@ describe.skip("16. buyCollateral", function () {
       await normalComet.connect(normalAlice).buyCollateral(normalWETH.address, exp(0.5, 18), exp(3000, 6), normalAlice.address);
 
       // authorize EVIL, since callback will originate from EVIL token address
-      await evilComet.connect(evilAlice).allow(EVIL.address, true);
+      await evilComet.connect(evilAlice).approve(EVIL.address, true);
       // call buyCollateral; supplyFrom is called in in callback
       await evilComet.connect(evilAlice).buyCollateral(evilWETH.address, exp(0, 18), exp(3000, 6), evilAlice.address);
 
@@ -486,7 +500,7 @@ describe.skip("16. buyCollateral", function () {
       expect(evilTotalsBasic.totalSupplyBase).to.equal(0);
       expect(normalTotalsBasic.totalBorrowBase).to.equal(evilTotalsBasic.totalBorrowBase);
 
-      expect(normalTotalsCollateral.totalSupplyAsset).to.eq(evilTotalsCollateral.totalSupplyAsset);
+      expect(normalTotalsCollateral).to.eq(evilTotalsCollateral);
 
       const normalAlicePortfolio = await portfolio(normalProtocol, normalAlice.address);
       const evilAlicePortfolio = await portfolio(evilProtocol, evilAlice.address);
@@ -527,10 +541,12 @@ describe.skip("16. buyCollateral", function () {
         targetPercent: 0.01,
       });
       const {
-        comet: evilComet,
         tokens: evilTokens,
         users: [evilAlice, evilBob],
       } = evilProtocol;
+      /// TODO: FIX of ts compiler error. Check if this is correct.
+      const evilComet = new ethers.Contract(evilProtocol.comet.address, [...evilProtocol.comet.interface.fragments, ...extAbi]) as ExtendedCometHarness;
+
       const { WETH: evilWETH, EVIL } = <{ WETH: FaucetToken, EVIL: EvilToken }>evilTokens;
 
       // add attack to EVIL token
@@ -553,7 +569,7 @@ describe.skip("16. buyCollateral", function () {
       await EVIL.connect(evilAlice).approve(evilComet.address, exp(5000, 6));
 
       // authorize EVIL, since callback will originate from EVIL token address
-      await evilComet.connect(evilAlice).allow(EVIL.address, true);
+      await evilComet.connect(evilAlice).approve(EVIL.address, true);
 
       // call buyCollateral; supplyFrom is called in callback
       await expect(
