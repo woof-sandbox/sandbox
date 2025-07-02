@@ -9,6 +9,8 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    env:
+      ANKR_KEY: ${{ secrets.ANKR_KEY }}
 
     steps:
       - name: Checkout code
