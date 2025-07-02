@@ -237,8 +237,10 @@ contract BaseBulker {
      * @param asset The ERC-20 token to transfer in
      * @param from The address to transfer from
      * @param amount The amount of the token to transfer
-     * @dev Note: This does not check that the amount transferred in is actually equals to the amount specified (e.g. fee tokens will not revert)
-     * @dev Note: This wrapper safely handles non-standard ERC-20 tokens that do not return a value. See here: https://medium.com/coinmonks/missing-return-value-bug-at-least-130-tokens-affected-d67bf08521ca
+     * @dev Note: This does not check that the amount transferred in is actually equals to the amount specified
+     * (e.g. fee tokens will not revert)
+     * @dev Note: This wrapper safely handles non-standard ERC-20 tokens that do not return a value.
+     * See here: https://medium.com/coinmonks/missing-return-value-bug-at-least-130-tokens-affected-d67bf08521ca
      */
     function doTransferIn(address asset, address from, uint amount) internal {
         IERC20NonStandard(asset).transferFrom(from, address(this), amount);
@@ -268,7 +270,8 @@ contract BaseBulker {
      * @param asset The ERC-20 token to transfer out
      * @param to The recipient of the token transfer
      * @param amount The amount of the token to transfer
-     * @dev Note: This wrapper safely handles non-standard ERC-20 tokens that do not return a value. See here: https://medium.com/coinmonks/missing-return-value-bug-at-least-130-tokens-affected-d67bf08521ca
+     * @dev Note: This wrapper safely handles non-standard ERC-20 tokens that do not return a value.
+     * See here: https://medium.com/coinmonks/missing-return-value-bug-at-least-130-tokens-affected-d67bf08521ca
      */
     function doTransferOut(address asset, address to, uint amount) internal {
         IERC20NonStandard(asset).transfer(to, amount);

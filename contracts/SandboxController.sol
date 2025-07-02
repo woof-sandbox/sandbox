@@ -23,7 +23,14 @@ contract SandboxController is ISandboxController {
     address public override dao; /// 20 bytes
     /// @notice feeEnabled flag. This is the flag that will be used to enable/disable the fees for all markets.
     bool public override feeEnabled; /// 1 byte
-    /// @notice controller configuration. Holds: targetPercent, storeFrontPriceFactor, minUpdateTime, maxUpdateTime, suggestedAmountOfSeedReserves, suggestedLockTimeOfSeedReserves.
+    /// @notice controller configuration.
+    /// Holds:
+    /// targetPercent,
+    /// storeFrontPriceFactor,
+    /// minUpdateTime,
+    /// maxUpdateTime,
+    /// suggestedAmountOfSeedReserves,
+    /// suggestedLockTimeOfSeedReserves.
     SandboxControllerConfiguration public _controllerConfiguration; /// 32 bytes
     /// @notice base asset tokens. Whitelisted base asset tokens.
     address[] public override baseAssetTokens;
@@ -39,7 +46,15 @@ contract SandboxController is ISandboxController {
 
     /// @notice base asset configurations. This is the mapping of the base asset token to the base asset configuration.
     mapping(address => BaseAssetConfiguration) internal _baseAssets;
-    /// @notice collateral asset configurations. Holds: priceFeed, decimals, maxBorrowCollateralFactor, minBorrowCollateralFactor, minLiquidateCollateralFactor, maxLiquidateCollateralFactor, minLiquidationFactor, maxLiquidationFactor
+    /// @notice collateral asset configurations.
+    /// Holds:
+    /// priceFeed,
+    /// decimals,
+    /// maxBorrowCollateralFactor,
+    /// minBorrowCollateralFactor,
+    /// minLiquidateCollateralFactor,
+    /// maxLiquidateCollateralFactor,
+    /// minLiquidationFactor, maxLiquidationFactor
     mapping(address => CollateralAssetConfiguration) internal _collateralAssets;
 
     /**
@@ -112,7 +127,7 @@ contract SandboxController is ISandboxController {
             _targetPercent > MAX_TARGET_PERCENT || /// Validate that the targetPercent is not bigger than 50%.
             _storeFrontPriceFactor >= PARAMETERS_SCALE || /// Validate that the storeFrontPriceFactor is not bigger than 100%.
             _minUpdateTime == 0 ||
-            _maxUpdateTime < _minUpdateTime || /// Validate that the minUpdateTime is not 0 and the maxUpdateTime is bigger than the minUpdateTime.
+            _maxUpdateTime < _minUpdateTime || /// Validate that the minUpdateTime is not 0 and the maxUpdateTime > minUpdateTime.
             _suggestedAmountOfSeedReserves == 0 || /// Validate that the suggestedAmountOfSeedReserves is not 0.
             _suggestedLockTimeOfSeedReserves == 0 /// Validate that the suggestedLockTimeOfSeedReserves is not 0.
         ) revert InvalidFactors();

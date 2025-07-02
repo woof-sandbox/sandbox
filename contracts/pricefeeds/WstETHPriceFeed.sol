@@ -83,7 +83,8 @@ contract WstETHPriceFeed is IPriceFeed {
         ).latestRoundData();
         uint256 tokensPerStEth = IWstETH(wstETH).tokensPerStEth();
         int256 price = (stETHPrice * wstETHScale) / signed256(tokensPerStEth);
-        // Note: The stETH price feed should always have an equal or larger amount of decimals than this price feed (enforced by validation in constructor)
+        // Note: The stETH price feed should always have an equal or larger amount of decimals than this price feed
+        // (enforced by validation in constructor)
         int256 scaledPrice = price / int256(10 ** (stETHToETHPriceFeedDecimals - decimals));
         return (roundId_, scaledPrice, startedAt_, updatedAt_, answeredInRound_);
     }

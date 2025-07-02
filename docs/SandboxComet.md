@@ -434,7 +434,8 @@ function doTransferIn(address asset, address from, uint256 amount) internal retu
 ```
 
 _Safe ERC20 transfer in and returns the final amount transferred (taking into account any fees)
-Note: Safely handles non-standard ERC-20 tokens that do not return a value. See here: https://medium.com/coinmonks/missing-return-value-bug-at-least-130-tokens-affected-d67bf08521ca_
+Note: Safely handles non-standard ERC-20 tokens that do not return a value.
+See here: https://medium.com/coinmonks/missing-return-value-bug-at-least-130-tokens-affected-d67bf08521ca_
 
 ### doTransferOut
 
@@ -443,7 +444,8 @@ function doTransferOut(address asset, address to, uint256 amount) internal
 ```
 
 _Safe ERC20 transfer out
-Note: Safely handles non-standard ERC-20 tokens that do not return a value. See here: https://medium.com/coinmonks/missing-return-value-bug-at-least-130-tokens-affected-d67bf08521ca_
+Note: Safely handles non-standard ERC-20 tokens that do not return a value.
+See here: https://medium.com/coinmonks/missing-return-value-bug-at-least-130-tokens-affected-d67bf08521ca_
 
 ### supply
 

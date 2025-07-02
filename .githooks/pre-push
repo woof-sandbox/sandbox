@@ -47,6 +47,16 @@ else
     echo "   Install Aderyn with: brew install cyfrin/tap/aderyn"
 fi
 
+# Generate documentation 
+echo "📚 Generating documentation for Solidity contracts..."
+yarn doc
+
+# Check if docs directory exists and has changes
+if [ -d "./docs" ]; then
+    echo "📝 Adding generated documentation to staging..."
+    git add docs/
+fi
+
 # Clean out directory to remove non-major artifacts
 echo "🧹 Cleaning out directory..."
 yarn clean:out

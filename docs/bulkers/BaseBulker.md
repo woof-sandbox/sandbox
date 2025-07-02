@@ -304,8 +304,10 @@ function doTransferIn(address asset, address from, uint256 amount) internal
 
 Similar to ERC-20 transfer, except it properly handles `transferFrom` from non-standard ERC-20 tokens
 
-_Note: This does not check that the amount transferred in is actually equals to the amount specified (e.g. fee tokens will not revert)
-Note: This wrapper safely handles non-standard ERC-20 tokens that do not return a value. See here: https://medium.com/coinmonks/missing-return-value-bug-at-least-130-tokens-affected-d67bf08521ca_
+_Note: This does not check that the amount transferred in is actually equals to the amount specified
+(e.g. fee tokens will not revert)
+Note: This wrapper safely handles non-standard ERC-20 tokens that do not return a value.
+See here: https://medium.com/coinmonks/missing-return-value-bug-at-least-130-tokens-affected-d67bf08521ca_
 
 #### Parameters
 
@@ -323,7 +325,8 @@ function doTransferOut(address asset, address to, uint256 amount) internal
 
 Similar to ERC-20 transfer, except it properly handles `transfer` from non-standard ERC-20 tokens
 
-_Note: This wrapper safely handles non-standard ERC-20 tokens that do not return a value. See here: https://medium.com/coinmonks/missing-return-value-bug-at-least-130-tokens-affected-d67bf08521ca_
+_Note: This wrapper safely handles non-standard ERC-20 tokens that do not return a value.
+See here: https://medium.com/coinmonks/missing-return-value-bug-at-least-130-tokens-affected-d67bf08521ca_
 
 #### Parameters
 

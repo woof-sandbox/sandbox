@@ -6,7 +6,8 @@ import "../interfaces/IPriceFeed.sol";
 
 /**
  * @title ezETH Scaling price feed
- * @notice A custom price feed that scales up or down the price received from an underlying Renzo ezETH / ETH exchange rate price feed and returns the result
+ * @notice A custom price feed that scales up or down the price received from an underlying Renzo ezETH / ETH exchange rate
+ * price feed and returns the result
  * @author Compound
  */
 contract EzETHExchangeRatePriceFeed is IPriceFeed {
@@ -74,7 +75,8 @@ contract EzETHExchangeRatePriceFeed is IPriceFeed {
         returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound)
     {
         uint256 rate = IBalancerRateProvider(underlyingPriceFeed).getRate();
-        // protocol uses only the answer value. Other data fields are not provided by the underlying pricefeed and are not used in Comet protocol
+        // protocol uses only the answer value. Other data fields are not provided by the underlying pricefeed and are not used
+        // in Comet protocol
         // https://etherscan.io/address/0x387dBc0fB00b26fb085aa658527D5BE98302c84C#readProxyContract
         return (1, scalePrice(signed256(rate)), block.timestamp, block.timestamp, 1);
     }

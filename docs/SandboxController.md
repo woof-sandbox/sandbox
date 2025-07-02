@@ -70,7 +70,14 @@ struct ISandboxController.SandboxControllerConfiguration _controllerConfiguratio
 ```
 
 1 byte
-controller configuration. Holds: targetPercent, storeFrontPriceFactor, minUpdateTime, maxUpdateTime, suggestedAmountOfSeedReserves, suggestedLockTimeOfSeedReserves.
+controller configuration.
+Holds:
+targetPercent,
+storeFrontPriceFactor,
+minUpdateTime,
+maxUpdateTime,
+suggestedAmountOfSeedReserves,
+suggestedLockTimeOfSeedReserves.
 
 ### baseAssetTokens
 
@@ -127,7 +134,15 @@ base asset configurations. This is the mapping of the base asset token to the ba
 mapping(address => struct ISandboxController.CollateralAssetConfiguration) _collateralAssets
 ```
 
-collateral asset configurations. Holds: priceFeed, decimals, maxBorrowCollateralFactor, minBorrowCollateralFactor, minLiquidateCollateralFactor, maxLiquidateCollateralFactor, minLiquidationFactor, maxLiquidationFactor
+collateral asset configurations.
+Holds:
+priceFeed,
+decimals,
+maxBorrowCollateralFactor,
+minBorrowCollateralFactor,
+minLiquidateCollateralFactor,
+maxLiquidateCollateralFactor,
+minLiquidationFactor, maxLiquidationFactor
 
 ### onlyOwner
 
