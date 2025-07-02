@@ -28,11 +28,11 @@ jobs:
         run: yarn install --frozen-lockfile
 
       - name: Generate TypeScript types
-      run: npx typechain --target ethers-v5
+        run: npx typechain --target ethers-v5
 
       - name: Compile contracts
         run: npx hardhat compile
- 
+
       - name: TypeScript compilation check
         run: npx tsc --noEmit --project tsconfig.json
 
@@ -50,9 +50,6 @@ jobs:
 
       - name: Run tests
         run: yarn test
-
-      - name: Build contracts
-        run: yarn build
 
       - name: Generate documentation
         run: yarn doc

@@ -55,9 +55,6 @@ jobs:
       - name: Run tests
         run: yarn test
 
-      - name: Build contracts
-        run: yarn build
-
       - name: Clean out directory
         run: yarn clean:out
 
@@ -71,8 +68,10 @@ jobs:
 
   security:
     runs-on: ubuntu-latest
+    env:
+      ANKR_KEY: ${{ secrets.ANKR_KEY }}
     needs: test
-
+    
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
