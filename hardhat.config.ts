@@ -33,7 +33,6 @@ const {
   COINMARKETCAP_API_KEY,
   ETH_PK = '',
   ETHERSCAN_KEY,
-  INFURA_KEY,
   ANKR_KEY,
   MNEMONIC = 'myth like bonus scare over problem client lizard pioneer submit female collect',
   REPORT_GAS = 'false',
@@ -184,7 +183,7 @@ const config: HardhatUserConfig = {
 
   // See https://hardhat.org/plugins/nomiclabs-hardhat-etherscan.html#multiple-api-keys-and-alternative-block-explorers
   etherscan: {
-    apiKey: process.env.ETHERSCAN_KEY || "",
+    apiKey: ETHERSCAN_KEY || "",
     customChains: [      
       // {
       //   network: 'scroll',

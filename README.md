@@ -195,6 +195,53 @@ This repository implements strict branch protection rules to maintain code quali
 - **Mocha** - Test framework
 - **Chai** - Assertion library
 
+### Numbered Test Files
+
+The project includes a series of **numbered test files** that are essential for protocol functionality and must always pass:
+
+#### Core Test Suite (01-17)
+These tests are explicitly included in `tsconfig.json` and are checked during:
+- TypeScript compilation
+- Pre-commit hooks
+- CI/CD pipeline
+
+**Test Files:**
+- `01_system-initialization-test.ts` - System setup and initialization
+- `02_system-params-validation-test.ts` - Parameter validation
+- `03_sandbox-controller-test.ts` - Controller functionality
+- `04_config-controller-test.ts` - Configuration management
+- `5_supply-test.ts` - Supply operations
+- `6_withdraw-test.ts` - Withdrawal operations
+- `7_absorb-test.ts` - Absorption mechanics
+- `8_comet-ext-test.ts` - Comet extensions
+- `9_asset-info-test.ts` - Asset information
+- `10_is-liquidatable-test.ts` - Liquidation checks
+- `11_is-borrow-collateralized-test.ts` - Collateralization validation
+- `12_reserves-test.ts` - Reserve management
+- `13_allow-by-sig-test.ts` - Signature-based allowances
+- `14_update-assets-in-test.ts` - Asset updates
+- `15_quote-collateral-test.ts` - Collateral quoting
+- `16_buy-collateral-test.ts` - Collateral purchasing
+- `17_set-controller-fee.ts` - Fee configuration
+
+#### Why These Tests Matter
+- **Protocol Integrity**: These tests ensure core DeFi functionality works correctly
+- **Safety**: Critical for preventing bugs in lending/borrowing operations
+- **Compliance**: Required for maintaining protocol security standards
+- **CI/CD**: Must pass before any deployment or merge
+
+#### Running Numbered Tests
+```bash
+# Run all numbered tests
+yarn test
+
+# Run specific numbered test
+npx hardhat test test/01_system-initialization-test.ts
+
+# Check TypeScript compilation (includes all numbered tests)
+npx tsc
+```
+
 ## 📚 Documentation
 
 - **[SPEC.md](./SPEC.md)** - Detailed protocol specification

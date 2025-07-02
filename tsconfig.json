@@ -7,9 +7,35 @@
     "moduleResolution": "node",
     "declaration": true
   },
-  "include": ["./scripts", "./test", "./tasks", "./plugins", "./scenario"],
+  "include": [
+    "./test/helpers",
+    "./test/01_system-initialization-test.ts",
+    "./test/02_system-params-validation-test.ts",
+    "./test/03_sandbox-controller-test.ts",
+    "./test/04_config-controller-test.ts",
+    "./test/5_supply-test.ts",
+    "./test/6_withdraw-test.ts",
+    "./test/7_absorb-test.ts",
+    "./test/8_comet-ext-test.ts",
+    "./test/9_asset-info-test.ts",
+    "./test/10_is-liquidatable-test.ts",
+    "./test/11_is-borrow-collateralized-test.ts",
+    "./test/12_reserves-test.ts",
+    "./test/13_allow-by-sig-test.ts",
+    "./test/14_update-assets-in-test.ts",
+    "./test/15_quote-collateral-test.ts",
+    "./test/16_buy-collateral-test.ts",
+    "./test/17_set-controller-fee.ts"
+  ],
+  "exclude": [
+    "./plugins",
+    "./scenario",
+    "./node_modules",
+    "./dist",
+    "./build"
+  ],
   "files": [
     "./index.ts",
-    "./hardhat.config.ts",
+    "./hardhat.config.ts"
   ]
 }
