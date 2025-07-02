@@ -193,7 +193,6 @@ contract SandboxComet is ISandboxComet {
      **/
     function getNowInternal() internal view virtual returns (uint40) {
         if (block.timestamp > type(uint40).max) revert TimestampTooLarge();
-        if (block.timestamp > type(uint40).max) revert TimestampTooLarge();
         return uint40(block.timestamp);
     }
 
@@ -305,7 +304,6 @@ contract SandboxComet is ISandboxComet {
     }
 
     /**
-     * @notice Gets the total balance of protocol collateral reserves for an asset (with planned fees deducted)
      * @notice Gets the total balance of protocol collateral reserves for an asset (with planned fees deducted)
      * @dev Note: Reverts if collateral reserves are somehow negative, which should not be possible
      * @param asset The collateral asset

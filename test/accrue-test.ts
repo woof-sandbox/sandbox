@@ -1,21 +1,4 @@
-<<<<<<< HEAD
-<<<<<<< HEAD
 import { ethers, expect, exp, fastForward, getBlock, makeProtocol, wait, setTotalsBasic } from "./helper/helpers";
-=======
-import {
-  ethers,
-  expect,
-  exp,
-  fastForward,
-  getBlock,
-  makeProtocol,
-  wait,
-  setTotalsBasic,
-} from "./helper/helpers";
->>>>>>> 5c3a483 (Liquidation commissions (#14))
-=======
-import { ethers, expect, exp, fastForward, getBlock, makeProtocol, wait, setTotalsBasic } from "./helper/helpers";
->>>>>>> 910c8f3 (Docgen (#35))
 
 function projectBaseIndex(index, rate, time, factorScale = exp(1, 18)) {
   return index.add(index.mul(rate.mul(time)).div(factorScale));
@@ -149,15 +132,7 @@ describe.skip("accrue", function () {
       start,
     };
     const { comet } = await makeProtocol(params);
-<<<<<<< HEAD
-<<<<<<< HEAD
     await setTotalsBasic(comet, { lastAccrualTime: start });
-=======
-    await setTotalsBasic(comet, { lastAccrualTime: start }); 
->>>>>>> 5c3a483 (Liquidation commissions (#14))
-=======
-    await setTotalsBasic(comet, { lastAccrualTime: start });
->>>>>>> 910c8f3 (Docgen (#35))
 
     const t0 = await comet.totalsBasic();
     const t1 = await setTotalsBasic(comet, {
@@ -255,17 +230,7 @@ describe.skip("accrue", function () {
     const _a0 = await wait(comet.accrue());
 
     await fastForward(2 ** 40);
-<<<<<<< HEAD
-<<<<<<< HEAD
     await expect(wait(comet.accrue())).to.be.revertedWith("custom error 'TimestampTooLarge()'");
-=======
-    await expect(wait(comet.accrue())).to.be.revertedWith(
-      "custom error 'TimestampTooLarge()'"
-    );
->>>>>>> 5c3a483 (Liquidation commissions (#14))
-=======
-    await expect(wait(comet.accrue())).to.be.revertedWith("custom error 'TimestampTooLarge()'");
->>>>>>> 910c8f3 (Docgen (#35))
     await ethers.provider.send("hardhat_reset", []); // dont break downstream tests...
   });
 });

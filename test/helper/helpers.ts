@@ -23,40 +23,14 @@ import {
   ConfigControllerFactory__factory,
   SandboxComet,
   ISandboxComet,
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-
->>>>>>> 5c3a483 (Liquidation commissions (#14))
-=======
->>>>>>> 910c8f3 (Docgen (#35))
 } from "../../build/types";
 import { SandboxCometFactory } from "../../build/types/SandboxCometFactory";
 import { SandboxCometFactory__factory } from "../../build/types/factories/SandboxCometFactory__factory";
 import { SandboxController } from "../../build/types/SandboxController";
 import { SandboxController__factory } from "../../build/types/factories/SandboxController__factory";
-<<<<<<< HEAD
-<<<<<<< HEAD
 import { BigNumber, Contract, ContractReceipt, ContractTransaction } from "ethers";
 import { TransactionReceipt, TransactionResponse } from "@ethersproject/abstract-provider";
 import { CometHarness, TotalsBasicStructOutput } from "../../build/types/CometHarness";
-=======
-import { BigNumber, Contract } from "ethers";
-import {
-  TransactionReceipt,
-  TransactionResponse,
-} from "@ethersproject/abstract-provider";
-import {
-  CometHarness,
-  TotalsBasicStructOutput,
-  TotalsCollateralStructOutput,
-} from "../../build/types/CometHarness";
->>>>>>> 5c3a483 (Liquidation commissions (#14))
-=======
-import { BigNumber, Contract, ContractReceipt, ContractTransaction } from "ethers";
-import { TransactionReceipt, TransactionResponse } from "@ethersproject/abstract-provider";
-import { CometHarness, TotalsBasicStructOutput } from "../../build/types/CometHarness";
->>>>>>> 910c8f3 (Docgen (#35))
 import { CometConfigStruct } from "../../build/types/ConfigController";
 
 export { ethers, expect, hre };
@@ -133,13 +107,6 @@ export type Protocol = {
   opts: ProtocolOpts;
   users: SignerWithAddress[];
   base: string;
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-  reward: string;
->>>>>>> 5c3a483 (Liquidation commissions (#14))
-=======
->>>>>>> 910c8f3 (Docgen (#35))
   comet: SandboxComet;
   tokens: {
     [symbol: string]: FaucetToken | NonStandardFaucetFeeToken;
@@ -162,19 +129,7 @@ export type Protocol = {
       supplyCap?: Numeric;
       initialPrice?: number;
       priceFeedDecimals?: number;
-<<<<<<< HEAD
-<<<<<<< HEAD
       factory?: FaucetToken__factory | EvilToken__factory | FaucetWETH__factory | NonStandardFaucetFeeToken__factory;
-=======
-      factory?:
-        | FaucetToken__factory
-        | EvilToken__factory
-        | FaucetWETH__factory
-        | NonStandardFaucetFeeToken__factory;
->>>>>>> 5c3a483 (Liquidation commissions (#14))
-=======
-      factory?: FaucetToken__factory | EvilToken__factory | FaucetWETH__factory | NonStandardFaucetFeeToken__factory;
->>>>>>> 910c8f3 (Docgen (#35))
     };
   };
   unsupportedToken: FaucetToken;
@@ -194,23 +149,14 @@ export type Protocol = {
   seedReserves: string;
 };
 
-<<<<<<< HEAD
-
-
-<<<<<<< HEAD
-=======
-=======
->>>>>>> 910c8f3 (Docgen (#35))
 export type BulkerOpts = {
   admin?: SignerWithAddress;
   weth?: string;
 };
 
->>>>>>> 5c3a483 (Liquidation commissions (#14))
 export interface SandboxControllerOpts {
   admin?: any;
   dao?: any;
-  treasury?: any;
   treasury?: any;
   feeEnabled?: boolean;
   storeFrontPriceFactor?: string;
@@ -222,22 +168,13 @@ export interface SandboxControllerOpts {
   suggestedLockTimeOfSeedReserves?: number;
   reserveCommissions?: [bigint, bigint, bigint];
   protocolCommissions?: [bigint, bigint, bigint];
-  reserveCommissions?: [bigint, bigint, bigint];
-  protocolCommissions?: [bigint, bigint, bigint];
 }
-<<<<<<< HEAD
-
-<<<<<<< HEAD
-=======
-=======
 // TODO: Remove BulkerInfo.
->>>>>>> 910c8f3 (Docgen (#35))
 export type BulkerInfo = {
   opts: BulkerOpts;
   bulker: BaseBulker;
 };
 
->>>>>>> 5c3a483 (Liquidation commissions (#14))
 export type SandboxControllerInfo = {
   opts: SandboxControllerOpts;
   sandboxController: SandboxController;
@@ -253,18 +190,7 @@ export function dfn<T>(x: T | undefined | null, dflt: T): T {
 }
 
 export function exp(i: number, d: Numeric = 0, r: Numeric = 6): bigint {
-<<<<<<< HEAD
-<<<<<<< HEAD
   return (BigInt(Math.floor(i * 10 ** Number(r))) * 10n ** BigInt(d)) / 10n ** BigInt(r);
-=======
-  return (
-    (BigInt(Math.floor(i * 10 ** Number(r))) * 10n ** BigInt(d)) /
-    10n ** BigInt(r)
-  );
->>>>>>> 5c3a483 (Liquidation commissions (#14))
-=======
-  return (BigInt(Math.floor(i * 10 ** Number(r))) * 10n ** BigInt(d)) / 10n ** BigInt(r);
->>>>>>> 910c8f3 (Docgen (#35))
 }
 
 export function factor(f: number): bigint {
@@ -281,19 +207,7 @@ export function truncateDecimals(factor: bigint | BigNumber, decimals = 4) {
   return (toBigInt(factor) / descaleFactor) * descaleFactor;
 }
 
-<<<<<<< HEAD
-<<<<<<< HEAD
 export function mulPrice(n: bigint, price: bigint | BigNumber, fromScale: bigint | BigNumber): bigint {
-=======
-export function mulPrice(
-  n: bigint,
-  price: bigint | BigNumber,
-  fromScale: bigint | BigNumber
-): bigint {
->>>>>>> 5c3a483 (Liquidation commissions (#14))
-=======
-export function mulPrice(n: bigint, price: bigint | BigNumber, fromScale: bigint | BigNumber): bigint {
->>>>>>> 910c8f3 (Docgen (#35))
   return (n * toBigInt(price)) / toBigInt(fromScale);
 }
 
@@ -305,18 +219,7 @@ function toBigInt(f: bigint | BigNumber): bigint {
   }
 }
 
-<<<<<<< HEAD
-<<<<<<< HEAD
 export function annualize(n: bigint | BigNumber, secondsPerYear = 31536000n): number {
-=======
-export function annualize(
-  n: bigint | BigNumber,
-  secondsPerYear = 31536000n
-): number {
->>>>>>> 5c3a483 (Liquidation commissions (#14))
-=======
-export function annualize(n: bigint | BigNumber, secondsPerYear = 31536000n): number {
->>>>>>> 910c8f3 (Docgen (#35))
   return defactor(toBigInt(n) * secondsPerYear);
 }
 
@@ -370,8 +273,6 @@ export const ONE = factorScale;
 export const ZERO = factor(0);
 
 export async function getBlock(n?: number, ethers_ = ethers): Promise<Block> {
-<<<<<<< HEAD
-<<<<<<< HEAD
   const blockNumber = n == undefined ? await ethers_.provider.getBlockNumber() : n;
   return ethers_.provider.getBlock(blockNumber);
 }
@@ -379,39 +280,11 @@ export async function getBlock(n?: number, ethers_ = ethers): Promise<Block> {
 export async function fastForward(seconds: number, ethers_ = ethers): Promise<Block> {
   const block = await getBlock();
   await ethers_.provider.send("evm_setNextBlockTimestamp", [block.timestamp + seconds]);
-=======
-  const blockNumber =
-    n == undefined ? await ethers_.provider.getBlockNumber() : n;
-=======
-  const blockNumber = n == undefined ? await ethers_.provider.getBlockNumber() : n;
->>>>>>> 910c8f3 (Docgen (#35))
-  return ethers_.provider.getBlock(blockNumber);
-}
-
-export async function fastForward(seconds: number, ethers_ = ethers): Promise<Block> {
-  const block = await getBlock();
-<<<<<<< HEAD
-  await ethers_.provider.send("evm_setNextBlockTimestamp", [
-    block.timestamp + seconds,
-  ]);
->>>>>>> 5c3a483 (Liquidation commissions (#14))
-=======
-  await ethers_.provider.send("evm_setNextBlockTimestamp", [block.timestamp + seconds]);
->>>>>>> 910c8f3 (Docgen (#35))
   return block;
 }
 
 export async function makeMockComet(): Promise<CometHarness> {
-<<<<<<< HEAD
-<<<<<<< HEAD
   const CometHarness_factory: CometHarness__factory = (await ethers.getContractFactory("CometHarness")) as CometHarness__factory;
-=======
-  const CometHarness_factory: CometHarness__factory =
-    (await ethers.getContractFactory("CometHarness")) as CometHarness__factory;
->>>>>>> 5c3a483 (Liquidation commissions (#14))
-=======
-  const CometHarness_factory: CometHarness__factory = (await ethers.getContractFactory("CometHarness")) as CometHarness__factory;
->>>>>>> 910c8f3 (Docgen (#35))
   const cometHarness: CometHarness = await CometHarness_factory.deploy();
   await cometHarness.deployed();
 
@@ -845,19 +718,6 @@ export async function makeOnlyConfigController(
   const [createConfigControllerEvent] = receipt.events.filter(event => event.event === "ConfigControllerCreated");
   const configControllerAddress: string = createConfigControllerEvent.args.controller;
 
-<<<<<<< HEAD
-  const totalCollateralAfter = totalCollateralBefore.add(delta);
-  await token.allocateTo(comet.address, delta);
-  await wait(comet.setTotalsCollateral(token.address, totalCollateralAfter));
-
-<<<<<<< HEAD
-  return totalCollateralAfter;
-}
-
-export async function setTotalsBasic(comet: CometHarness, overrides = {}): Promise<TotalsBasicStructOutput> {
-=======
-    return totalCollateralAfter;
-=======
   return configControllerAddress;
 }
 
@@ -871,7 +731,6 @@ export async function makeSandboxController(opts: SandboxControllerOpts, factory
     SandboxControllerFactory = factory;
   } else {
     SandboxControllerFactory = (await ethers.getContractFactory("SandboxController")) as SandboxController__factory;
->>>>>>> 910c8f3 (Docgen (#35))
   }
 
   const sandboxController = await SandboxControllerFactory.deploy(
@@ -898,11 +757,6 @@ export async function makeSandboxController(opts: SandboxControllerOpts, factory
 
 export async function bumpTotalsCollateral(
   comet: CometHarness,
-<<<<<<< HEAD
-  overrides = {}
-): Promise<TotalsBasicStructOutput> {
->>>>>>> 5c3a483 (Liquidation commissions (#14))
-=======
   token: FaucetToken | NonStandardFaucetFeeToken,
   delta: bigint
 ): Promise<BigNumber> {
@@ -916,7 +770,6 @@ export async function bumpTotalsCollateral(
 }
 
 export async function setTotalsBasic(comet: CometHarness, overrides = {}): Promise<TotalsBasicStructOutput> {
->>>>>>> 910c8f3 (Docgen (#35))
   const t0 = await comet.totalsBasic();
   const t1 = Object.assign({}, t0, overrides);
   await wait(comet.setTotalsBasic(t1));
@@ -938,18 +791,7 @@ export function objectify(arrayObject) {
   return obj;
 }
 
-<<<<<<< HEAD
-<<<<<<< HEAD
 export async function baseBalanceOf(comet: ISandboxComet, account: string): Promise<bigint> {
-=======
-export async function baseBalanceOf(
-  comet: ISandboxComet,
-  account: string
-): Promise<bigint> {
->>>>>>> 5c3a483 (Liquidation commissions (#14))
-=======
-export async function baseBalanceOf(comet: ISandboxComet, account: string): Promise<bigint> {
->>>>>>> 910c8f3 (Docgen (#35))
   const balanceOf = await comet.balanceOf(account);
   const borrowBalanceOf = await comet.borrowBalanceOf(account);
   return balanceOf.sub(borrowBalanceOf).toBigInt();
@@ -973,74 +815,27 @@ type TotalsAndReserves = {
   };
 };
 
-<<<<<<< HEAD
-<<<<<<< HEAD
 export async function portfolio({ comet, base, tokens }, account): Promise<Portfolio> {
-=======
-export async function portfolio(
-  { comet, base, tokens },
-  account
-): Promise<Portfolio> {
->>>>>>> 5c3a483 (Liquidation commissions (#14))
-=======
-export async function portfolio({ comet, base, tokens }, account): Promise<Portfolio> {
->>>>>>> 910c8f3 (Docgen (#35))
   const internal = { [base]: await baseBalanceOf(comet, account) };
   const external = { [base]: BigInt(await tokens[base].balanceOf(account)) };
   for (const symbol in tokens) {
     if (symbol != base) {
-<<<<<<< HEAD
-<<<<<<< HEAD
       internal[symbol] = BigInt(await comet.collateralBalanceOf(account, tokens[symbol].address));
-=======
-      internal[symbol] = BigInt(
-        await comet.collateralBalanceOf(account, tokens[symbol].address)
-      );
->>>>>>> 5c3a483 (Liquidation commissions (#14))
-=======
-      internal[symbol] = BigInt(await comet.collateralBalanceOf(account, tokens[symbol].address));
->>>>>>> 910c8f3 (Docgen (#35))
       external[symbol] = BigInt(await tokens[symbol].balanceOf(account));
     }
   }
   return { internal, external };
 }
 
-<<<<<<< HEAD
-<<<<<<< HEAD
 export async function totalsAndReserves({ comet, base, tokens }): Promise<TotalsAndReserves> {
-=======
-export async function totalsAndReserves({
-  comet,
-  base,
-  tokens,
-}): Promise<TotalsAndReserves> {
->>>>>>> 5c3a483 (Liquidation commissions (#14))
-=======
-export async function totalsAndReserves({ comet, base, tokens }): Promise<TotalsAndReserves> {
->>>>>>> 910c8f3 (Docgen (#35))
   const totals = {
     [base]: BigInt((await comet.totalsBasic()).totalSupplyBase),
   };
   const reserves = { [base]: BigInt(await comet.getReserves()) };
   for (const symbol in tokens) {
     if (symbol != base) {
-<<<<<<< HEAD
-<<<<<<< HEAD
       totals[symbol] = BigInt((await comet.totalsCollateral(tokens[symbol].address)).totalSupplyAsset);
       reserves[symbol] = BigInt(await comet.getCollateralReserves(tokens[symbol].address));
-=======
-      totals[symbol] = BigInt(
-        (await comet.totalsCollateral(tokens[symbol].address)).totalSupplyAsset
-      );
-      reserves[symbol] = BigInt(
-        await comet.getCollateralReserves(tokens[symbol].address)
-      );
->>>>>>> 5c3a483 (Liquidation commissions (#14))
-=======
-      totals[symbol] = BigInt((await comet.totalsCollateral(tokens[symbol].address)).totalSupplyAsset);
-      reserves[symbol] = BigInt(await comet.getCollateralReserves(tokens[symbol].address));
->>>>>>> 910c8f3 (Docgen (#35))
     }
   }
   return { totals, reserves };
@@ -1050,17 +845,7 @@ export interface TransactionResponseExt extends TransactionResponse {
   receipt: TransactionReceipt;
 }
 
-<<<<<<< HEAD
-<<<<<<< HEAD
 export async function wait(tx: TransactionResponse | Promise<TransactionResponse>): Promise<TransactionResponseExt> {
-=======
-export async function wait(
-  tx: TransactionResponse | Promise<TransactionResponse>
-): Promise<TransactionResponseExt> {
->>>>>>> 5c3a483 (Liquidation commissions (#14))
-=======
-export async function wait(tx: TransactionResponse | Promise<TransactionResponse>): Promise<TransactionResponseExt> {
->>>>>>> 910c8f3 (Docgen (#35))
   const tx_ = await tx;
   let receipt = await tx_.wait();
   return {
@@ -1102,12 +887,4 @@ function convertToBigInt(arr) {
 
 export function getGasUsed(tx: TransactionResponseExt): bigint {
   return tx.receipt.gasUsed.mul(tx.receipt.effectiveGasPrice).toBigInt();
-<<<<<<< HEAD
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> 5c3a483 (Liquidation commissions (#14))
-=======
-}
->>>>>>> 910c8f3 (Docgen (#35))

@@ -84,11 +84,6 @@ describe("3. SandboxController", function () {
       expect((await sandboxController.config()).maxUpdateTime).to.equal(604800);
       expect((await sandboxController.config()).suggestedAmountOfSeedReserves).to.equal("1000");
       expect((await sandboxController.config()).suggestedLockTimeOfSeedReserves).to.equal(3600);
-      expect((await sandboxController.config()).storeFrontPriceFactor).to.equal(parseEther("0.1").toString());
-      expect((await sandboxController.config()).minUpdateTime).to.equal(300);
-      expect((await sandboxController.config()).maxUpdateTime).to.equal(604800);
-      expect((await sandboxController.config()).suggestedAmountOfSeedReserves).to.equal("1000");
-      expect((await sandboxController.config()).suggestedLockTimeOfSeedReserves).to.equal(3600);
     });
   });
 
@@ -1287,10 +1282,8 @@ describe("3. SandboxController", function () {
         const events = rcpt.events.filter((e: any) => e.event === "ReserveCommissionChanged");
         expect(events.length).to.equal(3);
         const oldValue = [exp(0.01, 18).toString(), exp(0.02, 18).toString(), exp(0.03, 18).toString()];
-        const oldValue = [exp(0.01, 18).toString(), exp(0.02, 18).toString(), exp(0.03, 18).toString()];
         for (let i = 0; i < 3; i++) {
           expect(events[i].args.state).to.equal(i);
-          expect(events[i].args.oldValue).to.equal(oldValue[i]);
           expect(events[i].args.oldValue).to.equal(oldValue[i]);
           expect(events[i].args.newValue).to.equal(newReserveCommissions[i]);
           const value = await sandboxController.reserveCommission(i);
@@ -1331,10 +1324,8 @@ describe("3. SandboxController", function () {
         const events = rcpt.events.filter((e: any) => e.event === "ProtocolCommissionChanged");
         expect(events.length).to.equal(3);
         const oldValue = [exp(0.01, 18).toString(), exp(0.02, 18).toString(), exp(0.03, 18).toString()];
-        const oldValue = [exp(0.01, 18).toString(), exp(0.02, 18).toString(), exp(0.03, 18).toString()];
         for (let i = 0; i < 3; i++) {
           expect(events[i].args.state).to.equal(i);
-          expect(events[i].args.oldValue).to.equal(oldValue[i]);
           expect(events[i].args.oldValue).to.equal(oldValue[i]);
           expect(events[i].args.newValue).to.equal(newProtocolCommissions[i]);
           const value = await sandboxController.protocolCommission(i);
@@ -1388,7 +1379,6 @@ describe("3. SandboxController", function () {
 
     it("sets treasury and emits TreasuryChanged event", async function () {
       const newTreasury = attacker.address;
-      const oldTreasury = await sandboxController.treasury();
       const oldTreasury = await sandboxController.treasury();
       const tx = await sandboxController.connect(owner).setTreasury(newTreasury);
       const rcpt = await tx.wait();

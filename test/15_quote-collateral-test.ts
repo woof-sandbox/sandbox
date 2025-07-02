@@ -1,31 +1,12 @@
-<<<<<<< HEAD
-<<<<<<< HEAD
 import { expect, exp, makeProtocol } from "./helper/helpers";
-=======
-import { expect, exp, makeProtocol } from './helper/helpers';
->>>>>>> 5c3a483 (Liquidation commissions (#14))
-=======
-import { expect, exp, makeProtocol } from "./helper/helpers";
->>>>>>> 910c8f3 (Docgen (#35))
 
 function mulDiv(a: bigint, b: bigint, denom: bigint): bigint {
   return (a * b) / denom;
 }
 
-<<<<<<< HEAD
-<<<<<<< HEAD
 /// TODO: Fix this.
 describe.skip("15. quoteCollateral", function () {
   it("quotes the collateral correctly for a positive base amount", async () => {
-=======
-describe.skip('15. quoteCollateral', function () {
-  it('quotes the collateral correctly for a positive base amount', async () => {
->>>>>>> 5c3a483 (Liquidation commissions (#14))
-=======
-/// TODO: Fix this.
-describe.skip("15. quoteCollateral", function () {
-  it("quotes the collateral correctly for a positive base amount", async () => {
->>>>>>> 910c8f3 (Docgen (#35))
     const { comet, tokens } = await makeProtocol({
       storeFrontPriceFactor: exp(0.5, 18),
       assets: {
@@ -68,15 +49,7 @@ describe.skip("15. quoteCollateral", function () {
     expect(q0.amountOut).to.be.equal(exp(1.25, 18));
   });
 
-<<<<<<< HEAD
-<<<<<<< HEAD
   it("quotes the collateral correctly for a zero base amount", async () => {
-=======
-  it('quotes the collateral correctly for a zero base amount', async () => {
->>>>>>> 5c3a483 (Liquidation commissions (#14))
-=======
-  it("quotes the collateral correctly for a zero base amount", async () => {
->>>>>>> 910c8f3 (Docgen (#35))
     const { comet, tokens } = await makeProtocol({
       assets: {
         USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
@@ -105,15 +78,7 @@ describe.skip("15. quoteCollateral", function () {
     expect(q0.amountOut.toBigInt()).to.be.equal(0n);
   });
 
-<<<<<<< HEAD
-<<<<<<< HEAD
   it("quotes the collateral at market price when storeFrontPriceFactor is 0%", async () => {
-=======
-  it('quotes the collateral at market price when storeFrontPriceFactor is 0%', async () => {
->>>>>>> 5c3a483 (Liquidation commissions (#14))
-=======
-  it("quotes the collateral at market price when storeFrontPriceFactor is 0%", async () => {
->>>>>>> 910c8f3 (Docgen (#35))
     const { comet, tokens } = await makeProtocol({
       storeFrontPriceFactor: exp(0, 18),
       assets: {
@@ -154,15 +119,7 @@ describe.skip("15. quoteCollateral", function () {
   });
 
   // Should fail before PR 303
-<<<<<<< HEAD
-<<<<<<< HEAD
   it("properly calculates price without truncating integer during intermediate calculations", async () => {
-=======
-  it('properly calculates price without truncating integer during intermediate calculations', async () => {
->>>>>>> 5c3a483 (Liquidation commissions (#14))
-=======
-  it("properly calculates price without truncating integer during intermediate calculations", async () => {
->>>>>>> 910c8f3 (Docgen (#35))
     const { comet, tokens } = await makeProtocol({
       storeFrontPriceFactor: exp(0.5, 18),
       assets: {
@@ -196,15 +153,7 @@ describe.skip("15. quoteCollateral", function () {
     expect(q0.amountOut.toBigInt()).to.be.equal(exp(100, 18));
   });
 
-<<<<<<< HEAD
-<<<<<<< HEAD
   it("does not overflow for large amounts", async () => {
-=======
-  it('does not overflow for large amounts', async () => {
->>>>>>> 5c3a483 (Liquidation commissions (#14))
-=======
-  it("does not overflow for large amounts", async () => {
->>>>>>> 910c8f3 (Docgen (#35))
     const { comet, tokens } = await makeProtocol({
       storeFrontPriceFactor: exp(0.8, 18),
       assets: {
@@ -237,15 +186,7 @@ describe.skip("15. quoteCollateral", function () {
     expect(q0.amountOut.toBigInt()).to.be.equal(exp(6.25, 12 + 18));
   });
 
-<<<<<<< HEAD
-<<<<<<< HEAD
   it("sets both fees to zero when delt=0", async () => {
-=======
-  it('sets both fees to zero when delt=0', async () => {
->>>>>>> 5c3a483 (Liquidation commissions (#14))
-=======
-  it("sets both fees to zero when delt=0", async () => {
->>>>>>> 910c8f3 (Docgen (#35))
     const { comet, tokens } = await makeProtocol({
       storeFrontPriceFactor: exp(0.5, 18),
       assets: {
@@ -276,21 +217,9 @@ describe.skip("15. quoteCollateral", function () {
     expect(q.feeProtocol).to.equal(0);
   });
 
-<<<<<<< HEAD
-<<<<<<< HEAD
   it("returns correct controller/protocol fees when delta > 0", async () => {
     const { comet, tokens, sandboxController } = await makeProtocol({
       storeFrontPriceFactor: exp(1, 18) / 3n, // fix for linter, a previously used value 0.333333333333333333
-=======
-  it('returns correct controller/protocol fees when delta > 0', async () => {
-    const { comet, tokens, sandboxController } = await makeProtocol({
-      storeFrontPriceFactor: exp(0.333333333333333333, 18), 
->>>>>>> 5c3a483 (Liquidation commissions (#14))
-=======
-  it("returns correct controller/protocol fees when delta > 0", async () => {
-    const { comet, tokens, sandboxController } = await makeProtocol({
-      storeFrontPriceFactor: exp(1, 18) / 3n, // fix for linter, a previously used value 0.333333333333333333
->>>>>>> 910c8f3 (Docgen (#35))
       assets: {
         USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
         COMP: {
@@ -311,21 +240,9 @@ describe.skip("15. quoteCollateral", function () {
     const baseAmount = exp(100_000_000, 6);
     const assetScale = exp(1, 18);
 
-<<<<<<< HEAD
-<<<<<<< HEAD
     exp(1, 8);
     const assetPrice = exp(123, 8);
     const SFP = exp(1, 18) / 3n;
-=======
-    const basePrice = exp(1, 8);
-    const assetPrice = exp(123, 8);
-    const SFP = exp(0.333333333333333333, 18);
->>>>>>> 5c3a483 (Liquidation commissions (#14))
-=======
-    exp(1, 8);
-    const assetPrice = exp(123, 8);
-    const SFP = exp(1, 18) / 3n;
->>>>>>> 910c8f3 (Docgen (#35))
     const LF = exp(0.8, 18);
 
     const discountFactor = mulDiv(SFP, exp(1, 18) - LF, exp(1, 18));

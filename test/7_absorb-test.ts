@@ -210,10 +210,6 @@ describe("7. absorb", function () {
         USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
 
         COMP: {
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> 910c8f3 (Docgen (#35))
           initial: 1e7,
           decimals: 18,
           initialPrice: 1,
@@ -226,7 +222,6 @@ describe("7. absorb", function () {
           borrowCF: exp(0.5, 18),
           liquidateCF: exp(0.5, 18),
           liquidationFactor: exp(0.5, 18),
-<<<<<<< HEAD
         },
         WETH: {
           initial: 1e7,
@@ -255,53 +250,6 @@ describe("7. absorb", function () {
           borrowCF: exp(0.5, 18),
           liquidateCF: exp(0.5, 18),
           liquidationFactor: exp(0.5, 18),
-=======
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          minBorrowCF: exp(0.5, 18), maxBorrowCF: exp(0.5, 18),
-          minLiquidateCF: exp(0.5, 18), maxLiquidateCF: exp(0.5, 18),
-          minLiquidationFactor: exp(0.5, 18), maxLiquidationFactor: exp(1, 18),
-          borrowCF: exp(0.5, 18), liquidateCF: exp(0.5, 18),
-          liquidationFactor: exp(0.5, 18)
-=======
->>>>>>> 910c8f3 (Docgen (#35))
-        },
-        WETH: {
-          initial: 1e7,
-          decimals: 18,
-          initialPrice: 1,
-          minBorrowCF: exp(0.5, 18),
-          maxBorrowCF: exp(0.5, 18),
-          minLiquidateCF: exp(0.5, 18),
-          maxLiquidateCF: exp(0.5, 18),
-          minLiquidationFactor: exp(0.5, 18),
-          maxLiquidationFactor: exp(1, 18),
-          borrowCF: exp(0.5, 18),
-          liquidateCF: exp(0.5, 18),
-          liquidationFactor: exp(0.5, 18),
-        },
-        WBTC: {
-<<<<<<< HEAD
-          initial: 1e7, decimals: 8, initialPrice: 1,
-          minBorrowCF: exp(0.5, 18), maxBorrowCF: exp(0.5, 18),
-          minLiquidateCF: exp(0.5, 18), maxLiquidateCF: exp(0.5, 18),
-          minLiquidationFactor: exp(0.5, 18), maxLiquidationFactor: exp(1, 18),
-          borrowCF: exp(0.5, 18), liquidateCF: exp(0.5, 18),
-          liquidationFactor: exp(0.5, 18)
->>>>>>> 5c3a483 (Liquidation commissions (#14))
-=======
-          initial: 1e7,
-          decimals: 8,
-          initialPrice: 1,
-          minBorrowCF: exp(0.5, 18),
-          maxBorrowCF: exp(0.5, 18),
-          minLiquidateCF: exp(0.5, 18),
-          maxLiquidateCF: exp(0.5, 18),
-          minLiquidationFactor: exp(0.5, 18),
-          maxLiquidationFactor: exp(1, 18),
-          borrowCF: exp(0.5, 18),
-          liquidateCF: exp(0.5, 18),
-          liquidationFactor: exp(0.5, 18),
->>>>>>> 910c8f3 (Docgen (#35))
         },
       },
     });
@@ -374,10 +322,6 @@ describe("7. absorb", function () {
       assets: {
         USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
         COMP: {
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> 910c8f3 (Docgen (#35))
           initial: 1e7,
           decimals: 18,
           initialPrice: 1,
@@ -389,7 +333,6 @@ describe("7. absorb", function () {
           liquidateCF: LIQ_CF,
           minLiquidationFactor: LIQ_CF,
           maxLiquidationFactor: exp(1, 18),
-<<<<<<< HEAD
           liquidationFactor: exp(1, 18),
         },
         WETH: {
@@ -418,51 +361,6 @@ describe("7. absorb", function () {
           liquidateCF: LIQ_CF,
           minLiquidationFactor: LIQ_CF,
           maxLiquidationFactor: exp(1, 18),
-=======
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          minBorrowCF: BORROW_CF, maxBorrowCF: BORROW_CF,
-          minLiquidateCF: LIQ_CF, maxLiquidateCF: LIQ_CF,
-          borrowCF: BORROW_CF, liquidateCF: LIQ_CF,
-          minLiquidationFactor: LIQ_CF, maxLiquidationFactor: exp(1, 18),
-=======
->>>>>>> 910c8f3 (Docgen (#35))
-          liquidationFactor: exp(1, 18),
-        },
-        WETH: {
-          initial: 1e7,
-          decimals: 18,
-          initialPrice: 1,
-          minBorrowCF: BORROW_CF,
-          maxBorrowCF: BORROW_CF,
-          minLiquidateCF: LIQ_CF,
-          maxLiquidateCF: LIQ_CF,
-          borrowCF: BORROW_CF,
-          liquidateCF: LIQ_CF,
-          minLiquidationFactor: LIQ_CF,
-          maxLiquidationFactor: exp(1, 18),
-          liquidationFactor: exp(1, 18),
-        },
-        WBTC: {
-<<<<<<< HEAD
-          initial: 1e7, decimals: 8, initialPrice: 1,
-          minBorrowCF: BORROW_CF, maxBorrowCF: BORROW_CF,
-          minLiquidateCF: LIQ_CF, maxLiquidateCF: LIQ_CF,
-          borrowCF: BORROW_CF, liquidateCF: LIQ_CF,
-          minLiquidationFactor: LIQ_CF, maxLiquidationFactor: exp(1, 18),
->>>>>>> 5c3a483 (Liquidation commissions (#14))
-=======
-          initial: 1e7,
-          decimals: 8,
-          initialPrice: 1,
-          minBorrowCF: BORROW_CF,
-          maxBorrowCF: BORROW_CF,
-          minLiquidateCF: LIQ_CF,
-          maxLiquidateCF: LIQ_CF,
-          borrowCF: BORROW_CF,
-          liquidateCF: LIQ_CF,
-          minLiquidationFactor: LIQ_CF,
-          maxLiquidationFactor: exp(1, 18),
->>>>>>> 910c8f3 (Docgen (#35))
           liquidationFactor: exp(1, 18),
         },
       },
@@ -597,10 +495,6 @@ describe("7. absorb", function () {
         USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
 
         COMP: {
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> 910c8f3 (Docgen (#35))
           initial: 1e7,
           decimals: 18,
           initialPrice: 1,
@@ -612,7 +506,6 @@ describe("7. absorb", function () {
           liquidateCF: LIQ_CF,
           minLiquidationFactor: LIQ_CF,
           maxLiquidationFactor: exp(1, 18),
-<<<<<<< HEAD
           liquidationFactor: exp(1, 18),
         },
         WETH: {
@@ -627,37 +520,6 @@ describe("7. absorb", function () {
           liquidateCF: LIQ_CF,
           minLiquidationFactor: LIQ_CF,
           maxLiquidationFactor: exp(1, 18),
-=======
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          minBorrowCF: BORROW_CF, maxBorrowCF: BORROW_CF,
-          minLiquidateCF: LIQ_CF, maxLiquidateCF: LIQ_CF,
-          borrowCF: BORROW_CF, liquidateCF: LIQ_CF,
-          minLiquidationFactor: LIQ_CF, maxLiquidationFactor: exp(1, 18),
-          liquidationFactor: exp(1, 18),
-        },
-        WETH: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          minBorrowCF: BORROW_CF, maxBorrowCF: BORROW_CF,
-          minLiquidateCF: LIQ_CF, maxLiquidateCF: LIQ_CF,
-          borrowCF: BORROW_CF, liquidateCF: LIQ_CF,
-          minLiquidationFactor: LIQ_CF, maxLiquidationFactor: exp(1, 18),
->>>>>>> 5c3a483 (Liquidation commissions (#14))
-=======
-          liquidationFactor: exp(1, 18),
-        },
-        WETH: {
-          initial: 1e7,
-          decimals: 18,
-          initialPrice: 1,
-          minBorrowCF: BORROW_CF,
-          maxBorrowCF: BORROW_CF,
-          minLiquidateCF: LIQ_CF,
-          maxLiquidateCF: LIQ_CF,
-          borrowCF: BORROW_CF,
-          liquidateCF: LIQ_CF,
-          minLiquidationFactor: LIQ_CF,
-          maxLiquidationFactor: exp(1, 18),
->>>>>>> 910c8f3 (Docgen (#35))
           liquidationFactor: exp(1, 18),
         },
       },
