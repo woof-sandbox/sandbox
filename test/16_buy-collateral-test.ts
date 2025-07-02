@@ -7,7 +7,7 @@ import {
   SandboxComet,
 } from "../build/types";
 import { ethers, event, expect, exp, getBlock, makeProtocol, portfolio, ReentryAttack, wait, hre } from "./helper/helpers";
-
+// TODO: Fix this.
 describe.skip("16. buyCollateral", function () {
   async function mintUserCollateral(comet: SandboxComet, token: FaucetToken, user: string, amount: bigint) {
     await token.allocateTo(user, amount);
@@ -21,25 +21,6 @@ describe.skip("16. buyCollateral", function () {
     await coll.connect(signer).approve(comet.address, exp(2, await coll.decimals()));
     await comet.connect(signer).supply(coll.address, exp(2, await coll.decimals()));
     await comet.connect(signer).withdraw(base.address, amountBaseWei);
-  }
-
-  const FACTOR_SCALE = BigInt("1000000000000000000");
-
-  function discountPrice() {
-    // Uses global storeFront=0.5, LF=0.8, oracle price=1
-    const discount = (exp(0.5, 18) * (FACTOR_SCALE - exp(0.8, 18))) / FACTOR_SCALE;
-    return (1n * 10n ** 8n * (FACTOR_SCALE - discount)) / FACTOR_SCALE;
-  }
-
-  const compToBase = (compAmt: bigint) => (compAmt * discountPrice()) / 10n ** 18n;
-
-  async function feeBalances(comet: SandboxComet, asset: string, treasury: string, controller: string) {
-    const tBal = await comet.userCollateral(treasury, asset);
-    const cBal = await comet.userCollateral(controller, asset);
-    return {
-      treasury: tBal.toBigInt(),
-      controller: cBal.toBigInt(),
-    };
   }
 
   it("allows buying collateral when reserves < target reserves", async () => {
@@ -285,7 +266,6 @@ describe.skip("16. buyCollateral", function () {
     const {
       comet,
       tokens,
-      guardian,
       users: [alice],
       configController,
     } = protocol;
@@ -390,7 +370,7 @@ describe.skip("16. buyCollateral", function () {
       },
     });
   });
-
+  // TODO: Fix this
   describe.skip("reentrancy", function () {
     it("is blocked during reentrant supply", async () => {
       const wethArgs = {
@@ -433,7 +413,7 @@ describe.skip("16. buyCollateral", function () {
         targetPercent: 0.01,
       });
       const { comet: evilComet, tokens: evilTokens } = evilProtocol;
-      const { WETH: evilWETH, EVIL } = <{ WETH: FaucetToken; EVIL: EvilToken }>evilTokens;
+      const { WETH: evilWETH, EVIL } = <{ WETH: FaucetToken, EVIL: EvilToken }>evilTokens;
       // add attack to EVIL token
       const attack = Object.assign({}, await EVIL.getAttack(), {
         attackType: ReentryAttack.SupplyFrom,
@@ -551,7 +531,7 @@ describe.skip("16. buyCollateral", function () {
         tokens: evilTokens,
         users: [evilAlice, evilBob],
       } = evilProtocol;
-      const { WETH: evilWETH, EVIL } = <{ WETH: FaucetToken; EVIL: EvilToken }>evilTokens;
+      const { WETH: evilWETH, EVIL } = <{ WETH: FaucetToken, EVIL: EvilToken }>evilTokens;
 
       // add attack to EVIL token
       const attack = Object.assign({}, await EVIL.getAttack(), {
