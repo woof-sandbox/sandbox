@@ -83,13 +83,13 @@ abstract contract ISandboxComet is CometCore {
   /// @notice Event emitted when reserves are withdrawn by the governor
   event WithdrawReserves(address indexed to, uint amount);
 
-    event SpeedsChanged(
-        uint baseTrackingSupplySpeed,
-        uint baseTrackingBorrowSpeed,
-        bool dao_
-    );
+  event SpeedsChanged(
+      uint baseTrackingSupplySpeed,
+      uint baseTrackingBorrowSpeed,
+      bool dao_
+  );
 
-    event ControllerFeeDisabled(bool disabled);
+  event ControllerFeeDisabled(bool disabled);
 
   function supply(address asset, uint amount) external virtual;
 
