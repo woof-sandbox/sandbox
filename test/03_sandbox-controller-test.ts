@@ -5,8 +5,7 @@ import {
   makeSandboxController,
   makeMockERC20,
   makePriceFeed,
-  exp,
-  SandboxControllerOpts,
+  exp
 } from "./helper/helpers";
 import { parseEther } from "ethers/lib/utils";
 
@@ -54,13 +53,9 @@ describe("3. SandboxController", function () {
   let dao: any;
   let attacker: any;
   let other: any;
-  let SandboxControllerFactory: any;
-  let opts: SandboxControllerOpts = {};
 
   before(async function () {
-    SandboxControllerFactory = await ethers.getContractFactory("SandboxController");
     [owner, dao, attacker, other] = await ethers.getSigners();
-    opts = defaultSandboxControllerOpts({ admin: owner, dao: dao, feeEnabled: true });
   });
 
   describe("deployment with typical valid parameters", function () {
