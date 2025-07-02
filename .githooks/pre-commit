@@ -58,20 +58,6 @@ else
     echo "ℹ️  No Solidity files to lint"
 fi
 
-# Generate documentation if Solidity files were modified
-if [ -n "$SOLIDITY_FILES" ]; then
-    echo "📚 Generating documentation for Solidity contracts..."
-    yarn doc
-    
-    # Check if docs directory exists and has changes
-    if [ -d "./docs" ]; then
-        echo "📝 Adding generated documentation to staging..."
-        git add docs/
-    fi
-else
-    echo "ℹ️  No Solidity files modified, skipping documentation generation"
-fi
-
 # Add back the modified/prettified files to staging
 echo "📝 Adding formatted files back to staging..."
 if [ -n "$SOLIDITY_FILES" ] || [ -n "$TS_FILES" ]; then
