@@ -91,11 +91,11 @@ contract SandboxController is ISandboxController {
         address _treasury,
         bool _feeEnabled,
         uint256 _targetPercent,
-        uint256 _storeFrontPriceFactor,
+        uint64 _storeFrontPriceFactor,
         uint256 _minUpdateTime,
         uint256 _maxUpdateTime,
         uint256 _suggestedAmountOfSeedReserves,
-        uint64 _suggestedLockTimeOfSeedReserves,
+        uint256 _suggestedLockTimeOfSeedReserves,
         uint64[MARKET_STATES] memory _reserveCommissions,
         uint64[MARKET_STATES] memory _protocolCommissions
     ) {
@@ -130,11 +130,11 @@ contract SandboxController is ISandboxController {
         
         _controllerConfiguration = SandboxControllerConfiguration(
             _targetPercent,
-            _storeFrontPriceFactor,
             _minUpdateTime,
             _maxUpdateTime,
             _suggestedAmountOfSeedReserves,
-            _suggestedLockTimeOfSeedReserves
+            _suggestedLockTimeOfSeedReserves,
+            _storeFrontPriceFactor
         );
     }
 

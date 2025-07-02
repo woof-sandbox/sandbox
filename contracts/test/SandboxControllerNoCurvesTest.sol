@@ -13,7 +13,7 @@ contract SandboxControllerNoCurvesTest is SandboxController {
         address _treasury,
         bool _feeEnabled,
         uint256 _targetPercent,
-        uint256 _storeFrontPriceFactor,
+        uint64 _storeFrontPriceFactor,
         uint256 _minUpdateTime,
         uint256 _maxUpdateTime,
         uint256 _suggestedAmountOfSeedReserves,

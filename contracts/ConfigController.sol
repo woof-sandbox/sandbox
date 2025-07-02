@@ -142,21 +142,6 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
         _proposeCurator(_curator);
     }
 
-    /// @notice Set speeds for a specific comet
-    /// @dev Only callable by the ownerAdd commentMore actions
-    /// @param comet The address of the comet
-    /// @param baseTrackingSupplySpeed_ The new base tracking supply speed
-    /// @param baseTrackingBorrowSpeed_ The new base tracking borrow speed
-    function setBaseTrackingSpeeds(
-        address comet,
-        uint64 baseTrackingSupplySpeed_,
-        uint64 baseTrackingBorrowSpeed_
-    ) external override onlyOwner {
-        if (comet == ZERO_ADDRESS) revert ZeroAddress();
-        if (!_isCometOwned(comet)) revert CometNotOwned();
-        ISandboxComet(comet).setBaseSpeeds(baseTrackingSupplySpeed_, baseTrackingBorrowSpeed_);
-    }
-
     /// @notice Creates a new comet with the specified configuration
     /// @dev Only callable by the owner
     /// @param _cometConfig The configuration parameters for the new comet
@@ -205,9 +190,9 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
         ISandboxController.SandboxControllerConfiguration memory _sandboxConfig = ISandboxController(sandboxController).config();
         CometGlobalParamsConfig memory _globalConfig = CometGlobalParamsConfig(
             _sandboxConfig.targetPercent,
-            _sandboxConfig.storeFrontPriceFactor,
             _sandboxConfig.suggestedAmountOfSeedReserves,
-            _sandboxConfig.suggestedLockTimeOfSeedReserves
+            _sandboxConfig.suggestedLockTimeOfSeedReserves,
+            _sandboxConfig.storeFrontPriceFactor
         );
             
         address comet = ISandboxCometFactory(cometFactory).createComet();
@@ -250,6 +235,20 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
         emit CometFeeEnabled(address(this), comet, feeEnabled);
     }
 
+    /// @notice Set speeds for a specific comet
+    /// @dev Only callable by the ownerAdd commentMore actions
+    /// @param comet The address of the comet
+    /// @param baseTrackingSupplySpeed_ The new base tracking supply speed
+    /// @param baseTrackingBorrowSpeed_ The new base tracking borrow speed
+    function setBaseTrackingSpeeds(
+        address comet,
+        uint64 baseTrackingSupplySpeed_,
+        uint64 baseTrackingBorrowSpeed_
+    ) external onlyOwner {
+        if (comet == ZERO_ADDRESS) revert ZeroAddress();
+        if (!_isCometOwned(comet)) revert UnknownComet();
+        ISandboxComet(comet).setBaseSpeeds(baseTrackingSupplySpeed_, baseTrackingBorrowSpeed_);
+    }
 
     /// @notice Extracts fees to a self and distributes it
     /// @param comet Comet which should be registered in Controller

@@ -16,8 +16,6 @@ interface IConfigController {
         uint64 liquidateCollateralFactor;
         uint64 liquidationFactor;
     }
-
-    
     
     struct CometConfig {
         address baseToken;
@@ -27,164 +25,18 @@ interface IConfigController {
 
     struct CometGlobalParamsConfig {
         uint256 targetPercent;
-        uint256 storeFrontPriceFactor;
         uint256 suggestedAmountOfSeedReserves;
         uint256 suggestedLockTimeOfSeedReserves;
+        uint64 storeFrontPriceFactor;
     }
 
     struct CometRewardOptions {
-        uint64 baseTrackingSupplySpeed;
-        uint64 baseTrackingBorrowSpeed;
-        uint64 trackingIndexScale;
-        uint64 baseMinForRewards;
+        uint256 baseTrackingSupplySpeed;
+        uint256 baseTrackingBorrowSpeed;
+        uint256 trackingIndexScale;
+        uint256 baseMinForRewards;
     }
 
-    error AlreadyInitialized();
-    error ZeroAddress();
-    error Unauthorized();
-    error WrongPriceFeed();
-    error WrongCurveParams();
-    error ZeroCollateralAssets();
-    error SupplyCapCantBeZero();
-    error WrongCollateralTokenSettings();
-    error LiquidateCollateralFactorTooLow();
-    error LiquidateCollateralFactorTooHigh();
-    error LiquidationFactorTooLow();
-    error LiquidationFactorTooHigh();
-    error BorrowCollateralFactorTooLow();
-    error BorrowCollateralFactorTooHigh();
-    error BaseTokenNotWhitelisted();
-    error CollateralTokenNotWhitelisted();
-    error CollateralTokenAlreadyAdded();
-    error InvalidFeePercentage();
-    error ZeroAmount();
-    error InsufficientBalance();
-    error InvalidCurator();
-    error ProposalExpired();
-    error NoActiveProposal();
-    error ProposalExists();
-    error ProposalNotReady();
-    error ProposalDurationTooShort();
-    error ProposalDurationTooLong();
-    error TokenNotRevenue();
-    error CometAlreadyAdded();
-    error NonConfigController();
-    error CometNotOwned();
-    error InvalidCurveId();
-    error SameCurve();
-    error ProposalNotRevertable();
-    error BadMinimum();
-
-    
-    event CometBaseTokenCurveProposed(
-        address indexed comet,
-        address indexed proposer,
-        uint256 revertTime,
-        uint256 curveId
-    );
-
-    event CometBaseTokenCurveProposalExecuted(
-        address indexed comet,
-        address indexed executedBy
-    );
-
-    event CometBaseTokenCurveProposalCancelled(
-        address indexed comet,
-        address indexed cancelledBy
-    );
-
-    event CometCreated(
-        address comet,
-        address baseToken,
-        address priceFeed,
-        uint cometId,
-        uint baseTokenCurveId
-    );
-    event AddedCollateralTokenConfig(
-        address asset,
-        address priceFeed,
-        uint8 decimals,
-        uint64 borrowCollateralFactor,
-        uint64 liquidateCollateralFactor,
-        uint64 liquidationFactor,
-        uint128 supplyCap
-    );
-
-    event AddedBaseTokenConfig(
-        uint64 supplyKink,
-        uint64 supplyPerSecondInterestRateSlopeLow,
-        uint64 supplyPerSecondInterestRateSlopeHigh,
-        uint64 supplyPerSecondInterestRateBase,
-        uint64 borrowKink,
-        uint64 borrowPerSecondInterestRateSlopeLow,
-        uint64 borrowPerSecondInterestRateSlopeHigh,
-        uint64 borrowPerSecondInterestRateBase,
-        uint64 storeFrontPriceFactor    
-    );
-
-    event CuratorFeeUpdated(uint oldFee, uint newFee);
-    event RevenueDistributed(
-        address token,
-        uint curatorAmount,
-        uint ownerAmount
-    );
-    event RevenueAccumulated(
-        address token,
-        uint amount
-    );
-    event RevenueClaimed(
-        address token,
-        address recipient,
-        uint amount
-    );
-    event CuratorProposed(address indexed currentCurator, address indexed proposedCurator, uint expiry);
-    event CuratorAccepted(address indexed oldCurator, address indexed newCurator);
-    event CuratorCanceled(address indexed oldCurator);
-    event CuratorProposalCancelled(address indexed proposedCurator);
-    event GuardianUpdated(address indexed oldGuardian, address indexed newGuardian);
-    
-    /// @notice Events for proposal system
-    event CometConfigProposed(
-        address indexed comet,
-        address indexed proposer,
-        uint256 revertTime
-    );
-    event CometConfigProposalCancelled(
-        address indexed comet,
-        address indexed cancelledBy
-    );
-    event CometConfigProposalExecuted(
-        address indexed comet,
-        address indexed executedBy
-    );
-    event ProposalDurationsUpdated(
-        uint oldCuratorDuration,
-        uint newCuratorDuration,
-        uint oldProposalDuration,
-        uint newProposalDuration
-    );
-    
-    /// @notice Events for comet transfer proposal system
-    event CometTransferProposed(
-        address indexed comet,
-        address indexed newController,
-        uint256 expiration
-    );
-    event CometTransferProposalCancelled(
-        address indexed comet,
-        address indexed cancelledBy
-    );
-    event CometTransferProposalAccepted(
-        address indexed comet,
-        address indexed oldController,
-        address indexed newController
-    );
-
-    function setBaseTrackingSpeeds(
-        address _comet,
-        uint64 _baseTrackingSupplySpeed,
-        uint64 _baseTrackingBorrowSpeed
-    ) virtual external;
 
     /// @notice Returns the current curator fee in basis points (1% = 100)
     /// @return The curator fee value
@@ -239,4 +91,15 @@ interface IConfigController {
     /// @notice Returns the address of the ConfigControllerFactory
     /// @return The address of the ConfigControllerFactory
     function configControllerFactory() external view returns (address);
+
+    /// @notice Set speeds for a specific comet
+    /// @dev Only callable by the ownerAdd commentMore actions
+    /// @param comet The address of the comet
+    /// @param baseTrackingSupplySpeed_ The new base tracking supply speed
+    /// @param baseTrackingBorrowSpeed_ The new base tracking borrow speed
+    function setBaseTrackingSpeeds(
+        address comet,
+        uint64 baseTrackingSupplySpeed_,
+        uint64 baseTrackingBorrowSpeed_
+    ) external;
 }

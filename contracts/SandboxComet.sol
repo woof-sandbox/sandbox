@@ -120,7 +120,7 @@ contract SandboxComet is ISandboxComet {
 
         /// Rewards are disabled by default
         trackingIndexScale = 1;
-        baseMinForRewards = type(uint256).max;
+        baseMinForRewards = type(uint104).max;
         /// to avoid explicit initialization
         /// baseTrackingSupplySpeed = 0;
         /// baseTrackingBorrowSpeed = 0;
