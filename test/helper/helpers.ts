@@ -30,7 +30,7 @@ import { SandboxController } from "../../build/types/SandboxController";
 import { SandboxController__factory } from "../../build/types/factories/SandboxController__factory";
 import { BigNumber, Contract, ContractReceipt, ContractTransaction } from "ethers";
 import { TransactionReceipt, TransactionResponse } from "@ethersproject/abstract-provider";
-import { CometHarness, TotalsBasicStructOutput, TotalsCollateralStructOutput } from "../../build/types/CometHarness";
+import { CometHarness, TotalsBasicStructOutput } from "../../build/types/CometHarness";
 import { CometConfigStruct } from "../../build/types/ConfigController";
 
 export { ethers, expect, hre };
@@ -107,7 +107,6 @@ export type Protocol = {
   opts: ProtocolOpts;
   users: SignerWithAddress[];
   base: string;
-  reward: string;
   comet: SandboxComet;
   tokens: {
     [symbol: string]: FaucetToken | NonStandardFaucetFeeToken;
@@ -170,7 +169,7 @@ export interface SandboxControllerOpts {
   reserveCommissions?: [bigint, bigint, bigint];
   protocolCommissions?: [bigint, bigint, bigint];
 }
-
+// TODO: Remove BulkerInfo.
 export type BulkerInfo = {
   opts: BulkerOpts;
   bulker: BaseBulker;
@@ -312,7 +311,7 @@ export async function makeCometFactory(cometImpl: Contract, configController: Co
   return cometFactory;
 }
 
-export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Protocol> {
+export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Partial<Protocol>> {
   const signers = await ethers.getSigners();
 
   const assets = opts.assets || defaultAssets();
@@ -331,8 +330,8 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
     const initial = (config.initial != undefined && config.initial.toString()) || 1e6;
     const name = config.name || symbol;
     const factory = config.factory || FaucetFactory;
-    let token;
-    token = tokens[symbol] = await factory.deploy(initial, name, decimals, symbol);
+    let token: FaucetToken;
+    token = tokens[symbol] = await factory.deploy(initial, name, decimals, symbol) as FaucetToken;
     await token.deployed();
   }
 
@@ -353,7 +352,6 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
   priceFeeds["USUP"] = priceFeed;
 
   // --- Parameters ---
-  // --- Parameters ---
   const supplyKink = dfn(opts.supplyKink, exp(0.8, 18));
   const supplyPerYearInterestRateBase = dfn(opts.supplyInterestRateBase, exp(0.001, 18));
   const supplyPerYearInterestRateSlopeLow = dfn(opts.supplyInterestRateSlopeLow, exp(0.05, 18));
@@ -363,7 +361,7 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
   const borrowPerYearInterestRateSlopeLow = dfn(opts.borrowInterestRateSlopeLow, exp(0.1, 18));
   const borrowPerYearInterestRateSlopeHigh = dfn(opts.borrowInterestRateSlopeHigh, exp(3, 18));
   const baseBorrowMin = dfn(opts.baseBorrowMin, exp(1, assets[base].decimals));
-  const baseToken = tokens[base];
+  const baseToken: FaucetToken = tokens[base];
   const suggestedAmountOfSeedReserves = dfn(opts.suggestedAmountOfSeedReserves, "100000000");
 
   const sandboxControllerOpts = defaultSandboxControllerOpts({
@@ -444,7 +442,6 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
 
   const configController = (await ConfigControllerFactory.attach(await configControllerFactory.controllerAddresses(0))) as ConfigController;
 
-  await configController.connect(owner).proposeCurator(curator.address);
   await configController.connect(curator).acceptCuratorRole();
 
   const curve = {
@@ -460,6 +457,7 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Pro
 
   return {
     opts,
+    base: await baseToken.symbol(),
     users,
     tokens,
     baseToken,
@@ -758,7 +756,7 @@ export async function bumpTotalsCollateral(
   comet: CometHarness,
   token: FaucetToken | NonStandardFaucetFeeToken,
   delta: bigint
-): Promise<TotalsCollateralStructOutput> {
+): Promise<BigNumber> {
   const totalCollateralBefore = await comet.totalsCollateral(token.address);
 
   const totalCollateralAfter = totalCollateralBefore.add(delta);
