@@ -1,10 +1,10 @@
-import { scenario } from './context/CometContext';
-import { expect } from 'chai';
+import { scenario } from "./context/CometContext";
+import { expect } from "chai";
 
-scenario('Comet#allow > allows a user to authorize a manager', {}, async ({ comet, actors }, context) => {
+scenario("Comet#allow > allows a user to authorize a manager", {}, async ({ comet, actors }, context) => {
   const { albert, betty } = actors;
 
-  await context.world.deploymentManager.hre.network.provider.send('evm_mine', []);
+  await context.world.deploymentManager.hre.network.provider.send("evm_mine", []);
 
   const txn = await albert.allow(betty, true);
 
@@ -13,7 +13,7 @@ scenario('Comet#allow > allows a user to authorize a manager', {}, async ({ come
   return txn; // return txn to measure gas
 });
 
-scenario('Comet#allow > allows a user to rescind authorization', {}, async ({ comet, actors }) => {
+scenario("Comet#allow > allows a user to rescind authorization", {}, async ({ comet, actors }) => {
   const { albert, betty } = actors;
 
   await albert.allow(betty, true);

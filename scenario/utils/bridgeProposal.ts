@@ -1,12 +1,10 @@
-import { DeploymentManager } from '../../plugins/deployment_manager';
-import { BridgedProposalState, OpenBridgedProposal } from '../context/Gov';
-import { fetchLogs } from '../utils';
-import { setNextBaseFeeToZero, setNextBlockTimestamp } from './hreUtils';
+import { DeploymentManager } from "../../plugins/deployment_manager";
+import { BridgedProposalState, OpenBridgedProposal } from "../context/Gov";
+import { fetchLogs } from "../utils";
+import { setNextBaseFeeToZero, setNextBlockTimestamp } from "./hreUtils";
 
-export async function getOpenBridgedProposals(
-  deploymentManager: DeploymentManager,
-): Promise<OpenBridgedProposal[]> {
-  const receiver = await deploymentManager.contract('bridgeReceiver');
+export async function getOpenBridgedProposals(deploymentManager: DeploymentManager): Promise<OpenBridgedProposal[]> {
+  const receiver = await deploymentManager.contract("bridgeReceiver");
   if (receiver === undefined) return [];
   const timelockBuf = 500_000; // XXX using a high value because Arbitrum has fast block times
   const searchBlocks = timelockBuf;
@@ -27,14 +25,11 @@ export async function getOpenBridgedProposals(
   return proposals;
 }
 
-export async function executeBridgedProposal(
-  deploymentManager: DeploymentManager,
-  proposal: OpenBridgedProposal,
-) {
-  const receiver = await deploymentManager.getContractOrThrow('bridgeReceiver');
+export async function executeBridgedProposal(deploymentManager: DeploymentManager, proposal: OpenBridgedProposal) {
+  const receiver = await deploymentManager.getContractOrThrow("bridgeReceiver");
   const { id, eta } = proposal;
 
-  const blockNow = await deploymentManager.hre.ethers.provider.getBlock('latest');
+  const blockNow = await deploymentManager.hre.ethers.provider.getBlock("latest");
   // fast forward l2 time
   await setNextBlockTimestamp(deploymentManager, Math.max(eta.toNumber() + 1, blockNow.timestamp + 1));
 

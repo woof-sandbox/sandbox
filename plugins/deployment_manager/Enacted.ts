@@ -1,9 +1,13 @@
-import { DeploymentManager } from './DeploymentManager';
-import * as ts from 'typescript';
-import * as fs from 'fs/promises';
-import { Migration } from './Migration';
+import { DeploymentManager } from "./DeploymentManager";
+import * as ts from "typescript";
+import * as fs from "fs/promises";
+import { Migration } from "./Migration";
 
-export async function writeEnacted<T>(migration: Migration<T>, deploymentManager: DeploymentManager, writeToFile: boolean = true): Promise<string> {
+export async function writeEnacted<T>(
+  migration: Migration<T>,
+  deploymentManager: DeploymentManager,
+  writeToFile: boolean = true
+): Promise<string> {
   const network = deploymentManager.network;
   const deployment = deploymentManager.deployment;
   const migrationPath = `./deployments/${network}/${deployment}/migrations/${migration.name}.ts`;
@@ -27,35 +31,32 @@ export function addEnactedToMigration(sourceFile: ts.SourceFile): string {
   const sourceFileText = sourceFile.getFullText();
   const exportAssignment = sourceFile.statements.find(ts.isExportAssignment)!;
   const callExpression = exportAssignment.expression as ts.CallExpression;
-  const objectLiteralExpression = callExpression.arguments.find(x => x.kind === ts.SyntaxKind.ObjectLiteralExpression) as ts.ObjectLiteralExpression;
-  const enact = objectLiteralExpression.properties.find(x => (x.name as ts.Identifier).escapedText == 'enact')!;
-  const enacted = objectLiteralExpression.properties.find(x => (x.name as ts.Identifier).escapedText == 'enacted');
-  let code =
-    `\n\n  async enacted(deploymentManager: DeploymentManager): Promise<boolean> {\n    return true;\n  },`;
+  const objectLiteralExpression = callExpression.arguments.find(
+    x => x.kind === ts.SyntaxKind.ObjectLiteralExpression
+  ) as ts.ObjectLiteralExpression;
+  const enact = objectLiteralExpression.properties.find(x => (x.name as ts.Identifier).escapedText == "enact")!;
+  const enacted = objectLiteralExpression.properties.find(x => (x.name as ts.Identifier).escapedText == "enacted");
+  let code = `\n\n  async enacted(deploymentManager: DeploymentManager): Promise<boolean> {\n    return true;\n  },`;
   let newSourceCode;
   if (enacted) {
     // If enacted already exists, just replace it
     let endPos = enacted.end;
-    if (sourceFileText.charAt(enacted.end) === ',') {
+    if (sourceFileText.charAt(enacted.end) === ",") {
       // Skip the original comma to avoid double commas
       endPos = enacted.end + 1;
     }
-    newSourceCode = sourceFileText.substring(0, enacted.pos)
-      + code
-      + sourceFileText.substring(endPos);
+    newSourceCode = sourceFileText.substring(0, enacted.pos) + code + sourceFileText.substring(endPos);
   } else {
     let insertPos;
-    if (sourceFileText.charAt(enact.end) === ',') {
+    if (sourceFileText.charAt(enact.end) === ",") {
       // Insert after the comma
       insertPos = enact.end + 1;
     } else {
       // Prepend a comma
       insertPos = enact.end;
-      code = ',' + code;
+      code = "," + code;
     }
-    newSourceCode = sourceFileText.substring(0, insertPos)
-      + code
-      + sourceFileText.substring(insertPos);
+    newSourceCode = sourceFileText.substring(0, insertPos) + code + sourceFileText.substring(insertPos);
   }
 
   return newSourceCode;

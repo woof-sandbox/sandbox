@@ -6,7 +6,8 @@ import "../interfaces/IPriceFeed.sol";
 
 /**
  * @title ezETH Scaling price feed
- * @notice A custom price feed that scales up or down the price received from an underlying Renzo ezETH / ETH exchange rate price feed and returns the result
+ * @notice A custom price feed that scales up or down the price received from an underlying Renzo ezETH / ETH exchange rate
+ * price feed and returns the result
  * @author Compound
  */
 contract EzETHExchangeRatePriceFeed is IPriceFeed {
@@ -51,9 +52,10 @@ contract EzETHExchangeRatePriceFeed is IPriceFeed {
         uint8 ezETHRateProviderDecimals = 18;
         // Note: Solidity does not allow setting immutables in if/else statements
         shouldUpscale = ezETHRateProviderDecimals < decimals_ ? true : false;
-        rescaleFactor = (shouldUpscale
-            ? signed256(10 ** (decimals_ - ezETHRateProviderDecimals))
-            : signed256(10 ** (ezETHRateProviderDecimals - decimals_))
+        rescaleFactor = (
+            shouldUpscale
+                ? signed256(10 ** (decimals_ - ezETHRateProviderDecimals))
+                : signed256(10 ** (ezETHRateProviderDecimals - decimals_))
         );
         underlyingToken = underlyingToken_;
     }
@@ -66,15 +68,15 @@ contract EzETHExchangeRatePriceFeed is IPriceFeed {
      * @return updatedAt Timestamp when the round was last updated; passed on from underlying price feed
      * @return answeredInRound Round id in which the answer was computed; passed on from underlying price feed
      **/
-    function latestRoundData() override external view returns (
-        uint80 roundId,
-        int256 answer,
-        uint256 startedAt,
-        uint256 updatedAt,
-        uint80 answeredInRound
-    ) {
+    function latestRoundData()
+        external
+        view
+        override
+        returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound)
+    {
         uint256 rate = IBalancerRateProvider(underlyingPriceFeed).getRate();
-        // protocol uses only the answer value. Other data fields are not provided by the underlying pricefeed and are not used in Comet protocol
+        // protocol uses only the answer value. Other data fields are not provided by the underlying pricefeed and are not used
+        // in Comet protocol
         // https://etherscan.io/address/0x387dBc0fB00b26fb085aa658527D5BE98302c84C#readProxyContract
         return (1, scalePrice(signed256(rate)), block.timestamp, block.timestamp, 1);
     }

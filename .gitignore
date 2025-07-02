@@ -13,8 +13,8 @@ dist/
 deployments/*/.contracts
 deployments/*/*/verify
 deployments/*/*/aliases.json
-forge/cache
-forge/out
+
+out/
 
 .env
 coverage/

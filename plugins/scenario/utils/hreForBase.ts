@@ -1,14 +1,14 @@
-import { ethers } from 'ethers';
-import type { HardhatEthersHelpers } from '@nomiclabs/hardhat-ethers/types';
-import { HardhatRuntimeEnvironment } from 'hardhat/types';
-import { HardhatContext } from 'hardhat/internal/context';
-import { loadConfigAndTasks } from 'hardhat/internal/core/config/config-loading';
-import { getEnvHardhatArguments } from 'hardhat/internal/core/params/env-variables';
-import { HARDHAT_PARAM_DEFINITIONS } from 'hardhat/internal/core/params/hardhat-params';
-import { Environment } from 'hardhat/internal/core/runtime-environment';
-import { ForkSpec } from '../World';
-import { HttpNetworkUserConfig } from 'hardhat/types';
-import { EthereumProvider } from 'hardhat/types/provider';
+import { ethers } from "ethers";
+import type { HardhatEthersHelpers } from "@nomiclabs/hardhat-ethers/types";
+import { HardhatRuntimeEnvironment } from "hardhat/types";
+import { HardhatContext } from "hardhat/internal/context";
+import { loadConfigAndTasks } from "hardhat/internal/core/config/config-loading";
+import { getEnvHardhatArguments } from "hardhat/internal/core/params/env-variables";
+import { HARDHAT_PARAM_DEFINITIONS } from "hardhat/internal/core/params/hardhat-params";
+import { Environment } from "hardhat/internal/core/runtime-environment";
+import { ForkSpec } from "../World";
+import { HttpNetworkUserConfig } from "hardhat/types";
+import { EthereumProvider } from "hardhat/types/provider";
 
 /*
 mimics https://github.com/nomiclabs/hardhat/blob/master/packages/hardhat-core/src/internal/lib/hardhat-lib.ts
@@ -27,7 +27,7 @@ ethers type extension: https://github.com/nomiclabs/hardhat/blob/master/packages
 waffle type extension: https://github.com/nomiclabs/hardhat/blob/master/packages/hardhat-waffle/src/type-extensions.ts
 change network extension: https://github.com/dmihal/hardhat-change-network/blob/master/src/type-extensions.ts
 */
-declare module 'hardhat/internal/core/runtime-environment' {
+declare module "hardhat/internal/core/runtime-environment" {
   interface Environment {
     waffle: any;
     ethers: typeof ethers & HardhatEthersHelpers;
@@ -39,10 +39,7 @@ declare module 'hardhat/internal/core/runtime-environment' {
 export async function nonForkedHreForBase(base: ForkSpec): Promise<HardhatRuntimeEnvironment> {
   const ctx: HardhatContext = HardhatContext.getHardhatContext();
 
-  const hardhatArguments = getEnvHardhatArguments(
-    HARDHAT_PARAM_DEFINITIONS,
-    process.env
-  );
+  const hardhatArguments = getEnvHardhatArguments(HARDHAT_PARAM_DEFINITIONS, process.env);
 
   const { resolvedConfig, userConfig } = loadConfigAndTasks(hardhatArguments);
 
@@ -51,8 +48,8 @@ export async function nonForkedHreForBase(base: ForkSpec): Promise<HardhatRuntim
     {
       ...hardhatArguments,
       ...{
-        network: base.network
-      }
+        network: base.network,
+      },
     },
     ctx.tasksDSL.getTaskDefinitions(),
     ctx.environment.scopes,
@@ -61,17 +58,13 @@ export async function nonForkedHreForBase(base: ForkSpec): Promise<HardhatRuntim
   );
 }
 
-function getBlockRollback(base: ForkSpec){
-  if(base.blockNumber)
-    return base.blockNumber;
-  else if(base.network === 'arbitrum'){
+function getBlockRollback(base: ForkSpec) {
+  if (base.blockNumber) return base.blockNumber;
+  else if (base.network === "arbitrum") {
     return undefined;
-  }
-  else if(base.network === 'base'){
+  } else if (base.network === "base") {
     return 200;
-  }
-  else
-    return 280;
+  } else return 280;
 }
 
 export async function forkedHreForBase(base: ForkSpec): Promise<HardhatRuntimeEnvironment> {
@@ -89,8 +82,8 @@ export async function forkedHreForBase(base: ForkSpec): Promise<HardhatRuntimeEn
   const provider = new ethers.providers.JsonRpcProvider(baseNetwork.url);
 
   // noNetwork otherwise
-  if(!base.blockNumber && baseNetwork.url && getBlockRollback(base) !== undefined)
-    base.blockNumber = await provider.getBlockNumber() - getBlockRollback(base); // arbitrary number of blocks to go back
+  if (!base.blockNumber && baseNetwork.url && getBlockRollback(base) !== undefined)
+    base.blockNumber = (await provider.getBlockNumber()) - getBlockRollback(base); // arbitrary number of blocks to go back
 
   if (!baseNetwork) {
     throw new Error(`cannot find network config for network: ${base.network}`);
@@ -112,10 +105,10 @@ export async function forkedHreForBase(base: ForkSpec): Promise<HardhatRuntimeEn
   const forkedConfig = {
     ...config,
     ...{
-      defaultNetwork: 'hardhat',
+      defaultNetwork: "hardhat",
       networks: {
         hardhat: forkedNetwork,
-        localhost: localhost
+        localhost: localhost,
       },
     },
   };

@@ -1,7 +1,7 @@
-import { expect } from 'chai';
-import { Constraint, World } from '../../plugins/scenario';
-import { CometContext } from '../context/CometContext';
-import { Requirements } from './Requirements';
+import { expect } from "chai";
+import { Constraint, World } from "../../plugins/scenario";
+import { CometContext } from "../context/CometContext";
+import { Requirements } from "./Requirements";
 
 export class FilterConstraint<T extends CometContext, R extends Requirements> implements Constraint<T, R> {
   async solve(requirements: R, context: T) {

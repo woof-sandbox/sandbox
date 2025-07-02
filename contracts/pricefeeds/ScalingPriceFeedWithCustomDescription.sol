@@ -49,9 +49,10 @@ contract ScalingPriceFeedWithCustomDescription is IPriceFeed {
         uint8 underlyingPriceFeedDecimals = AggregatorV3Interface(underlyingPriceFeed_).decimals();
         // Note: Solidity does not allow setting immutables in if/else statements
         shouldUpscale = underlyingPriceFeedDecimals < decimals_ ? true : false;
-        rescaleFactor = (shouldUpscale
-            ? signed256(10 ** (decimals_ - underlyingPriceFeedDecimals))
-            : signed256(10 ** (underlyingPriceFeedDecimals - decimals_))
+        rescaleFactor = (
+            shouldUpscale
+                ? signed256(10 ** (decimals_ - underlyingPriceFeedDecimals))
+                : signed256(10 ** (underlyingPriceFeedDecimals - decimals_))
         );
         underlyingToken = underlyingToken_;
     }
@@ -64,14 +65,15 @@ contract ScalingPriceFeedWithCustomDescription is IPriceFeed {
      * @return updatedAt Timestamp when the round was last updated; passed on from underlying price feed
      * @return answeredInRound Round id in which the answer was computed; passed on from underlying price feed
      **/
-    function latestRoundData() override external view returns (
-        uint80 roundId,
-        int256 answer,
-        uint256 startedAt,
-        uint256 updatedAt,
-        uint80 answeredInRound
-    ) {
-        (uint80 roundId_, int256 price, uint256 startedAt_, uint256 updatedAt_, uint80 answeredInRound_) = AggregatorV3Interface(underlyingPriceFeed).latestRoundData();
+    function latestRoundData()
+        external
+        view
+        override
+        returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound)
+    {
+        (uint80 roundId_, int256 price, uint256 startedAt_, uint256 updatedAt_, uint80 answeredInRound_) = AggregatorV3Interface(
+            underlyingPriceFeed
+        ).latestRoundData();
         return (roundId_, scalePrice(price), startedAt_, updatedAt_, answeredInRound_);
     }
 

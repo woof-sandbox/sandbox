@@ -1,10 +1,10 @@
-import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
-import { Overrides } from 'ethers';
-import { ERC20 } from '../../build/types';
-import CometActor from './CometActor';
-import { AddressLike, resolveAddress } from './Address';
-import { constants } from 'ethers';
-import { wait } from '../../test/helper/helpers';
+import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
+import { Overrides } from "ethers";
+import { ERC20 } from "../../build/types";
+import CometActor from "./CometActor";
+import { AddressLike, resolveAddress } from "./Address";
+import { constants } from "ethers";
+import { wait } from "../../test/helper/helpers";
 
 export default class CometAsset {
   token: ERC20;
@@ -20,12 +20,12 @@ export default class CometAsset {
   }
 
   async balanceOf(account: SignerWithAddress | string): Promise<bigint> {
-    const address = typeof(account) === 'string' ? account : account.address;
+    const address = typeof account === "string" ? account : account.address;
     return (await this.token.balanceOf(address)).toBigInt();
   }
 
   async transfer(from: CometActor | SignerWithAddress, amount: number | bigint, recipient: CometAsset | string, overrides: Overrides = {}) {
-    const recipientAddress = typeof(recipient) === 'string' ? recipient : recipient.address;
+    const recipientAddress = typeof recipient === "string" ? recipient : recipient.address;
     const signer = from instanceof CometActor ? from.signer : from;
     await wait(this.token.connect(signer).transfer(recipientAddress, amount, overrides));
   }

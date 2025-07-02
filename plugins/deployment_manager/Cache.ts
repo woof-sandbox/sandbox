@@ -1,12 +1,12 @@
-import * as fs from 'fs/promises';
-import * as nodepath from 'path';
-import { inspect } from 'util';
-import { fileExists, objectFromMap, objectToMap, stringifyJson } from './Utils';
+import * as fs from "fs/promises";
+import * as nodepath from "path";
+import { inspect } from "util";
+import { fileExists, objectFromMap, objectToMap, stringifyJson } from "./Utils";
 
 export type FileSpec = string | string[] | { rel: string | string[] } | { top: string | string[] };
 
 function compose<A, B, C>(f: (a: A) => B, g: (b: B) => C): (a: A) => C {
-  return (x) => g(f(x));
+  return x => g(f(x));
 }
 
 function deepClone(c: CacheMap): CacheMap {
@@ -42,7 +42,7 @@ export class Cache {
     this.cache = new Map(); // todo cache config?
     this.network = network;
     this.deployment = deployment;
-    this.deploymentDir = deploymentDir ?? nodepath.join(process.cwd(), 'deployments');
+    this.deploymentDir = deploymentDir ?? nodepath.join(process.cwd(), "deployments");
     this.writeCacheToDisk = writeCacheToDisk ?? false;
   }
 
@@ -53,14 +53,14 @@ export class Cache {
   }
 
   private getPath(spec: FileSpec): string[] {
-    if (typeof spec === 'string') {
+    if (typeof spec === "string") {
       return [spec.toLowerCase()];
     } else if (Array.isArray(spec)) {
-      return spec.map((s) => s.toLowerCase());
-    } else if (spec.hasOwnProperty('rel')) {
-      return [this.network, this.deployment, ...this.getPath(spec['rel'])];
-    } else if (spec.hasOwnProperty('top')) {
-      return this.getPath(spec['top']);
+      return spec.map(s => s.toLowerCase());
+    } else if (spec.hasOwnProperty("rel")) {
+      return [this.network, this.deployment, ...this.getPath(spec["rel"])];
+    } else if (spec.hasOwnProperty("top")) {
+      return this.getPath(spec["top"]);
     }
   }
 
@@ -100,7 +100,7 @@ export class Cache {
         }
       }
     }
-    throw new Error('unreachable');
+    throw new Error("unreachable");
   }
 
   private async putDisk<T>(spec: FileSpec, data: T, transformer: (T) => string) {
@@ -117,16 +117,13 @@ export class Cache {
   private async getDisk<T>(spec: FileSpec, transformer: (x: string | undefined) => T): Promise<T> {
     let filePath = this.getFilePath(spec);
     if (await fileExists(filePath)) {
-      return transformer(await fs.readFile(filePath, 'utf8'));
+      return transformer(await fs.readFile(filePath, "utf8"));
     } else {
       return transformer(undefined);
     }
   }
 
-  async readCache<T>(
-    spec: FileSpec,
-    diskTransformer: (x: string | undefined) => T = parseJson
-  ): Promise<T | undefined> {
+  async readCache<T>(spec: FileSpec, diskTransformer: (x: string | undefined) => T = parseJson): Promise<T | undefined> {
     let cached = this.getMemory<T>(spec);
     if (cached) {
       return cached;
@@ -169,6 +166,6 @@ export class Cache {
   }
 
   show() {
-    console.log('Cache', inspect(this.cache, { depth: Infinity }));
+    console.log("Cache", inspect(this.cache, { depth: Infinity }));
   }
 }

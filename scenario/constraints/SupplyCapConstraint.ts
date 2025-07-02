@@ -1,14 +1,14 @@
-import { Constraint, Solution } from '../../plugins/scenario';
-import { CometContext } from '../context/CometContext';
-import { expect } from 'chai';
-import { Requirements } from './Requirements';
-import { exp } from '../../test/helper/helpers';
-import { ComparisonOp, getAssetFromName, parseAmount } from '../utils';
+import { Constraint, Solution } from "../../plugins/scenario";
+import { CometContext } from "../context/CometContext";
+import { expect } from "chai";
+import { Requirements } from "./Requirements";
+import { exp } from "../../test/helper/helpers";
+import { ComparisonOp, getAssetFromName, parseAmount } from "../utils";
 
 export class SupplyCapConstraint<T extends CometContext, R extends Requirements> implements Constraint<T, R> {
   async solve(requirements: R, _initialContext: T) {
     let supplyCaps = requirements.supplyCaps;
-    if (typeof supplyCaps === 'function') {
+    if (typeof supplyCaps === "function") {
       supplyCaps = await supplyCaps(_initialContext);
     }
     if (supplyCaps !== undefined) {

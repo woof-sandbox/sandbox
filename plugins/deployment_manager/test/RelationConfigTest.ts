@@ -1,5 +1,5 @@
-import hre from 'hardhat';
-import { expect } from 'chai';
+import hre from "hardhat";
+import { expect } from "chai";
 
 import {
   AliasTemplate,
@@ -11,7 +11,7 @@ import {
   getFieldKey,
   readAlias,
   readField,
-} from '../RelationConfig';
+} from "../RelationConfig";
 
 interface FieldKeyTest {
   name: string;
@@ -51,47 +51,47 @@ let testBaseRelations: RelationConfigMap = {
   },
 };
 
-describe('RelationConfig', () => {
-  it('gets relations config from base and rel', async () => {
+describe("RelationConfig", () => {
+  it("gets relations config from base and rel", async () => {
     hre.config.deploymentManager = {
       relationConfigMap: testBaseRelations,
       networks: {
-        'test-network': {
-          'test-deployment': testRelRelations,
-        }
+        "test-network": {
+          "test-deployment": testRelRelations,
+        },
       },
     };
 
-    expect(await getRelationConfig(hre.config.deploymentManager, 'fuji', 'dai')).to.eql(testBaseRelations);
-    expect(await getRelationConfig(hre.config.deploymentManager, 'test-network', 'test-deployment')).to.eql(testRelRelations);
+    expect(await getRelationConfig(hre.config.deploymentManager, "fuji", "dai")).to.eql(testBaseRelations);
+    expect(await getRelationConfig(hre.config.deploymentManager, "test-network", "test-deployment")).to.eql(testRelRelations);
   });
 
-  describe('getFieldKey', () => {
-    let getter = (x) => x;
+  describe("getFieldKey", () => {
+    let getter = x => x;
     let fieldKeyTests: FieldKeyTest[] = [
       {
-        name: 'simple alias',
-        alias: 'simple',
+        name: "simple alias",
+        alias: "simple",
         config: {},
         exp: {
-          key: 'simple',
+          key: "simple",
         },
       },
       {
-        name: 'simple alias config',
-        alias: 'simple',
+        name: "simple alias config",
+        alias: "simple",
         config: {
           field: {
-            key: 'override',
+            key: "override",
           },
         },
         exp: {
-          key: 'override',
+          key: "override",
         },
       },
       {
-        name: 'simple getter',
-        alias: 'simple',
+        name: "simple getter",
+        alias: "simple",
         config: {
           field: {
             getter,
@@ -110,11 +110,11 @@ describe('RelationConfig', () => {
     });
   });
 
-  describe('readField', () => {
-    let _zero = '0x0000000000000000000000000000000000000000';
-    let one = '0x0000000000000000000000000000000000000001';
-    let two = '0x0000000000000000000000000000000000000002';
-    let three = '0x0000000000000000000000000000000000000003';
+  describe("readField", () => {
+    let _zero = "0x0000000000000000000000000000000000000000";
+    let one = "0x0000000000000000000000000000000000000001";
+    let two = "0x0000000000000000000000000000000000000002";
+    let three = "0x0000000000000000000000000000000000000003";
 
     let contract = {
       provider: {
@@ -130,42 +130,42 @@ describe('RelationConfig', () => {
 
     let readFieldTests: ReadFieldTest[] = [
       {
-        name: 'simple key single',
+        name: "simple key single",
         contract,
         fieldKey: {
-          key: 'name',
+          key: "name",
         },
         exp: [one],
       },
       {
-        name: 'simple key multi',
+        name: "simple key multi",
         contract,
         fieldKey: {
-          key: 'age',
+          key: "age",
         },
         exp: [one, two],
       },
       {
-        name: 'slot key',
+        name: "slot key",
         contract,
         fieldKey: {
-          slot: '0xb53127684a568b3173ae13b9f8a6016e243e63b6e8ee1178d6a717850b5d6103',
+          slot: "0xb53127684a568b3173ae13b9f8a6016e243e63b6e8ee1178d6a717850b5d6103",
         },
         exp: [three],
       },
       {
-        name: 'fn call single',
+        name: "fn call single",
         contract,
         fieldKey: {
-          getter: async (_contract) => one,
+          getter: async _contract => one,
         },
         exp: [one],
       },
       {
-        name: 'fn call multi',
+        name: "fn call multi",
         contract,
         fieldKey: {
-          getter: async (_contract) => [one, two],
+          getter: async _contract => [one, two],
         },
         exp: [one, two],
       },
@@ -178,10 +178,10 @@ describe('RelationConfig', () => {
     });
   });
 
-  describe('readAlias', () => {
+  describe("readAlias", () => {
     let contractFns = {
-      name: async () => 'Bob',
-      children: async () => ['Tommy', 'Sue'],
+      name: async () => "Bob",
+      children: async () => ["Tommy", "Sue"],
     };
     let contract = {
       ...contractFns,
@@ -190,22 +190,22 @@ describe('RelationConfig', () => {
 
     let readAliasTests: ReadAliasTest[] = [
       {
-        name: 'simple alias',
+        name: "simple alias",
         contract,
-        template: 'Gent',
-        exp: 'Gent',
+        template: "Gent",
+        exp: "Gent",
       },
       {
-        name: 'simple dot-alias',
+        name: "simple dot-alias",
         contract,
-        template: '.name',
-        exp: 'Bob',
+        template: ".name",
+        exp: "Bob",
       },
       {
-        name: 'simple fn',
+        name: "simple fn",
         contract,
-        template: (contract) => contract.name(),
-        exp: 'Bob',
+        template: contract => contract.name(),
+        exp: "Bob",
       },
     ];
 
@@ -216,12 +216,16 @@ describe('RelationConfig', () => {
     });
   });
 
-  describe('aliasTemplateKey', () => {
-    it('returns alias template', async () => {
-      const alias = async () => 'bob';
-      expect(aliasTemplateKey('bob')).to.eql('bob');
-      expect(aliasTemplateKey(async function alice() { return 'bob'; })).to.eql('alice');
-      expect(aliasTemplateKey(async () => 'bob')).to.eql(undefined);
+  describe("aliasTemplateKey", () => {
+    it("returns alias template", async () => {
+      const alias = async () => "bob";
+      expect(aliasTemplateKey("bob")).to.eql("bob");
+      expect(
+        aliasTemplateKey(async function alice() {
+          return "bob";
+        })
+      ).to.eql("alice");
+      expect(aliasTemplateKey(async () => "bob")).to.eql(undefined);
       expect(aliasTemplateKey(alias)).to.eql(undefined);
     });
   });

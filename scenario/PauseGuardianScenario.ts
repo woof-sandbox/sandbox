@@ -1,9 +1,9 @@
-import { scenario } from './context/CometContext';
-import { expectRevertCustom } from './utils';
-import { expect } from 'chai';
+import { scenario } from "./context/CometContext";
+import { expectRevertCustom } from "./utils";
+import { expect } from "chai";
 
 scenario(
-  'Comet#pause > governor pauses market actions',
+  "Comet#pause > governor pauses market actions",
   {
     pause: {
       all: false,
@@ -19,13 +19,16 @@ scenario(
     expect(await comet.isBuyPaused()).to.be.false;
 
     await context.setNextBaseFeeToZero();
-    const txn = await admin.pause({
-      supplyPaused: true,
-      transferPaused: true,
-      withdrawPaused: true,
-      absorbPaused: true,
-      buyPaused: true,
-    }, { gasPrice: 0 });
+    const txn = await admin.pause(
+      {
+        supplyPaused: true,
+        transferPaused: true,
+        withdrawPaused: true,
+        absorbPaused: true,
+        buyPaused: true,
+      },
+      { gasPrice: 0 }
+    );
 
     expect(await comet.isSupplyPaused()).to.be.true;
     expect(await comet.isTransferPaused()).to.be.true;
@@ -38,7 +41,7 @@ scenario(
 );
 
 scenario(
-  'Comet#pause > pause guardian pauses market actions',
+  "Comet#pause > pause guardian pauses market actions",
   {
     pause: {
       all: false,
@@ -54,13 +57,16 @@ scenario(
     expect(await comet.isBuyPaused()).to.be.false;
 
     await context.setNextBaseFeeToZero();
-    await pauseGuardian.pause({
-      supplyPaused: true,
-      transferPaused: true,
-      withdrawPaused: true,
-      absorbPaused: true,
-      buyPaused: true,
-    }, { gasPrice: 0 });
+    await pauseGuardian.pause(
+      {
+        supplyPaused: true,
+        transferPaused: true,
+        withdrawPaused: true,
+        absorbPaused: true,
+        buyPaused: true,
+      },
+      { gasPrice: 0 }
+    );
 
     expect(await comet.isSupplyPaused()).to.be.true;
     expect(await comet.isTransferPaused()).to.be.true;
@@ -71,7 +77,7 @@ scenario(
 );
 
 scenario(
-  'CometRevertCustom#pause > reverts if not called by governor or pause guardian',
+  "CometRevertCustom#pause > reverts if not called by governor or pause guardian",
   {
     pause: {
       all: false,
@@ -87,7 +93,7 @@ scenario(
         absorbPaused: true,
         buyPaused: true,
       }),
-      'Unauthorized()'
+      "Unauthorized()"
     );
   }
 );
