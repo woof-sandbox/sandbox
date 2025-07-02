@@ -1,5 +1,5 @@
-import { diff as showDiff } from 'jest-diff';
-import * as fs from 'fs/promises';
+import { diff as showDiff } from "jest-diff";
+import * as fs from "fs/promises";
 
 export interface Result {
   base: string;
@@ -10,11 +10,11 @@ export interface Result {
   elapsed?: number;
   error?: Error;
   trace?: string;
-  diff?: { actual: any, expected: any };
+  diff?: { actual: any; expected: any };
   skipped?: boolean;
 }
 
-export interface ConsoleFormatOptions { }
+export interface ConsoleFormatOptions {}
 export interface JsonFormatOptions {
   output?: string;
 }
@@ -22,7 +22,7 @@ export interface JsonFormatOptions {
 export type FormatConfig = {
   console?: ConsoleFormatOptions;
   json?: JsonFormatOptions;
-}
+};
 
 export function pluralize(n, singular, plural = null) {
   if (n === 1) {
@@ -36,27 +36,28 @@ export function defaultFormat(): FormatConfig {
   return {
     console: {},
     json: {
-      output: 'scenario-results.json'
-    }
+      output: "scenario-results.json",
+    },
   };
 }
 
 async function showReportConsole(results: Result[], _consoleOptions: ConsoleFormatOptions, _startTime: number, _endTime: number) {
-  const statsPer: object = {}, getStats = (base) => {
-    return statsPer[base] = statsPer[base] || {
-      skipCount: 0,
-      testCount: 0,
-      totalTime: 0,
-      succCount: 0,
-      errCount: 0,
+  const statsPer: object = {},
+    getStats = base => {
+      return (statsPer[base] = statsPer[base] || {
+        skipCount: 0,
+        testCount: 0,
+        totalTime: 0,
+        succCount: 0,
+        errCount: 0,
+      });
     };
-  };
   const errors: {
     base: string;
     scenario: string;
     error: Error;
     trace?: string;
-    diff?: { actual: any, expected: any };
+    diff?: { actual: any; expected: any };
   }[] = [];
 
   for (const { base, scenario, elapsed, error, trace, diff, skipped } of results) {
@@ -76,25 +77,26 @@ async function showReportConsole(results: Result[], _consoleOptions: ConsoleForm
   }
 
   for (const { base, scenario, error, trace, diff } of errors) {
-    const m = trace || error.message, msg = m.length > 1024 ? `${m.slice(0, 1024)}...` : m;
+    const m = trace || error.message,
+      msg = m.length > 1024 ? `${m.slice(0, 1024)}...` : m;
     console.error(`[${base}] ❌ ${scenario}: Error ${msg}`);
     if (diff) {
       console.error(showDiff(diff.expected, diff.actual));
     }
   }
 
-  console.log('\n\n');
+  console.log("\n\n");
   for (const [base, stats] of Object.entries(statsPer)) {
-    const prefix = stats.errCount === 0 ? '✅' : '❌';
+    const prefix = stats.errCount === 0 ? "✅" : "❌";
     const avgTime = stats.testCount > 0 ? stats.totalTime / stats.testCount : 0;
-    const succText = pluralize(stats.succCount, 'success', 'successes');
-    const errText = pluralize(stats.errCount, 'error', 'errors');
-    const skipText = pluralize(stats.skipCount, 'skipped');
+    const succText = pluralize(stats.succCount, "success", "successes");
+    const errText = pluralize(stats.errCount, "error", "errors");
+    const skipText = pluralize(stats.skipCount, "skipped");
     const avgText = `[avg time: ${avgTime.toFixed(0)}ms]`;
     const totalText = `[total time: ${stats.totalTime.toFixed(0)}ms]`;
     console.log(`${prefix} Results: ${succText}, ${errText}, ${skipText} ${avgText} ${totalText} [${base}]`);
   }
-  console.log('\n');
+  console.log("\n");
 }
 
 interface JsonTestResult {
@@ -131,7 +133,7 @@ async function showJsonReport(results: Result[], jsonOptions: JsonFormatOptions,
   let passes: JsonTestResult[] = [];
   let pending: JsonTestResult[] = [];
   let failures: JsonTestResult[] = [];
-  let tests: JsonTestResult[] = results.map((result) => {
+  let tests: JsonTestResult[] = results.map(result => {
     let suite = result.file; // TODO: Is this how we should do suites?
     suites.add(suite);
 
@@ -143,7 +145,7 @@ async function showJsonReport(results: Result[], jsonOptions: JsonFormatOptions,
       numSolutionSets: result.numSolutionSets ?? 0,
       duration: result.elapsed || 0,
       currentRetry: 0,
-      err: result.error ? result.error.message : {} // Not sure
+      err: result.error ? result.error.message : {}, // Not sure
     };
 
     if (result.error) {

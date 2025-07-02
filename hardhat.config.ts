@@ -33,7 +33,6 @@ const {
   COINMARKETCAP_API_KEY,
   ETH_PK = '',
   ETHERSCAN_KEY,
-  INFURA_KEY,
   ANKR_KEY,
   MNEMONIC = 'myth like bonus scare over problem client lizard pioneer submit female collect',
   REPORT_GAS = 'false',
@@ -156,8 +155,6 @@ const config: HardhatUserConfig = {
     
   },
 
-  
-
   networks: {
     hardhat: {
       chainId: 1337,
@@ -186,9 +183,7 @@ const config: HardhatUserConfig = {
 
   // See https://hardhat.org/plugins/nomiclabs-hardhat-etherscan.html#multiple-api-keys-and-alternative-block-explorers
   etherscan: {
-    apiKey: {
-      sepolia: ETHERSCAN_KEY,
-    },
+    apiKey: ETHERSCAN_KEY || "",
     customChains: [      
       // {
       //   network: 'scroll',
@@ -214,21 +209,21 @@ const config: HardhatUserConfig = {
       },
     },
   },
-
-  scenario: {
-    bases: [
-      {
-        name: 'development',
-        network: 'hardhat',
-        deployment: 'dai'
-      },
-      {
-        name: 'sepolia-usdc',
-        network: 'sepolia',
-        deployment: 'usdc'
-      },
-    ],
-  },
+  // TODO: Remove this with the deployment manager.
+  // scenario: {
+  //   bases: [
+  //     {
+  //       name: 'development',
+  //       network: 'hardhat',
+  //       deployment: 'dai'
+  //     },
+  //     {
+  //       name: 'sepolia-usdc',
+  //       network: 'sepolia',
+  //       deployment: 'usdc'
+  //     },
+  //   ],
+  // },
 
   mocha: {
     reporter: 'mocha-multi-reporters',
@@ -243,6 +238,9 @@ const config: HardhatUserConfig = {
 
   paths: {
     tests: './test',
+    sources: './contracts',
+    cache: './cache',
+    artifacts: './build/artifacts',
   },
 
   contractSizer: {
@@ -257,6 +255,12 @@ const config: HardhatUserConfig = {
     currency: 'USD',
     coinmarketcap: COINMARKETCAP_API_KEY,
     gasPrice: 200, // gwei
+  },
+
+  docgen: {
+    outputDir: './docs',
+    pages: 'files',
+    exclude: ['./test', './pricefeeds', './interfaces'],
   },
 };
 

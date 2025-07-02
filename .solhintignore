@@ -3,3 +3,11 @@ contracts/vendor/*
 contracts/liquidator/vendor/*
 contracts/liquidator/README.md
 contracts/bridges/vendor/*
+
+# Git files
+.git
+.githooks/
+.gitignore
+.gitattributes
+.gitmodules
+.gitkeep

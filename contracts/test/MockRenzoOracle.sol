@@ -9,7 +9,6 @@ import "../interfaces/AggregatorV3Interface.sol";
  * @author Compound
  */
 contract MockRenzoOracle {
-
     /// @notice Number of decimals for returned prices
     uint8 public immutable decimals;
 
@@ -33,14 +32,13 @@ contract MockRenzoOracle {
      * @return updatedAt Current timestamp
      * @return answeredInRound Round id in which the answer was computed; passed on from underlying price feed
      **/
-    function latestRoundData() external view returns (
-        uint80 roundId,
-        int256 answer,
-        uint256 startedAt,
-        uint256 updatedAt,
-        uint80 answeredInRound
-    ) {
-        (uint80 roundId_, int256 price, uint256 startedAt_, , uint80 answeredInRound_) = AggregatorV3Interface(underlyingPriceFeed).latestRoundData();
+    function latestRoundData()
+        external
+        view
+        returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound)
+    {
+        (uint80 roundId_, int256 price, uint256 startedAt_, , uint80 answeredInRound_) = AggregatorV3Interface(underlyingPriceFeed)
+            .latestRoundData();
         return (roundId_, price, startedAt_, block.timestamp, answeredInRound_);
     }
 }

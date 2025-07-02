@@ -12,7 +12,7 @@ contract NonStandardToken {
     string public symbol;
     uint8 public decimals;
     uint256 public totalSupply;
-    mapping (address => mapping (address => uint256)) public allowance;
+    mapping(address => mapping(address => uint256)) public allowance;
     mapping(address => uint256) public balanceOf;
     event Approval(address indexed owner, address indexed spender, uint256 value);
     event Transfer(address indexed from, address indexed to, uint256 value);
@@ -54,9 +54,12 @@ contract NonStandardToken {
  * @notice A simple test token that lets anyone get more of it.
  */
 contract NonStandardFaucetToken is NonStandardToken {
-    constructor(uint256 _initialAmount, string memory _tokenName, uint8 _decimalUnits, string memory _tokenSymbol)
-        NonStandardToken(_initialAmount, _tokenName, _decimalUnits, _tokenSymbol) {
-    }
+    constructor(
+        uint256 _initialAmount,
+        string memory _tokenName,
+        uint8 _decimalUnits,
+        string memory _tokenSymbol
+    ) NonStandardToken(_initialAmount, _tokenName, _decimalUnits, _tokenSymbol) {}
 
     function allocateTo(address _owner, uint256 value) public {
         balanceOf[_owner] += value;

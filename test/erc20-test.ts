@@ -1,25 +1,25 @@
-import { baseBalanceOf, ethers, event, expect, makeProtocol, setTotalsBasic, wait } from './helper/helpers';
+import { baseBalanceOf, ethers, event, expect, makeProtocol, setTotalsBasic, wait } from "./helper/helpers";
 
-describe.skip('erc20', function () {
-  it('has correct name', async () => {
+describe.skip("erc20", function () {
+  it("has correct name", async () => {
     const { comet } = await makeProtocol();
 
-    expect(await comet.name()).to.be.equal('Compound Comet');
+    expect(await comet.name()).to.be.equal("Compound Comet");
   });
 
-  it('has correct symbol', async () => {
+  it("has correct symbol", async () => {
     const { comet } = await makeProtocol();
 
-    expect(await comet.symbol()).to.be.equal('📈BASE');
+    expect(await comet.symbol()).to.be.equal("📈BASE");
   });
 
-  it('has correct decimals', async () => {
+  it("has correct decimals", async () => {
     const { comet } = await makeProtocol();
 
     expect(await comet.decimals()).to.be.equal(6);
   });
 
-  it('has correct totalSupply', async () => {
+  it("has correct totalSupply", async () => {
     const { comet } = await makeProtocol();
 
     await setTotalsBasic(comet, {
@@ -32,8 +32,8 @@ describe.skip('erc20', function () {
     expect(totalSupply).to.eq(100e6);
   });
 
-  describe('balanceOf', function () {
-    it('returns presentValue of principal (when principal is positive)', async () => {
+  describe("balanceOf", function () {
+    it("returns presentValue of principal (when principal is positive)", async () => {
       const {
         comet,
         users: [user],
@@ -50,7 +50,7 @@ describe.skip('erc20', function () {
       expect(balanceOf).to.eq(200e6);
     });
 
-    it('returns 0 (when principal amount is negative)', async () => {
+    it("returns 0 (when principal amount is negative)", async () => {
       const {
         comet,
         users: [user],
@@ -63,7 +63,7 @@ describe.skip('erc20', function () {
     });
   });
 
-  it('performs ERC20 transfer of base', async () => {
+  it("performs ERC20 transfer of base", async () => {
     const {
       comet,
       users: [alice, bob],
@@ -85,19 +85,19 @@ describe.skip('erc20', function () {
         from: alice.address,
         to: ethers.constants.AddressZero,
         amount: BigInt(100e6),
-      }
+      },
     });
     expect(event(tx, 1)).to.be.deep.equal({
       Transfer: {
         from: ethers.constants.AddressZero,
         to: bob.address,
         amount: BigInt(100e6),
-      }
+      },
     });
   });
 
-  describe('transferFrom', function() {
-    it('performs ERC20 transferFrom when user transfers their own funds', async () => {
+  describe("transferFrom", function () {
+    it("performs ERC20 transferFrom when user transfers their own funds", async () => {
       const {
         comet,
         users: [alice, bob],
@@ -114,7 +114,7 @@ describe.skip('erc20', function () {
       expect(await baseBalanceOf(comet, bob.address)).to.eq(BigInt(100e6));
     });
 
-    it('reverts ERC20 transferFrom without approval', async () => {
+    it("reverts ERC20 transferFrom without approval", async () => {
       const {
         comet,
         users: [alice, bob],
@@ -122,12 +122,10 @@ describe.skip('erc20', function () {
 
       await comet.setBasePrincipal(alice.address, 100e6);
 
-      await expect(
-        comet.connect(bob).transferFrom(alice.address, bob.address, 100e6)
-      ).to.be.revertedWith("custom error 'Unauthorized()'");
+      await expect(comet.connect(bob).transferFrom(alice.address, bob.address, 100e6)).to.be.revertedWith("custom error 'Unauthorized()'");
     });
 
-    it('performs ERC20 transferFrom of base with approval', async () => {
+    it("performs ERC20 transferFrom of base with approval", async () => {
       const {
         comet,
         users: [alice, bob],
@@ -136,10 +134,7 @@ describe.skip('erc20', function () {
       await comet.setBasePrincipal(alice.address, 100e6);
 
       // approving for uint256 = isAllowed[user][spender]=true
-      await comet.connect(alice).approve(
-        bob.address,
-        ethers.constants.MaxUint256
-      );
+      await comet.connect(alice).approve(bob.address, ethers.constants.MaxUint256);
 
       expect(await comet.allowance(alice.address, bob.address)).to.eq(ethers.constants.MaxUint256);
 
@@ -150,7 +145,7 @@ describe.skip('erc20', function () {
       expect(await baseBalanceOf(comet, bob.address)).to.eq(BigInt(100e6));
     });
 
-    it('reverts ERC20 transferFrom with revoked approval', async () => {
+    it("reverts ERC20 transferFrom with revoked approval", async () => {
       const {
         comet,
         users: [alice, bob],
@@ -159,10 +154,7 @@ describe.skip('erc20', function () {
       await comet.setBasePrincipal(alice.address, 100e6);
 
       // bob is approved
-      await comet.connect(alice).approve(
-        bob.address,
-        ethers.constants.MaxUint256
-      );
+      await comet.connect(alice).approve(bob.address, ethers.constants.MaxUint256);
 
       expect(await comet.allowance(alice.address, bob.address)).to.eq(ethers.constants.MaxUint256);
 
@@ -172,17 +164,15 @@ describe.skip('erc20', function () {
       expect(await comet.allowance(alice.address, bob.address)).to.eq(0);
 
       // bob cannot transfer funds from alice
-      await expect(
-        comet.connect(bob).transferFrom(alice.address, bob.address, 100e6)
-      ).to.be.revertedWith("custom error 'Unauthorized()'");
+      await expect(comet.connect(bob).transferFrom(alice.address, bob.address, 100e6)).to.be.revertedWith("custom error 'Unauthorized()'");
     });
   });
 
-  describe('approve', function() {
-    it('sets isAllowed=true when user approves address for uint256 max', async () => {
+  describe("approve", function () {
+    it("sets isAllowed=true when user approves address for uint256 max", async () => {
       const {
         comet,
-        users: [user, spender]
+        users: [user, spender],
       } = await makeProtocol();
 
       const MaxU256 = BigInt(ethers.constants.MaxUint256.toString());
@@ -192,17 +182,17 @@ describe.skip('erc20', function () {
           owner: user.address,
           spender: spender.address,
           amount: MaxU256,
-        }
+        },
       });
 
       const isAllowed = await comet.isAllowed(user.address, spender.address);
       expect(isAllowed).to.be.true;
     });
 
-    it('sets isAllowed=false when user passes 0', async () => {
+    it("sets isAllowed=false when user passes 0", async () => {
       const {
         comet,
-        users: [user, spender]
+        users: [user, spender],
       } = await makeProtocol();
 
       const tx = await wait(comet.connect(user).approve(spender.address, 0));
@@ -211,30 +201,28 @@ describe.skip('erc20', function () {
           owner: user.address,
           spender: spender.address,
           amount: BigInt(0),
-        }
+        },
       });
 
       const isAllowed = await comet.isAllowed(user.address, spender.address);
       expect(isAllowed).to.be.false;
     });
 
-    it('reverts when user approves for value that is not 0 or uint256.max', async () => {
+    it("reverts when user approves for value that is not 0 or uint256.max", async () => {
       const {
         comet,
-        users: [user, spender]
+        users: [user, spender],
       } = await makeProtocol();
 
-      await expect(
-        comet.connect(user).approve(spender.address, 300)
-      ).to.be.revertedWith("custom error 'BadAmount()'");
+      await expect(comet.connect(user).approve(spender.address, 300)).to.be.revertedWith("custom error 'BadAmount()'");
     });
   });
 
-  describe('allowance', function() {
-    it('returns unint256.max when spender has permission for user', async () => {
+  describe("allowance", function () {
+    it("returns unint256.max when spender has permission for user", async () => {
       const {
         comet,
-        users: [user, spender]
+        users: [user, spender],
       } = await makeProtocol();
 
       // authorize
@@ -244,10 +232,10 @@ describe.skip('erc20', function () {
       expect(allowance).to.eq(ethers.constants.MaxUint256);
     });
 
-    it('returns 0 when spender does not have permission for user', async () => {
+    it("returns 0 when spender does not have permission for user", async () => {
       const {
         comet,
-        users: [user, spender]
+        users: [user, spender],
       } = await makeProtocol();
 
       // un-authorize

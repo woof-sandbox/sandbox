@@ -1,9 +1,9 @@
-import { NonceManager } from '@ethersproject/experimental';
-import { TransactionRequest, TransactionResponse } from '@ethersproject/abstract-provider';
-import { TypedDataDomain, TypedDataField, TypedDataSigner } from '@ethersproject/abstract-signer';
-import { _TypedDataEncoder } from '@ethersproject/hash';
-import { Deferrable } from '@ethersproject/properties';
-import { providers } from 'ethers';
+import { NonceManager } from "@ethersproject/experimental";
+import { TransactionRequest, TransactionResponse } from "@ethersproject/abstract-provider";
+import { TypedDataDomain, TypedDataField, TypedDataSigner } from "@ethersproject/abstract-signer";
+import { _TypedDataEncoder } from "@ethersproject/hash";
+import { Deferrable } from "@ethersproject/properties";
+import { providers } from "ethers";
 
 // NonceManager does not implement `_signTypedData`, which is needed for the EIP-712 functions
 export class ExtendedNonceManager extends NonceManager implements TypedDataSigner {
@@ -21,16 +21,16 @@ export class ExtendedNonceManager extends NonceManager implements TypedDataSigne
 
     const address = await this.getAddress();
 
-    return await provider.send('eth_signTypedData_v4', [
+    return await provider.send("eth_signTypedData_v4", [
       address.toLowerCase(),
-      JSON.stringify(_TypedDataEncoder.getPayload(populated.domain, types, populated.value))
+      JSON.stringify(_TypedDataEncoder.getPayload(populated.domain, types, populated.value)),
     ]);
   }
 
   async sendTransaction(transaction: Deferrable<TransactionRequest>): Promise<TransactionResponse> {
-    return super.sendTransaction(transaction).catch((e) => {
+    return super.sendTransaction(transaction).catch(e => {
       this._reset();
-      throw(e);
+      throw e;
     });
   }
 }
