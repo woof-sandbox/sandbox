@@ -32,6 +32,9 @@ jobs:
       - name: Generate TypeScript types
         run: npx typechain --target ethers-v5 
 
+      - name: Compile contracts
+        run: npx hardhat compile
+
       - name: TypeScript compilation check
         run: npx tsc --noEmit --project tsconfig.json
 
