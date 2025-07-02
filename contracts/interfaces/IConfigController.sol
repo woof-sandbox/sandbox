@@ -16,6 +16,8 @@ interface IConfigController {
         uint64 liquidateCollateralFactor;
         uint64 liquidationFactor;
     }
+
+    
     
     struct CometConfig {
         address baseToken;

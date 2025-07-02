@@ -67,7 +67,7 @@ interface ISandboxController is ISandboxErrors {
         /// Fifth 256 bits (32 bytes)
         uint256 suggestedAmountOfSeedReserves; // 32 bytes
         /// Sixth 256 bits (32 bytes)
-        uint64 storeFrontPriceFactor; // 32 bytes
+        uint64 storeFrontPriceFactor; // 8 bytes
     }
     
     event BaseAssetWhitelisted(

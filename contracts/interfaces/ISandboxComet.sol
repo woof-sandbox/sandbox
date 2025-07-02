@@ -77,6 +77,15 @@ abstract contract ISandboxComet is CometCore {
         address to
     );
 
+    /// @notice Event emitted when an action is paused/unpaused
+    event PauseAction(
+        bool supplyPaused,
+        bool transferPaused,
+        bool withdrawPaused,
+        bool absorbPaused,
+        bool buyPaused
+    );
+
   /// @notice Event emitted when an action is paused/unpaused
   event PauseAction(bool supplyPaused, bool transferPaused, bool withdrawPaused, bool absorbPaused, bool buyPaused);
 
@@ -111,16 +120,16 @@ abstract contract ISandboxComet is CometCore {
 
   function withdrawFrom(address src, address to, address asset, uint amount) external virtual;
 
-    function factoryInit(address, address) virtual external;
-    function initialize(
-        IConfigController.CometConfig memory market,
-        IConfigController.CometGlobalParamsConfig memory config
-    ) external virtual;
+  function factoryInit(address, address) virtual external;
+  function initialize(
+      IConfigController.CometConfig memory market,
+      IConfigController.CometGlobalParamsConfig memory config
+  ) external virtual;
 
-    function absorb(address absorber, address[] calldata accounts) virtual external;
-    function buyCollateral(address asset, uint minAmount, uint baseAmount, address recipient) virtual external;
+  function absorb(address absorber, address[] calldata accounts) virtual external;
+  function buyCollateral(address asset, uint minAmount, uint baseAmount, address recipient) virtual external;
 
-    function quoteCollateral(address asset, uint baseAmount) public view virtual returns (uint, uint, uint, uint);
+  function quoteCollateral(address asset, uint baseAmount) public view virtual returns (uint, uint, uint, uint);
 
   function getCollateralReserves(address asset) public view virtual returns (uint);
 

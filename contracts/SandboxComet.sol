@@ -121,6 +121,7 @@ contract SandboxComet is ISandboxComet {
         /// Rewards are disabled by default
         trackingIndexScale = 1;
         baseMinForRewards = type(uint104).max;
+
         /// to avoid explicit initialization
         /// baseTrackingSupplySpeed = 0;
         /// baseTrackingBorrowSpeed = 0;
@@ -257,7 +258,7 @@ contract SandboxComet is ISandboxComet {
         return (baseSupplyIndex_, baseBorrowIndex_);
     }
 
-     function accrueInternal() internal {
+    function accrueInternal() internal {
         uint40 now_ = getNowInternal();
         uint timeElapsed = uint256(now_ - lastAccrualTime);
         if (timeElapsed == 0) return;

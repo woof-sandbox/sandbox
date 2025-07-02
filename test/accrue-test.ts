@@ -8,16 +8,6 @@ import {
   wait,
   setTotalsBasic,
 } from "./helper/helpers";
-import {
-  ethers,
-  expect,
-  exp,
-  fastForward,
-  getBlock,
-  makeProtocol,
-  wait,
-  setTotalsBasic,
-} from "./helper/helpers";
 
 function projectBaseIndex(index, rate, time, factorScale = exp(1, 18)) {
   return index.add(index.mul(rate.mul(time)).div(factorScale));
@@ -125,7 +115,7 @@ describe.skip('accrue', function () {
   });
 
   it("accrues correctly with time elapsed and less than min rewards", async () => {
-    await ethers.provider.send("hardhat_reset", []);
+    await ethers.provider.send("hardhat_reset", []); // ensure clean start...
 
     const start = (await getBlock()).timestamp + 100;
     const params = {
@@ -150,6 +140,7 @@ describe.skip('accrue', function () {
 
     await ethers.provider.send("evm_setAutomine", [false]);
     await comet.accrue();
+
     await ethers.provider.send("evm_mine", [start + 1000]);
     await ethers.provider.send("evm_setAutomine", [true]);
 
@@ -195,6 +186,7 @@ describe.skip('accrue', function () {
 
     await ethers.provider.send("evm_setAutomine", [false]);
     await comet.accrue();
+
     await ethers.provider.send("evm_mine", [start + 1000]);
     await ethers.provider.send("evm_setAutomine", [true]);
 
@@ -225,6 +217,8 @@ describe.skip('accrue', function () {
 
   it("overflows if baseMinRewards is set too low and accrues no interest", async () => {
     const { comet, dao } = await makeProtocol({
+
+    const params = {
       baseMinForRewards: 12000,
       trackingIndexScale: exp(1, 15),
     });
@@ -246,6 +240,29 @@ describe.skip('accrue', function () {
     const { comet, dao } = await makeProtocol();
 
     await wait(comet.connect(dao).setDaoBaseSpeeds(1, 1));
+    await expect(wait(comet.accrue())).to.be.revertedWith(
+      "custom error 'InvalidUInt64()'"
+    );
+    const t2 = await comet.totalsBasic();
+
+    const utilization = await comet.getUtilization();
+    const supplyRate = await comet.getSupplyRate(utilization);
+    const borrowRate = await comet.getBorrowRate(utilization);
+    const timeElapsed = t2.lastAccrualTime - t0.lastAccrualTime;
+    expect(timeElapsed).to.be.equal(0);
+
+    expect(t2.baseSupplyIndex).to.be.equal(
+      projectBaseIndex(t1.baseSupplyIndex, supplyRate, timeElapsed)
+    );
+    expect(t2.baseBorrowIndex).to.be.equal(
+      projectBaseIndex(t1.baseBorrowIndex, borrowRate, timeElapsed)
+    );
+    expect(t2.trackingSupplyIndex).to.be.equal(t1.trackingSupplyIndex);
+    expect(t2.trackingBorrowIndex).to.be.equal(t1.trackingBorrowIndex);
+  });
+
+  it("reverts on overflows", async () => {
+    const { comet } = await makeProtocol();
 
     const t0 = await comet.totalsBasic();
     const t1 = Object.assign({}, t0, {
@@ -281,6 +298,7 @@ describe.skip('accrue', function () {
 
     await fastForward(2 ** 40);
     await expect(wait(comet.accrue())).to.be.revertedWith("custom error 'TimestampTooLarge()'");
+
   });
 });
 

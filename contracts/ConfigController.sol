@@ -12,7 +12,6 @@ import "./interfaces/IConfigControllerFactory.sol";
 import "./interfaces/ISandboxController.sol";
 import "./interfaces/ISandboxComet.sol";
 import "./interfaces/ISandboxCometFactory.sol";
-import "./interfaces/IERC20NonStandard.sol";
 
 /**
  * @title ConfigController
