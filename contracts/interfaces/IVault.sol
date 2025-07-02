@@ -6,7 +6,10 @@ pragma solidity 0.8.28;
  * Note Not comprehensive
  */
 interface IVault {
-    enum SwapKind { GIVEN_IN, GIVEN_OUT }
+    enum SwapKind {
+        GIVEN_IN,
+        GIVEN_OUT
+    }
 
     struct BatchSwapStep {
         bytes32 poolId;

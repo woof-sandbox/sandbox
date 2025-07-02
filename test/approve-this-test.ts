@@ -1,15 +1,15 @@
-import { ethers, exp, expect, makeProtocol } from './helper/helpers';
+import { ethers, exp, expect, makeProtocol } from "./helper/helpers";
 
-describe.skip('approveThis', function () {
-  describe('asset is Comet', function() {
-    it('isAllowed defaults to false', async () => {
+describe.skip("approveThis", function () {
+  describe("asset is Comet", function () {
+    it("isAllowed defaults to false", async () => {
       const protocol = await makeProtocol();
       const { comet, governor } = protocol;
 
       expect(await comet.isAllowed(comet.address, governor.address)).to.be.false;
     });
 
-    it('allows governor to authorize a manager', async () => {
+    it("allows governor to authorize a manager", async () => {
       const protocol = await makeProtocol();
       const { comet, governor } = protocol;
 
@@ -18,9 +18,13 @@ describe.skip('approveThis', function () {
       expect(await comet.isAllowed(comet.address, governor.address)).to.be.true;
     });
 
-    it('allows governor to rescind authorization', async () => {
+    it("allows governor to rescind authorization", async () => {
       const protocol = await makeProtocol();
-      const { comet, governor, users: [ user ] } = protocol;
+      const {
+        comet,
+        governor,
+        users: [user],
+      } = protocol;
 
       await comet.connect(governor).approveThis(user.address, comet.address, ethers.constants.MaxUint256);
 
@@ -31,17 +35,21 @@ describe.skip('approveThis', function () {
       expect(await comet.isAllowed(comet.address, user.address)).to.be.false;
     });
 
-    it('reverts if not called by governor', async () => {
+    it("reverts if not called by governor", async () => {
       const protocol = await makeProtocol();
-      const { comet, users: [ user ] } = protocol;
+      const {
+        comet,
+        users: [user],
+      } = protocol;
 
-      await expect(comet.connect(user).approveThis(user.address, comet.address, ethers.constants.MaxUint256))
-        .to.be.revertedWith("custom error 'Unauthorized()'");
+      await expect(comet.connect(user).approveThis(user.address, comet.address, ethers.constants.MaxUint256)).to.be.revertedWith(
+        "custom error 'Unauthorized()'"
+      );
     });
   });
 
-  describe('asset is non-Comet ERC20', function() {
-    it('isAllowed defaults to false', async () => {
+  describe("asset is non-Comet ERC20", function () {
+    it("isAllowed defaults to false", async () => {
       const protocol = await makeProtocol();
       const { comet, tokens, governor } = protocol;
       const { COMP } = tokens;
@@ -49,7 +57,7 @@ describe.skip('approveThis', function () {
       expect(await COMP.allowance(comet.address, governor.address)).to.be.equal(0);
     });
 
-    it('allows governor to authorize a manager', async () => {
+    it("allows governor to authorize a manager", async () => {
       const protocol = await makeProtocol();
       const { comet, tokens, governor } = protocol;
       const { COMP } = tokens;
@@ -60,9 +68,14 @@ describe.skip('approveThis', function () {
       expect(await COMP.allowance(comet.address, governor.address)).to.be.equal(newAllowance);
     });
 
-    it('allows governor to rescind authorization', async () => {
+    it("allows governor to rescind authorization", async () => {
       const protocol = await makeProtocol();
-      const { comet, tokens, governor, users: [ user ] } = protocol;
+      const {
+        comet,
+        tokens,
+        governor,
+        users: [user],
+      } = protocol;
       const { COMP } = tokens;
 
       await comet.connect(governor).approveThis(user.address, COMP.address, ethers.constants.MaxUint256);
@@ -74,13 +87,18 @@ describe.skip('approveThis', function () {
       expect(await COMP.allowance(comet.address, user.address)).to.be.equal(ethers.constants.Zero);
     });
 
-    it('reverts if not called by governor', async () => {
+    it("reverts if not called by governor", async () => {
       const protocol = await makeProtocol();
-      const { comet, tokens, users: [ user ] } = protocol;
+      const {
+        comet,
+        tokens,
+        users: [user],
+      } = protocol;
       const { COMP } = tokens;
 
-      await expect(comet.connect(user).approveThis(user.address, COMP.address, ethers.constants.MaxUint256))
-        .to.be.revertedWith("custom error 'Unauthorized()'");
+      await expect(comet.connect(user).approveThis(user.address, COMP.address, ethers.constants.MaxUint256)).to.be.revertedWith(
+        "custom error 'Unauthorized()'"
+      );
     });
   });
 });

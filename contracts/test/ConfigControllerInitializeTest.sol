@@ -8,7 +8,6 @@ import "../ConfigController.sol";
  */
 contract ConfigControllerInitializeTest is ConfigController {
     function reinitializeComet(address _comet, CometConfig memory _cometConfig) external {
-
         ISandboxController.SandboxControllerConfiguration memory _sandboxConfig = ISandboxController(sandboxController).config();
         CometGlobalParamsConfig memory _globalConfig = CometGlobalParamsConfig(
             _sandboxConfig.targetPercent,

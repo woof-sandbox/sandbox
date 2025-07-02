@@ -24,13 +24,7 @@ contract SimplePriceFeed is IPriceFeed {
         underlyingToken = underlyingToken_;
     }
 
-    function setRoundData(
-        uint80 roundId_,
-        int256 answer_,
-        uint256 startedAt_,
-        uint256 updatedAt_,
-        uint80 answeredInRound_
-    ) public {
+    function setRoundData(uint80 roundId_, int256 answer_, uint256 startedAt_, uint256 updatedAt_, uint80 answeredInRound_) public {
         roundId = roundId_;
         answer = answer_;
         startedAt = startedAt_;
@@ -42,7 +36,7 @@ contract SimplePriceFeed is IPriceFeed {
         return (roundId_, answer, startedAt, updatedAt, answeredInRound);
     }
 
-    function latestRoundData() override external view returns (uint80, int256, uint256, uint256, uint80) {
+    function latestRoundData() external view override returns (uint80, int256, uint256, uint256, uint80) {
         return (roundId, answer, startedAt, updatedAt, answeredInRound);
     }
 }

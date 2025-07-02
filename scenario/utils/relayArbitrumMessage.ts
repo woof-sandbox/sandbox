@@ -1,9 +1,9 @@
-import { DeploymentManager } from '../../plugins/deployment_manager';
-import { impersonateAddress } from '../../plugins/scenario/utils';
-import { setNextBaseFeeToZero, setNextBlockTimestamp } from './hreUtils';
-import { utils, BigNumber } from 'ethers';
-import { Log } from '@ethersproject/abstract-provider';
-import { sourceTokens } from '../../plugins/scenario/utils/TokenSourcer';
+import { DeploymentManager } from "../../plugins/deployment_manager";
+import { impersonateAddress } from "../../plugins/scenario/utils";
+import { setNextBaseFeeToZero, setNextBlockTimestamp } from "./hreUtils";
+import { utils, BigNumber } from "ethers";
+import { Log } from "@ethersproject/abstract-provider";
+import { sourceTokens } from "../../plugins/scenario/utils/TokenSourcer";
 
 export async function relayArbitrumMessage(
   governanceDeploymentManager: DeploymentManager,
@@ -11,64 +11,57 @@ export async function relayArbitrumMessage(
   startingBlockNumber: number
 ) {
   // L1 contracts
-  const inbox = await governanceDeploymentManager.getContractOrThrow('arbitrumInbox'); // Inbox -> Bridge
-  const bridge = await governanceDeploymentManager.getContractOrThrow('arbitrumBridge');
+  const inbox = await governanceDeploymentManager.getContractOrThrow("arbitrumInbox"); // Inbox -> Bridge
+  const bridge = await governanceDeploymentManager.getContractOrThrow("arbitrumBridge");
 
   // L2 contracts
-  const bridgeReceiver = await bridgeDeploymentManager.getContractOrThrow('bridgeReceiver');
+  const bridgeReceiver = await bridgeDeploymentManager.getContractOrThrow("bridgeReceiver");
 
   const inboxMessageDeliveredEvents: Log[] = await governanceDeploymentManager.hre.ethers.provider.getLogs({
     fromBlock: startingBlockNumber,
-    toBlock: 'latest',
+    toBlock: "latest",
     address: inbox.address,
-    topics: [utils.id('InboxMessageDelivered(uint256,bytes)')]
+    topics: [utils.id("InboxMessageDelivered(uint256,bytes)")],
   });
 
   const dataAndTargets = inboxMessageDeliveredEvents.map(({ data, topics }) => {
-    const header = '0x';
+    const header = "0x";
     const headerLength = header.length;
     const wordLength = 2 * 32;
-    const innnerData = header + data.slice(headerLength + (11 * wordLength));
-    const toValue = data.slice(headerLength + (2 * wordLength), headerLength + (3 * wordLength));
+    const innnerData = header + data.slice(headerLength + 11 * wordLength);
+    const toValue = data.slice(headerLength + 2 * wordLength, headerLength + 3 * wordLength);
     let toAddress = BigNumber.from(`0x${toValue}`).toHexString();
-    
+
     // if lenght of toAddress is less than 42, then it is padded with 0s and we need to add them after 0x
-    if(toAddress.length < 42) {
-      toAddress = `0x${toAddress.slice(2).padStart(40, '0')}`;
+    if (toAddress.length < 42) {
+      toAddress = `0x${toAddress.slice(2).padStart(40, "0")}`;
     }
 
     const messageNum = topics[1];
     return {
       data: innnerData,
       toAddress,
-      messageNum
+      messageNum,
     };
   });
 
   const messageDeliveredEvents: Log[] = await governanceDeploymentManager.hre.ethers.provider.getLogs({
     fromBlock: startingBlockNumber,
-    toBlock: 'latest',
+    toBlock: "latest",
     address: bridge.address,
-    topics: [utils.id('MessageDelivered(uint256,bytes32,address,uint8,address,bytes32,uint256,uint64)')]
+    topics: [utils.id("MessageDelivered(uint256,bytes32,address,uint8,address,bytes32,uint256,uint64)")],
   });
 
   const senders = messageDeliveredEvents.map(({ data, topics }) => {
     const decodedData = utils.defaultAbiCoder.decode(
-      [
-        'address inbox',
-        'uint8 kind',
-        'address sender',
-        'bytes32 messageDataHash',
-        'uint256 baseFeeL1',
-        'uint64 timestamp'
-      ],
+      ["address inbox", "uint8 kind", "address sender", "bytes32 messageDataHash", "uint256 baseFeeL1", "uint64 timestamp"],
       data
     );
     const { sender } = decodedData;
     const messageNum = topics[1];
     return {
       sender,
-      messageNum
+      messageNum,
     };
   });
 
@@ -78,29 +71,23 @@ export async function relayArbitrumMessage(
     }
     return {
       ...dataAndTarget,
-      ...senders[i]
+      ...senders[i],
     };
   });
 
   for (let bridgedMessage of bridgedMessages) {
     const { sender, data, toAddress } = bridgedMessage;
-    const arbitrumSigner = await impersonateAddress(
-      bridgeDeploymentManager,
-      sender
-    );
+    const arbitrumSigner = await impersonateAddress(bridgeDeploymentManager, sender);
     // if method name == finalizeInboundTransfer(address,address,address,uint256,bytes)
-    if(data.slice(0, 10) == '0x2e567b36'){
-      const _data = '0x' + data.slice(10, 266);
-      const [token,, to, amount] = utils.defaultAbiCoder.decode(
-        ['address', 'address', 'address', 'uint256'],
-        _data
-      );
+    if (data.slice(0, 10) == "0x2e567b36") {
+      const _data = "0x" + data.slice(10, 266);
+      const [token, , to, amount] = utils.defaultAbiCoder.decode(["address", "address", "address", "uint256"], _data);
       // if token is mainnet ETH -> than source arbitrum weth
-      if(token == '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2'){
+      if (token == "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2") {
         await sourceTokens({
           dm: bridgeDeploymentManager,
           amount: amount,
-          asset: '0x82aF49447D8a07e3bd95BD0d56f35241523fBab1',
+          asset: "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1",
           address: to,
           blacklist: [],
         });
@@ -111,21 +98,17 @@ export async function relayArbitrumMessage(
       to: toAddress,
       from: sender,
       data,
-      gasPrice: 0
+      gasPrice: 0,
     });
 
     await setNextBaseFeeToZero(bridgeDeploymentManager);
 
-    const tx = await (
-      await arbitrumSigner.sendTransaction(transactionRequest)
-    ).wait();
+    const tx = await (await arbitrumSigner.sendTransaction(transactionRequest)).wait();
 
-    const proposalCreatedLog = tx.logs.find(
-      event => event.address === bridgeReceiver.address
-    );
+    const proposalCreatedLog = tx.logs.find(event => event.address === bridgeReceiver.address);
     if (proposalCreatedLog) {
       const {
-        args: { id, eta }
+        args: { id, eta },
       } = bridgeReceiver.interface.parseLog(proposalCreatedLog);
 
       // fast forward l2 time
@@ -142,19 +125,18 @@ export async function relayCCTPMint(
   governanceDeploymentManager: DeploymentManager,
   bridgeDeploymentManager: DeploymentManager,
   startingBlockNumber: number
-){
+) {
   // CCTP relay
   // L1 contracts
-  const L1MessageTransmitter = await governanceDeploymentManager.getContractOrThrow('CCTPMessageTransmitter');
+  const L1MessageTransmitter = await governanceDeploymentManager.getContractOrThrow("CCTPMessageTransmitter");
   // Arbitrum TokenMinter which is L2 contracts
-  const TokenMinter = await bridgeDeploymentManager.existing('TokenMinter', '0xE7Ed1fa7f45D05C508232aa32649D89b73b8bA48', 'arbitrum');
-
+  const TokenMinter = await bridgeDeploymentManager.existing("TokenMinter", "0xE7Ed1fa7f45D05C508232aa32649D89b73b8bA48", "arbitrum");
 
   const depositForBurnEvents: Log[] = await governanceDeploymentManager.hre.ethers.provider.getLogs({
     fromBlock: startingBlockNumber,
-    toBlock: 'latest',
+    toBlock: "latest",
     address: L1MessageTransmitter.address,
-    topics: [utils.id('MessageSent(bytes)')]
+    topics: [utils.id("MessageSent(bytes)")],
   });
 
   // Decode message body
@@ -224,31 +206,27 @@ export async function relayCCTPMint(
       recipient: mintRecipient,
       amount: amount,
       sourceDomain: msgSourceDomain,
-      burnToken: burnToken
+      burnToken: burnToken,
     };
   });
 
   // Impersonate the Arbitrum TokenMinter and mint token to recipient
-  const ImpersonateLocalTokenMessenger = bridgeDeploymentManager.network === 'arbitrum' ? '0x19330d10d9cc8751218eaf51e8885d058642e08a' : '0x0';
+  const ImpersonateLocalTokenMessenger =
+    bridgeDeploymentManager.network === "arbitrum" ? "0x19330d10d9cc8751218eaf51e8885d058642e08a" : "0x0";
   // Impersonate the Arbitrum TokenMinter and mint token to recipient
   for (let burnEvent of burnEvents) {
     const { recipient, amount, sourceDomain, burnToken } = burnEvent;
-    const localTokenMessengerSigner = await impersonateAddress(
-      bridgeDeploymentManager,
-      ImpersonateLocalTokenMessenger
-    );
+    const localTokenMessengerSigner = await impersonateAddress(bridgeDeploymentManager, ImpersonateLocalTokenMessenger);
 
     const transactionRequest = await localTokenMessengerSigner.populateTransaction({
       to: TokenMinter.address,
       from: ImpersonateLocalTokenMessenger,
-      data: TokenMinter.interface.encodeFunctionData('mint', [sourceDomain, burnToken, utils.getAddress(recipient), amount]),
-      gasPrice: 0
+      data: TokenMinter.interface.encodeFunctionData("mint", [sourceDomain, burnToken, utils.getAddress(recipient), amount]),
+      gasPrice: 0,
     });
 
     await setNextBaseFeeToZero(bridgeDeploymentManager);
 
-    await (
-      await localTokenMessengerSigner.sendTransaction(transactionRequest)
-    ).wait();
+    await (await localTokenMessengerSigner.sendTransaction(transactionRequest)).wait();
   }
 }

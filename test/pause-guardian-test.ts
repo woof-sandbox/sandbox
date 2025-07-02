@@ -1,7 +1,7 @@
-import { Comet, expect, event, makeProtocol, wait } from './helper/helpers';
+import { Comet, expect, event, makeProtocol, wait } from "./helper/helpers";
 
-describe.skip('Pause Guardian', function () {
-  it('Should pause supply', async function () {
+describe.skip("Pause Guardian", function () {
+  it("Should pause supply", async function () {
     const { comet } = await makeProtocol();
     await assertNoActionsArePaused(comet);
 
@@ -19,11 +19,11 @@ describe.skip('Pause Guardian', function () {
         withdrawPaused: false,
         absorbPaused: false,
         buyPaused: false,
-      }
+      },
     });
   });
 
-  it('Should pause transfer', async function () {
+  it("Should pause transfer", async function () {
     const { comet } = await makeProtocol();
     await assertNoActionsArePaused(comet);
 
@@ -41,11 +41,11 @@ describe.skip('Pause Guardian', function () {
         withdrawPaused: false,
         absorbPaused: false,
         buyPaused: false,
-      }
+      },
     });
   });
 
-  it('Should pause withdraw', async function () {
+  it("Should pause withdraw", async function () {
     const { comet } = await makeProtocol();
     await assertNoActionsArePaused(comet);
 
@@ -63,11 +63,11 @@ describe.skip('Pause Guardian', function () {
         withdrawPaused: true,
         absorbPaused: false,
         buyPaused: false,
-      }
+      },
     });
   });
 
-  it('Should pause absorb', async function () {
+  it("Should pause absorb", async function () {
     const { comet } = await makeProtocol();
     await assertNoActionsArePaused(comet);
 
@@ -85,11 +85,11 @@ describe.skip('Pause Guardian', function () {
         withdrawPaused: false,
         absorbPaused: true,
         buyPaused: false,
-      }
+      },
     });
   });
 
-  it('Should pause buy', async function () {
+  it("Should pause buy", async function () {
     const { comet } = await makeProtocol();
     await assertNoActionsArePaused(comet);
 
@@ -107,11 +107,11 @@ describe.skip('Pause Guardian', function () {
         withdrawPaused: false,
         absorbPaused: false,
         buyPaused: true,
-      }
+      },
     });
   });
 
-  it('Should unpause', async function () {
+  it("Should unpause", async function () {
     const { comet } = await makeProtocol();
     await assertNoActionsArePaused(comet);
 
@@ -129,7 +129,7 @@ describe.skip('Pause Guardian', function () {
         withdrawPaused: true,
         absorbPaused: true,
         buyPaused: true,
-      }
+      },
     });
     expect(event(txn2, 0)).to.be.deep.equal({
       PauseAction: {
@@ -138,11 +138,11 @@ describe.skip('Pause Guardian', function () {
         withdrawPaused: false,
         absorbPaused: false,
         buyPaused: false,
-      }
+      },
     });
   });
 
-  it('Should pause when called by governor', async function () {
+  it("Should pause when called by governor", async function () {
     const { comet, governor } = await makeProtocol();
     await assertNoActionsArePaused(comet);
 
@@ -151,7 +151,7 @@ describe.skip('Pause Guardian', function () {
     await assertAllActionsArePaused(comet);
   });
 
-  it('Should pause when called by pause guardian', async function () {
+  it("Should pause when called by pause guardian", async function () {
     const { comet, pauseGuardian } = await makeProtocol();
     await assertNoActionsArePaused(comet);
 
@@ -160,11 +160,9 @@ describe.skip('Pause Guardian', function () {
     await assertAllActionsArePaused(comet);
   });
 
-  it('Should revert if not called by governor or pause guardian', async function () {
+  it("Should revert if not called by governor or pause guardian", async function () {
     const { comet, users } = await makeProtocol();
-    await expect(
-      comet.connect(users[0]).pause(true, true, true, true, true)
-    ).to.be.revertedWith("custom error 'Unauthorized()'");
+    await expect(comet.connect(users[0]).pause(true, true, true, true, true)).to.be.revertedWith("custom error 'Unauthorized()'");
   });
 });
 

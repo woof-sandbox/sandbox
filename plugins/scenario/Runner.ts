@@ -1,8 +1,8 @@
-import { Scenario, ScenarioEnv, Solution } from './Scenario';
-import { ForkSpec, World } from './World';
-import { Loader } from './Loader';
-import { showReport, pluralize, Result } from './Report';
-import { AssertionError } from 'chai';
+import { Scenario, ScenarioEnv, Solution } from "./Scenario";
+import { ForkSpec, World } from "./World";
+import { Loader } from "./Loader";
+import { showReport, pluralize, Result } from "./Report";
+import { AssertionError } from "chai";
 
 export type Address = string;
 
@@ -12,8 +12,7 @@ function* combos<T>(choices: T[][]): Generator<T[]> {
   if (choices.length == 0) {
     yield [];
   } else {
-    for (const option of choices[0])
-      for (const combo of combos(choices.slice(1))) yield [option, ...combo];
+    for (const option of choices[0]) for (const combo of combos(choices.slice(1))) yield [option, ...combo];
   }
 }
 
@@ -51,9 +50,7 @@ export class Runner<T, U, R> {
 
     // generate worlds which satisfy the constraints
     // note: constraints should be independent or conflicts will be detected
-    const solutionChoices: Solution<T>[][] = await Promise.all(
-      constraints.map((c) => c.solve(world).then(mapSolution))
-    );
+    const solutionChoices: Solution<T>[][] = await Promise.all(constraints.map(c => c.solve(world).then(mapSolution)));
     const baseSolutions: Solution<T>[][] = [[identity]];
 
     for (const combo of combos(baseSolutions.concat(solutionChoices))) {
@@ -63,10 +60,8 @@ export class Runner<T, U, R> {
       let ctx: T = await env.initializer(world);
 
       // apply each solution in the combo, then check they all still hold
-      for (const solution of combo)
-        ctx = (await solution(ctx, world)) || ctx;
-      for (const constraint of constraints)
-        await constraint.check(world);
+      for (const solution of combo) ctx = (await solution(ctx, world)) || ctx;
+      for (const constraint of constraints) await constraint.check(world);
       yield ctx;
 
       worldSnapshot = await world._revertAndSnapshot(worldSnapshot);
@@ -86,7 +81,7 @@ export class Runner<T, U, R> {
     // generate worlds which satisfy the constraints
     // note: constraints should be independent or conflicts will be detected
     const solutionChoices: Solution<T>[][] = await Promise.all(
-      constraints.map((c) => c.solve(scenario.requirements, context, world).then(mapSolution))
+      constraints.map(c => c.solve(scenario.requirements, context, world).then(mapSolution))
     );
     const baseSolutions: Solution<T>[][] = [[identity]];
 
@@ -153,14 +148,12 @@ export class Runner<T, U, R> {
   }
 }
 
-
 async function retry(fn: () => Promise<any>, retries: number = 10, timeLimit?: number, wait: number = 250) {
   try {
     return await asyncCallWithTimeout(fn(), timeLimit);
   } catch (e) {
     if (retries === 0) throw e;
-    if(e.reason !== 'could not detect network')
-      throw e;
+    if (e.reason !== "could not detect network") throw e;
 
     console.warn(`Retrying in ${wait}ms...`);
 
@@ -172,10 +165,7 @@ async function asyncCallWithTimeout(asyncPromise: Promise<any>, timeLimit: numbe
   let timeoutHandle: string | number | NodeJS.Timeout;
 
   const timeoutPromise = new Promise((_resolve, reject) => {
-    timeoutHandle = setTimeout(
-      () => reject(new Error('Async call timeout limit reached')),
-      timeLimit
-    );
+    timeoutHandle = setTimeout(() => reject(new Error("Async call timeout limit reached")), timeLimit);
   });
 
   return Promise.race([asyncPromise, timeoutPromise]).then(result => {
@@ -224,16 +214,17 @@ export async function runScenarios(bases: ForkSpec[]) {
       for (const scenario of runningScenarios) {
         console.log(`[${base.name}] Running ${scenario.name} ...`);
         try {
-          const result = await runner.run(scenario, context), N = result.numSolutionSets;
+          const result = await runner.run(scenario, context),
+            N = result.numSolutionSets;
           if (N) {
             console.log(`[${base.name}] ... ran ${scenario.name}`);
-            console.log(`[${base.name}]  ⛽ consumed ${result.gasUsed} gas on average over ${pluralize(N, 'solution', 'solutions')}`);
+            console.log(`[${base.name}]  ⛽ consumed ${result.gasUsed} gas on average over ${pluralize(N, "solution", "solutions")}`);
           } else {
             console.log(`[${base.name}]   ∅ for ${scenario.name}, has empty constraint solution space`);
           }
           results.push(result);
         } catch (e) {
-          console.error('Encountered worker error', e);
+          console.error("Encountered worker error", e);
         }
       }
     }

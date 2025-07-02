@@ -1,14 +1,11 @@
-import hre from 'hardhat';
-import {
-  CometInterface,
-  OnChainLiquidator
-} from '../../build/types';
-import { PoolConfigStruct } from '../../build/types/OnChainLiquidator';
-import { ethers, exp } from '../../test/helper/helpers';
-import { FlashbotsBundleProvider } from '@flashbots/ethers-provider-bundle';
-import { BigNumberish, Signer } from 'ethers';
-import googleCloudLog, { LogSeverity } from './googleCloudLog';
-import {sendTxn} from './sendTransaction';
+import hre from "hardhat";
+import { CometInterface, OnChainLiquidator } from "../../build/types";
+import { PoolConfigStruct } from "../../build/types/OnChainLiquidator";
+import { ethers, exp } from "../../test/helper/helpers";
+import { FlashbotsBundleProvider } from "@flashbots/ethers-provider-bundle";
+import { BigNumberish, Signer } from "ethers";
+import googleCloudLog, { LogSeverity } from "./googleCloudLog";
+import { sendTxn } from "./sendTransaction";
 
 export interface SignerWithFlashbots {
   signer: Signer;
@@ -25,108 +22,108 @@ enum Exchange {
   Uniswap,
   SushiSwap,
   Balancer,
-  Curve
+  Curve,
 }
 
 const addresses = {
   mainnet: {
-    COMP: '0xc00e94cb662c3520282e6f5717214004a7f26888',
-    DAI: '0x6B175474E89094C44Da98b954EedeAC495271d0F',
-    LINK: '0x514910771AF9Ca656af840dff83E8264EcF986CA',
-    UNI: '0x1f9840a85d5af5bf1d1762f925bdaddc4201f984',
-    USDC: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
-    WBTC: '0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599',
-    WETH9: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2',
-    CB_ETH: '0xBe9895146f7AF43049ca1c1AE358B0541Ea49704',
-    WST_ETH: '0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0',
-    RS_ETH: '0xA1290d69c65A6Fe4DF752f95823fae25cB99e5A7',
-    USDT: '0xdAC17F958D2ee523a2206206994597C13D831ec7'
+    COMP: "0xc00e94cb662c3520282e6f5717214004a7f26888",
+    DAI: "0x6B175474E89094C44Da98b954EedeAC495271d0F",
+    LINK: "0x514910771AF9Ca656af840dff83E8264EcF986CA",
+    UNI: "0x1f9840a85d5af5bf1d1762f925bdaddc4201f984",
+    USDC: "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+    WBTC: "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599",
+    WETH9: "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+    CB_ETH: "0xBe9895146f7AF43049ca1c1AE358B0541Ea49704",
+    WST_ETH: "0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0",
+    RS_ETH: "0xA1290d69c65A6Fe4DF752f95823fae25cB99e5A7",
+    USDT: "0xdAC17F958D2ee523a2206206994597C13D831ec7",
   },
   polygon: {
-    WBTC: '0x1bfd67037b42cf73acf2047067bd4f2c47d9bfd6',
-    WETH: '0x7ceb23fd6bc0add59e62ac25578270cff1b9f619',
-    WMATIC: '0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270',
-    BOB: '0xb0b195aefa3650a6908f15cdac7d92f8a5791b0b'
+    WBTC: "0x1bfd67037b42cf73acf2047067bd4f2c47d9bfd6",
+    WETH: "0x7ceb23fd6bc0add59e62ac25578270cff1b9f619",
+    WMATIC: "0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270",
+    BOB: "0xb0b195aefa3650a6908f15cdac7d92f8a5791b0b",
   },
   arbitrum: {
-    ARB: '0x912ce59144191c1204e64559fe8253a0e49e6548',
-    GMX: '0xfc5a1a6eb076a2c7ad06ed22c90d7e710e35ad0a',
-    WETH: '0x82af49447d8a07e3bd95bd0d56f35241523fbab1',
-    WBTC: '0x2f2a2543b76a4166549f7aab2e75bef0aefc5b0f',
-    USDC: '0xaf88d065e77c8cc2239327c5edb3a432268e5831',
-    USDC_E: '0xff970a61a04b1ca14834a43f5de4533ebddb5cc8',
-    USDT: '0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9',
-    rETH: '0xEC70Dcb4A1EFa46b8F2D97C310C9c4790ba5ffA8',
-    wstETH: '0x5979D7b546E38E414F7E9822514be443A4800529',
-    weETH: '0x35751007a407ca6FEFfE80b3cB397736D2cf4dbe'
-  }
+    ARB: "0x912ce59144191c1204e64559fe8253a0e49e6548",
+    GMX: "0xfc5a1a6eb076a2c7ad06ed22c90d7e710e35ad0a",
+    WETH: "0x82af49447d8a07e3bd95bd0d56f35241523fbab1",
+    WBTC: "0x2f2a2543b76a4166549f7aab2e75bef0aefc5b0f",
+    USDC: "0xaf88d065e77c8cc2239327c5edb3a432268e5831",
+    USDC_E: "0xff970a61a04b1ca14834a43f5de4533ebddb5cc8",
+    USDT: "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9",
+    rETH: "0xEC70Dcb4A1EFa46b8F2D97C310C9c4790ba5ffA8",
+    wstETH: "0x5979D7b546E38E414F7E9822514be443A4800529",
+    weETH: "0x35751007a407ca6FEFfE80b3cB397736D2cf4dbe",
+  },
 };
 
 const liquidationThresholds = {
   mainnet: {
-    'usdc': 10e6,
-    'weth': 1e18
+    usdc: 10e6,
+    weth: 1e18,
   },
   polygon: {
-    'usdc': 10e6
+    usdc: 10e6,
   },
   arbitrum: {
-    'usdc.e': 10e6, 
-    usdc: 10e6
-  }
+    "usdc.e": 10e6,
+    usdc: 10e6,
+  },
 };
 
 export const flashLoanPools = {
   mainnet: {
     usdc: {
       tokenAddress: addresses.mainnet.DAI,
-      poolFee: 100
+      poolFee: 100,
     },
     weth: {
       tokenAddress: addresses.mainnet.USDC,
-      poolFee: 500
+      poolFee: 500,
     },
     usdt: {
       tokenAddress: addresses.mainnet.DAI,
-      poolFee: 100
+      poolFee: 100,
     },
     wsteth: {
       tokenAddress: addresses.mainnet.WETH9,
-      poolFee: 100
+      poolFee: 100,
     },
     usds: {
       tokenAddress: addresses.mainnet.DAI,
       poolFee: 3000,
-    }
+    },
   },
   polygon: {
     usdc: {
       tokenAddress: addresses.polygon.BOB,
-      poolFee: 100
+      poolFee: 100,
     },
     usdt: {
       tokenAddress: addresses.polygon.WBTC,
-      poolFee: 500
-    }
+      poolFee: 500,
+    },
   },
   arbitrum: {
-    'usdc.e': {
+    "usdc.e": {
       tokenAddress: addresses.arbitrum.USDC, // USDC/USDC_E/.01% pool
-      poolFee: 100
-    }, 
+      poolFee: 100,
+    },
     usdc: {
       tokenAddress: addresses.arbitrum.USDC_E,
-      poolFee: 100
+      poolFee: 100,
     },
     usdt: {
       tokenAddress: addresses.arbitrum.USDT,
-      poolFee: 100
+      poolFee: 100,
     },
     weth: {
       tokenAddress: addresses.arbitrum.USDC,
-      poolFee: 500
-    }
-  }
+      poolFee: 500,
+    },
+  },
 };
 
 export function getPoolConfig(tokenAddress: string) {
@@ -134,40 +131,40 @@ export function getPoolConfig(tokenAddress: string) {
     exchange: 0,
     uniswapPoolFee: 0,
     swapViaWeth: false,
-    balancerPoolId: ethers.utils.formatBytes32String(''),
-    curvePool: ethers.constants.AddressZero
+    balancerPoolId: ethers.utils.formatBytes32String(""),
+    curvePool: ethers.constants.AddressZero,
   };
 
-  const poolConfigs: {[tokenAddress: string]: PoolConfigStruct} = {
+  const poolConfigs: { [tokenAddress: string]: PoolConfigStruct } = {
     [addresses.mainnet.COMP.toLowerCase()]: {
       ...defaultPoolConfig,
       ...{
         exchange: Exchange.SushiSwap,
-        swapViaWeth: true
-      }
+        swapViaWeth: true,
+      },
     },
     [addresses.mainnet.WBTC.toLowerCase()]: {
       ...defaultPoolConfig,
       ...{
         exchange: Exchange.Uniswap,
         swapViaWeth: true,
-        uniswapPoolFee: 3000
-      }
+        uniswapPoolFee: 3000,
+      },
     },
     [addresses.mainnet.WETH9.toLowerCase()]: {
       ...defaultPoolConfig,
       ...{
         exchange: Exchange.Uniswap,
         swapViaWeth: false,
-        uniswapPoolFee: 500
-      }
+        uniswapPoolFee: 500,
+      },
     },
     [addresses.mainnet.LINK.toLowerCase()]: {
       ...defaultPoolConfig,
       ...{
         exchange: Exchange.Uniswap,
         swapViaWeth: true,
-        uniswapPoolFee: 3000
+        uniswapPoolFee: 3000,
       },
     },
     [addresses.mainnet.UNI.toLowerCase()]: {
@@ -175,108 +172,108 @@ export function getPoolConfig(tokenAddress: string) {
       ...{
         exchange: Exchange.Uniswap,
         swapViaWeth: true,
-        uniswapPoolFee: 3000
-      }
+        uniswapPoolFee: 3000,
+      },
     },
     [addresses.mainnet.CB_ETH.toLowerCase()]: {
       ...defaultPoolConfig,
       ...{
         exchange: Exchange.Uniswap,
         swapViaWeth: false,
-        uniswapPoolFee: 500
-      }
+        uniswapPoolFee: 500,
+      },
     },
     [addresses.mainnet.RS_ETH.toLowerCase()]: {
       ...defaultPoolConfig,
       ...{
         exchange: Exchange.Balancer,
-        balancerPoolId: '0x58aadfb1afac0ad7fca1148f3cde6aedf5236b6d00000000000000000000067f'
-      }
+        balancerPoolId: "0x58aadfb1afac0ad7fca1148f3cde6aedf5236b6d00000000000000000000067f",
+      },
     },
     [addresses.mainnet.WST_ETH.toLowerCase()]: {
       ...defaultPoolConfig,
       ...{
         exchange: Exchange.Balancer,
-        balancerPoolId: '0x32296969ef14eb0c6d29669c550d4a0449130230000200000000000000000080'
-      }
+        balancerPoolId: "0x32296969ef14eb0c6d29669c550d4a0449130230000200000000000000000080",
+      },
     },
     [addresses.polygon.WMATIC.toLowerCase()]: {
       ...defaultPoolConfig,
       ...{
         exchange: Exchange.Uniswap,
         swapViaWeth: false,
-        uniswapPoolFee: 500
-      }
+        uniswapPoolFee: 500,
+      },
     },
     [addresses.polygon.WBTC.toLowerCase()]: {
       ...defaultPoolConfig,
       ...{
         exchange: Exchange.Uniswap,
         swapViaWeth: true,
-        uniswapPoolFee: 500
-      }
+        uniswapPoolFee: 500,
+      },
     },
     [addresses.polygon.WETH.toLowerCase()]: {
       ...defaultPoolConfig,
       ...{
         exchange: Exchange.Uniswap,
         swapViaWeth: false,
-        uniswapPoolFee: 500
-      }
+        uniswapPoolFee: 500,
+      },
     },
     [addresses.arbitrum.ARB.toLowerCase()]: {
       ...defaultPoolConfig,
       ...{
         exchange: Exchange.Uniswap,
         swapViaWeth: true,
-        uniswapPoolFee: 500
-      }
+        uniswapPoolFee: 500,
+      },
     },
     [addresses.arbitrum.GMX.toLowerCase()]: {
       ...defaultPoolConfig,
       ...{
         exchange: Exchange.Uniswap,
         swapViaWeth: true,
-        uniswapPoolFee: 3000
-      }
+        uniswapPoolFee: 3000,
+      },
     },
     [addresses.arbitrum.WETH.toLowerCase()]: {
       ...defaultPoolConfig,
       ...{
         exchange: Exchange.Uniswap,
         swapViaWeth: false,
-        uniswapPoolFee: 500
-      }
+        uniswapPoolFee: 500,
+      },
     },
     [addresses.arbitrum.WBTC.toLowerCase()]: {
       ...defaultPoolConfig,
       ...{
         exchange: Exchange.Uniswap,
         swapViaWeth: true,
-        uniswapPoolFee: 500
-      }
+        uniswapPoolFee: 500,
+      },
     },
     [addresses.arbitrum.rETH.toLowerCase()]: {
       ...defaultPoolConfig,
       ...{
         exchange: Exchange.Balancer,
-        balancerPoolId: '0xd0ec47c54ca5e20aaae4616c25c825c7f48d40690000000000000000000004ef'
-      }
+        balancerPoolId: "0xd0ec47c54ca5e20aaae4616c25c825c7f48d40690000000000000000000004ef",
+      },
     },
     [addresses.arbitrum.wstETH.toLowerCase()]: {
       ...defaultPoolConfig,
       ...{
         exchange: Exchange.Balancer,
-        balancerPoolId: '0x9791d590788598535278552eecd4b211bfc790cb000000000000000000000498'
-      }
+        balancerPoolId: "0x9791d590788598535278552eecd4b211bfc790cb000000000000000000000498",
+      },
     },
     [addresses.arbitrum.weETH.toLowerCase()]: {
       ...defaultPoolConfig,
       ...{
         exchange: Exchange.Uniswap,
         swapViaWeth: false,
-        uniswapPoolFee: 100
-      }
+        uniswapPoolFee: 100,
+      },
     },
   };
 
@@ -290,7 +287,7 @@ export function getPoolConfig(tokenAddress: string) {
 }
 
 function getMaxAmountToPurchase(tokenAddress: string): bigint {
-  const maxAmountsToPurchase: {[tokenAddress: string]: bigint} = {
+  const maxAmountsToPurchase: { [tokenAddress: string]: bigint } = {
     // Mainnet
     [addresses.mainnet.COMP.toLowerCase()]: exp(500, 18),
     [addresses.mainnet.LINK.toLowerCase()]: exp(200_000, 18),
@@ -307,7 +304,7 @@ function getMaxAmountToPurchase(tokenAddress: string): bigint {
     [addresses.arbitrum.WETH.toLowerCase()]: exp(2000, 18),
     [addresses.arbitrum.WBTC.toLowerCase()]: exp(100, 8),
     [addresses.arbitrum.rETH.toLowerCase()]: exp(2000, 18),
-    [addresses.arbitrum.wstETH.toLowerCase()]: exp(2000, 18)
+    [addresses.arbitrum.wstETH.toLowerCase()]: exp(2000, 18),
   };
 
   const max = maxAmountsToPurchase[tokenAddress.toLowerCase()];
@@ -365,17 +362,19 @@ async function attemptLiquidation(
         const success_ = await attemptLiquidationViaOnChainLiquidator(
           comet,
           liquidator,
-          [],                             // target addresses
-          [asset.address],                // assets
+          [], // target addresses
+          [asset.address], // assets
           [getPoolConfig(asset.address)], // pool configs
-          [amount],                       // max amounts to purchase
+          [amount], // max amounts to purchase
           flashLoanPool.tokenAddress,
           flashLoanPool.poolFee,
           liquidationThreshold,
-          signerWithFlashbots,
+          signerWithFlashbots
         );
 
-        if (success_) { break; } // stop once you've cleared any amount of an asset
+        if (success_) {
+          break;
+        } // stop once you've cleared any amount of an asset
       }
     }
   }
@@ -391,23 +390,14 @@ async function attemptLiquidationViaOnChainLiquidator(
   flashLoanPoolTokenAddress: string,
   flashLoanPoolFee: number,
   liquidationThreshold: number,
-  signerWithFlashbots: SignerWithFlashbots,
+  signerWithFlashbots: SignerWithFlashbots
 ): Promise<boolean> {
   const liquidatorAddress = liquidator.address;
 
   googleCloudLog(LogSeverity.INFO, `Attempting to liquidate ${targetAddresses} via OnChainLiquidator @${liquidatorAddress}`);
 
   try {
-    const args: [
-      string,
-      string[],
-      string[],
-      PoolConfigStruct[],
-      BigNumberish[],
-      string,
-      number,
-      number
-    ] = [
+    const args: [string, string[], string[], PoolConfigStruct[], BigNumberish[], string, number, number] = [
       comet.address,
       targetAddresses,
       assets,
@@ -415,16 +405,13 @@ async function attemptLiquidationViaOnChainLiquidator(
       maxAmountsToPurchase,
       flashLoanPoolTokenAddress,
       flashLoanPoolFee,
-      liquidationThreshold
+      liquidationThreshold,
     ];
 
-    const txn = await liquidator.populateTransaction.absorbAndArbitrage(
-      ...args,
-      {
-        gasLimit: Math.ceil(1.3 * (await liquidator.estimateGas.absorbAndArbitrage(...args)).toNumber()),
-        gasPrice: Math.ceil(1.3 * (await hre.ethers.provider.getGasPrice()).toNumber()),
-      }
-    );
+    const txn = await liquidator.populateTransaction.absorbAndArbitrage(...args, {
+      gasLimit: Math.ceil(1.3 * (await liquidator.estimateGas.absorbAndArbitrage(...args)).toNumber()),
+      gasPrice: Math.ceil(1.3 * (await hre.ethers.provider.getGasPrice()).toNumber()),
+    });
 
     // ensure that .populateTransaction has not added a "from" key
     delete txn.from;
@@ -440,10 +427,7 @@ async function attemptLiquidationViaOnChainLiquidator(
     }
     return success;
   } catch (e) {
-    googleCloudLog(
-      LogSeverity.ALERT,
-      `Failed to liquidate ${targetAddresses} via ${liquidatorAddress}: ${e.message}`
-    );
+    googleCloudLog(LogSeverity.ALERT, `Failed to liquidate ${targetAddresses} via ${liquidatorAddress}: ${e.message}`);
     return false;
   }
 }
@@ -466,7 +450,7 @@ export async function hasPurchaseableCollateral(comet: CometInterface, assets: A
     const collateralReserves = await comet.getCollateralReserves(asset.address);
     const price = await comet.getPrice(asset.priceFeed);
     const priceScale = exp(1, 8);
-    const value = collateralReserves.toBigInt() * price.toBigInt() * baseScale / asset.scale / priceScale;
+    const value = (collateralReserves.toBigInt() * price.toBigInt() * baseScale) / asset.scale / priceScale;
     if (value >= minBaseValue) {
       return true;
     }
@@ -492,14 +476,7 @@ export async function liquidateUnderwaterBorrowers(
     googleCloudLog(LogSeverity.INFO, `${address} isLiquidatable=${isLiquidatable}`);
 
     if (isLiquidatable) {
-      await attemptLiquidation(
-        comet,
-        liquidator,
-        [address],
-        signerWithFlashbots,
-        network,
-        deployment
-      );
+      await attemptLiquidation(comet, liquidator, [address], signerWithFlashbots, network, deployment);
       liquidationAttempted = true;
     }
   }
@@ -536,10 +513,14 @@ export async function arbitragePurchaseableCollateral(
 export async function getAssets(comet: CometInterface): Promise<Asset[]> {
   let numAssets = await comet.numAssets();
   let assets = [
-    ...await Promise.all(Array(numAssets).fill(0).map(async (_, i) => {
-      const asset = await comet.getAssetInfo(i);
-      return { address: asset.asset, priceFeed: asset.priceFeed, scale: asset.scale.toBigInt() };
-    })),
+    ...(await Promise.all(
+      Array(numAssets)
+        .fill(0)
+        .map(async (_, i) => {
+          const asset = await comet.getAssetInfo(i);
+          return { address: asset.asset, priceFeed: asset.priceFeed, scale: asset.scale.toBigInt() };
+        })
+    )),
   ];
   return assets;
 }

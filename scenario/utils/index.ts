@@ -1,20 +1,20 @@
-import { expect } from 'chai';
-import { BigNumber, Contract, ContractReceipt, ContractTransaction, Event, EventFilter, constants, utils } from 'ethers';
-import { execSync } from 'child_process';
-import { existsSync } from 'fs';
-import { CometContext } from '../context/CometContext';
-import CometAsset from '../context/CometAsset';
-import { exp } from '../../test/helper/helpers';
-import { DeploymentManager } from '../../plugins/deployment_manager';
-import { impersonateAddress } from '../../plugins/scenario/utils';
-import { ProposalState, OpenProposal } from '../context/Gov';
-import { debug } from '../../plugins/deployment_manager/Utils';
-import { COMP_WHALES } from '../../src/deploy';
-import relayMessage from './relayMessage';
-import { mineBlocks, setNextBaseFeeToZero, setNextBlockTimestamp } from './hreUtils';
-import { CometInterface } from '../../build/types';
-import CometActor from './../context/CometActor';
-import { isBridgeProposal } from './isBridgeProposal';
+import { expect } from "chai";
+import { BigNumber, Contract, ContractReceipt, ContractTransaction, Event, EventFilter, constants, utils } from "ethers";
+import { execSync } from "child_process";
+import { existsSync } from "fs";
+import { CometContext } from "../context/CometContext";
+import CometAsset from "../context/CometAsset";
+import { exp } from "../../test/helper/helpers";
+import { DeploymentManager } from "../../plugins/deployment_manager";
+import { impersonateAddress } from "../../plugins/scenario/utils";
+import { ProposalState, OpenProposal } from "../context/Gov";
+import { debug } from "../../plugins/deployment_manager/Utils";
+import { COMP_WHALES } from "../../src/deploy";
+import relayMessage from "./relayMessage";
+import { mineBlocks, setNextBaseFeeToZero, setNextBlockTimestamp } from "./hreUtils";
+import { CometInterface } from "../../build/types";
+import CometActor from "./../context/CometActor";
+import { isBridgeProposal } from "./isBridgeProposal";
 
 export { mineBlocks, setNextBaseFeeToZero, setNextBlockTimestamp };
 
@@ -31,11 +31,11 @@ export enum ComparisonOp {
   GT,
   LTE,
   LT,
-  EQ
+  EQ,
 }
 
-export const max = (...args) => args.reduce((m, e) => e > m ? e : m);
-export const min = (...args) => args.reduce((m, e) => e < m ? e : m);
+export const max = (...args) => args.reduce((m, e) => (e > m ? e : m));
+export const min = (...args) => args.reduce((m, e) => (e < m ? e : m));
 
 export function abs(x: bigint): bigint {
   return x < 0n ? -x : x;
@@ -51,28 +51,28 @@ export function expectBase(expected: bigint, actual: bigint, precision = 2n) {
 
 export function expectRevertCustom(tx: Promise<ContractReceipt | ContractTransaction>, custom: string) {
   return tx
-    .then(_ => { throw new Error('Expected transaction to be reverted'); })
+    .then(_ => {
+      throw new Error("Expected transaction to be reverted");
+    })
     .catch(e => {
-      const selector = utils.keccak256(custom.split('').reduce((a, s) => a + s.charCodeAt(0).toString(16), '0x')).slice(2, 2 + 8);
+      const selector = utils.keccak256(custom.split("").reduce((a, s) => a + s.charCodeAt(0).toString(16), "0x")).slice(2, 2 + 8);
       const patterns = [
-        new RegExp(`custom error '${custom.replace(/[()]/g, '\\$&')}'`),
+        new RegExp(`custom error '${custom.replace(/[()]/g, "\\$&")}'`),
         new RegExp(`unrecognized custom error with selector ${selector}`),
-        new RegExp(`unrecognized custom error \\(return data: 0x${selector}\\)`)
+        new RegExp(`unrecognized custom error \\(return data: 0x${selector}\\)`),
       ];
-      for (const pattern of patterns)
-        if (pattern.test(e.message) || pattern.test(e.reason))
-          return;
+      for (const pattern of patterns) if (pattern.test(e.message) || pattern.test(e.reason)) return;
       throw new Error(`Expected revert message in one of [${patterns}], but reverted with: ${e.message}`);
     });
 }
 
 export function expectRevertMatches(tx: Promise<ContractReceipt>, patterns: RegExp[]) {
   return tx
-    .then(_ => { throw new Error('Expected transaction to be reverted'); })
+    .then(_ => {
+      throw new Error("Expected transaction to be reverted");
+    })
     .catch(e => {
-      for (const pattern of patterns)
-        if (pattern.test(e.message))
-          return;
+      for (const pattern of patterns) if (pattern.test(e.message)) return;
       throw new Error(`Expected revert message in one of ${patterns}, but reverted with: ${e.message}`);
     });
 }
@@ -82,7 +82,7 @@ export function requireString(o: object, key: string, err: string): string {
   if (value === undefined) {
     throw new Error(err);
   }
-  if (typeof value !== 'string') {
+  if (typeof value !== "string") {
     throw new Error(`${err} [requirement ${key} required to be string type]`);
   }
   return value;
@@ -104,7 +104,7 @@ export function requireNumber(o: object, key: string, err: string): number {
   if (value === undefined) {
     throw new Error(err);
   }
-  if (typeof value !== 'number') {
+  if (typeof value !== "number") {
     throw new Error(`${err} [requirement ${key} required to be number type]`);
   }
   return value;
@@ -115,7 +115,7 @@ export function optionalNumber(o: object, key: string): number | undefined {
   if (value === undefined) {
     return undefined;
   }
-  if (typeof value !== 'number') {
+  if (typeof value !== "number") {
     throw new Error(`[requirement ${key} required to be number type]`);
   }
   return value;
@@ -133,17 +133,17 @@ export function* subsets<T>(array: T[], offset = 0): Generator<T[]> {
 }
 
 export function getExpectedBaseBalance(balance: bigint, baseIndexScale: bigint, borrowOrSupplyIndex: bigint): bigint {
-  const principalValue = balance * baseIndexScale / borrowOrSupplyIndex;
-  const baseBalanceOf = principalValue * borrowOrSupplyIndex / baseIndexScale;
+  const principalValue = (balance * baseIndexScale) / borrowOrSupplyIndex;
+  const baseBalanceOf = (principalValue * borrowOrSupplyIndex) / baseIndexScale;
   return baseBalanceOf;
 }
 
 export function getInterest(balance: bigint, rate: bigint, seconds: bigint) {
-  return balance * rate * seconds / (10n ** 18n);
+  return (balance * rate * seconds) / 10n ** 18n;
 }
 
 export async function getActorAddressFromName(name: string, context: CometContext): Promise<string> {
-  if (name.startsWith('$')) {
+  if (name.startsWith("$")) {
     const cometRegex = /comet/;
     let actorAddress: string;
     if (cometRegex.test(name)) {
@@ -160,7 +160,7 @@ export async function getActorAddressFromName(name: string, context: CometContex
 
 export async function getAssetFromName(name: string, context: CometContext): Promise<CometAsset> {
   let comet = await context.getComet(); // TODO: can optimize by taking this as an arg instead
-  if (name.startsWith('$')) {
+  if (name.startsWith("$")) {
     const collateralAssetRegex = /asset[0-9]+/;
     const baseAssetRegex = /base/;
     let asset: string;
@@ -211,19 +211,19 @@ export function getToTransferAmount(amount: ComparativeAmount, existingBalance: 
 // `amount` should be the unit amount of an asset instead of the gwei amount
 export function parseAmount(amount): ComparativeAmount {
   switch (typeof amount) {
-    case 'bigint':
+    case "bigint":
       return amount >= 0n ? { val: Number(amount), op: ComparisonOp.GTE } : { val: Number(amount), op: ComparisonOp.LTE };
-    case 'number':
+    case "number":
       return amount >= 0 ? { val: amount, op: ComparisonOp.GTE } : { val: amount, op: ComparisonOp.LTE };
-    case 'string':
+    case "string":
       return matchGroup(amount, {
-        'GTE': />=\s*(-?\d+)/,
-        'GT': />\s*(-?\d+)/,
-        'LTE': /<=\s*(-?\d+)/,
-        'LT': /<\s*(-?\d+)/,
-        'EQ': /==\s*(-?\d+)/,
+        GTE: />=\s*(-?\d+)/,
+        GT: />\s*(-?\d+)/,
+        LTE: /<=\s*(-?\d+)/,
+        LT: /<\s*(-?\d+)/,
+        EQ: /==\s*(-?\d+)/,
       });
-    case 'object':
+    case "object":
       return amount;
     default:
       throw new Error(`Unrecognized amount: ${JSON.stringify(amount)}`);
@@ -238,16 +238,19 @@ function matchGroup(str, patterns): ComparativeAmount {
   throw new Error(`No match for ${str} in ${patterns}`);
 }
 
-export async function modifiedPaths(pattern: RegExp, against: string = 'origin/main'): Promise<string[]> {
+export async function modifiedPaths(pattern: RegExp, against: string = "origin/main"): Promise<string[]> {
   const output = execSync(`git diff --numstat $(git merge-base ${against} HEAD)`);
-  const paths = output.toString().split('\n').map(l => l.split(/\s+/)[2]);
+  const paths = output
+    .toString()
+    .split("\n")
+    .map(l => l.split(/\s+/)[2]);
   const modified = paths.filter(p => pattern.test(p) && existsSync(p));
   return modified;
 }
 
 export async function isValidAssetIndex(ctx: CometContext, assetNum: number): Promise<boolean> {
   const comet = await ctx.getComet();
-  return assetNum < await comet.numAssets();
+  return assetNum < (await comet.numAssets());
 }
 
 export async function isTriviallySourceable(ctx: CometContext, assetNum: number, amount: number): Promise<boolean> {
@@ -260,7 +263,7 @@ export async function isTriviallySourceable(ctx: CometContext, assetNum: number,
   const asset = ctx.getAssetByAddress(assetInfo.asset);
   const amountInWei = BigInt(amount) * assetInfo.scale.toBigInt();
   // Fauceteer should have greater than the expected amount of the asset
-  return await asset.balanceOf(fauceteer.address) > amountInWei;
+  return (await asset.balanceOf(fauceteer.address)) > amountInWei;
 }
 
 export async function isBulkerSupported(ctx: CometContext): Promise<boolean> {
@@ -277,12 +280,12 @@ export async function hasMinBorrowGreaterThanOne(ctx: CometContext): Promise<boo
 type DeploymentCriterion = {
   network?: string;
   deployment?: string;
-}
+};
 
 export function matchesDeployment(ctx: CometContext, deploymentCriteria: DeploymentCriterion[]): boolean {
   const currentDeployment = {
     network: ctx.world.base.network,
-    deployment: ctx.world.base.deployment
+    deployment: ctx.world.base.deployment,
   };
 
   function matchesCurrentDeployment(deploymentCriterion: DeploymentCriterion) {
@@ -331,103 +334,92 @@ export async function fetchLogs(
   }
 }
 
-async function redeployRenzoOracle(dm: DeploymentManager){
-  if(dm.network === 'mainnet') {
+async function redeployRenzoOracle(dm: DeploymentManager) {
+  if (dm.network === "mainnet") {
     // renzo admin 	0xD1e6626310fD54Eceb5b9a51dA2eC329D6D4B68A
     const renzoOracle = new Contract(
-      '0x5a12796f7e7EBbbc8a402667d266d2e65A814042',
-      [
-        'function setOracleAddress(address _token, address _oracleAddress) external',
-      ],
+      "0x5a12796f7e7EBbbc8a402667d266d2e65A814042",
+      ["function setOracleAddress(address _token, address _oracleAddress) external"],
       dm.hre.ethers.provider
     );
-    
-    const admin = await impersonateAddress(dm, '0xD1e6626310fD54Eceb5b9a51dA2eC329D6D4B68A');
+
+    const admin = await impersonateAddress(dm, "0xD1e6626310fD54Eceb5b9a51dA2eC329D6D4B68A");
     // set balance
-    await dm.hre.ethers.provider.send('hardhat_setBalance', [
+    await dm.hre.ethers.provider.send("hardhat_setBalance", [
       admin.address,
-      dm.hre.ethers.utils.hexStripZeros(dm.hre.ethers.utils.parseUnits('100', 'ether').toHexString()),
+      dm.hre.ethers.utils.hexStripZeros(dm.hre.ethers.utils.parseUnits("100", "ether").toHexString()),
     ]);
 
-    const newOracle = await dm.deploy(
-      'renzo:Oracle',
-      'test/MockRenzoOracle.sol',
-      [
-        '0x86392dC19c0b719886221c78AB11eb8Cf5c52812',    // stETH / ETH oracle address
-      ]
-    );
+    const newOracle = await dm.deploy("renzo:Oracle", "test/MockRenzoOracle.sol", [
+      "0x86392dC19c0b719886221c78AB11eb8Cf5c52812", // stETH / ETH oracle address
+    ]);
 
-    await renzoOracle.connect(admin).setOracleAddress('0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84', newOracle.address);
+    await renzoOracle.connect(admin).setOracleAddress("0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84", newOracle.address);
   }
 }
 
 const REDSTONE_FEEDS = {
   mantle: [
-    '0x3DFA26B9A15D37190bB8e50aE093730DcA88973E', // USDe / USD
-    '0x9b2C948dbA5952A1f5Ab6fA16101c1392b8da1ab', // mETH / ETH
-    '0xFc34806fbD673c21c1AEC26d69AA247F1e69a2C6', // ETH / USD
+    "0x3DFA26B9A15D37190bB8e50aE093730DcA88973E", // USDe / USD
+    "0x9b2C948dbA5952A1f5Ab6fA16101c1392b8da1ab", // mETH / ETH
+    "0xFc34806fbD673c21c1AEC26d69AA247F1e69a2C6", // ETH / USD
   ],
 };
 
 async function getProxyAdmin(dm: DeploymentManager, proxyAddress: string): Promise<string> {
   // Retrieve the proxy admin address
-  const admin = await dm.hre.ethers.provider.getStorageAt(proxyAddress, '0xb53127684a568b3173ae13b9f8a6016e243e63b6e8ee1178d6a717850b5d6103');
+  const admin = await dm.hre.ethers.provider.getStorageAt(
+    proxyAddress,
+    "0xb53127684a568b3173ae13b9f8a6016e243e63b6e8ee1178d6a717850b5d6103"
+  );
   // Convert the admin address to a checksum address
-  const adminAddress = dm.hre.ethers.utils.getAddress('0x' + admin.substring(26));
+  const adminAddress = dm.hre.ethers.utils.getAddress("0x" + admin.substring(26));
   return adminAddress;
 }
 
-async function mockAllRedstoneOracles(dm: DeploymentManager){
+async function mockAllRedstoneOracles(dm: DeploymentManager) {
   const feeds = REDSTONE_FEEDS[dm.network];
   if (!Array.isArray(feeds)) {
     debug(`No redstone feeds found for network: ${dm.network}`);
     return;
   }
   for (const feed of feeds) {
-    try{
+    try {
       await dm.fromDep(`MockRedstoneOracle:${feed}`, dm.network, dm.deployment);
-    }
-    catch (_) {
+    } catch (_) {
       await mockRedstoneOracle(dm, feed);
     }
   }
 }
 
-async function mockRedstoneOracle(dm: DeploymentManager, feed: string){
+async function mockRedstoneOracle(dm: DeploymentManager, feed: string) {
   const feedContract = new Contract(
     feed,
     [
-      'function latestRoundData() external view returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound)',
+      "function latestRoundData() external view returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound)",
     ],
     dm.hre.ethers.provider
   );
   const proxyAdminAddress = await getProxyAdmin(dm, feed);
   const proxyAdmin = new Contract(
     proxyAdminAddress,
-    [
-      'function upgrade(address proxy, address newImplementation) external',
-      'function owner() external view returns (address)',
-    ],
+    ["function upgrade(address proxy, address newImplementation) external", "function owner() external view returns (address)"],
     dm.hre.ethers.provider
   );
   const ownerAddress = await proxyAdmin.owner();
   const owner = await impersonateAddress(dm, ownerAddress);
   // set balance
-  await dm.hre.ethers.provider.send('hardhat_setBalance', [
+  await dm.hre.ethers.provider.send("hardhat_setBalance", [
     owner.address,
-    dm.hre.ethers.utils.hexStripZeros(dm.hre.ethers.utils.parseUnits('100', 'ether').toHexString()),
+    dm.hre.ethers.utils.hexStripZeros(dm.hre.ethers.utils.parseUnits("100", "ether").toHexString()),
   ]);
   const price = (await feedContract.latestRoundData()).answer;
-  const newImplementation = await dm.deploy(
-    `MockRedstoneOracle:${feed}`,
-    'test/MockRedstoneOracle.sol',
-    [feed, price]
-  );
+  const newImplementation = await dm.deploy(`MockRedstoneOracle:${feed}`, "test/MockRedstoneOracle.sol", [feed, price]);
   await proxyAdmin.connect(owner).upgrade(feed, newImplementation.address);
 }
 
 export async function voteForOpenProposal(dm: DeploymentManager, { id, startBlock, endBlock }: OpenProposal) {
-  const governor = await dm.getContractOrThrow('governor');
+  const governor = await dm.getContractOrThrow("governor");
   const blockNow = await dm.hre.ethers.provider.getBlockNumber();
   const blocksUntilStart = startBlock.toNumber() - blockNow;
   const blocksUntilEnd = endBlock.toNumber() - Math.max(startBlock.toNumber(), blockNow);
@@ -436,7 +428,7 @@ export async function voteForOpenProposal(dm: DeploymentManager, { id, startBloc
     await mineBlocks(dm, blocksUntilStart);
   }
 
-  const compWhales = dm.network === 'mainnet' ? COMP_WHALES.mainnet : COMP_WHALES.testnet;
+  const compWhales = dm.network === "mainnet" ? COMP_WHALES.mainnet : COMP_WHALES.testnet;
 
   if (blocksUntilEnd > 0) {
     for (const whale of compWhales) {
@@ -452,11 +444,8 @@ export async function voteForOpenProposal(dm: DeploymentManager, { id, startBloc
   }
 }
 
-export async function executeOpenProposal(
-  dm: DeploymentManager,
-  { id, startBlock, endBlock }: OpenProposal
-) {
-  const governor = await dm.getContractOrThrow('governor');
+export async function executeOpenProposal(dm: DeploymentManager, { id, startBlock, endBlock }: OpenProposal) {
+  const governor = await dm.getContractOrThrow("governor");
   const blockNow = await dm.hre.ethers.provider.getBlockNumber();
   const blocksUntilEnd = endBlock.toNumber() - Math.max(startBlock.toNumber(), blockNow) + 1;
 
@@ -465,16 +454,16 @@ export async function executeOpenProposal(
   }
 
   // Queue proposal (maybe)
-  if (await governor.state(id) == ProposalState.Succeeded) {
+  if ((await governor.state(id)) == ProposalState.Succeeded) {
     await setNextBaseFeeToZero(dm);
     await governor.queue(id, { gasPrice: 0 });
   }
 
   // Execute proposal (maybe, w/ gas limit so we see if exec reverts, not a gas estimation error)
-  if (await governor.state(id) == ProposalState.Queued) {
-    const block = await dm.hre.ethers.provider.getBlock('latest');
+  if ((await governor.state(id)) == ProposalState.Queued) {
+    const block = await dm.hre.ethers.provider.getBlock("latest");
     const eta = await governor.proposalEta(id);
-    
+
     await setNextBlockTimestamp(dm, Math.max(block.timestamp, eta.toNumber()) + 1);
     await setNextBaseFeeToZero(dm);
     await governor.execute(id, { gasPrice: 0, gasLimit: 120000000 });
@@ -482,7 +471,7 @@ export async function executeOpenProposal(
   await redeployRenzoOracle(dm);
   await mockAllRedstoneOracles(dm);
   // mine a block
-  await dm.hre.ethers.provider.send('evm_mine', []);
+  await dm.hre.ethers.provider.send("evm_mine", []);
 }
 
 // Instantly executes some actions through the governance proposal process
@@ -646,7 +635,7 @@ export async function executeOpenProposal(
 //       calldata.push(sendMessageCalldata);
 //       break;
 //     }
-//     case 'scroll': 
+//     case 'scroll':
 //     case 'scroll-goerli': {
 //       const sendMessageCalldata = utils.defaultAbiCoder.encode(
 //         ['address', 'uint256', 'bytes', 'uint256'],
@@ -704,8 +693,8 @@ async function getLiquidationMargin({ comet, actor, baseLiquidity, factorScale }
     const { asset, priceFeed, scale, liquidateCollateralFactor } = await comet.getAssetInfo(i);
     const collatBalance = (await comet.collateralBalanceOf(actor.address, asset)).toBigInt();
     const collatPrice = (await comet.getPrice(priceFeed)).toBigInt();
-    const collatValue = collatBalance * collatPrice / scale.toBigInt();
-    liquidity += collatValue * liquidateCollateralFactor.toBigInt() / factorScale;
+    const collatValue = (collatBalance * collatPrice) / scale.toBigInt();
+    liquidity += (collatValue * liquidateCollateralFactor.toBigInt()) / factorScale;
   }
 
   return liquidity;
@@ -718,11 +707,19 @@ invariant:
 isolating for timeElapsed:
 timeElapsed = -liquidationMargin / (baseBalanceOf * price / baseScale) / (borrowRate / factorScale);
 */
-export async function timeUntilUnderwater({ comet, actor, fudgeFactor = 0n }: { comet: CometInterface, actor: CometActor, fudgeFactor?: bigint }): Promise<number> {
+export async function timeUntilUnderwater({
+  comet,
+  actor,
+  fudgeFactor = 0n,
+}: {
+  comet: CometInterface;
+  actor: CometActor;
+  fudgeFactor?: bigint;
+}): Promise<number> {
   const baseBalance = await actor.getCometBaseBalance();
   const baseScale = (await comet.baseScale()).toBigInt();
   const basePrice = (await comet.getPrice(await comet.baseTokenPriceFeed())).toBigInt();
-  const baseLiquidity = baseBalance * basePrice / baseScale;
+  const baseLiquidity = (baseBalance * basePrice) / baseScale;
   const utilization = await comet.getUtilization();
   const borrowRate = (await comet.getBorrowRate(utilization)).toBigInt();
   const factorScale = (await comet.factorScale()).toBigInt();
@@ -733,5 +730,5 @@ export async function timeUntilUnderwater({ comet, actor, fudgeFactor = 0n }: { 
   }
 
   // XXX throw error if baseBalanceOf is positive and liquidationMargin is positive
-  return Number((-liquidationMargin * factorScale / baseLiquidity / borrowRate) + fudgeFactor);
+  return Number((-liquidationMargin * factorScale) / baseLiquidity / borrowRate + fudgeFactor);
 }

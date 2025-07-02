@@ -1,13 +1,13 @@
-import { scenario } from './context/CometContext';
-import { expectRevertCustom } from './utils';
-import { expect } from 'chai';
+import { scenario } from "./context/CometContext";
+import { expectRevertCustom } from "./utils";
+import { expect } from "chai";
 
 scenario(
-  'Comet#withdrawReserves > governor withdraws reserves',
+  "Comet#withdrawReserves > governor withdraws reserves",
   {
-    reserves: '>= 10000',
+    reserves: ">= 10000",
     tokenBalances: {
-      albert: { $base: '== 0' },
+      albert: { $base: "== 0" },
     },
   },
   async ({ comet, actors }, context) => {
@@ -32,7 +32,7 @@ scenario(
 );
 
 scenario(
-  'Comet#withdrawReserves > reverts if not called by governor',
+  "Comet#withdrawReserves > reverts if not called by governor",
   {
     tokenBalances: {
       $comet: { $base: 100 },
@@ -40,16 +40,15 @@ scenario(
   },
   async ({ actors }) => {
     const { albert } = actors;
-    await expectRevertCustom(albert.withdrawReserves(albert.address, 10), 'Unauthorized()');
+    await expectRevertCustom(albert.withdrawReserves(albert.address, 10), "Unauthorized()");
   }
 );
 
-
 scenario(
-  'Comet#withdrawReserves > reverts if not enough reserves are owned by protocol',
+  "Comet#withdrawReserves > reverts if not enough reserves are owned by protocol",
   {
     tokenBalances: {
-      $comet: { $base: '== 100' },
+      $comet: { $base: "== 100" },
     },
   },
   async ({ comet, actors }, context) => {
@@ -58,10 +57,7 @@ scenario(
     const scale = (await comet.baseScale()).toBigInt();
 
     await context.setNextBaseFeeToZero();
-    await expectRevertCustom(
-      admin.withdrawReserves(albert.address, 1001n * scale, { gasPrice: 0 }),
-      'InsufficientReserves()'
-    );
+    await expectRevertCustom(admin.withdrawReserves(albert.address, 1001n * scale, { gasPrice: 0 }), "InsufficientReserves()");
   }
 );
 

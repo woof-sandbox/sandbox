@@ -1,15 +1,15 @@
-import * as path from 'path';
-import * as fs from 'fs/promises';
+import * as path from "path";
+import * as fs from "fs/promises";
 
-import { Contract, ContractFactory, Signer } from 'ethers';
-import { HardhatRuntimeEnvironment } from 'hardhat/types';
+import { Contract, ContractFactory, Signer } from "ethers";
+import { HardhatRuntimeEnvironment } from "hardhat/types";
 
-import { putVerifyArgs } from './VerifyArgs';
-import { Cache } from './Cache';
-import { storeBuildFile } from './ContractMap';
-import { BuildFile, TraceFn } from './Types';
-import { debug, getPrimaryContract, stringifyJson, asyncCallWithTimeout } from './Utils';
-import { VerifyArgs, verifyContract, VerificationStrategy } from './Verify';
+import { putVerifyArgs } from "./VerifyArgs";
+import { Cache } from "./Cache";
+import { storeBuildFile } from "./ContractMap";
+import { BuildFile, TraceFn } from "./Types";
+import { debug, getPrimaryContract, stringifyJson, asyncCallWithTimeout } from "./Utils";
+import { VerifyArgs, verifyContract, VerificationStrategy } from "./Verify";
 // import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
 
 export interface DeployOpts {
@@ -48,11 +48,11 @@ async function doDeploy<C extends Contract>(
   factory: ContractFactory,
   args: any[],
   opts: DeployOpts,
-  src: string,
+  src: string
   // signer: SignerWithAddress
 ): Promise<C> {
   const trace = opts.trace ?? debug;
-  trace(`Deploying ${name} with args ${stringifyJson(args)} via ${src}`);  
+  trace(`Deploying ${name} with args ${stringifyJson(args)} via ${src}`);
   const contract = await factory.deploy(...args);
   await contract.deployed();
   trace(contract.deployTransaction, `Deployed ${name} @ ${contract.address}`);
@@ -70,7 +70,7 @@ async function deployFromBuildFile<C extends Contract>(
   const [ethersSigner] = await hre.ethers.getSigners();
   const signer = deployOpts.connect ?? ethersSigner;
   const factory = new hre.ethers.ContractFactory(metadata.abi, metadata.bin, signer);
-  return doDeploy(contractName, factory, deployArgs, deployOpts, 'build file');
+  return doDeploy(contractName, factory, deployArgs, deployOpts, "build file");
 }
 
 async function maybeStoreCache(deployOpts: DeployOpts, contract: Contract, buildFile: BuildFile) {
@@ -79,23 +79,14 @@ async function maybeStoreCache(deployOpts: DeployOpts, contract: Contract, build
   }
 }
 
-async function getBuildFileFromArtifacts(
-  contractFile: string,
-  contractFileName: string
-): Promise<BuildFile> {
+async function getBuildFileFromArtifacts(contractFile: string, contractFileName: string): Promise<BuildFile> {
   // We should be able to get the artifact, even if it's going to be a little hacky
   // TODO: Check sub-pathed files
-  const debugFile = path.join(
-    process.cwd(),
-    'artifacts',
-    'contracts',
-    contractFile,
-    contractFileName.replace('.sol', '.dbg.json')
-  );
-  const { buildInfo } = JSON.parse(await fs.readFile(debugFile, 'utf8')) as { buildInfo: string };
-  const { output: buildFile } = JSON.parse(
-    await fs.readFile(path.join(debugFile, '..', buildInfo), 'utf8')
-  ) as { output: BuildFile };
+  const debugFile = path.join(process.cwd(), "artifacts", "contracts", contractFile, contractFileName.replace(".sol", ".dbg.json"));
+  const { buildInfo } = JSON.parse(await fs.readFile(debugFile, "utf8")) as { buildInfo: string };
+  const { output: buildFile } = JSON.parse(await fs.readFile(path.join(debugFile, "..", buildInfo), "utf8")) as {
+    output: BuildFile;
+  };
 
   return buildFile;
 }
@@ -107,19 +98,19 @@ export async function deploy<C extends Contract>(
   contractFile: string,
   deployArgs: any[],
   hre: HardhatRuntimeEnvironment,
-  deployOpts: DeployOpts,
+  deployOpts: DeployOpts
   // signer: SignerWithAddress
 ): Promise<C> {
-  console.log(contractFile, '- contract file');
-  console.log(deployArgs, '- deploy args');
-  const contractFileName = contractFile.split('/').reverse()[0];
-  const contractName = contractFileName.replace('.sol', '');
-  let factory = (await hre.ethers.getContractFactory(contractName));
+  console.log(contractFile, "- contract file");
+  console.log(deployArgs, "- deploy args");
+  const contractFileName = contractFile.split("/").reverse()[0];
+  const contractName = contractFileName.replace(".sol", "");
+  let factory = await hre.ethers.getContractFactory(contractName);
   if (deployOpts.connect) {
     factory = factory.connect(deployOpts.connect);
   }
 
-  const contract = await doDeploy(contractName, factory, deployArgs, deployOpts, 'artifact');
+  const contract = await doDeploy(contractName, factory, deployArgs, deployOpts, "artifact");
   const buildFile = await getBuildFileFromArtifacts(contractFile, contractFileName);
   if (!buildFile.contract) {
     // This is just to make it clear which contract was deployed, when reading the build file
@@ -127,23 +118,24 @@ export async function deploy<C extends Contract>(
   }
 
   const verifyArgs: VerifyArgs = {
-    via: 'artifacts',
+    via: "artifacts",
     address: contract.address,
     constructorArguments: deployArgs,
   };
 
-  await retry(async () => {
-    if (deployOpts.verificationStrategy === 'lazy') {
-      // Cache params for verification
-      await putVerifyArgs(deployOpts.cache, contract.address, verifyArgs);
-    } else if (deployOpts.verificationStrategy === 'eager') {
-      await verifyContract(
-        verifyArgs,
-        hre,
-        deployOpts.raiseOnVerificationFailure
-      );
-    }
-  }, 3, undefined, 5000);
+  await retry(
+    async () => {
+      if (deployOpts.verificationStrategy === "lazy") {
+        // Cache params for verification
+        await putVerifyArgs(deployOpts.cache, contract.address, verifyArgs);
+      } else if (deployOpts.verificationStrategy === "eager") {
+        await verifyContract(verifyArgs, hre, deployOpts.raiseOnVerificationFailure);
+      }
+    },
+    3,
+    undefined,
+    5000
+  );
 
   await maybeStoreCache(deployOpts, contract, buildFile);
 
@@ -161,22 +153,18 @@ export async function deployBuild<C extends Contract>(
 ): Promise<C> {
   const contract: C = await deployFromBuildFile(buildFile, deployArgs, hre, deployOpts);
   const verifyArgs: VerifyArgs = {
-    via: 'buildfile',
+    via: "buildfile",
     contract,
     buildFile,
-    deployArgs
+    deployArgs,
   };
-  if (deployOpts.verificationStrategy === 'lazy') {
+  if (deployOpts.verificationStrategy === "lazy") {
     // Cache params for verification
     await putVerifyArgs(deployOpts.cache, contract.address, verifyArgs);
-  } else if (deployOpts.verificationStrategy === 'eager') {
+  } else if (deployOpts.verificationStrategy === "eager") {
     // We need to do manual verification here, since this is coming
     // from a build file, not from hardhat's own compilation.
-    await verifyContract(
-      verifyArgs,
-      hre,
-      deployOpts.raiseOnVerificationFailure
-    );
+    await verifyContract(verifyArgs, hre, deployOpts.raiseOnVerificationFailure);
   }
 
   await maybeStoreCache(deployOpts, contract, buildFile);

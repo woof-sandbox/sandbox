@@ -1,6 +1,6 @@
-import { StaticConstraint } from '../../plugins/scenario';
-import { CometContext } from '../context/CometContext';
-import { exp } from '../../test/helper/helpers';
+import { StaticConstraint } from "../../plugins/scenario";
+import { CometContext } from "../context/CometContext";
+import { exp } from "../../test/helper/helpers";
 
 export class NativeTokenConstraint<T extends CometContext> implements StaticConstraint<T> {
   async solve() {
@@ -8,8 +8,8 @@ export class NativeTokenConstraint<T extends CometContext> implements StaticCons
       async function (ctx: T): Promise<T> {
         for (const symbol in ctx.assets) {
           const contract = await ctx.world.deploymentManager.contract(symbol);
-          if (contract && contract['deposit()'] && contract['withdraw(uint256)']) {
-            const [whale]= await ctx.getWhales();
+          if (contract && contract["deposit()"] && contract["withdraw(uint256)"]) {
+            const [whale] = await ctx.getWhales();
             if (!whale) {
               throw new Error(`NativeTokenConstraint: no whale found for ${ctx.world.deploymentManager.network}`);
             }
@@ -20,7 +20,7 @@ export class NativeTokenConstraint<T extends CometContext> implements StaticCons
           }
         }
         return ctx;
-      }
+      },
     ];
   }
 

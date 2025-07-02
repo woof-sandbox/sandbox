@@ -1,13 +1,4 @@
-// import {
-//   ethers,
-//   expect,
-//   exp,
-//   fastForward,
-//   getBlock,
-//   makeProtocol,
-//   wait,
-//   setTotalsBasic,
-// } from "./helper/helpers";
+import { ethers, expect, exp, fastForward, getBlock, makeProtocol, wait, setTotalsBasic } from "./helper/helpers";
 
 // function projectBaseIndex(index, rate, time, factorScale = exp(1, 18)) {
 //   return index.add(index.mul(rate.mul(time)).div(factorScale));
@@ -17,14 +8,14 @@
 //   return index.add(speed.mul(time).mul(baseScale).div(base));
 // }
 
-// describe.skip('accrue', function () {
-//   it('fails if baseMinForRewards = 0', async () => {
-//     await expect(
-//       makeProtocol({
-//         baseMinForRewards: 0,
-//       })
-//     ).to.be.revertedWith("custom error 'BadMinimum()'");
-//   });
+describe.skip("accrue", function () {
+  it("fails if baseMinForRewards = 0", async () => {
+    await expect(
+      makeProtocol({
+        baseMinForRewards: 0,
+      })
+    ).to.be.revertedWith("custom error 'BadMinimum()'");
+  });
 
 //   it("accrue initially succeeds and has the right parameters", async () => {
 //     await ethers.provider.send("hardhat_reset", []); // ensure clean start...
@@ -59,22 +50,11 @@
 //     expect(t0.totalBorrowBase).to.eq(0);
 //     expect(t0.lastAccrualTime).to.eq(start);
 
-//     await wait(comet.accrue());
-
-//     expect(await comet.baseMinForRewards()).to.eq(params.baseMinForRewards);
-//     expect(await comet.baseTrackingSupplySpeed()).to.eq(
-//       params.baseTrackingSupplySpeed,
-//     );
-//     expect(await comet.baseTrackingBorrowSpeed()).to.eq(
-//       params.baseTrackingBorrowSpeed,
-//     );
-//     expect(await comet.daoBaseTrackingSupplySpeed()).to.eq(
-//       params.baseTrackingSupplySpeed,
-//     );
-//     expect(await comet.daoBaseTrackingBorrowSpeed()).to.eq(
-//       params.baseTrackingBorrowSpeed,
-//     );
-//   });
+    const _a0 = await wait(comet.accrue());
+    expect(await comet.baseMinForRewards()).to.be.equal(params.baseMinForRewards);
+    expect(await comet.baseTrackingSupplySpeed()).to.be.equal(params.baseTrackingSupplySpeed);
+    expect(await comet.baseTrackingBorrowSpeed()).to.be.equal(params.baseTrackingBorrowSpeed);
+  });
 
 //   it("accrues correctly with no time elapsed", async () => {
 //     const { comet, dao } = await makeProtocol();
@@ -144,40 +124,34 @@
 //     await ethers.provider.send("evm_mine", [start + 1000]);
 //     await ethers.provider.send("evm_setAutomine", [true]);
 
-//     const t2 = await comet.totalsBasic();
-//     const elapsed = t2.lastAccrualTime - t1.lastAccrualTime;
+    const t2 = await comet.totalsBasic();
 
-//     expect(elapsed).to.eq(1000);
-//     expect(t2.baseSupplyIndex).to.eq(projectBaseIndex(t1.baseSupplyIndex, supplyRate, elapsed));
-//     expect(t2.baseBorrowIndex).to.eq(projectBaseIndex(t1.baseBorrowIndex, borrowRate, elapsed));
-//     expect(t2.trackingSupplyIndex).to.eq(t1.trackingSupplyIndex);
-//     expect(t2.trackingBorrowIndex).to.eq(t1.trackingBorrowIndex);
-//     expect(t2.daoTrackingSupplyIndex).to.eq(t1.daoTrackingSupplyIndex);
-//     expect(t2.daoTrackingBorrowIndex).to.eq(t1.daoTrackingBorrowIndex);
-//   });
+    const timeElapsed = t2.lastAccrualTime - t1.lastAccrualTime;
+    expect(timeElapsed).to.be.equal(1000);
 
-//   it("accrues correctly with time elapsed and more than min rewards", async () => {
-//     await ethers.provider.send("hardhat_reset", []);
+    expect(t2.baseSupplyIndex).to.be.equal(projectBaseIndex(t1.baseSupplyIndex, supplyRate, timeElapsed));
+    expect(t2.baseBorrowIndex).to.be.equal(projectBaseIndex(t1.baseBorrowIndex, borrowRate, timeElapsed));
+    expect(t2.trackingSupplyIndex).to.be.equal(t1.trackingSupplyIndex);
+    expect(t2.trackingBorrowIndex).to.be.equal(t1.trackingBorrowIndex);
+  });
 
-//     const start = (await getBlock()).timestamp + 100;
-//     const params = {
-//       baseMinForRewards: exp(12000, 6),
-//       trackingIndexScale: exp(1, 15),
-//       start,
-//     };
-//     const { comet, dao } = await makeProtocol(params);
-//     await setTotalsBasic(comet, { lastAccrualTime: start });
+  it("accrues correctly with time elapsed and more than min rewards", async () => {
+    await ethers.provider.send("hardhat_reset", []); // ensure clean start...
 
-//     await wait(
-//       comet.connect(dao).setDaoBaseSpeeds(params.trackingIndexScale, params.trackingIndexScale),
-//     );
+    const start = (await getBlock()).timestamp + 100;
+    const params = {
+      baseMinForRewards: exp(12000, 6),
+      trackingIndexScale: exp(1, 15),
+      start,
+    };
+    const { comet } = await makeProtocol(params);
+    await setTotalsBasic(comet, { lastAccrualTime: start });
 
-//     await setTotalsBasic(comet, { lastAccrualTime: start });
-//     const t0 = await comet.totalsBasic();
-//     const t1 = await setTotalsBasic(comet, {
-//       totalSupplyBase: exp(14000, 6),
-//       totalBorrowBase: exp(13000, 6),
-//     });
+    const t0 = await comet.totalsBasic();
+    const t1 = await setTotalsBasic(comet, {
+      totalSupplyBase: exp(14000, 6),
+      totalBorrowBase: exp(13000, 6),
+    });
 
 //     const utilization = await comet.getUtilization();
 //     const supplyRate = await comet.getSupplyRate(utilization);
@@ -189,55 +163,40 @@
 //     await ethers.provider.send("evm_mine", [start + 1000]);
 //     await ethers.provider.send("evm_setAutomine", [true]);
 
-//     const t2 = await comet.totalsBasic();
-//     const elapsed = t2.lastAccrualTime - t0.lastAccrualTime;
+    const t2 = await comet.totalsBasic();
 
-//     const supplySpeed = await comet.baseTrackingSupplySpeed();
-//     const borrowSpeed = await comet.baseTrackingBorrowSpeed();
-//     const daoSupplySpeed = await comet.daoBaseTrackingSupplySpeed();
-//     const daoBorrowSpeed = await comet.daoBaseTrackingBorrowSpeed();
+    const supplySpeed = await comet.baseTrackingSupplySpeed();
+    expect(supplySpeed).to.be.equal(params.trackingIndexScale);
 
-//     expect(elapsed).to.eq(1000);
-//     expect(t2.baseSupplyIndex).to.eq(projectBaseIndex(t1.baseSupplyIndex, supplyRate, elapsed));
-//     expect(t2.baseBorrowIndex).to.eq(projectBaseIndex(t1.baseBorrowIndex, borrowRate, elapsed));
-//     expect(t2.trackingSupplyIndex).to.eq(
-//       projectTrackingIndex(t1.trackingSupplyIndex, supplySpeed, elapsed, t1.totalSupplyBase),
-//     );
-//     expect(t2.trackingBorrowIndex).to.eq(
-//       projectTrackingIndex(t1.trackingBorrowIndex, borrowSpeed, elapsed, t1.totalBorrowBase),
-//     );
-//     expect(t2.daoTrackingSupplyIndex).to.eq(
-//       projectTrackingIndex(t1.daoTrackingSupplyIndex, daoSupplySpeed, elapsed, t1.totalSupplyBase),
-//     );
-//     expect(t2.daoTrackingBorrowIndex).to.eq(
-//       projectTrackingIndex(t1.daoTrackingBorrowIndex, daoBorrowSpeed, elapsed, t1.totalBorrowBase),
-//     );
-//   });
+    const borrowSpeed = await comet.baseTrackingBorrowSpeed();
+    expect(borrowSpeed).to.be.equal(params.trackingIndexScale);
 
-//   it("overflows if baseMinRewards is set too low and accrues no interest", async () => {
-//     const { comet, dao } = await makeProtocol({
+    const timeElapsed = t2.lastAccrualTime - t0.lastAccrualTime;
+    expect(timeElapsed).to.be.equal(1000);
 
-//     await wait(comet.connect(dao).setDaoBaseSpeeds(1, 1));
+    expect(t2.baseSupplyIndex).to.be.equal(projectBaseIndex(t1.baseSupplyIndex, supplyRate, timeElapsed));
+    expect(t2.baseBorrowIndex).to.be.equal(projectBaseIndex(t1.baseBorrowIndex, borrowRate, timeElapsed));
+    expect(t2.trackingSupplyIndex).to.be.equal(projectTrackingIndex(t1.trackingSupplyIndex, supplySpeed, timeElapsed, t1.totalSupplyBase));
+    expect(t2.trackingBorrowIndex).to.be.equal(projectTrackingIndex(t1.trackingBorrowIndex, borrowSpeed, timeElapsed, t1.totalBorrowBase));
+  });
 
-//     const t0 = await comet.totalsBasic();
-//     const t1 = Object.assign({}, t0, {
-//       totalSupplyBase: 14000,
-//       totalBorrowBase: 13000,
-//     });
-//     await fastForward(998);
-//     await wait(comet.setTotalsBasic(t1));
-//     await fastForward(2);
-//     await expect(wait(comet.accrue())).to.be.revertedWith("custom error 'InvalidUInt64()'");
-//   });
+  it("overflows if baseMinRewards is set too low and accrues no interest", async () => {
+    const params = {
+      baseMinForRewards: 12000,
+      trackingIndexScale: exp(1, 15),
+    };
+    const { comet } = await makeProtocol(params);
 
-//   it("reverts on overflows", async () => {
-//     const { comet, dao } = await makeProtocol();
-
-//     await wait(comet.connect(dao).setDaoBaseSpeeds(1, 1));
-//     await expect(wait(comet.accrue())).to.be.revertedWith(
-//       "custom error 'InvalidUInt64()'"
-//     );
-//     const t2 = await comet.totalsBasic();
+    const t0 = await comet.totalsBasic();
+    const t1 = Object.assign({}, t0, {
+      totalSupplyBase: 14000,
+      totalBorrowBase: 13000,
+    });
+    await fastForward(998);
+    const _s0 = await wait(comet.setTotalsBasic(t1));
+    await fastForward(2);
+    await expect(wait(comet.accrue())).to.be.revertedWith("custom error 'InvalidUInt64()'");
+    const t2 = await comet.totalsBasic();
 
 //     const utilization = await comet.getUtilization();
 //     const supplyRate = await comet.getSupplyRate(utilization);
@@ -245,15 +204,11 @@
 //     const timeElapsed = t2.lastAccrualTime - t0.lastAccrualTime;
 //     expect(timeElapsed).to.be.equal(0);
 
-//     expect(t2.baseSupplyIndex).to.be.equal(
-//       projectBaseIndex(t1.baseSupplyIndex, supplyRate, timeElapsed)
-//     );
-//     expect(t2.baseBorrowIndex).to.be.equal(
-//       projectBaseIndex(t1.baseBorrowIndex, borrowRate, timeElapsed)
-//     );
-//     expect(t2.trackingSupplyIndex).to.be.equal(t1.trackingSupplyIndex);
-//     expect(t2.trackingBorrowIndex).to.be.equal(t1.trackingBorrowIndex);
-//   });
+    expect(t2.baseSupplyIndex).to.be.equal(projectBaseIndex(t1.baseSupplyIndex, supplyRate, timeElapsed));
+    expect(t2.baseBorrowIndex).to.be.equal(projectBaseIndex(t1.baseBorrowIndex, borrowRate, timeElapsed));
+    expect(t2.trackingSupplyIndex).to.be.equal(t1.trackingSupplyIndex);
+    expect(t2.trackingBorrowIndex).to.be.equal(t1.trackingBorrowIndex);
+  });
 
 //   it("reverts on overflows", async () => {
 //     const { comet } = await makeProtocol();
@@ -290,15 +245,18 @@
 //     await fastForward(100);
 //     await wait(comet.accrue());
 
-//     await fastForward(2 ** 40);
-//     await expect(wait(comet.accrue())).to.be.revertedWith("custom error 'TimestampTooLarge()'");
+    await fastForward(2 ** 40);
+    await expect(wait(comet.accrue())).to.be.revertedWith("custom error 'TimestampTooLarge()'");
+    await ethers.provider.send("hardhat_reset", []); // dont break downstream tests...
+  });
+});
 
-//   });
-// });
-
-// describe.skip('accrueAccount', function () {
-//   it('has no effect when called on an address with no protocol activity', async () => {
-//     const { comet, users: [unusedAccount] } = await makeProtocol();
+describe.skip("accrueAccount", function () {
+  it("has no effect when called on an address with no protocol activity", async () => {
+    const {
+      comet,
+      users: [unusedAccount],
+    } = await makeProtocol();
 
 //     const userBasic0 = await comet.userBasic(unusedAccount.address);
 //     await comet.accrueAccount(unusedAccount.address);

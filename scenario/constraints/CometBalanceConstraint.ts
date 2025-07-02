@@ -1,11 +1,11 @@
-import { Constraint, Solution } from '../../plugins/scenario';
-import { CometContext } from '../context/CometContext';
-import CometActor from '../context/CometActor';
-import { expect } from 'chai';
-import { Requirements } from './Requirements';
-import { baseBalanceOf, exp, factorScale } from '../../test/helper/helpers';
-import { ComparativeAmount, ComparisonOp, getAssetFromName, parseAmount, getExpectedBaseBalance, getToTransferAmount } from '../utils';
-import { BigNumber } from 'ethers';
+import { Constraint, Solution } from "../../plugins/scenario";
+import { CometContext } from "../context/CometContext";
+import CometActor from "../context/CometActor";
+import { expect } from "chai";
+import { Requirements } from "./Requirements";
+import { baseBalanceOf, exp, factorScale } from "../../test/helper/helpers";
+import { ComparativeAmount, ComparisonOp, getAssetFromName, parseAmount, getExpectedBaseBalance, getToTransferAmount } from "../utils";
+import { BigNumber } from "ethers";
 
 async function borrowBase(borrowActor: CometActor, toBorrowBase: bigint, context: CometContext) {
   const comet = await context.getComet();
@@ -35,7 +35,7 @@ async function borrowBase(borrowActor: CometActor, toBorrowBase: bigint, context
 export class CometBalanceConstraint<T extends CometContext, R extends Requirements> implements Constraint<T, R> {
   async solve(requirements: R, initialContext: T) {
     let assetsByActor = requirements.cometBalances;
-    if (typeof assetsByActor === 'function') {
+    if (typeof assetsByActor === "function") {
       assetsByActor = await assetsByActor(initialContext);
     }
 

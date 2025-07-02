@@ -26,7 +26,6 @@ contract CometStorage {
         uint8 pauseFlags;
     }
 
-
     struct UserBasic {
         int104 principal;
         uint64 baseTrackingIndex;
@@ -80,8 +79,7 @@ contract CometStorage {
     uint64 internal constant FACTOR_SCALE = 1e18;
 
     /// @dev The storage slot for reentrancy guard flags
-    bytes32 internal constant REENTRANCY_GUARD_FLAG_SLOT =
-        bytes32(keccak256("comet.reentrancy.guard"));
+    bytes32 internal constant REENTRANCY_GUARD_FLAG_SLOT = bytes32(keccak256("comet.reentrancy.guard"));
 
     /// @dev The reentrancy guard statuses
     uint256 internal constant REENTRANCY_GUARD_NOT_ENTERED = 0;

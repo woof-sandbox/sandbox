@@ -33,10 +33,7 @@ contract Dog {
     function puppers() public returns (Puppers[] memory) {
         Puppers[] memory puppers = new Puppers[](pups.length);
         for (uint i = 0; i < pups.length; i++) {
-            puppers[i] = Puppers({
-                index: i,
-                pup: pups[i]
-            });
+            puppers[i] = Puppers({ index: i, pup: pups[i] });
         }
         return puppers;
     }

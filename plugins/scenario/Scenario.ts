@@ -1,5 +1,5 @@
-import { World } from './World';
-import { getStackFile } from './Stack';
+import { World } from "./World";
+import { getStackFile } from "./Stack";
 
 // A solution modifies a given context and world in a way that satisfies a constraint.
 export type Solution<T> = (T, World) => Promise<T | void>;
@@ -31,7 +31,7 @@ export interface ScenarioEnv<T, U> {
   transformer: Transformer<T, U>;
 }
 
-export type ScenarioFlags = null | 'only' | 'skip';
+export type ScenarioFlags = null | "only" | "skip";
 
 export class Scenario<T, U, R> {
   name: string;

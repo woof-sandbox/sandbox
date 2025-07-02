@@ -149,7 +149,9 @@ contract BaseBulker {
             } else {
                 handleAction(action, data[i]);
             }
-            unchecked { i++; }
+            unchecked {
+                i++;
+            }
         }
 
         // Refund unused native token back to msg.sender
@@ -163,7 +165,7 @@ contract BaseBulker {
      * @notice Handles any actions not handled by the BaseBulker implementation
      * @dev Note: Meant to be overridden by contracts that extend BaseBulker and want to support more actions
      */
-    function handleAction(bytes32 action, bytes calldata data) virtual internal {
+    function handleAction(bytes32 action, bytes calldata data) internal virtual {
         revert UnhandledAction();
     }
 
@@ -183,8 +185,7 @@ contract BaseBulker {
     function supplyNativeTokenTo(address comet, address to, uint amount) internal returns (uint256) {
         uint256 supplyAmount = amount;
         if (wrappedNativeToken == ISandboxComet(comet).baseToken()) {
-            if (amount == type(uint256).max)
-                supplyAmount = ISandboxComet(comet).borrowBalanceOf(msg.sender);
+            if (amount == type(uint256).max) supplyAmount = ISandboxComet(comet).borrowBalanceOf(msg.sender);
         }
         IWETH9(wrappedNativeToken).deposit{ value: supplyAmount }();
         IWETH9(wrappedNativeToken).approve(comet, supplyAmount);
@@ -216,8 +217,7 @@ contract BaseBulker {
     function withdrawNativeTokenTo(address comet, address to, uint amount) internal {
         uint256 withdrawAmount = amount;
         if (wrappedNativeToken == ISandboxComet(comet).baseToken()) {
-            if (amount == type(uint256).max)
-                withdrawAmount = ISandboxComet(comet).balanceOf(msg.sender);
+            if (amount == type(uint256).max) withdrawAmount = ISandboxComet(comet).balanceOf(msg.sender);
         }
         ISandboxComet(comet).withdrawFrom(msg.sender, address(this), wrappedNativeToken, withdrawAmount);
         IWETH9(wrappedNativeToken).withdraw(withdrawAmount);
@@ -237,8 +237,10 @@ contract BaseBulker {
      * @param asset The ERC-20 token to transfer in
      * @param from The address to transfer from
      * @param amount The amount of the token to transfer
-     * @dev Note: This does not check that the amount transferred in is actually equals to the amount specified (e.g. fee tokens will not revert)
-     * @dev Note: This wrapper safely handles non-standard ERC-20 tokens that do not return a value. See here: https://medium.com/coinmonks/missing-return-value-bug-at-least-130-tokens-affected-d67bf08521ca
+     * @dev Note: This does not check that the amount transferred in is actually equals to the amount specified
+     * (e.g. fee tokens will not revert)
+     * @dev Note: This wrapper safely handles non-standard ERC-20 tokens that do not return a value.
+     * See here: https://medium.com/coinmonks/missing-return-value-bug-at-least-130-tokens-affected-d67bf08521ca
      */
     function doTransferIn(address asset, address from, uint amount) internal {
         IERC20NonStandard(asset).transferFrom(from, address(this), amount);
@@ -246,16 +248,19 @@ contract BaseBulker {
         bool success;
         assembly {
             switch returndatasize()
-                case 0 {                       // This is a non-standard ERC-20
-                    success := not(0)          // set success to true
-                }
-                case 32 {                      // This is a compliant ERC-20
-                    returndatacopy(0, 0, 32)
-                    success := mload(0)        // Set `success = returndata` of override external call
-                }
-                default {                      // This is an excessively non-compliant ERC-20, revert.
-                    revert(0, 0)
-                }
+            case 0 {
+                // This is a non-standard ERC-20
+                success := not(0) // set success to true
+            }
+            case 32 {
+                // This is a compliant ERC-20
+                returndatacopy(0, 0, 32)
+                success := mload(0) // Set `success = returndata` of override external call
+            }
+            default {
+                // This is an excessively non-compliant ERC-20, revert.
+                revert(0, 0)
+            }
         }
         if (!success) revert TransferInFailed();
     }
@@ -265,7 +270,8 @@ contract BaseBulker {
      * @param asset The ERC-20 token to transfer out
      * @param to The recipient of the token transfer
      * @param amount The amount of the token to transfer
-     * @dev Note: This wrapper safely handles non-standard ERC-20 tokens that do not return a value. See here: https://medium.com/coinmonks/missing-return-value-bug-at-least-130-tokens-affected-d67bf08521ca
+     * @dev Note: This wrapper safely handles non-standard ERC-20 tokens that do not return a value.
+     * See here: https://medium.com/coinmonks/missing-return-value-bug-at-least-130-tokens-affected-d67bf08521ca
      */
     function doTransferOut(address asset, address to, uint amount) internal {
         IERC20NonStandard(asset).transfer(to, amount);
@@ -273,16 +279,19 @@ contract BaseBulker {
         bool success;
         assembly {
             switch returndatasize()
-                case 0 {                      // This is a non-standard ERC-20
-                    success := not(0)         // set success to true
-                }
-                case 32 {                     // This is a compliant ERC-20
-                    returndatacopy(0, 0, 32)
-                    success := mload(0)       // Set `success = returndata` of override external call
-                }
-                default {                     // This is an excessively non-compliant ERC-20, revert.
-                    revert(0, 0)
-                }
+            case 0 {
+                // This is a non-standard ERC-20
+                success := not(0) // set success to true
+            }
+            case 32 {
+                // This is a compliant ERC-20
+                returndatacopy(0, 0, 32)
+                success := mload(0) // Set `success = returndata` of override external call
+            }
+            default {
+                // This is an excessively non-compliant ERC-20, revert.
+                revert(0, 0)
+            }
         }
         if (!success) revert TransferOutFailed();
     }

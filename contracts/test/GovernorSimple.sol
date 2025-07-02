@@ -3,27 +3,49 @@ pragma solidity 0.8.28;
 
 interface TimelockInterface {
     function queuedTransactions(bytes32 hash) external view returns (bool);
+
     function queueTransaction(address target, uint value, string calldata signature, bytes calldata data) external returns (bytes32);
+
     function cancelTransaction(address target, uint value, string calldata signature, bytes calldata data) external;
-    function executeTransaction(address target, uint value, string calldata signature, bytes calldata data) external payable returns (bytes memory);
-    function executeTransactions(address[] calldata targets, uint[] calldata values, string[] calldata signatures, bytes[] calldata data) external payable;
+
+    function executeTransaction(
+        address target,
+        uint value,
+        string calldata signature,
+        bytes calldata data
+    ) external payable returns (bytes memory);
+
+    function executeTransactions(
+        address[] calldata targets,
+        uint[] calldata values,
+        string[] calldata signatures,
+        bytes[] calldata data
+    ) external payable;
 }
 
 /**
-  * GovSimple:
-  *  - A system similar to Compound's Governor{Alpha, Bravo, Charlie} but just for test-net.
-  *  - Instead of allowing voting by tokens, the system is run by a set of admins with unlimited power. Anyone in this set should be able to add or remove other admins (it's test-net).
-  *  - There is no voting - everything passes by will of any admin.
-  *  - The ABI for proposing, queueing, executing should be identical to main-net. The execution should, similarly, go through a simple test-net Timelock.
-  *  - ABI:
-  *    - function propose(address[] memory targets, uint[] memory values, string[] memory signatures, bytes[] memory calldatas, string memory description) public returns (uint)
-  *    - function queue(uint proposalId) public
-  *    - function execute(uint proposalId) public payable
+ * GovSimple:
+ *  - A system similar to Compound's Governor{Alpha, Bravo, Charlie} but just for test-net.
+ *  - Instead of allowing voting by tokens, the system is run by a set of admins with unlimited power. Anyone in this set should be able to add or remove other admins (it's test-net).
+ *  - There is no voting - everything passes by will of any admin.
+ *  - The ABI for proposing, queueing, executing should be identical to main-net. The execution should, similarly, go through a simple test-net Timelock.
+ *  - ABI:
+ *    - function propose(address[] memory targets, uint[] memory values, string[] memory signatures, bytes[] memory calldatas, string memory description) public returns (uint)
+ *    - function queue(uint proposalId) public
+ *    - function execute(uint proposalId) public payable
  */
 contract GovernorSimple {
-
     /// @notice An event emitted when a new proposal is created
-    event ProposalCreated(uint id, address proposer, address[] targets, uint[] values, string[] signatures, bytes[] calldatas, uint startBlock, string description);
+    event ProposalCreated(
+        uint id,
+        address proposer,
+        address[] targets,
+        uint[] values,
+        string[] signatures,
+        bytes[] calldatas,
+        uint startBlock,
+        string description
+    );
 
     /// @notice An event emitted when a proposal has been canceled
     event ProposalCanceled(uint id);
@@ -47,36 +69,27 @@ contract GovernorSimple {
     uint public proposalCount;
 
     /// @notice The official record of all proposals ever proposed
-    mapping (uint => Proposal) public proposals;
+    mapping(uint => Proposal) public proposals;
 
     struct Proposal {
         /// @notice Unique id for looking up a proposal
         uint id;
-
         /// @notice Creator of the proposal
         address proposer;
-
         /// @notice the ordered list of target addresses for calls to be made
         address[] targets;
-
         /// @notice The ordered list of values (i.e. msg.value) to be passed to the calls to be made
         uint[] values;
-
         /// @notice The ordered list of function signatures to be called
         string[] signatures;
-
         /// @notice The ordered list of calldata to be passed to each call
         bytes[] calldatas;
-
         /// @notice The block at which voting begins: holders must delegate their votes prior to this block
         uint startBlock;
-
         /// @notice Flag marking whether the proposal has been canceled
         bool canceled;
-
         /// @notice Flag marking whether the proposal has been queued
         bool queued;
-
         /// @notice Flag marking whether the proposal has been executed
         bool executed;
     }
@@ -90,10 +103,10 @@ contract GovernorSimple {
     }
 
     /**
-      * @notice Initialize the initial contract storage
-      * @param timelock_ The address of the Timelock
-      * @param admins_ The admins of governor
-      */
+     * @notice Initialize the initial contract storage
+     * @param timelock_ The address of the Timelock
+     * @param admins_ The admins of governor
+     */
     function initialize(address timelock_, address[] memory admins_) external {
         require(address(timelock) == address(0), "GovernorSimple::initialize: can only initialize once");
         timelock = TimelockInterface(timelock_);
@@ -101,17 +114,26 @@ contract GovernorSimple {
     }
 
     /**
-      * @notice Function used to propose a new proposal. Sender must be a governor
-      * @param targets Target addresses for proposal calls
-      * @param values Eth values for proposal calls
-      * @param signatures Function signatures for proposal calls
-      * @param calldatas Calldatas for proposal calls
-      * @param description String description of the proposal
-      * @return Proposal id of new proposal
-      */
-    function propose(address[] memory targets, uint[] memory values, string[] memory signatures, bytes[] memory calldatas, string memory description) public returns (uint) {
+     * @notice Function used to propose a new proposal. Sender must be a governor
+     * @param targets Target addresses for proposal calls
+     * @param values Eth values for proposal calls
+     * @param signatures Function signatures for proposal calls
+     * @param calldatas Calldatas for proposal calls
+     * @param description String description of the proposal
+     * @return Proposal id of new proposal
+     */
+    function propose(
+        address[] memory targets,
+        uint[] memory values,
+        string[] memory signatures,
+        bytes[] memory calldatas,
+        string memory description
+    ) public returns (uint) {
         require(isAdmin(msg.sender), "GovernorSimple::propose: only governors can propose");
-        require(targets.length == values.length && targets.length == signatures.length && targets.length == calldatas.length, "GovernorSimple::propose: proposal function information arity mismatch");
+        require(
+            targets.length == values.length && targets.length == signatures.length && targets.length == calldatas.length,
+            "GovernorSimple::propose: proposal function information arity mismatch"
+        );
         require(targets.length != 0, "GovernorSimple::propose: must provide actions");
         require(targets.length <= proposalMaxOperations, "GovernorSimple::propose: too many actions");
 
@@ -138,9 +160,9 @@ contract GovernorSimple {
     }
 
     /**
-      * @notice Queues a proposal of state active
-      * @param proposalId The id of the proposal to queue
-      */
+     * @notice Queues a proposal of state active
+     * @param proposalId The id of the proposal to queue
+     */
     function queue(uint proposalId) external {
         require(isAdmin(msg.sender), "GovernorSimple::queue: only governors can queue");
         require(state(proposalId) == ProposalState.Active, "GovernorSimple::queue: proposal can only be queued if it is active");
@@ -154,14 +176,17 @@ contract GovernorSimple {
     }
 
     function queueOrRevertInternal(address target, uint value, string memory signature, bytes memory data) internal {
-        require(!timelock.queuedTransactions(keccak256(abi.encode(target, value, signature, data))), "GovernorSimple::queueOrRevertInternal: identical proposal action already queued at eta");
+        require(
+            !timelock.queuedTransactions(keccak256(abi.encode(target, value, signature, data))),
+            "GovernorSimple::queueOrRevertInternal: identical proposal action already queued at eta"
+        );
         timelock.queueTransaction(target, value, signature, data);
     }
 
     /**
-      * @notice Executes a queued proposal if eta has passed
-      * @param proposalId The id of the proposal to execute
-      */
+     * @notice Executes a queued proposal if eta has passed
+     * @param proposalId The id of the proposal to execute
+     */
     function execute(uint proposalId) external payable {
         require(isAdmin(msg.sender), "GovernorSimple::execute: only governors can execute");
         require(state(proposalId) == ProposalState.Queued, "GovernorSimple::execute: proposal can only be executed if it is queued");
@@ -170,15 +195,20 @@ contract GovernorSimple {
         proposal.queued = false;
         proposal.executed = true;
         for (uint i = 0; i < proposal.targets.length; i++) {
-            timelock.executeTransaction{ value:proposal.values[i] }(proposal.targets[i], proposal.values[i], proposal.signatures[i], proposal.calldatas[i]);
+            timelock.executeTransaction{ value: proposal.values[i] }(
+                proposal.targets[i],
+                proposal.values[i],
+                proposal.signatures[i],
+                proposal.calldatas[i]
+            );
         }
         emit ProposalExecuted(proposalId);
     }
 
     /**
-      * @notice Cancels a proposal only if sender is a governor
-      * @param proposalId The id of the proposal to cancel
-      */
+     * @notice Cancels a proposal only if sender is a governor
+     * @param proposalId The id of the proposal to cancel
+     */
     function cancel(uint proposalId) external {
         require(isAdmin(msg.sender), "GovernorSimple::cancel: only governors can cancel");
         require(state(proposalId) != ProposalState.Executed, "GovernorSimple::cancel: cannot cancel executed proposal");
@@ -192,19 +222,21 @@ contract GovernorSimple {
     }
 
     /**
-      * @notice Gets actions of a proposal
-      * @param proposalId the id of the proposal
-      */
-    function getActions(uint proposalId) external view returns (address[] memory targets, uint[] memory values, string[] memory signatures, bytes[] memory calldatas) {
+     * @notice Gets actions of a proposal
+     * @param proposalId the id of the proposal
+     */
+    function getActions(
+        uint proposalId
+    ) external view returns (address[] memory targets, uint[] memory values, string[] memory signatures, bytes[] memory calldatas) {
         Proposal storage p = proposals[proposalId];
         return (p.targets, p.values, p.signatures, p.calldatas);
     }
 
     /**
-      * @notice Gets the state of a proposal
-      * @param proposalId The id of the proposal
-      * @return Proposal state
-      */
+     * @notice Gets the state of a proposal
+     * @param proposalId The id of the proposal
+     * @return Proposal state
+     */
     function state(uint proposalId) public view returns (ProposalState) {
         require(proposalCount >= proposalId, "GovernorSimple::state: invalid proposal id");
         Proposal memory proposal = proposals[proposalId];

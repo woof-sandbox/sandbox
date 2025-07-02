@@ -131,13 +131,13 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
 
         owner = _owner;
         guardian = _guardian;
-        
+
         cometFactory = _cometFactory;
         curatorFee = _curatorFee;
         name = _name;
         curatorProposalDuration = _curatorProposalDuration;
         proposalDuration = _proposalDuration;
-        
+
         _proposeCurator(_curator);
     }
 
@@ -154,11 +154,13 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
 
         /// Check interest curve
         ///
-        ISandboxController.BaseAssetConfiguration memory baseAssetConfig = ISandboxController(sandboxController).baseAssets(_cometConfig.baseToken);
+        ISandboxController.BaseAssetConfiguration memory baseAssetConfig = ISandboxController(sandboxController).baseAssets(
+            _cometConfig.baseToken
+        );
 
         if (baseAssetConfig.baseAssetCurves.length == 0) revert NoCurveRegistered();
         if (_cometConfig.baseTokenCurveId >= baseAssetConfig.baseAssetCurves.length) revert InvalidCurveId();
-        
+
         /// Check collaterals
         ///
         uint _length = _cometConfig.collateralTokens.length;
@@ -185,7 +187,7 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
                 _validateCollateralTokenConfig(collateralTokenConfig);
             }
         }
-        
+
         ISandboxController.SandboxControllerConfiguration memory _sandboxConfig = ISandboxController(sandboxController).config();
         CometGlobalParamsConfig memory _globalConfig = CometGlobalParamsConfig(
             _sandboxConfig.targetPercent,
@@ -193,26 +195,19 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
             _sandboxConfig.suggestedLockTimeOfSeedReserves,
             _sandboxConfig.storeFrontPriceFactor
         );
-            
+
         address comet = ISandboxCometFactory(cometFactory).createComet();
         ISandboxComet(comet).initialize(_cometConfig, _globalConfig);
 
         uint256 cometsNum = comets.length;
         comets.push(comet);
         cometId[comet] = cometsNum;
-        
+
         if (_sandboxConfig.suggestedAmountOfSeedReserves > 0) {
             IERC20(_cometConfig.baseToken).safeTransferFrom(msg.sender, comet, _sandboxConfig.suggestedAmountOfSeedReserves);
         }
-        
-        
-        emit CometCreated(
-            comet,
-            _cometConfig.baseToken,
-            baseAssetConfig.priceFeed,
-            cometsNum + 1,
-            _cometConfig.baseTokenCurveId
-        );
+
+        emit CometCreated(comet, _cometConfig.baseToken, baseAssetConfig.priceFeed, cometsNum + 1, _cometConfig.baseTokenCurveId);
 
         return comet;
     }
@@ -239,11 +234,7 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
     /// @param comet The address of the comet
     /// @param baseTrackingSupplySpeed_ The new base tracking supply speed
     /// @param baseTrackingBorrowSpeed_ The new base tracking borrow speed
-    function setBaseTrackingSpeeds(
-        address comet,
-        uint64 baseTrackingSupplySpeed_,
-        uint64 baseTrackingBorrowSpeed_
-    ) external onlyOwner {
+    function setBaseTrackingSpeeds(address comet, uint64 baseTrackingSupplySpeed_, uint64 baseTrackingBorrowSpeed_) external onlyOwner {
         if (comet == ZERO_ADDRESS) revert ZeroAddress();
         if (!_isCometOwned(comet)) revert UnknownComet();
         ISandboxComet(comet).setBaseSpeeds(baseTrackingSupplySpeed_, baseTrackingBorrowSpeed_);
@@ -261,7 +252,6 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
 
         /// TODO: extend method once fee distribution is finished
     }
-
 
     /// @notice Transfers ownership of the protocol to a new address
     /// @dev Only callable by the current owner
@@ -339,10 +329,7 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
     /// @dev Only callable by the owner
     /// @param _curatorProposalDuration New duration for curator proposals in seconds
     /// @param _proposalDuration New duration for comet configuration proposals in seconds
-    function setProposalDurations(
-        uint _curatorProposalDuration,
-        uint _proposalDuration
-    ) external onlyOwner {
+    function setProposalDurations(uint _curatorProposalDuration, uint _proposalDuration) external onlyOwner {
         (uint minUpdateTime, uint maxUpdateTime) = ISandboxController(sandboxController).proposalBoundaries();
         if (_curatorProposalDuration < minUpdateTime || _proposalDuration < minUpdateTime) revert ProposalDurationTooShort();
         if (_curatorProposalDuration > maxUpdateTime || _proposalDuration > maxUpdateTime) revert ProposalDurationTooLong();
@@ -353,33 +340,27 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
         curatorProposalDuration = _curatorProposalDuration;
         proposalDuration = _proposalDuration;
 
-        emit ProposalDurationsUpdated(
-            oldCuratorDuration,
-            _curatorProposalDuration,
-            oldProposalDuration,
-            _proposalDuration
-        );
+        emit ProposalDurationsUpdated(oldCuratorDuration, _curatorProposalDuration, oldProposalDuration, _proposalDuration);
     }
 
     /// @notice Validates comet collateral token configuration
     /// @dev Internal function to validate collateral token parameters
     /// @param collateralTokenConfig The collateral token configuration to validate
-    function _validateCollateralTokenConfig(
-        IConfigController.CollateralTokenConfig memory collateralTokenConfig
-    ) internal view {
+    function _validateCollateralTokenConfig(IConfigController.CollateralTokenConfig memory collateralTokenConfig) internal view {
         if (!ISandboxController(sandboxController).isCollateralTokenWhitelisted(collateralTokenConfig.collateralToken))
             revert CollateralTokenNotWhitelisted();
 
-        ISandboxController.CollateralAssetConfiguration memory collateralAssetLimitations =
-            ISandboxController(sandboxController).collateralAssets(collateralTokenConfig.collateralToken);
+        ISandboxController.CollateralAssetConfiguration memory collateralAssetLimitations = ISandboxController(sandboxController)
+            .collateralAssets(collateralTokenConfig.collateralToken);
         /// supplyCap;
         if (collateralTokenConfig.supplyCap == 0) revert SupplyCapCantBeZero();
         /// in general supply cap is not regulated and is purely config controller owner's responsibility
 
         /// factors order: collaterization <= liquidation factor <= liquidation penalty
-        if (collateralTokenConfig.borrowCollateralFactor > collateralTokenConfig.liquidateCollateralFactor ||
-            collateralTokenConfig.liquidateCollateralFactor > collateralTokenConfig.liquidationFactor)
-            revert WrongCollateralTokenSettings();
+        if (
+            collateralTokenConfig.borrowCollateralFactor > collateralTokenConfig.liquidateCollateralFactor ||
+            collateralTokenConfig.liquidateCollateralFactor > collateralTokenConfig.liquidationFactor
+        ) revert WrongCollateralTokenSettings();
 
         /// borrowCollateralFactor
         /// we rely on SandboxController validatation of limits against 0 and each other
@@ -395,8 +376,7 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
             revert LiquidateCollateralFactorTooLow();
 
         /// liquidationFactor;
-        if (collateralTokenConfig.liquidationFactor > collateralAssetLimitations.maxLiquidationFactor)
-            revert LiquidationFactorTooHigh();
+        if (collateralTokenConfig.liquidationFactor > collateralAssetLimitations.maxLiquidationFactor) revert LiquidationFactorTooHigh();
         else if (collateralTokenConfig.liquidationFactor < collateralAssetLimitations.minLiquidationFactor)
             revert LiquidationFactorTooLow();
     }
@@ -409,3 +389,4 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
         return comets[cometId[comet]] != comet;
     }
 }
+// Test comment

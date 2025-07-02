@@ -34,10 +34,7 @@ contract CometHarness is SandboxComet {
         lastAccrualTime = totals.lastAccrualTime;
     }
 
-    function setTotalsCollateral(
-        address asset,
-        uint256 totals
-    ) external {
+    function setTotalsCollateral(address asset, uint256 totals) external {
         totalsCollateral[asset] = totals;
     }
 
@@ -45,14 +42,10 @@ contract CometHarness is SandboxComet {
         userBasic[account].principal = principal;
     }
 
-    function setCollateralBalance(
-        address account,
-        address asset,
-        uint256 balance
-    ) external {
+    function setCollateralBalance(address account, address asset, uint256 balance) external {
         uint256 oldBalance = userCollateral[account][asset];
         userCollateral[account][asset] = balance;
-        
+
         (CollateralAsset memory assetInfo, uint8 index) = getAssetInfoByAddress(asset);
 
         updateAssetsIn(account, index, oldBalance, balance);
@@ -74,9 +67,7 @@ contract CometHarness is SandboxComet {
             });
     }
 
-    function getAssetList(
-        address account
-    ) external view returns (address[] memory result) {
+    function getAssetList(address account) external view returns (address[] memory result) {
         uint24 assetsIn = userBasic[account].assetsIn;
 
         uint8 count = 0;
@@ -99,12 +90,7 @@ contract CometHarness is SandboxComet {
         return result;
     }
 
-    function updateAssetsInExternal(
-        address account,
-        address asset,
-        uint128 initialUserBalance,
-        uint128 finalUserBalance
-    ) external {
+    function updateAssetsInExternal(address account, address asset, uint128 initialUserBalance, uint128 finalUserBalance) external {
         (, uint8 index) = getAssetInfoByAddress(asset);
         updateAssetsIn(account, index, initialUserBalance, finalUserBalance);
     }
