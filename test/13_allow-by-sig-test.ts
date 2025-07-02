@@ -1,6 +1,4 @@
 import { ethers, event, expect, makeProtocol, wait } from "./helper/helpers";
-import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
-import { BigNumber, Signature } from "ethers";
 
 const types = {
   Authorization: [
