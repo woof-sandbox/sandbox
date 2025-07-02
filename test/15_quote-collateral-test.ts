@@ -4,6 +4,7 @@ function mulDiv(a: bigint, b: bigint, denom: bigint): bigint {
   return (a * b) / denom;
 }
 
+/// TODO: Fix this.
 describe.skip("15. quoteCollateral", function () {
   it("quotes the collateral correctly for a positive base amount", async () => {
     const { comet, tokens } = await makeProtocol({
@@ -218,7 +219,7 @@ describe.skip("15. quoteCollateral", function () {
 
   it("returns correct controller/protocol fees when delta > 0", async () => {
     const { comet, tokens, sandboxController } = await makeProtocol({
-      storeFrontPriceFactor: exp(0.333333333333333333, 18),
+      storeFrontPriceFactor: exp(1, 18) / 3n, // fix for linter, a previously used value 0.333333333333333333
       assets: {
         USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
         COMP: {
@@ -239,9 +240,9 @@ describe.skip("15. quoteCollateral", function () {
     const baseAmount = exp(100_000_000, 6);
     const assetScale = exp(1, 18);
 
-    const basePrice = exp(1, 8);
+    exp(1, 8);
     const assetPrice = exp(123, 8);
-    const SFP = exp(0.333333333333333333, 18);
+    const SFP = exp(1, 18) / 3n;
     const LF = exp(0.8, 18);
 
     const discountFactor = mulDiv(SFP, exp(1, 18) - LF, exp(1, 18));
