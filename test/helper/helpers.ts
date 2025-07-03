@@ -4,8 +4,6 @@ import { expect } from "chai";
 import { Block } from "@ethersproject/abstract-provider";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import {
-  BaseBulker,
-  BaseBulker__factory,
   CometHarness__factory,
   EvilToken__factory,
   FaucetToken,
@@ -153,11 +151,6 @@ export type Protocol = {
   seedReserves: string;
 };
 
-export type BulkerOpts = {
-  admin?: SignerWithAddress;
-  weth?: string;
-};
-
 export interface SandboxControllerOpts {
   admin?: any;
   dao?: any;
@@ -173,11 +166,6 @@ export interface SandboxControllerOpts {
   reserveCommissions?: [bigint, bigint, bigint];
   protocolCommissions?: [bigint, bigint, bigint];
 }
-// TODO: Remove BulkerInfo.
-export type BulkerInfo = {
-  opts: BulkerOpts;
-  bulker: BaseBulker;
-};
 
 export type SandboxControllerInfo = {
   opts: SandboxControllerOpts;
@@ -584,22 +572,6 @@ export const makeProtocol = async (opts: ProtocolOpts = {}) => {
     sandboxController,
   };
 };
-
-export async function makeBulker(opts: BulkerOpts): Promise<BulkerInfo> {
-  const signers = await ethers.getSigners();
-
-  const admin = opts.admin || signers[0];
-  const weth = opts.weth;
-
-  const BulkerFactory = (await ethers.getContractFactory("BaseBulker")) as BaseBulker__factory;
-  const bulker = await BulkerFactory.deploy(admin.address, weth);
-  await bulker.deployed();
-
-  return {
-    opts,
-    bulker,
-  };
-}
 
 export async function makeMockERC20({ name, symbol }: MockERC20Params): Promise<FaucetToken> {
   const FaucetFactory = (await ethers.getContractFactory("FaucetToken")) as FaucetToken__factory;
