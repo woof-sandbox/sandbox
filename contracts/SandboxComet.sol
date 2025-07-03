@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
+import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+
 import "./interfaces/ISandboxComet.sol";
-import "./interfaces/IERC20NonStandard.sol";
 import "./interfaces/IPriceFeed.sol";
 import "./interfaces/IConfigController.sol";
 import "./interfaces/ISandboxController.sol";
@@ -13,6 +15,8 @@ import "./interfaces/ISandboxController.sol";
  * @author WOOF! Software
  */
 contract SandboxComet is ISandboxComet {
+    using SafeERC20 for IERC20;
+
     /// @notice can be legally deployed only via the factory which provides correct config controller address
     /// @param _configController legal address of the config controller which triggered the factory
     /// @param _ext extension deployed by the same factory
@@ -43,7 +47,7 @@ contract SandboxComet is ISandboxComet {
         if (baseToken != address(0)) revert AlreadyInitialized();
         baseToken = comet.baseToken;
 
-        uint8 _decimals = IERC20NonStandard(comet.baseToken).decimals();
+        uint8 _decimals = IERC20Metadata(comet.baseToken).decimals();
         if (_decimals > MAX_BASE_DECIMALS) revert BadDecimals();
 
         baseScale = uint64(10 ** _decimals);
@@ -68,7 +72,7 @@ contract SandboxComet is ISandboxComet {
         /// Thus collaterals can be safely added directly into the storage
         for (uint8 i; i < colTokensLength; ++i) {
             address collateralToken = comet.collateralTokens[i].collateralToken;
-            uint64 scale = uint64(10 ** IERC20NonStandard(collateralToken).decimals());
+            uint64 scale = uint64(10 ** IERC20Metadata(collateralToken).decimals());
             address priceFeed = ISandboxController(sandboxController).tokenToPriceFeed(collateralToken);
 
             collateralAssets.push(
@@ -309,8 +313,7 @@ contract SandboxComet is ISandboxComet {
      * @param asset The collateral asset
      */
     function getCollateralReserves(address asset) public view override returns (uint) {
-        return
-            IERC20NonStandard(asset).balanceOf(address(this)) - totalsCollateral[asset] - assetFeesController[asset] - assetFeesDAO[asset];
+        return IERC20(asset).balanceOf(address(this)) - totalsCollateral[asset] - assetFeesController[asset] - assetFeesDAO[asset];
     }
 
     /**
@@ -318,7 +321,7 @@ contract SandboxComet is ISandboxComet {
      */
     function getReserves() public view override returns (int) {
         (uint64 baseSupplyIndex_, uint64 baseBorrowIndex_) = accruedInterestIndices(getNowInternal() - lastAccrualTime);
-        uint balance = IERC20NonStandard(baseToken).balanceOf(address(this));
+        uint balance = IERC20(baseToken).balanceOf(address(this));
         uint totalSupply_ = presentValueSupply(baseSupplyIndex_, totalSupplyBase);
         uint totalBorrow_ = presentValueBorrow(baseBorrowIndex_, totalBorrowBase);
         return signed256(balance) - signed256(totalSupply_) + signed256(totalBorrow_);
@@ -463,7 +466,7 @@ contract SandboxComet is ISandboxComet {
 
         if (amount == 0) revert AmountTooSmall();
 
-        doTransferOut(asset, msg.sender, amount);
+        IERC20(asset).safeTransfer(msg.sender, amount);
         emit FeesExtracted(address(this), asset, amount, msg.sender);
     }
 
@@ -591,54 +594,9 @@ contract SandboxComet is ISandboxComet {
      * See here: https://medium.com/coinmonks/missing-return-value-bug-at-least-130-tokens-affected-d67bf08521ca
      */
     function doTransferIn(address asset, address from, uint amount) internal returns (uint) {
-        uint256 preTransferBalance = IERC20NonStandard(asset).balanceOf(address(this));
-        IERC20NonStandard(asset).transferFrom(from, address(this), amount);
-        bool success;
-        assembly ("memory-safe") {
-            switch returndatasize()
-            case 0 {
-                // This is a non-standard ERC-20
-                success := not(0) // set success to true
-            }
-            case 32 {
-                // This is a compliant ERC-20
-                returndatacopy(0, 0, 32)
-                success := mload(0) // Set `success = returndata` of override external call
-            }
-            default {
-                // This is an excessively non-compliant ERC-20, revert.
-                revert(0, 0)
-            }
-        }
-        if (!success) revert TransferInFailed();
-        return IERC20NonStandard(asset).balanceOf(address(this)) - preTransferBalance;
-    }
-
-    /**
-     * @dev Safe ERC20 transfer out
-     * @dev Note: Safely handles non-standard ERC-20 tokens that do not return a value.
-     * See here: https://medium.com/coinmonks/missing-return-value-bug-at-least-130-tokens-affected-d67bf08521ca
-     */
-    function doTransferOut(address asset, address to, uint amount) internal {
-        IERC20NonStandard(asset).transfer(to, amount);
-        bool success;
-        assembly ("memory-safe") {
-            switch returndatasize()
-            case 0 {
-                // This is a non-standard ERC-20
-                success := not(0) // set success to true
-            }
-            case 32 {
-                // This is a compliant ERC-20
-                returndatacopy(0, 0, 32)
-                success := mload(0) // Set `success = returndata` of override external call
-            }
-            default {
-                // This is an excessively non-compliant ERC-20, revert.
-                revert(0, 0)
-            }
-        }
-        if (!success) revert TransferOutFailed();
+        uint256 preTransferBalance = IERC20(asset).balanceOf(address(this));
+        IERC20(asset).safeTransferFrom(from, address(this), amount);
+        return IERC20(asset).balanceOf(address(this)) - preTransferBalance;
     }
 
     /**
@@ -933,7 +891,7 @@ contract SandboxComet is ISandboxComet {
             if (!isBorrowCollateralized(src)) revert NotCollateralized();
         }
 
-        doTransferOut(baseToken, to, amount);
+        IERC20(baseToken).safeTransfer(to, amount);
 
         emit Withdraw(src, to, amount);
 
@@ -958,7 +916,7 @@ contract SandboxComet is ISandboxComet {
         // Note: no accrue interest, BorrowCF < LiquidationCF covers small changes
         if (!isBorrowCollateralized(src)) revert NotCollateralized();
 
-        doTransferOut(asset, to, amount);
+        IERC20(asset).safeTransfer(to, amount);
 
         emit WithdrawCollateral(src, to, asset, amount);
     }
@@ -1073,7 +1031,7 @@ contract SandboxComet is ISandboxComet {
         // Note: Pre-transfer hook can re-enter buyCollateral with a stale collateral ERC20 balance.
         //  Assets should not be listed which allow re-entry from pre-transfer now, as too much collateral could be bought.
         //  This is also a problem if quoteCollateral derives its discount from the collateral ERC20 balance.
-        doTransferOut(asset, recipient, safe128(amountOut));
+        IERC20(asset).safeTransfer(recipient, amountOut);
 
         emit BuyCollateral(msg.sender, asset, baseAmount, amountOut);
     }

@@ -44,7 +44,7 @@ contract SandboxControllerNoCurvesTest is SandboxController {
         /// @dev the price feed is not associated with the token
         if (IPriceFeed(priceFeed).underlyingToken() != token) revert WrongPriceFeedUnderlying();
         tokenToPriceFeed[token] = priceFeed;
-        uint8 decimals = IERC20NonStandard(token).decimals();
+        uint8 decimals = IERC20Metadata(token).decimals();
 
         _baseAssets[token].priceFeed = priceFeed;
         _baseAssets[token].decimals = decimals;

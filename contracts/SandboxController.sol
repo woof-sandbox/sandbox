@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
-import { IERC20NonStandard } from "./interfaces/IERC20NonStandard.sol";
+import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
+
 import { IPriceFeed } from "./interfaces/IPriceFeed.sol";
 import { ISandboxController } from "./interfaces/ISandboxController.sol";
 
@@ -292,7 +293,7 @@ contract SandboxController is ISandboxController {
         if (!isCurveConfigurationValid(baseAssetCurve)) revert InvalidCurveConfiguration();
 
         tokenToPriceFeed[token] = priceFeed;
-        uint8 decimals = IERC20NonStandard(token).decimals();
+        uint8 decimals = IERC20Metadata(token).decimals();
 
         _baseAssets[token].priceFeed = priceFeed;
         _baseAssets[token].decimals = decimals;
@@ -379,11 +380,11 @@ contract SandboxController is ISandboxController {
 
         tokenToPriceFeed[token] = priceFeed;
 
-        uint256 decimals = IERC20NonStandard(token).decimals();
+        uint8 decimals = IERC20Metadata(token).decimals();
 
         _collateralAssets[token].collateralToken = token;
         _collateralAssets[token].priceFeed = priceFeed;
-        _collateralAssets[token].decimals = uint8(decimals);
+        _collateralAssets[token].decimals = decimals;
         _collateralAssets[token].maxBorrowCollateralFactor = maxBorrowCollateralFactor;
         _collateralAssets[token].minBorrowCollateralFactor = minBorrowCollateralFactor;
         _collateralAssets[token].minLiquidateCollateralFactor = minLiquidateCollateralFactor;
