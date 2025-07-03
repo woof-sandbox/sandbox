@@ -1,15 +1,15 @@
-import { Constraint, Solution } from '../../plugins/scenario';
-import { CometContext } from '../context/CometContext';
-import { expect } from 'chai';
-import { Requirements } from './Requirements';
-import { BigNumber } from 'ethers';
-import { exp } from '../../test/helper/helpers';
-import { ComparativeAmount, ComparisonOp, getActorAddressFromName, getAssetFromName, parseAmount, getToTransferAmount } from '../utils';
+import { Constraint, Solution } from "../../plugins/scenario";
+import { CometContext } from "../context/CometContext";
+import { expect } from "chai";
+import { Requirements } from "./Requirements";
+import { BigNumber } from "ethers";
+import { exp } from "../../test/helper/helpers";
+import { ComparativeAmount, ComparisonOp, getActorAddressFromName, getAssetFromName, parseAmount, getToTransferAmount } from "../utils";
 
 export class TokenBalanceConstraint<T extends CometContext, R extends Requirements> implements Constraint<T, R> {
   async solve(requirements: R, initialContext: T) {
     let assetsByActor = requirements.tokenBalances;
-    if (typeof assetsByActor === 'function') {
+    if (typeof assetsByActor === "function") {
       assetsByActor = await assetsByActor(initialContext);
     }
     if (assetsByActor) {

@@ -1,12 +1,12 @@
-import { Address, Alias } from './Types';
-import { Cache } from './Cache';
-import { VerifyArgs } from './Verify';
+import { Address, Alias } from "./Types";
+import { Cache } from "./Cache";
+import { VerifyArgs } from "./Verify";
 
 export type VerifyArgsMap = Map<Address, VerifyArgs>;
 export type InvertedAliases = Map<Address, Alias[]>;
 
 // File to store verification metadata in, e.g. `$pwd/deployments/deployment/verify/args.json`
-let verificationSpec = { rel: ['verify', 'args.json'] };
+let verificationSpec = { rel: ["verify", "args.json"] };
 
 // Read verify args
 export async function getVerifyArgs(cache: Cache): Promise<VerifyArgsMap> {

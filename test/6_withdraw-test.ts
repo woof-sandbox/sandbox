@@ -1,8 +1,7 @@
-import { CometExtension, EvilToken, EvilToken__factory, FaucetToken } from '../build/types';
+import { CometExtension, EvilToken, EvilToken__factory, FaucetToken } from "../build/types";
 import {
   baseBalanceOf,
   ethers,
-  event,
   expect,
   exp,
   makeProtocol,
@@ -12,12 +11,12 @@ import {
   fastForward,
   hre,
   setTotalsBasic,
-} from './helper/helpers';
+} from "./helper/helpers";
 
-describe('6. withdrawTo', function () {
-  it('withdraws base from sender if the asset is base', async () => {
+describe("6. withdrawTo", function () {
+  it("withdraws base from sender if the asset is base", async () => {
     const protocol = await makeProtocol({
-      base: 'USDC',
+      base: "USDC",
       storeFrontPriceFactor: exp(0.5, 18),
       targetPercent: 0.5,
       assets: {
@@ -77,9 +76,9 @@ describe('6. withdrawTo', function () {
     expect(Number(s0.receipt.gasUsed)).to.be.lessThan(180000);
   });
 
-  it('does not emit Transfer for 0 burn', async () => {
+  it("does not emit Transfer for 0 burn", async () => {
     const protocol = await makeProtocol({
-      base: 'USDC',
+      base: "USDC",
       storeFrontPriceFactor: exp(0.5, 18),
       targetPercent: 0.5,
       assets: {
@@ -129,9 +128,9 @@ describe('6. withdrawTo', function () {
     expectNoBurn(events, bob.address);
   });
 
-  it('withdraws max base balance (including accrued) from sender if the asset is base', async () => {
+  it("withdraws max base balance (including accrued) from sender if the asset is base", async () => {
     const protocol = await makeProtocol({
-      base: 'USDC',
+      base: "USDC",
       storeFrontPriceFactor: exp(0.5, 18),
       targetPercent: 0.5,
       assets: {
@@ -170,7 +169,7 @@ describe('6. withdrawTo', function () {
 
     // Fast forward to accrue some interest
     await fastForward(86400);
-    await ethers.provider.send('evm_mine', []);
+    await ethers.provider.send("evm_mine", []);
 
     const a0 = await portfolio(protocol, alice.address);
     const b0 = await portfolio(protocol, bob.address);
@@ -195,9 +194,9 @@ describe('6. withdrawTo', function () {
     expect(Number(s0.receipt.gasUsed)).to.be.lessThan(180000);
   });
 
-  it('withdraw max base should withdraw 0 if user has a borrow position', async () => {
+  it("withdraw max base should withdraw 0 if user has a borrow position", async () => {
     const protocol = await makeProtocol({
-      base: 'USDC',
+      base: "USDC",
       storeFrontPriceFactor: exp(0.5, 18),
       targetPercent: 0.5,
       assets: {
@@ -228,12 +227,12 @@ describe('6. withdrawTo', function () {
 
     const cometAsB = comet.connect(bob);
 
-    const a0 = await portfolio(protocol, alice.address);
+    await portfolio(protocol, alice.address);
     const b0 = await portfolio(protocol, bob.address);
 
     const s0 = await wait(cometAsB.withdrawTo(alice.address, USDC.address, ethers.constants.MaxUint256));
 
-    const a1 = await portfolio(protocol, alice.address);
+    await portfolio(protocol, alice.address);
     const b1 = await portfolio(protocol, bob.address);
 
     const events = getEvents(s0);
@@ -256,9 +255,9 @@ describe('6. withdrawTo', function () {
     expect(Number(s0.receipt.gasUsed)).to.be.lessThan(152000);
   });
   // This demonstrates a weird quirk of the present value/principal value rounding down math.
-  it('withdraws 0 but Comet Transfer event amount is 1', async () => {
+  it("withdraws 0 but Comet Transfer event amount is 1", async () => {
     const protocol = await makeProtocol({
-      base: 'USDC',
+      base: "USDC",
       storeFrontPriceFactor: exp(0.5, 18),
       targetPercent: 0.5,
       assets: {
@@ -305,9 +304,9 @@ describe('6. withdrawTo', function () {
     expectBurn(events, alice.address, 1n);
   });
 
-  it('withdraws collateral from sender if the asset is collateral', async () => {
+  it("withdraws collateral from sender if the asset is collateral", async () => {
     const protocol = await makeProtocol({
-      base: 'USDC',
+      base: "USDC",
       storeFrontPriceFactor: exp(0.5, 18),
       targetPercent: 0.5,
       assets: {
@@ -377,9 +376,9 @@ describe('6. withdrawTo', function () {
     expect(Number(s0.receipt.gasUsed)).to.be.lessThan(100000);
   });
 
-  it('calculates base principal correctly', async () => {
+  it("calculates base principal correctly", async () => {
     const protocol = await makeProtocol({
-      base: 'USDC',
+      base: "USDC",
       storeFrontPriceFactor: exp(0.5, 18),
       targetPercent: 0.5,
       assets: {
@@ -425,12 +424,12 @@ describe('6. withdrawTo', function () {
 
     const events = getEvents(s0);
     console.table(
-      events.map((e) => ({
+      events.map(e => ({
         name: e.name,
         from: e.args?.from,
         to: e.args?.to,
         amount: amountOf(e)?.toString(),
-      })),
+      }))
     );
     expectTransfer(events, comet.address, alice.address, BigInt(100e6));
     expectWithdraw(events, bob.address, alice.address, BigInt(100e6));
@@ -446,9 +445,9 @@ describe('6. withdrawTo', function () {
     expect(bob1.external).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n });
   });
 
-  it('reverts if withdrawing base exceeds the total supply', async () => {
+  it("reverts if withdrawing base exceeds the total supply", async () => {
     const protocol = await makeProtocol({
-      base: 'USDC',
+      base: "USDC",
       storeFrontPriceFactor: exp(0.5, 18),
       targetPercent: 0.5,
       assets: {
@@ -487,9 +486,9 @@ describe('6. withdrawTo', function () {
     await expect(cometAsB.withdrawTo(alice.address, USDC.address, exp(100e6, 18))).to.be.reverted;
   });
 
-  it('reverts if withdrawing collateral exceeds the total supply', async () => {
+  it("reverts if withdrawing collateral exceeds the total supply", async () => {
     const protocol = await makeProtocol({
-      base: 'USDC',
+      base: "USDC",
       storeFrontPriceFactor: exp(0.5, 18),
       targetPercent: 0.5,
       assets: {
@@ -528,9 +527,9 @@ describe('6. withdrawTo', function () {
     await expect(cometAsB.withdrawTo(alice.address, COMP.address, 8e8)).to.be.reverted;
   });
 
-  it('reverts if the asset is neither collateral nor base', async () => {
+  it("reverts if the asset is neither collateral nor base", async () => {
     const protocol = await makeProtocol({
-      base: 'USDC',
+      base: "USDC",
       storeFrontPriceFactor: exp(0.5, 18),
       targetPercent: 0.5,
       assets: {
@@ -567,9 +566,9 @@ describe('6. withdrawTo', function () {
     await expect(cometAsB.withdrawTo(alice.address, USUP.address, 1)).to.be.reverted;
   });
 
-  it('reverts if withdraw is paused', async () => {
+  it("reverts if withdraw is paused", async () => {
     const protocol = await makeProtocol({
-      base: 'USDC',
+      base: "USDC",
       storeFrontPriceFactor: exp(0.5, 18),
       targetPercent: 0.5,
       assets: {
@@ -607,7 +606,7 @@ describe('6. withdrawTo', function () {
 
     // Pause withdraw
     const configSigner = await ethers.getImpersonatedSigner(configController.address);
-    await hre.network.provider.send('hardhat_setBalance', [configController.address, ethers.utils.hexValue(ethers.utils.parseEther('5'))]);
+    await hre.network.provider.send("hardhat_setBalance", [configController.address, ethers.utils.hexValue(ethers.utils.parseEther("5"))]);
 
     await wait(comet.connect(configSigner).pause(false, false, true, false, false));
     expect(await comet.isWithdrawPaused()).to.be.true;
@@ -615,9 +614,9 @@ describe('6. withdrawTo', function () {
     await expect(cometAsB.withdrawTo(alice.address, USDC.address, 1)).to.be.revertedWith("custom error 'Paused()'");
   });
 
-  it('reverts if withdraw max for a collateral asset', async () => {
+  it("reverts if withdraw max for a collateral asset", async () => {
     const protocol = await makeProtocol({
-      base: 'USDC',
+      base: "USDC",
       storeFrontPriceFactor: exp(0.5, 18),
       targetPercent: 0.5,
       assets: {
@@ -653,17 +652,17 @@ describe('6. withdrawTo', function () {
     const cometAsB = comet.connect(bob);
 
     await expect(cometAsB.withdrawTo(alice.address, COMP.address, ethers.constants.MaxUint256)).to.be.revertedWith(
-      "custom error 'InvalidUInt128()'",
+      "custom error 'InvalidUInt128()'"
     );
   });
 
-  it('borrows to withdraw if necessary/possible', async () => {
+  it("borrows to withdraw if necessary/possible", async () => {
     const {
       comet,
       tokens,
       users: [alice, bob],
     } = await makeProtocol({
-      base: 'USDC',
+      base: "USDC",
       storeFrontPriceFactor: exp(0.5, 18),
       targetPercent: 0.5,
       assets: {
@@ -682,10 +681,10 @@ describe('6. withdrawTo', function () {
   });
 });
 
-describe('withdraw', function () {
-  it('withdraws to sender by default', async () => {
+describe("withdraw", function () {
+  it("withdraws to sender by default", async () => {
     const protocol = await makeProtocol({
-      base: 'USDC',
+      base: "USDC",
       storeFrontPriceFactor: exp(0.5, 18),
       targetPercent: 0.5,
       assets: {
@@ -720,7 +719,7 @@ describe('withdraw', function () {
     const _i0 = await USDC.allocateTo(comet.address, 100e6);
     await setTotalsBasic(comet, {
       baseSupplyIndex: 1_000_000_000_000_000n,
-      totalSupplyBase: 100e6
+      totalSupplyBase: 100e6,
     });
     const _i1 = await comet.setBasePrincipal(bob.address, 100e6);
     const cometAsB = comet.connect(bob);
@@ -739,9 +738,9 @@ describe('withdraw', function () {
     expect(q1.external).to.be.deep.equal({ USDC: exp(100, 6), COMP: 0n, WETH: 0n, WBTC: 0n });
   });
 
-  it('reverts if withdraw is paused', async () => {
+  it("reverts if withdraw is paused", async () => {
     const protocol = await makeProtocol({
-      base: 'USDC',
+      base: "USDC",
       storeFrontPriceFactor: exp(0.5, 18),
       targetPercent: 0.5,
       assets: {
@@ -779,7 +778,7 @@ describe('withdraw', function () {
 
     // Pause withdraw
     const configSigner = await ethers.getImpersonatedSigner(configController.address);
-    await hre.network.provider.send('hardhat_setBalance', [configController.address, ethers.utils.hexValue(ethers.utils.parseEther('5'))]);
+    await hre.network.provider.send("hardhat_setBalance", [configController.address, ethers.utils.hexValue(ethers.utils.parseEther("5"))]);
 
     await wait(comet.connect(configSigner).pause(false, false, true, false, false));
     expect(await comet.isWithdrawPaused()).to.be.true;
@@ -787,13 +786,13 @@ describe('withdraw', function () {
     await expect(cometAsB.withdraw(USDC.address, 100e6)).to.be.revertedWith("custom error 'Paused()'");
   });
 
-  it('reverts if withdraw amount is less than baseBorrowMin', async () => {
+  it("reverts if withdraw amount is less than baseBorrowMin", async () => {
     const {
       comet,
       tokens,
       users: [alice],
     } = await makeProtocol({
-      base: 'USDC',
+      base: "USDC",
       storeFrontPriceFactor: exp(0.5, 18),
       targetPercent: 0.5,
       assets: {
@@ -823,13 +822,13 @@ describe('withdraw', function () {
     await expect(comet.connect(alice).withdraw(USDC.address, exp(0.5, 6))).to.be.revertedWith("custom error 'BorrowTooSmall()'");
   });
 
-  it('reverts if base withdraw amount is not collateralzed', async () => {
+  it("reverts if base withdraw amount is not collateralzed", async () => {
     const {
       comet,
       tokens,
       users: [alice],
     } = await makeProtocol({
-      base: 'USDC',
+      base: "USDC",
       storeFrontPriceFactor: exp(0.5, 18),
       targetPercent: 0.5,
       assets: {
@@ -859,13 +858,13 @@ describe('withdraw', function () {
     await expect(comet.connect(alice).withdraw(USDC.address, exp(1, 6))).to.be.revertedWith("custom error 'NotCollateralized()'");
   });
 
-  it('reverts if collateral withdraw amount is not collateralized', async () => {
+  it("reverts if collateral withdraw amount is not collateralized", async () => {
     const {
       comet,
       tokens,
       users: [alice],
     } = await makeProtocol({
-      base: 'USDC',
+      base: "USDC",
       storeFrontPriceFactor: exp(0.5, 18),
       targetPercent: 0.5,
       assets: {
@@ -902,8 +901,8 @@ describe('withdraw', function () {
     await expect(comet.connect(alice).withdraw(WETH.address, exp(1, 18))).to.be.revertedWith("custom error 'NotCollateralized()'");
   });
 
-  describe('reentrancy', function () {
-    it('blocks malicious reentrant transferFrom', async () => {
+  describe("reentrancy", function () {
+    it("blocks malicious reentrant transferFrom", async () => {
       const {
         comet,
         tokens,
@@ -916,7 +915,7 @@ describe('withdraw', function () {
           EVIL: {
             decimals: 6,
             initialPrice: 2,
-            factory: (await ethers.getContractFactory('EvilToken')) as EvilToken__factory,
+            factory: (await ethers.getContractFactory("EvilToken")) as EvilToken__factory,
           },
         },
       });
@@ -938,7 +937,7 @@ describe('withdraw', function () {
       await comet.setCollateralBalance(alice.address, EVIL.address, exp(1, 6));
 
       // In callback, EVIL token calls transferFrom(alice.address, bob.address, 1e6)
-      await expect(comet.connect(alice).withdraw(EVIL.address, 1e6)).to.be.revertedWithCustomError(comet, 'ReentrantCallBlocked');
+      await expect(comet.connect(alice).withdraw(EVIL.address, 1e6)).to.be.revertedWithCustomError(comet, "ReentrantCallBlocked");
 
       // no USDC transferred
       expect(await USDC.balanceOf(comet.address)).to.eq(100e6);
@@ -948,7 +947,7 @@ describe('withdraw', function () {
       expect(await USDC.balanceOf(bob.address)).to.eq(0);
     });
 
-    it('blocks malicious reentrant withdrawFrom', async () => {
+    it("blocks malicious reentrant withdrawFrom", async () => {
       const {
         comet,
         tokens,
@@ -961,7 +960,7 @@ describe('withdraw', function () {
           EVIL: {
             decimals: 6,
             initialPrice: 2,
-            factory: (await ethers.getContractFactory('EvilToken')) as EvilToken__factory,
+            factory: (await ethers.getContractFactory("EvilToken")) as EvilToken__factory,
           },
         },
       });
@@ -983,7 +982,7 @@ describe('withdraw', function () {
       await comet.setCollateralBalance(alice.address, EVIL.address, exp(1, 6));
 
       // in callback, EvilToken attempts to withdraw USDC to bob's address
-      await expect(comet.connect(alice).withdraw(EVIL.address, 1e6)).to.be.revertedWithCustomError(comet, 'ReentrantCallBlocked');
+      await expect(comet.connect(alice).withdraw(EVIL.address, 1e6)).to.be.revertedWithCustomError(comet, "ReentrantCallBlocked");
 
       // no USDC transferred
       expect(await USDC.balanceOf(comet.address)).to.eq(100e6);
@@ -995,10 +994,10 @@ describe('withdraw', function () {
   });
 });
 
-describe('withdrawFrom', function () {
-  it('withdraws from src if specified and sender has permission', async () => {
+describe("withdrawFrom", function () {
+  it("withdraws from src if specified and sender has permission", async () => {
     const protocol = await makeProtocol({
-      base: 'USDC',
+      base: "USDC",
       storeFrontPriceFactor: exp(0.5, 18),
       targetPercent: 0.5,
       assets: {
@@ -1030,30 +1029,26 @@ describe('withdrawFrom', function () {
     } = protocol;
     const { COMP } = tokens;
 
-    const _i0 = await COMP.allocateTo(comet.address, 7);
+    await COMP.allocateTo(comet.address, 7);
     const t0 = Object.assign({}, await comet.totalsCollateral(COMP.address), {
       totalSupplyAsset: 7,
     });
-    const _b0 = await wait(comet.setTotalsCollateral(COMP.address, t0.totalSupplyAsset));
+    await wait(comet.setTotalsCollateral(COMP.address, t0.totalSupplyAsset));
 
-    const _i1 = await comet.setCollateralBalance(bob.address, COMP.address, 7);
+    await comet.setCollateralBalance(bob.address, COMP.address, 7);
 
-    const cometExtention = await ethers.getContractAt('CometExtension', await comet.extension()) as CometExtension;
-    const approveCalldata = cometExtention.interface.encodeFunctionData(
-      "approve",
-      [charlie.address, ethers.constants.MaxUint256]
-    );
+    const cometExtention = (await ethers.getContractAt("CometExtension", await comet.extension())) as CometExtension;
+    const approveCalldata = cometExtention.interface.encodeFunctionData("approve", [charlie.address, ethers.constants.MaxUint256]);
     await bob.sendTransaction({
       to: comet.address,
       data: approveCalldata,
-      gasLimit: 1_000_000
+      gasLimit: 1_000_000,
     });
 
-    const cometAsB = comet.connect(bob);
     const cometAsC = comet.connect(charlie);
     const p0 = await portfolio(protocol, alice.address);
     const q0 = await portfolio(protocol, bob.address);
-    const _s0 = await wait(cometAsC.withdrawFrom(bob.address, alice.address, COMP.address, 7));
+    await wait(cometAsC.withdrawFrom(bob.address, alice.address, COMP.address, 7));
     const p1 = await portfolio(protocol, alice.address);
     const q1 = await portfolio(protocol, bob.address);
 
@@ -1067,9 +1062,9 @@ describe('withdrawFrom', function () {
     expect(q1.external).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n });
   });
 
-  it('reverts if src is specified and sender does not have permission', async () => {
+  it("reverts if src is specified and sender does not have permission", async () => {
     const protocol = await makeProtocol({
-      base: 'USDC',
+      base: "USDC",
       storeFrontPriceFactor: exp(0.5, 18),
       targetPercent: 0.5,
       assets: {
@@ -1106,9 +1101,9 @@ describe('withdrawFrom', function () {
     await expect(cometAsC.withdrawFrom(bob.address, alice.address, COMP.address, 7)).to.be.revertedWith("custom error 'Unauthorized()'");
   });
 
-  it('reverts if withdraw is paused', async () => {
+  it("reverts if withdraw is paused", async () => {
     const protocol = await makeProtocol({
-      base: 'USDC',
+      base: "USDC",
       storeFrontPriceFactor: exp(0.5, 18),
       targetPercent: 0.5,
       assets: {
@@ -1142,12 +1137,12 @@ describe('withdrawFrom', function () {
     const { COMP } = tokens;
 
     await COMP.allocateTo(comet.address, 7);
-    const cometAsB = comet.connect(bob);
     const cometAsC = comet.connect(charlie);
 
     // Pause withdraw
+    // TODO: Fix this
     const configSigner = await ethers.getImpersonatedSigner(configController.address);
-    await hre.network.provider.send('hardhat_setBalance', [configController.address, ethers.utils.hexValue(ethers.utils.parseEther('5'))]);
+    await hre.network.provider.send("hardhat_setBalance", [configController.address, ethers.utils.hexValue(ethers.utils.parseEther("5"))]);
     await wait(comet.connect(configSigner).pause(false, false, true, false, false));
     expect(await comet.isWithdrawPaused()).to.be.true;
 
@@ -1167,28 +1162,28 @@ function amountOf(ev: any): bigint | undefined {
 }
 
 function expectTransfer(events: any[], from: string, to: string, amount: bigint) {
-  const ev = events.find((e: any) => e.name === 'Transfer' && e.args.from === from && e.args.to === to && amountOf(e) === amount);
-  expect(ev, 'expected Transfer event not found').to.not.be.undefined;
+  const ev = events.find((e: any) => e.name === "Transfer" && e.args.from === from && e.args.to === to && amountOf(e) === amount);
+  expect(ev, "expected Transfer event not found").to.not.be.undefined;
 }
 
 function expectNoBurn(events: any[], src: string) {
-  const ev = events.find((e: any) => e.name === 'Transfer' && e.args.from === src && e.args.to === ethers.constants.AddressZero);
-  expect(ev, 'unexpected burn Transfer event').to.be.undefined;
+  const ev = events.find((e: any) => e.name === "Transfer" && e.args.from === src && e.args.to === ethers.constants.AddressZero);
+  expect(ev, "unexpected burn Transfer event").to.be.undefined;
 }
 
 function expectBurn(events: any[], src: string, amount: bigint) {
   const ev = events.find(
-    (e: any) => e.name === 'Transfer' && e.args.from === src && e.args.to === ethers.constants.AddressZero && amountOf(e) === amount,
+    (e: any) => e.name === "Transfer" && e.args.from === src && e.args.to === ethers.constants.AddressZero && amountOf(e) === amount
   );
-  expect(ev, 'expected burn Transfer event').to.not.be.undefined;
+  expect(ev, "expected burn Transfer event").to.not.be.undefined;
 }
 
 function expectWithdraw(events: any[], src: string, to: string, amount: bigint) {
   const ev = events.find(
     (e: any) =>
-      (e.name === 'Withdraw' && e.args.src === src && e.args.to === to && BigInt(e.args.amount) === amount) ||
-      (e.name === 'WithdrawCollateral' && e.args.src === src && e.args.to === to && BigInt(e.args.amount) === amount),
+      (e.name === "Withdraw" && e.args.src === src && e.args.to === to && BigInt(e.args.amount) === amount) ||
+      (e.name === "WithdrawCollateral" && e.args.src === src && e.args.to === to && BigInt(e.args.amount) === amount)
   );
 
-  expect(ev, 'expected Withdraw[Collateral] event not found').to.not.be.undefined;
+  expect(ev, "expected Withdraw[Collateral] event not found").to.not.be.undefined;
 }

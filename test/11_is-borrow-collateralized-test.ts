@@ -1,8 +1,8 @@
-import { expect, exp, makeProtocol } from './helper/helpers';
+import { expect, exp, makeProtocol } from "./helper/helpers";
 
-describe('11. isBorrowCollateralized', function () {
-  it('defaults to true', async () => {
-    const protocol = await makeProtocol({ base: 'USDC' });
+describe("11. isBorrowCollateralized", function () {
+  it("defaults to true", async () => {
+    const protocol = await makeProtocol({ base: "USDC" });
     const {
       comet,
       users: [alice],
@@ -11,28 +11,28 @@ describe('11. isBorrowCollateralized', function () {
     expect(await comet.isBorrowCollateralized(alice.address)).to.be.true;
   });
 
-  it('is true when user is owed principal', async () => {
+  it("is true when user is owed principal", async () => {
     const {
       comet,
       users: [alice],
-    } = await makeProtocol({ base: 'USDC' });
+    } = await makeProtocol({ base: "USDC" });
     await comet.setBasePrincipal(alice.address, 1_000_000);
 
     expect(await comet.isBorrowCollateralized(alice.address)).to.be.true;
   });
 
-  it('is false when user owes principal', async () => {
+  it("is false when user owes principal", async () => {
     const {
       comet,
       users: [alice],
-    } = await makeProtocol({ base: 'USDC' });
+    } = await makeProtocol({ base: "USDC" });
 
     await comet.setBasePrincipal(alice.address, -1_000_000);
 
     expect(await comet.isBorrowCollateralized(alice.address)).to.be.false;
   });
 
-  it('is true when value of collateral is greater than principal owed', async () => {
+  it("is true when value of collateral is greater than principal owed", async () => {
     const {
       comet,
       tokens,
@@ -58,7 +58,7 @@ describe('11. isBorrowCollateralized', function () {
     expect(await comet.isBorrowCollateralized(alice.address)).to.be.true;
   });
 
-  it('takes borrow collateral factor into account when valuing collateral', async () => {
+  it("takes borrow collateral factor into account when valuing collateral", async () => {
     const {
       comet,
       tokens,
@@ -86,7 +86,7 @@ describe('11. isBorrowCollateralized', function () {
     expect(await comet.isBorrowCollateralized(alice.address)).to.be.false;
   });
 
-  it('changes when the underlying asset price changes', async () => {
+  it("changes when the underlying asset price changes", async () => {
     const {
       comet,
       tokens,
@@ -104,7 +104,7 @@ describe('11. isBorrowCollateralized', function () {
       },
     });
     const { COMP } = tokens;
-    
+
     await COMP.allocateTo(alice.address, exp(1.7, 18));
     await COMP.connect(alice).approve(comet.address, exp(1.7, 18));
     await comet.connect(alice).supply(COMP.address, exp(1.7, 18));

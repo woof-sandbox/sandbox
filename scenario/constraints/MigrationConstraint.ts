@@ -1,17 +1,17 @@
-import { StaticConstraint, Solution, World, debug } from '../../plugins/scenario';
-import { CometContext, MigrationData } from '../context/CometContext';
-import { Migration, loadMigrations, Actions } from '../../plugins/deployment_manager/Migration';
-import { modifiedPaths, subsets } from '../utils';
-import { DeploymentManager } from '../../plugins/deployment_manager';
-import { impersonateAddress } from '../../plugins/scenario/utils';
-import { exp } from '../../test/helper/helpers';
+import { StaticConstraint, Solution, World, debug } from "../../plugins/scenario";
+import { CometContext, MigrationData } from "../context/CometContext";
+import { Migration, loadMigrations, Actions } from "../../plugins/deployment_manager/Migration";
+import { modifiedPaths, subsets } from "../utils";
+import { DeploymentManager } from "../../plugins/deployment_manager";
+import { impersonateAddress } from "../../plugins/scenario/utils";
+import { exp } from "../../test/helper/helpers";
 
 async function getMigrations<T>(world: World): Promise<Migration<T>[]> {
   // TODO: make this configurable from cli params/env var?
   const network = world.deploymentManager.network;
   const deployment = world.deploymentManager.deployment;
   const pattern = new RegExp(`deployments/${network}/${deployment}/migrations/.*.ts`);
-  return await loadMigrations((await modifiedPaths(pattern)).map(p => '../../' + p));
+  return await loadMigrations((await modifiedPaths(pattern)).map(p => "../../" + p));
 }
 
 async function isEnacted<T>(actions: Actions<T>, dm: DeploymentManager, govDm: DeploymentManager): Promise<boolean> {
@@ -26,14 +26,14 @@ export class MigrationConstraint<T extends CometContext> implements StaticConstr
 
     for (const migrationList of migrationPaths) {
       if (migrationList.length == 0 && migrationPaths.length > 1) {
-        if (!process.env['WITHOUT_MIGRATIONS']) {
+        if (!process.env["WITHOUT_MIGRATIONS"]) {
           debug(`${label} Skipping empty migration`);
           continue;
         }
       }
       solutions.push(async function (ctx: T): Promise<T> {
         const govDeploymentManager = ctx.world.auxiliaryDeploymentManager || ctx.world.deploymentManager;
-        const governor = await govDeploymentManager.getContractOrThrow('governor');
+        const governor = await govDeploymentManager.getContractOrThrow("governor");
         const compWhale = (await ctx.getCompWhales())[0];
         const proposer = await impersonateAddress(govDeploymentManager, compWhale, exp(1, 18)); // give them enough ETH to make the proposal
 
@@ -41,10 +41,10 @@ export class MigrationConstraint<T extends CometContext> implements StaticConstr
         govDeploymentManager._signers.unshift(proposer);
 
         // Order migrations deterministically and store in the context (i.e. for verification)
-        const migrations = migrationList.sort((a, b) => a.name.localeCompare(b.name)).map(m => <MigrationData>({ migration: m }));
+        const migrations = migrationList.sort((a, b) => a.name.localeCompare(b.name)).map(m => <MigrationData>{ migration: m });
         ctx.migrations = migrations;
 
-        debug(`${label} Running scenario with migrations: ${JSON.stringify(migrations.map((m) => m.migration.name))}`);
+        debug(`${label} Running scenario with migrations: ${JSON.stringify(migrations.map(m => m.migration.name))}`);
         for (const migrationData of migrations) {
           const migration = migrationData.migration;
           const artifact = await migration.actions.prepare(ctx.world.deploymentManager, govDeploymentManager);

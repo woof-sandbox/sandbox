@@ -1,4 +1,4 @@
-import { expect, exp, makeProtocol } from './helper/helpers';
+import { expect, exp, makeProtocol } from "./helper/helpers";
 
 /*
 Prices are set in terms of the base token (USDC with 6 decimals, by default):
@@ -10,8 +10,8 @@ decimals, by default)
 
 */
 
-describe('10. isLiquidatable', function () {
-  it('defaults to false', async () => {
+describe("10. isLiquidatable", function () {
+  it("defaults to false", async () => {
     const protocol = await makeProtocol();
     const {
       comet,
@@ -20,7 +20,7 @@ describe('10. isLiquidatable', function () {
     expect(await comet.isLiquidatable(alice.address)).to.be.false;
   });
 
-  it('is false when user is owed principal', async () => {
+  it("is false when user is owed principal", async () => {
     const {
       comet,
       users: [alice],
@@ -30,7 +30,7 @@ describe('10. isLiquidatable', function () {
     expect(await comet.isLiquidatable(alice.address)).to.be.false;
   });
 
-  it('is true when user owes principal', async () => {
+  it("is true when user owes principal", async () => {
     const {
       comet,
       users: [alice],
@@ -40,7 +40,7 @@ describe('10. isLiquidatable', function () {
     expect(await comet.isLiquidatable(alice.address)).to.be.true;
   });
 
-  it('is false when collateral can cover the borrowed principal', async () => {
+  it("is false when collateral can cover the borrowed principal", async () => {
     const {
       comet,
       tokens,
@@ -68,7 +68,7 @@ describe('10. isLiquidatable', function () {
     expect(await comet.isLiquidatable(alice.address)).to.be.false;
   });
 
-  it('is true when the collateral cannot cover the borrowed principal', async () => {
+  it("is true when the collateral cannot cover the borrowed principal", async () => {
     const {
       comet,
       tokens,
@@ -93,7 +93,7 @@ describe('10. isLiquidatable', function () {
     expect(await comet.isLiquidatable(alice.address)).to.be.true;
   });
 
-  it('takes liquidateCollateralFactor into account when comparing principal to collateral', async () => {
+  it("takes liquidateCollateralFactor into account when comparing principal to collateral", async () => {
     const {
       comet,
       tokens,
@@ -125,7 +125,7 @@ describe('10. isLiquidatable', function () {
     expect(await comet.isLiquidatable(alice.address)).to.be.true;
   });
 
-  it('changes when the underlying asset price changes', async () => {
+  it("changes when the underlying asset price changes", async () => {
     const {
       comet,
       tokens,
@@ -157,7 +157,7 @@ describe('10. isLiquidatable', function () {
       exp(0.5, 8), // answer
       0, // startedAt
       0, // updatedAt
-      0, // answeredInRound
+      0 // answeredInRound
     );
 
     expect(await comet.isLiquidatable(alice.address)).to.be.true;

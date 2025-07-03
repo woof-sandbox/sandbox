@@ -1,8 +1,15 @@
-import { CometContext, scenario } from './context/CometContext';
-import { expect } from 'chai';
-import { expectApproximately, expectRevertCustom, hasMinBorrowGreaterThanOne, isTriviallySourceable, isValidAssetIndex, MAX_ASSETS } from './utils';
-import { ContractReceipt } from 'ethers';
-import { getConfigForScenario } from './utils/scenarioHelper';
+import { CometContext, scenario } from "./context/CometContext";
+import { expect } from "chai";
+import {
+  expectApproximately,
+  expectRevertCustom,
+  hasMinBorrowGreaterThanOne,
+  isTriviallySourceable,
+  isValidAssetIndex,
+  MAX_ASSETS,
+} from "./utils";
+import { ContractReceipt } from "ethers";
+import { getConfigForScenario } from "./utils/scenarioHelper";
 
 async function testWithdrawCollateral(context: CometContext, assetNum: number): Promise<void | ContractReceipt> {
   const comet = await context.getComet();
@@ -36,7 +43,12 @@ async function testWithdrawFromCollateral(context: CometContext, assetNum: numbe
   await albert.allow(betty, true);
 
   // Betty withdraws 1000 units of collateral from Albert
-  const txn = await betty.withdrawAssetFrom({ src: albert.address, dst: betty.address, asset: collateralAsset.address, amount: 100n * scale });
+  const txn = await betty.withdrawAssetFrom({
+    src: albert.address,
+    dst: betty.address,
+    asset: collateralAsset.address,
+    amount: 100n * scale,
+  });
 
   expect(await collateralAsset.balanceOf(betty.address)).to.be.equal(100n * scale);
   expect(await comet.collateralBalanceOf(albert.address, collateralAsset.address)).to.be.equal(0n);
@@ -49,7 +61,7 @@ for (let i = 0; i < MAX_ASSETS; i++) {
   scenario(
     `Comet#withdraw > collateral asset ${i}`,
     {
-      filter: async (ctx) => await isValidAssetIndex(ctx, i) && await isTriviallySourceable(ctx, i, amountToWithdraw),
+      filter: async ctx => (await isValidAssetIndex(ctx, i)) && (await isTriviallySourceable(ctx, i, amountToWithdraw)),
       cometBalances: {
         albert: { [`$asset${i}`]: amountToWithdraw },
       },
@@ -65,7 +77,7 @@ for (let i = 0; i < MAX_ASSETS; i++) {
   scenario(
     `Comet#withdrawFrom > collateral asset ${i}`,
     {
-      filter: async (ctx) => await isValidAssetIndex(ctx, i) && await isTriviallySourceable(ctx, i, amountToWithdraw),
+      filter: async ctx => (await isValidAssetIndex(ctx, i)) && (await isTriviallySourceable(ctx, i, amountToWithdraw)),
       cometBalances: {
         albert: { [`$asset${i}`]: amountToWithdraw },
       },
@@ -77,10 +89,10 @@ for (let i = 0; i < MAX_ASSETS; i++) {
 }
 
 scenario(
-  'Comet#withdraw > base asset',
+  "Comet#withdraw > base asset",
   {
     tokenBalances: {
-      albert: { $base: '== 0' },
+      albert: { $base: "== 0" },
     },
     cometBalances: {
       albert: { $base: 2 }, // in units of asset, not wei
@@ -103,19 +115,15 @@ scenario(
 );
 
 scenario(
-  'Comet#withdraw > borrow base',
+  "Comet#withdraw > borrow base",
   {
-    tokenBalances: async (ctx) =>  (
-      {
-        albert: { $base: '== 0' },
-        $comet: { $base: getConfigForScenario(ctx).withdrawBase }, // in units of asset, not wei
-      }
-    ),
-    cometBalances: async (ctx) =>  (
-      {
-        albert: { $asset0: getConfigForScenario(ctx).withdrawAsset } // in units of asset, not wei
-      }
-    ),
+    tokenBalances: async ctx => ({
+      albert: { $base: "== 0" },
+      $comet: { $base: getConfigForScenario(ctx).withdrawBase }, // in units of asset, not wei
+    }),
+    cometBalances: async ctx => ({
+      albert: { $asset0: getConfigForScenario(ctx).withdrawAsset }, // in units of asset, not wei
+    }),
   },
   async ({ comet, actors }, context) => {
     const { albert } = actors;
@@ -128,7 +136,10 @@ scenario(
     expect(await comet.balanceOf(albert.address)).to.be.equal(0n);
 
     // Albert borrows 1000 unit of base from Comet
-    const txn = await albert.withdrawAsset({ asset: baseAsset.address, amount: BigInt(getConfigForScenario(context).withdrawBase) * scale });
+    const txn = await albert.withdrawAsset({
+      asset: baseAsset.address,
+      amount: BigInt(getConfigForScenario(context).withdrawBase) * scale,
+    });
 
     expect(await baseAsset.balanceOf(albert.address)).to.be.equal(BigInt(getConfigForScenario(context).withdrawBase) * scale);
     expectApproximately(await albert.getCometBaseBalance(), -BigInt(getConfigForScenario(context).withdrawBase) * scale, precision);
@@ -138,7 +149,7 @@ scenario(
 );
 
 scenario(
-  'Comet#withdrawFrom > base asset',
+  "Comet#withdrawFrom > base asset",
   {
     cometBalances: {
       albert: { $base: 2 }, // in units of asset, not wei
@@ -156,7 +167,12 @@ scenario(
     await albert.allow(betty, true);
 
     // Betty withdraws supplied units of base from Albert
-    const txn = await betty.withdrawAssetFrom({ src: albert.address, dst: betty.address, asset: baseAsset.address, amount: baseSupplied });
+    const txn = await betty.withdrawAssetFrom({
+      src: albert.address,
+      dst: betty.address,
+      asset: baseAsset.address,
+      amount: baseSupplied,
+    });
 
     expect(await baseAsset.balanceOf(betty.address)).to.be.equal(baseSupplied);
     expect(await comet.balanceOf(albert.address)).to.be.lessThan(baseSupplied / 100n);
@@ -166,19 +182,15 @@ scenario(
 );
 
 scenario(
-  'Comet#withdrawFrom > borrow base',
+  "Comet#withdrawFrom > borrow base",
   {
-    tokenBalances: async (ctx) =>  (
-      {
-        albert: { $base: '== 0' },
-        $comet: { $base: getConfigForScenario(ctx).withdrawBase }, // in units of asset, not wei
-      }
-    ),
-    cometBalances: async (ctx) =>  (
-      {
-        albert: { $asset0: getConfigForScenario(ctx).withdrawAsset } // in units of asset, not wei
-      }
-    ),
+    tokenBalances: async ctx => ({
+      albert: { $base: "== 0" },
+      $comet: { $base: getConfigForScenario(ctx).withdrawBase }, // in units of asset, not wei
+    }),
+    cometBalances: async ctx => ({
+      albert: { $asset0: getConfigForScenario(ctx).withdrawAsset }, // in units of asset, not wei
+    }),
   },
   async ({ comet, actors }, context) => {
     const { albert, betty } = actors;
@@ -193,7 +205,12 @@ scenario(
     await albert.allow(betty, true);
 
     // Betty borrows 1000 unit of base using Albert's account
-    const txn = await betty.withdrawAssetFrom({ src: albert.address, dst: betty.address, asset: baseAsset.address, amount: BigInt(getConfigForScenario(context).withdrawBase) * scale });
+    const txn = await betty.withdrawAssetFrom({
+      src: albert.address,
+      dst: betty.address,
+      asset: baseAsset.address,
+      amount: BigInt(getConfigForScenario(context).withdrawBase) * scale,
+    });
 
     expect(await baseAsset.balanceOf(betty.address)).to.be.equal(BigInt(getConfigForScenario(context).withdrawBase) * scale);
     expectApproximately(await albert.getCometBaseBalance(), -BigInt(getConfigForScenario(context).withdrawBase) * scale, precision);
@@ -203,13 +220,13 @@ scenario(
 );
 
 scenario(
-  'Comet#withdrawFrom reverts if operator not given permission',
+  "Comet#withdrawFrom reverts if operator not given permission",
   {
     tokenBalances: {
       $comet: { $base: 100 }, // in units of asset, not wei
     },
     cometBalances: {
-      albert: { $asset0: 100 } // in units of asset, not wei
+      albert: { $asset0: 100 }, // in units of asset, not wei
     },
   },
   async ({ comet, actors }, context) => {
@@ -226,13 +243,13 @@ scenario(
         asset: baseAsset.address,
         amount: 1n * scale,
       }),
-      'Unauthorized()'
+      "Unauthorized()"
     );
   }
 );
 
 scenario(
-  'Comet#withdraw reverts when withdraw is paused',
+  "Comet#withdraw reverts when withdraw is paused",
   {
     pause: {
       withdrawPaused: true,
@@ -247,13 +264,13 @@ scenario(
         asset: baseToken,
         amount: 100,
       }),
-      'Paused()'
+      "Paused()"
     );
   }
 );
 
 scenario(
-  'Comet#withdrawFrom reverts when withdraw is paused',
+  "Comet#withdrawFrom reverts when withdraw is paused",
   {
     pause: {
       withdrawPaused: true,
@@ -273,13 +290,13 @@ scenario(
         asset: baseToken,
         amount: 100,
       }),
-      'Paused()'
+      "Paused()"
     );
   }
 );
 
 scenario(
-  'Comet#withdraw base reverts if position is undercollateralized',
+  "Comet#withdraw base reverts if position is undercollateralized",
   {
     cometBalances: {
       albert: { $base: 0 }, // in units of asset, not wei
@@ -297,13 +314,13 @@ scenario(
         asset: baseAsset.address,
         amount: 1000n * scale,
       }),
-      'NotCollateralized()'
+      "NotCollateralized()"
     );
   }
 );
 
 scenario(
-  'Comet#withdraw collateral reverts if position is undercollateralized',
+  "Comet#withdraw collateral reverts if position is undercollateralized",
   {
     cometBalances: {
       albert: { $base: -1000, $asset0: 1000 }, // in units of asset, not wei
@@ -318,20 +335,20 @@ scenario(
     await expectRevertCustom(
       albert.withdrawAsset({
         asset: collateralAsset.address,
-        amount: 1000n * scale
+        amount: 1000n * scale,
       }),
-      'NotCollateralized()'
+      "NotCollateralized()"
     );
   }
 );
 
 scenario(
-  'Comet#withdraw reverts if borrow is less than minimum borrow',
+  "Comet#withdraw reverts if borrow is less than minimum borrow",
   {
-    filter: async (ctx) => await hasMinBorrowGreaterThanOne(ctx),
+    filter: async ctx => await hasMinBorrowGreaterThanOne(ctx),
     cometBalances: {
-      albert: { $base: 0, $asset0: 100 }
-    }
+      albert: { $base: 0, $asset0: 100 },
+    },
   },
   async ({ comet, actors }, context) => {
     const { albert } = actors;
@@ -342,25 +359,17 @@ scenario(
     await expectRevertCustom(
       albert.withdrawAsset({
         asset: baseAsset.address,
-        amount: minBorrow / 2n
+        amount: minBorrow / 2n,
       }),
-      'BorrowTooSmall()'
+      "BorrowTooSmall()"
     );
   }
 );
 
-scenario.skip(
-  'Comet#withdraw reverts if asset is not supported',
-  {},
-  async () => {
-    // XXX requires deploying an unsupported asset (maybe via remote token constraint)
-  }
-);
+scenario.skip("Comet#withdraw reverts if asset is not supported", {}, async () => {
+  // XXX requires deploying an unsupported asset (maybe via remote token constraint)
+});
 
-scenario.skip(
-  'Comet#withdraw reverts if not enough asset in protocol',
-  {},
-  async () => {
-    // XXX fix for development base, where Faucet token doesn't give the same revert message
-  }
-);
+scenario.skip("Comet#withdraw reverts if not enough asset in protocol", {}, async () => {
+  // XXX fix for development base, where Faucet token doesn't give the same revert message
+});

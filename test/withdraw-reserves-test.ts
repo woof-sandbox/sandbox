@@ -1,7 +1,7 @@
-import { event, expect, makeProtocol, setTotalsBasic, wait } from './helper/helpers';
+import { event, expect, makeProtocol, setTotalsBasic, wait } from "./helper/helpers";
 
-describe.skip('withdrawReserves', function () {
-  it('withdraws reserves from the protocol', async () => {
+describe.skip("withdrawReserves", function () {
+  it("withdraws reserves from the protocol", async () => {
     const tokenBalance = 1000n;
     const {
       comet,
@@ -24,27 +24,25 @@ describe.skip('withdrawReserves', function () {
         from: comet.address,
         to: alice.address,
         amount: tokenBalance,
-      }
+      },
     });
     expect(event(tx, 1)).to.be.deep.equal({
       WithdrawReserves: {
         to: alice.address,
         amount: tokenBalance,
-      }
+      },
     });
   });
 
-  it('reverts if called not by governor', async () => {
+  it("reverts if called not by governor", async () => {
     const {
       comet,
       users: [alice],
     } = await makeProtocol();
-    await expect(comet.connect(alice).withdrawReserves(alice.address, 10)).to.be.revertedWith(
-      "custom error 'Unauthorized()'"
-    );
+    await expect(comet.connect(alice).withdrawReserves(alice.address, 10)).to.be.revertedWith("custom error 'Unauthorized()'");
   });
 
-  it('reverts if not enough reserves are owned by protocol', async () => {
+  it("reverts if not enough reserves are owned by protocol", async () => {
     const tokenBalance = 1000;
     const {
       comet,
@@ -53,12 +51,12 @@ describe.skip('withdrawReserves', function () {
     } = await makeProtocol({
       baseTokenBalance: tokenBalance,
     });
-    await expect(
-      comet.connect(governor).withdrawReserves(alice.address, tokenBalance + 1)
-    ).to.be.revertedWith("custom error 'InsufficientReserves()'");
+    await expect(comet.connect(governor).withdrawReserves(alice.address, tokenBalance + 1)).to.be.revertedWith(
+      "custom error 'InsufficientReserves()'"
+    );
   });
 
-  it('accounts for total supply base when calculating reserves', async () => {
+  it("accounts for total supply base when calculating reserves", async () => {
     const {
       comet,
       governor,
@@ -74,12 +72,10 @@ describe.skip('withdrawReserves', function () {
 
     expect(await comet.getReserves()).to.be.equal(100);
 
-    await expect(comet.connect(governor).withdrawReserves(alice.address, 101)).to.be.revertedWith(
-      "custom error 'InsufficientReserves()'"
-    );
+    await expect(comet.connect(governor).withdrawReserves(alice.address, 101)).to.be.revertedWith("custom error 'InsufficientReserves()'");
   });
 
-  it('reverts if negative reserves', async () => {
+  it("reverts if negative reserves", async () => {
     const {
       comet,
       governor,
@@ -95,8 +91,6 @@ describe.skip('withdrawReserves', function () {
 
     expect(await comet.getReserves()).to.be.equal(-100);
 
-    await expect(comet.connect(governor).withdrawReserves(alice.address, 100)).to.be.revertedWith(
-      "custom error 'InsufficientReserves()'"
-    );
+    await expect(comet.connect(governor).withdrawReserves(alice.address, 100)).to.be.revertedWith("custom error 'InsufficientReserves()'");
   });
 });

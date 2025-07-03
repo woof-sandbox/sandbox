@@ -6,22 +6,16 @@ pragma solidity 0.8.28;
  * Note This is Chainlink's AggregatorV3Interface, but without the `getRoundData` function.
  */
 interface IPriceFeed {
-  function underlyingToken() external view returns (address);
-  
-  function decimals() external view returns (uint8);
+    function underlyingToken() external view returns (address);
 
-  function description() external view returns (string memory);
+    function decimals() external view returns (uint8);
 
-  function version() external view returns (uint256);
+    function description() external view returns (string memory);
 
-  function latestRoundData()
-    external
-    view
-    returns (
-      uint80 roundId,
-      int256 answer,
-      uint256 startedAt,
-      uint256 updatedAt,
-      uint80 answeredInRound
-    );
+    function version() external view returns (uint256);
+
+    function latestRoundData()
+        external
+        view
+        returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound);
 }

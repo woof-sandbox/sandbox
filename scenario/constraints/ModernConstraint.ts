@@ -1,8 +1,8 @@
-import { Constraint } from '../../plugins/scenario';
-import { Solution } from '../../plugins/scenario/Scenario';
-import { CometContext } from '../context/CometContext';
-import { getFuzzedRequirements } from './Fuzzing';
-import { Requirements } from './Requirements';
+import { Constraint } from "../../plugins/scenario";
+import { Solution } from "../../plugins/scenario/Scenario";
+import { CometContext } from "../context/CometContext";
+import { getFuzzedRequirements } from "./Fuzzing";
+import { Requirements } from "./Requirements";
 
 export class ModernConstraint<T extends CometContext, R extends Requirements> implements Constraint<T, R> {
   async solve(requirements: R, _context: T) {
@@ -13,7 +13,7 @@ export class ModernConstraint<T extends CometContext, R extends Requirements> im
         solutions.push(async function solution(ctx: T): Promise<T> {
           const current = await ctx.getConfiguration();
           const upgrade = Object.assign({}, current, req.upgrade);
-          return await ctx.upgrade(upgrade) as T; // It's been modified
+          return (await ctx.upgrade(upgrade)) as T; // It's been modified
         });
       }
     }

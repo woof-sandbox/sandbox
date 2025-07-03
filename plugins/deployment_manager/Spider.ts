@@ -1,7 +1,7 @@
-import { Contract, constants } from 'ethers';
-import { HardhatRuntimeEnvironment as HRE } from 'hardhat/types';
+import { Contract, constants } from "ethers";
+import { HardhatRuntimeEnvironment as HRE } from "hardhat/types";
 
-import { Cache } from './Cache';
+import { Cache } from "./Cache";
 import {
   Ctx,
   AliasRender,
@@ -12,13 +12,13 @@ import {
   getFieldKey,
   readAlias,
   readField,
-} from './RelationConfig';
-import { Address, Alias, BuildFile, TraceFn } from './Types';
-import { Aliases } from './Aliases';
-import { ContractMap } from './ContractMap';
-import { Roots } from './Roots';
-import { asArray, debug, getEthersContract, mergeContracts } from './Utils';
-import { fetchAndCacheContract, readContract } from './Import';
+} from "./RelationConfig";
+import { Address, Alias, BuildFile, TraceFn } from "./Types";
+import { Aliases } from "./Aliases";
+import { ContractMap } from "./ContractMap";
+import { Roots } from "./Roots";
+import { asArray, debug, getEthersContract, mergeContracts } from "./Utils";
+import { fetchAndCacheContract, readContract } from "./Import";
 
 export interface Spider {
   roots: Roots;
@@ -71,7 +71,7 @@ async function discoverNodes(
 }
 
 async function isContract(hre: HRE, address: string) {
-  return await hre.ethers.provider.getCode(address) !== '0x';
+  return (await hre.ethers.provider.getCode(address)) !== "0x";
 }
 
 async function localBuild(cache: Cache, hre: HRE, artifact: string, network: string, address: Address): Promise<Build> {
@@ -110,17 +110,7 @@ async function crawl(
         const implAliasTemplate = `${alias}:implementation`;
         const implNodes = await discoverNodes(path, contract, context, config.delegates, implAliasTemplate);
         for (const implNode of implNodes) {
-          const implAlias = await crawl(
-            cache,
-            network,
-            hre,
-            relations,
-            implNode,
-            context,
-            aliases,
-            contracts,
-            trace
-          );
+          const implAlias = await crawl(cache, network, hre, relations, implNode, context, aliases, contracts, trace);
           const implContract = contracts.get(implAlias);
           if (!implContract) {
             throw new Error(`Failed to crawl ${implAlias} at ${implNode.address}`);
@@ -142,17 +132,7 @@ async function crawl(
         for (const [subKey, subConfig] of Object.entries(config.relations)) {
           const subNodes = await discoverNodes(path, contract, context, subConfig, subKey);
           for (const subNode of subNodes) {
-            const subAlias = await crawl(
-              cache,
-              network,
-              hre,
-              relations,
-              subNode,
-              context,
-              aliases,
-              contracts,
-              trace
-            );
+            const subAlias = await crawl(cache, network, hre, relations, subNode, context, aliases, contracts, trace);
 
             // Add the aliasTemplate in place to the relative context
             (context[subKey] = context[subKey] || []).push(contracts.get(subAlias));

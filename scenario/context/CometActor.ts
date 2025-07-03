@@ -1,17 +1,17 @@
-import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
-import { BigNumberish, Signature, ethers, ContractReceipt, Overrides, PayableOverrides } from 'ethers';
-import { CometContext } from './CometContext';
-import { AddressLike, resolveAddress } from './Address';
-import { ERC20__factory } from '../../build/types';
-import { baseBalanceOf } from '../../test/helper/helpers';
+import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
+import { BigNumberish, Signature, ethers, ContractReceipt, Overrides, PayableOverrides } from "ethers";
+import { CometContext } from "./CometContext";
+import { AddressLike, resolveAddress } from "./Address";
+import { ERC20__factory } from "../../build/types";
+import { baseBalanceOf } from "../../test/helper/helpers";
 
 const types = {
   Authorization: [
-    { name: 'owner', type: 'address' },
-    { name: 'manager', type: 'address' },
-    { name: 'isAllowed', type: 'bool' },
-    { name: 'nonce', type: 'uint256' },
-    { name: 'expiry', type: 'uint256' },
+    { name: "owner", type: "address" },
+    { name: "manager", type: "address" },
+    { name: "isAllowed", type: "bool" },
+    { name: "nonce", type: "uint256" },
+    { name: "expiry", type: "uint256" },
   ],
 };
 
@@ -25,12 +25,7 @@ export default class CometActor {
   address: string;
   context: CometContext;
 
-  constructor(
-    name: string,
-    signer: SignerWithAddress,
-    address: string,
-    context: CometContext,
-  ) {
+  constructor(name: string, signer: SignerWithAddress, address: string, context: CometContext) {
     this.name = name;
     this.signer = signer;
     this.address = address;
@@ -74,7 +69,7 @@ export default class CometActor {
   }
 
   async allow(manager: CometActor | string, isAllowed: boolean): Promise<ContractReceipt> {
-    if (typeof manager !== 'string') manager = manager.address;
+    if (typeof manager !== "string") manager = manager.address;
     const comet = await this.context.getComet();
     return await (await comet.connect(this.signer).allow(manager, isAllowed)).wait();
   }
@@ -167,9 +162,9 @@ export default class CometActor {
     signature: Signature;
   }): Promise<ContractReceipt> {
     const comet = await this.context.getComet();
-    return await (await comet
-      .connect(this.signer)
-      .allowBySig(owner, manager, isAllowed, nonce, expiry, signature.v, signature.r, signature.s)).wait();
+    return await (
+      await comet.connect(this.signer).allowBySig(owner, manager, isAllowed, nonce, expiry, signature.v, signature.r, signature.s)
+    ).wait();
   }
 
   async invoke({ actions, calldata }, overrides?: PayableOverrides): Promise<ContractReceipt> {
@@ -184,19 +179,13 @@ export default class CometActor {
     return await (await comet.connect(this.signer).withdrawReserves(to, amount, { ...overrides })).wait();
   }
 
-  async pause({
-    supplyPaused = false,
-    transferPaused = false,
-    withdrawPaused = false,
-    absorbPaused = false,
-    buyPaused = false,
-  }, overrides?: Overrides
+  async pause(
+    { supplyPaused = false, transferPaused = false, withdrawPaused = false, absorbPaused = false, buyPaused = false },
+    overrides?: Overrides
   ): Promise<ContractReceipt> {
     const comet = await this.context.getComet();
     return await (
-      await comet
-        .connect(this.signer)
-        .pause(supplyPaused, transferPaused, withdrawPaused, absorbPaused, buyPaused, { ...overrides })
+      await comet.connect(this.signer).pause(supplyPaused, transferPaused, withdrawPaused, absorbPaused, buyPaused, { ...overrides })
     ).wait();
   }
 

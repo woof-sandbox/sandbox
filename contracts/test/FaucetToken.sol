@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
-import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 /**
  * @title The Compound Faucet Test Token
@@ -30,9 +30,5 @@ contract FaucetToken is ERC20 {
         _mint(_owner, value);
     }
 
-    function _spendAllowance(
-        address owner,
-        address spender,
-        uint256 value
-    ) internal override {}
+    function _spendAllowance(address owner, address spender, uint256 value) internal override {}
 }

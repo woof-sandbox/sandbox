@@ -1,10 +1,21 @@
-import { CometContext, scenario } from './context/CometContext';
-import { expect } from 'chai';
-import { expectApproximately, expectBase, expectRevertCustom, expectRevertMatches, getExpectedBaseBalance, getInterest, isTriviallySourceable, isValidAssetIndex, MAX_ASSETS, UINT256_MAX } from './utils';
-import { ContractReceipt } from 'ethers';
-import { matchesDeployment } from './utils';
-import { exp } from '../test/helper/helpers';
-import { ethers } from 'hardhat';
+import { CometContext, scenario } from "./context/CometContext";
+import { expect } from "chai";
+import {
+  expectApproximately,
+  expectBase,
+  expectRevertCustom,
+  expectRevertMatches,
+  getExpectedBaseBalance,
+  getInterest,
+  isTriviallySourceable,
+  isValidAssetIndex,
+  MAX_ASSETS,
+  UINT256_MAX,
+} from "./utils";
+import { ContractReceipt } from "ethers";
+import { matchesDeployment } from "./utils";
+import { exp } from "../test/helper/helpers";
+import { ethers } from "hardhat";
 
 // XXX introduce a SupplyCapConstraint to separately test the happy path and revert path instead
 // of testing them conditionally
@@ -27,7 +38,7 @@ async function testSupplyCollateral(context: CometContext, assetNum: number): Pr
         asset: collateralAsset.address,
         amount: 100n * scale,
       }),
-      'SupplyCapExceeded()'
+      "SupplyCapExceeded()"
     );
   } else {
     // Albert supplies 100 units of collateral to Comet
@@ -62,11 +73,16 @@ async function testSupplyFromCollateral(context: CometContext, assetNum: number)
         asset: collateralAsset.address,
         amount: toSupply,
       }),
-      'SupplyCapExceeded()'
+      "SupplyCapExceeded()"
     );
   } else {
     // Betty supplies 100 units of collateral from Albert
-    const txn = await betty.supplyAssetFrom({ src: albert.address, dst: betty.address, asset: collateralAsset.address, amount: toSupply });
+    const txn = await betty.supplyAssetFrom({
+      src: albert.address,
+      dst: betty.address,
+      asset: collateralAsset.address,
+      amount: toSupply,
+    });
 
     expect(await collateralAsset.balanceOf(albert.address)).to.be.equal(0n);
     expect(await comet.collateralBalanceOf(betty.address, collateralAsset.address)).to.be.equal(toSupply);
@@ -83,7 +99,7 @@ for (let i = 0; i < MAX_ASSETS; i++) {
       // XXX Unfortunately, the filtering step happens before solutions are run, so this will filter out
       // hypothetical assets added during the migration/proposal constraint because those assets don't exist
       // yet
-      filter: async (ctx) => await isValidAssetIndex(ctx, i) && await isTriviallySourceable(ctx, i, amountToSupply),
+      filter: async ctx => (await isValidAssetIndex(ctx, i)) && (await isTriviallySourceable(ctx, i, amountToSupply)),
       tokenBalances: {
         albert: { [`$asset${i}`]: amountToSupply },
       },
@@ -99,7 +115,7 @@ for (let i = 0; i < MAX_ASSETS; i++) {
   scenario(
     `Comet#supplyFrom > collateral asset ${i}`,
     {
-      filter: async (ctx) => await isValidAssetIndex(ctx, i) && await isTriviallySourceable(ctx, i, amountToSupply),
+      filter: async ctx => (await isValidAssetIndex(ctx, i)) && (await isTriviallySourceable(ctx, i, amountToSupply)),
       tokenBalances: {
         albert: { [`$asset${i}`]: amountToSupply },
       },
@@ -111,7 +127,7 @@ for (let i = 0; i < MAX_ASSETS; i++) {
 }
 
 scenario(
-  'Comet#supply > base asset',
+  "Comet#supply > base asset",
   {
     tokenBalances: {
       albert: { $base: 100 }, // in units of asset, not wei
@@ -140,23 +156,23 @@ scenario(
 );
 
 scenario(
-  'Comet#supply > base asset with token fees',
+  "Comet#supply > base asset with token fees",
   {
     tokenBalances: {
       albert: { $base: 1000 }, // in units of asset, not wei
     },
-    filter: async (ctx) => matchesDeployment(ctx, [{ network: 'mainnet', deployment: 'usdt' }])
+    filter: async ctx => matchesDeployment(ctx, [{ network: "mainnet", deployment: "usdt" }]),
   },
   async ({ comet, actors }, context, world) => {
     // Set fees for USDT for testing
-    const USDT = await world.deploymentManager.existing('USDT', await comet.baseToken(), world.base.network);
+    const USDT = await world.deploymentManager.existing("USDT", await comet.baseToken(), world.base.network);
     const USDTAdminAddress = await USDT.owner();
-    await world.deploymentManager.hre.network.provider.send('hardhat_setBalance', [
+    await world.deploymentManager.hre.network.provider.send("hardhat_setBalance", [
       USDTAdminAddress,
-      ethers.utils.hexStripZeros(ethers.utils.parseEther('100').toHexString()),
+      ethers.utils.hexStripZeros(ethers.utils.parseEther("100").toHexString()),
     ]);
     await world.deploymentManager.hre.network.provider.request({
-      method: 'hardhat_impersonateAccount',
+      method: "hardhat_impersonateAccount",
       params: [USDTAdminAddress],
     });
     // mine a block to ensure the impersonation is effective
@@ -186,13 +202,13 @@ scenario(
 );
 
 scenario(
-  'Comet#supply > repay borrow',
+  "Comet#supply > repay borrow",
   {
     tokenBalances: {
-      albert: { $base: '==1000' }
+      albert: { $base: "==1000" },
     },
     cometBalances: {
-      albert: { $base: -1000 } // in units of asset, not wei
+      albert: { $base: -1000 }, // in units of asset, not wei
     },
   },
   async ({ comet, actors }, context) => {
@@ -217,26 +233,26 @@ scenario(
 );
 
 scenario(
-  'Comet#supply > repay borrow with token fees',
+  "Comet#supply > repay borrow with token fees",
   {
     tokenBalances: {
-      albert: { $base: '==1000' }
+      albert: { $base: "==1000" },
     },
     cometBalances: {
-      albert: { $base: -1000 } // in units of asset, not wei
+      albert: { $base: -1000 }, // in units of asset, not wei
     },
-    filter: async (ctx) => matchesDeployment(ctx, [{ network: 'mainnet', deployment: 'usdt' }]),
+    filter: async ctx => matchesDeployment(ctx, [{ network: "mainnet", deployment: "usdt" }]),
   },
   async ({ comet, actors }, context, world) => {
     // Set fees for USDT for testing
-    const USDT = await world.deploymentManager.existing('USDT', await comet.baseToken(), world.base.network);
+    const USDT = await world.deploymentManager.existing("USDT", await comet.baseToken(), world.base.network);
     const USDTAdminAddress = await USDT.owner();
-    await world.deploymentManager.hre.network.provider.send('hardhat_setBalance', [
+    await world.deploymentManager.hre.network.provider.send("hardhat_setBalance", [
       USDTAdminAddress,
-      ethers.utils.hexStripZeros(ethers.utils.parseEther('100').toHexString()),
+      ethers.utils.hexStripZeros(ethers.utils.parseEther("100").toHexString()),
     ]);
     await world.deploymentManager.hre.network.provider.request({
-      method: 'hardhat_impersonateAccount',
+      method: "hardhat_impersonateAccount",
       params: [USDTAdminAddress],
     });
     // mine a block to ensure the impersonation is effective
@@ -266,26 +282,26 @@ scenario(
 );
 
 scenario(
-  'Comet#supply > repay all borrow with token fees',
+  "Comet#supply > repay all borrow with token fees",
   {
     tokenBalances: {
-      albert: { $base: '==1000' }
+      albert: { $base: "==1000" },
     },
     cometBalances: {
-      albert: { $base: -999 } // in units of asset, not wei
+      albert: { $base: -999 }, // in units of asset, not wei
     },
-    filter: async (ctx) => matchesDeployment(ctx, [{ network: 'mainnet', deployment: 'usdt' }]),
+    filter: async ctx => matchesDeployment(ctx, [{ network: "mainnet", deployment: "usdt" }]),
   },
   async ({ comet, actors }, context, world) => {
     // Set fees for USDT for testing
-    const USDT = await world.deploymentManager.existing('USDT', await comet.baseToken(), world.base.network);
+    const USDT = await world.deploymentManager.existing("USDT", await comet.baseToken(), world.base.network);
     const USDTAdminAddress = await USDT.owner();
-    await world.deploymentManager.hre.network.provider.send('hardhat_setBalance', [
+    await world.deploymentManager.hre.network.provider.send("hardhat_setBalance", [
       USDTAdminAddress,
-      ethers.utils.hexStripZeros(ethers.utils.parseEther('100').toHexString()),
+      ethers.utils.hexStripZeros(ethers.utils.parseEther("100").toHexString()),
     ]);
     await world.deploymentManager.hre.network.provider.request({
-      method: 'hardhat_impersonateAccount',
+      method: "hardhat_impersonateAccount",
       params: [USDTAdminAddress],
     });
     // mine a block to ensure the impersonation is effective
@@ -315,7 +331,7 @@ scenario(
 );
 
 scenario(
-  'Comet#supplyFrom > base asset',
+  "Comet#supplyFrom > base asset",
   {
     tokenBalances: {
       albert: { $base: 100 }, // in units of asset, not wei
@@ -334,7 +350,12 @@ scenario(
     await albert.allow(betty, true);
 
     // Betty supplies 100 units of base from Albert
-    const txn = await betty.supplyAssetFrom({ src: albert.address, dst: betty.address, asset: baseAsset.address, amount: 100n * scale });
+    const txn = await betty.supplyAssetFrom({
+      src: albert.address,
+      dst: betty.address,
+      asset: baseAsset.address,
+      amount: 100n * scale,
+    });
 
     const baseIndexScale = (await comet.baseIndexScale()).toBigInt();
     const baseSupplyIndex = (await comet.totalsBasic()).baseSupplyIndex.toBigInt();
@@ -348,23 +369,23 @@ scenario(
 );
 
 scenario(
-  'Comet#supplyFrom > base asset with token fees',
+  "Comet#supplyFrom > base asset with token fees",
   {
     tokenBalances: {
       albert: { $base: 1000 }, // in units of asset, not wei
     },
-    filter: async (ctx) => matchesDeployment(ctx, [{ network: 'mainnet', deployment: 'usdt' }]),
+    filter: async ctx => matchesDeployment(ctx, [{ network: "mainnet", deployment: "usdt" }]),
   },
   async ({ comet, actors }, context, world) => {
     // Set fees for USDT for testing
-    const USDT = await world.deploymentManager.existing('USDT', await comet.baseToken(), world.base.network);
+    const USDT = await world.deploymentManager.existing("USDT", await comet.baseToken(), world.base.network);
     const USDTAdminAddress = await USDT.owner();
-    await world.deploymentManager.hre.network.provider.send('hardhat_setBalance', [
+    await world.deploymentManager.hre.network.provider.send("hardhat_setBalance", [
       USDTAdminAddress,
-      ethers.utils.hexStripZeros(ethers.utils.parseEther('100').toHexString()),
+      ethers.utils.hexStripZeros(ethers.utils.parseEther("100").toHexString()),
     ]);
     await world.deploymentManager.hre.network.provider.request({
-      method: 'hardhat_impersonateAccount',
+      method: "hardhat_impersonateAccount",
       params: [USDTAdminAddress],
     });
     // mine a block to ensure the impersonation is effective
@@ -384,7 +405,12 @@ scenario(
     await albert.allow(betty, true);
 
     // Betty supplies 1000 units of base from Albert
-    const txn = await betty.supplyAssetFrom({ src: albert.address, dst: betty.address, asset: baseAsset.address, amount: 1000n * scale });
+    const txn = await betty.supplyAssetFrom({
+      src: albert.address,
+      dst: betty.address,
+      asset: baseAsset.address,
+      amount: 1000n * scale,
+    });
 
     const baseIndexScale = (await comet.baseIndexScale()).toBigInt();
     const baseSupplyIndex = (await comet.totalsBasic()).baseSupplyIndex.toBigInt();
@@ -398,13 +424,13 @@ scenario(
 );
 
 scenario(
-  'Comet#supplyFrom > repay borrow',
+  "Comet#supplyFrom > repay borrow",
   {
     tokenBalances: {
-      albert: { $base: 1010 }
+      albert: { $base: 1010 },
     },
     cometBalances: {
-      betty: { $base: '<= -1000' } // in units of asset, not wei
+      betty: { $base: "<= -1000" }, // in units of asset, not wei
     },
   },
   async ({ comet, actors }, context) => {
@@ -417,7 +443,12 @@ scenario(
     await albert.allow(betty, true);
 
     // Betty supplies max base from Albert to repay all borrows
-    const txn = await betty.supplyAssetFrom({ src: albert.address, dst: betty.address, asset: baseAsset.address, amount: UINT256_MAX });
+    const txn = await betty.supplyAssetFrom({
+      src: albert.address,
+      dst: betty.address,
+      asset: baseAsset.address,
+      amount: UINT256_MAX,
+    });
 
     expect(await baseAsset.balanceOf(albert.address)).to.be.lessThan(10n * scale);
     expectBase(await betty.getCometBaseBalance(), 0n);
@@ -427,7 +458,7 @@ scenario(
 );
 
 scenario(
-  'Comet#supply reverts if not enough ERC20 approval',
+  "Comet#supply reverts if not enough ERC20 approval",
   {
     tokenBalances: {
       albert: { $base: 100 }, // in units of asset, not wei
@@ -450,7 +481,7 @@ scenario(
 );
 
 scenario(
-  'Comet#supplyFrom reverts if not enough ERC20 base approval',
+  "Comet#supplyFrom reverts if not enough ERC20 base approval",
   {
     tokenBalances: {
       albert: { $base: 100 }, // in units of asset, not wei
@@ -478,7 +509,7 @@ scenario(
 );
 
 scenario(
-  'Comet#supplyFrom reverts if not enough ERC20 collateral approval',
+  "Comet#supplyFrom reverts if not enough ERC20 collateral approval",
   {
     tokenBalances: {
       albert: { $asset0: 100 }, // in units of asset, not wei
@@ -506,19 +537,19 @@ scenario(
         /ERC20: insufficient allowance/,
         /transfer amount exceeds spender allowance/,
         /Dai\/insufficient-allowance/,
-        symbol === 'WETH' ? /Transaction reverted without a reason string/ : /.^/,
-        symbol === 'wstETH' ? /0xc2139725/ : /.^/,
-        symbol === 'WMATIC' ? /Transaction reverted without a reason string/ : /.^/,
-        symbol === 'WPOL' ? /Transaction reverted without a reason string/ : /.^/,
-        symbol === 'sUSDS' ? /SUsds\/insufficient-allowance/ : /.^/,
-        symbol === 'COMP' ? /Transaction reverted and Hardhat couldn't infer the reason./ : /.^/,
+        symbol === "WETH" ? /Transaction reverted without a reason string/ : /.^/,
+        symbol === "wstETH" ? /0xc2139725/ : /.^/,
+        symbol === "WMATIC" ? /Transaction reverted without a reason string/ : /.^/,
+        symbol === "WPOL" ? /Transaction reverted without a reason string/ : /.^/,
+        symbol === "sUSDS" ? /SUsds\/insufficient-allowance/ : /.^/,
+        symbol === "COMP" ? /Transaction reverted and Hardhat couldn't infer the reason./ : /.^/,
       ]
     );
   }
 );
 
 scenario(
-  'Comet#supply reverts if not enough ERC20 balance',
+  "Comet#supply reverts if not enough ERC20 balance",
   {
     tokenBalances: {
       albert: { $base: 10 }, // in units of asset, not wei
@@ -542,7 +573,7 @@ scenario(
 );
 
 scenario(
-  'Comet#supplyFrom reverts if not enough ERC20 base balance',
+  "Comet#supplyFrom reverts if not enough ERC20 base balance",
   {
     tokenBalances: {
       albert: { $base: 10 }, // in units of asset, not wei
@@ -569,7 +600,7 @@ scenario(
 );
 
 scenario(
-  'Comet#supplyFrom reverts if not enough ERC20 collateral balance',
+  "Comet#supplyFrom reverts if not enough ERC20 collateral balance",
   {
     tokenBalances: {
       albert: { $asset0: 10 }, // in units of asset, not wei
@@ -595,18 +626,18 @@ scenario(
       [
         /transfer amount exceeds balance/,
         /Dai\/insufficient-balance/,
-        symbol === 'WETH' ? /Transaction reverted without a reason string/ : /.^/,
-        symbol === 'wstETH' ? /0x00b284f2/ : /.^/,
-        symbol === 'WMATIC' ? /Transaction reverted without a reason string/ : /.^/,
-        symbol === 'WPOL' ? /Transaction reverted without a reason string/ : /.^/,
-        symbol === 'sUSDS' ? /SUsds\/insufficient-balance/ : /.^/,
+        symbol === "WETH" ? /Transaction reverted without a reason string/ : /.^/,
+        symbol === "wstETH" ? /0x00b284f2/ : /.^/,
+        symbol === "WMATIC" ? /Transaction reverted without a reason string/ : /.^/,
+        symbol === "WPOL" ? /Transaction reverted without a reason string/ : /.^/,
+        symbol === "sUSDS" ? /SUsds\/insufficient-balance/ : /.^/,
       ]
     );
   }
 );
 
 scenario(
-  'Comet#supplyFrom reverts if operator not given permission',
+  "Comet#supplyFrom reverts if operator not given permission",
   {
     tokenBalances: {
       albert: { $asset0: 100 }, // in units of asset, not wei
@@ -626,13 +657,13 @@ scenario(
         asset: baseAsset.address,
         amount: 100n * scale,
       }),
-      'Unauthorized()'
+      "Unauthorized()"
     );
   }
 );
 
 scenario(
-  'Comet#supply reverts when supply is paused',
+  "Comet#supply reverts when supply is paused",
   {
     pause: {
       supplyPaused: true,
@@ -648,13 +679,13 @@ scenario(
         asset: baseToken,
         amount: 100,
       }),
-      'Paused()'
+      "Paused()"
     );
   }
 );
 
 scenario(
-  'Comet#supplyFrom reverts when supply is paused',
+  "Comet#supplyFrom reverts when supply is paused",
   {
     pause: {
       supplyPaused: true,
@@ -674,17 +705,13 @@ scenario(
         asset: baseToken,
         amount: 100,
       }),
-      'Paused()'
+      "Paused()"
     );
   }
 );
 
-scenario(
-  'Comet#supply reverts if asset is not supported',
-  {},
-  async () => {
-    // XXX requires deploying an unsupported asset (maybe via remote token constraint)
-  }
-);
+scenario("Comet#supply reverts if asset is not supported", {}, async () => {
+  // XXX requires deploying an unsupported asset (maybe via remote token constraint)
+});
 
 // XXX enforce supply cap

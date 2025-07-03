@@ -53,7 +53,13 @@ contract PriceFeedWith4626Support is IPriceFeed {
      * @param description_ The description of the price feed
      * @param underlyingToken_ The address of the underlying token
      **/
-    constructor(address rateProvider_, address underlyingPriceFeed_, uint8 decimals_, string memory description_, address underlyingToken_) {
+    constructor(
+        address rateProvider_,
+        address underlyingPriceFeed_,
+        uint8 decimals_,
+        string memory description_,
+        address underlyingToken_
+    ) {
         rateProvider = rateProvider_;
         underlyingPriceFeed = underlyingPriceFeed_;
         rateProviderDecimals = IERC4626(rateProvider_).decimals();
@@ -75,13 +81,15 @@ contract PriceFeedWith4626Support is IPriceFeed {
      * @return updatedAt Timestamp when the round was last updated; passed on from the underlying asset price feed
      * @return answeredInRound Round id in which the answer was computed; passed on from the underlying asset price feed
      **/
-    function latestRoundData() override external view returns (uint80, int256, uint256, uint256, uint80) {
-        uint256 rate = IERC4626(rateProvider).convertToAssets(10**rateProviderDecimals);
-        (uint80 roundId_, int256 underlyingPrice, uint256 startedAt_, uint256 updatedAt_, uint80 answeredInRound_) = AggregatorV3Interface(underlyingPriceFeed).latestRoundData();
+    function latestRoundData() external view override returns (uint80, int256, uint256, uint256, uint80) {
+        uint256 rate = IERC4626(rateProvider).convertToAssets(10 ** rateProviderDecimals);
+        (uint80 roundId_, int256 underlyingPrice, uint256 startedAt_, uint256 updatedAt_, uint80 answeredInRound_) = AggregatorV3Interface(
+            underlyingPriceFeed
+        ).latestRoundData();
 
         if (rate <= 0 || underlyingPrice <= 0) return (roundId_, 0, startedAt_, updatedAt_, answeredInRound_);
 
-        int256 price = signed256(rate) * underlyingPrice * priceFeedScale / combinedScale;
+        int256 price = (signed256(rate) * underlyingPrice * priceFeedScale) / combinedScale;
         return (roundId_, price, startedAt_, updatedAt_, answeredInRound_);
     }
 
@@ -89,7 +97,7 @@ contract PriceFeedWith4626Support is IPriceFeed {
         if (n > uint256(type(int256).max)) revert InvalidInt256();
         return int256(n);
     }
-    
+
     /**
      * @notice Price for the latest round
      * @return The version of the price feed contract

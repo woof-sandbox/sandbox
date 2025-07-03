@@ -1,7 +1,7 @@
-import { expect, makeProtocol } from './helper/helpers';
+import { expect, makeProtocol } from "./helper/helpers";
 
-describe.skip('getPrice', function () {
-  it('returns price data for assets, with 8 decimals', async () => {
+describe.skip("getPrice", function () {
+  it("returns price data for assets, with 8 decimals", async () => {
     const { comet, priceFeeds } = await makeProtocol({
       assets: {
         USDC: {},
@@ -18,16 +18,16 @@ describe.skip('getPrice', function () {
     expect(price.toNumber()).to.equal(123450000);
   });
 
-  it('reverts if given a bad priceFeed address', async () => {
+  it("reverts if given a bad priceFeed address", async () => {
     const { comet } = await makeProtocol();
 
     // COMP on mainnet (not a legit price feed address)
-    const invalidPriceFeedAddress = '0xc00e94cb662c3520282e6f5717214004a7f26888';
+    const invalidPriceFeedAddress = "0xc00e94cb662c3520282e6f5717214004a7f26888";
 
     await expect(comet.getPrice(invalidPriceFeedAddress)).to.be.reverted;
   });
 
-  it('reverts if price feed returns negative value', async () => {
+  it("reverts if price feed returns negative value", async () => {
     const { comet, priceFeeds } = await makeProtocol({
       assets: {
         USDC: {},

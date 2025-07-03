@@ -1,4 +1,4 @@
-import { CometContext } from '../context/CometContext';
+import { CometContext } from "../context/CometContext";
 
 const config = {
   bulkerBase: 1000000,
@@ -23,7 +23,7 @@ const config = {
 };
 
 export function getConfigForScenario(ctx: CometContext) {
-  if (ctx.world.base.network === 'mainnet' && ctx.world.base.deployment === 'wbtc') {
+  if (ctx.world.base.network === "mainnet" && ctx.world.base.deployment === "wbtc") {
     config.bulkerBase = 5000;
     config.bulkerAsset = 200;
     config.bulkerAsset1 = 200;
@@ -39,8 +39,8 @@ export function getConfigForScenario(ctx: CometContext) {
     config.transferAsset = 500;
     config.interestSeconds = 70;
   }
-  
-  if (ctx.world.base.network === 'mainnet' && ctx.world.base.deployment === 'wsteth') {
+
+  if (ctx.world.base.network === "mainnet" && ctx.world.base.deployment === "wsteth") {
     config.liquidationBase = 10000;
     config.liquidationBase1 = 1000;
     config.liquidationAsset = 100;
@@ -48,27 +48,27 @@ export function getConfigForScenario(ctx: CometContext) {
     config.interestSeconds = 70;
   }
 
-  if (ctx.world.base.network === 'mainnet' && ctx.world.base.deployment === 'weth') {
+  if (ctx.world.base.network === "mainnet" && ctx.world.base.deployment === "weth") {
     config.liquidationNumerator = 60;
   }
 
-  if (ctx.world.base.network === 'mainnet' && ctx.world.base.deployment === 'usds') {
+  if (ctx.world.base.network === "mainnet" && ctx.world.base.deployment === "usds") {
     config.liquidationAsset = 100;
   }
-  
-  if (ctx.world.base.network === 'base' && ctx.world.base.deployment === 'aero') {
+
+  if (ctx.world.base.network === "base" && ctx.world.base.deployment === "aero") {
     config.interestSeconds = 110;
   }
 
-  if (ctx.world.base.network === 'arbitrum' && ctx.world.base.deployment === 'usdc') {
+  if (ctx.world.base.network === "arbitrum" && ctx.world.base.deployment === "usdc") {
     config.withdrawAsset = 3500;
   }
 
-  if (ctx.world.base.network === 'arbitrum' && ctx.world.base.deployment === 'usdt') {
+  if (ctx.world.base.network === "arbitrum" && ctx.world.base.deployment === "usdt") {
     config.withdrawAsset = 3500;
   }
 
-  if (ctx.world.base.network === 'arbitrum' && ctx.world.base.deployment === 'usdc.e') {
+  if (ctx.world.base.network === "arbitrum" && ctx.world.base.deployment === "usdc.e") {
     config.withdrawAsset = 7000;
     config.bulkerAsset = 10000;
     config.bulkerAsset1 = 10000;
@@ -80,23 +80,23 @@ export function getConfigForScenario(ctx: CometContext) {
     config.liquidationAsset = 10000;
   }
 
-  if (ctx.world.base.network === 'polygon' && ctx.world.base.deployment === 'usdc') {
+  if (ctx.world.base.network === "polygon" && ctx.world.base.deployment === "usdc") {
     config.bulkerAsset = 200;
     config.bulkerAsset1 = 200;
   }
 
-  if (ctx.world.base.network === 'polygon' && ctx.world.base.deployment === 'usdt') {
+  if (ctx.world.base.network === "polygon" && ctx.world.base.deployment === "usdt") {
     config.withdrawAsset = 10000;
     config.transferAsset = 500000;
     config.transferBase = 100;
   }
 
-  if (ctx.world.base.network === 'scroll' && ctx.world.base.deployment === 'usdc') {
+  if (ctx.world.base.network === "scroll" && ctx.world.base.deployment === "usdc") {
     config.bulkerAsset = 500;
     config.bulkerAsset1 = 500;
   }
 
-  if (ctx.world.base.network === 'sepolia' && ctx.world.base.deployment === 'usdc') {
+  if (ctx.world.base.network === "sepolia" && ctx.world.base.deployment === "usdc") {
     config.bulkerAsset1 = 10;
   }
 

@@ -18,7 +18,7 @@ contract ManagedSimplePriceFeed is IPriceFeed {
 
     address public admin;
     address public underlyingToken;
-    
+
     constructor(int answer_, uint8 decimals_, address _underlyingToken) {
         answer = answer_;
         decimals = decimals_;
@@ -53,7 +53,7 @@ contract ManagedSimplePriceFeed is IPriceFeed {
         return (roundId_, answer, startedAt, updatedAt, answeredInRound);
     }
 
-    function latestRoundData() override external view returns (uint80, int256, uint256, uint256, uint80) {
+    function latestRoundData() external view override returns (uint80, int256, uint256, uint256, uint80) {
         return (roundId, answer, startedAt, updatedAt, answeredInRound);
     }
 }

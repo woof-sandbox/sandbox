@@ -52,9 +52,10 @@ contract RsETHScalingPriceFeed is IPriceFeed {
         uint8 underlyingPriceFeedDecimals = 18;
         // Note: Solidity does not allow setting immutables in if/else statements
         shouldUpscale = underlyingPriceFeedDecimals < decimals_ ? true : false;
-        rescaleFactor = (shouldUpscale
-            ? signed256(10 ** (decimals_ - underlyingPriceFeedDecimals))
-            : signed256(10 ** (underlyingPriceFeedDecimals - decimals_))
+        rescaleFactor = (
+            shouldUpscale
+                ? signed256(10 ** (decimals_ - underlyingPriceFeedDecimals))
+                : signed256(10 ** (underlyingPriceFeedDecimals - decimals_))
         );
         underlyingToken = underlyingToken_;
     }
@@ -67,13 +68,12 @@ contract RsETHScalingPriceFeed is IPriceFeed {
      * @return updatedAt Timestamp when the round was last updated; passed on from underlying price feed
      * @return answeredInRound Round id in which the answer was computed; passed on from underlying price feed
      **/
-    function latestRoundData() override external view returns (
-        uint80 roundId,
-        int256 answer,
-        uint256 startedAt,
-        uint256 updatedAt,
-        uint80 answeredInRound
-    ) {
+    function latestRoundData()
+        external
+        view
+        override
+        returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound)
+    {
         int256 price = signed256(ILRTOracle(underlyingPriceFeed).rsETHPrice());
         return (1, scalePrice(price), block.timestamp, block.timestamp, 1);
     }
@@ -92,7 +92,7 @@ contract RsETHScalingPriceFeed is IPriceFeed {
         }
         return scaledPrice;
     }
-    
+
     /**
      * @notice Current version of the price feed
      * @return The version of the price feed contract
