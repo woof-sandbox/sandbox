@@ -34,8 +34,8 @@ if command -v aderyn &> /dev/null; then
         if [ "$original_hash" != "$new_hash" ] && [ -n "$new_hash" ]; then
             echo "✅ Aderyn report generated and updated!"
             echo "📝 Consider committing the updated ADERYN_REPORT.md:"
-            echo "   git add ADERYN_REPORT.md"
-            echo "   git commit -m 'docs: update Aderyn security report'"
+            echo "   git add ADERYN_REPORT.md" | bash
+            echo "   git commit -m 'docs: update Aderyn security report'" | bash
         else
             echo "✅ Aderyn report generated successfully!"
         fi
