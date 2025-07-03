@@ -28,7 +28,7 @@ import { SandboxCometFactory } from "../../build/types/SandboxCometFactory";
 import { SandboxCometFactory__factory } from "../../build/types/factories/SandboxCometFactory__factory";
 import { SandboxController } from "../../build/types/SandboxController";
 import { SandboxController__factory } from "../../build/types/factories/SandboxController__factory";
-import { BigNumber, Contract, ContractReceipt, ContractTransaction } from "ethers";
+import { BigNumber, BigNumberish, Contract, ContractReceipt, ContractTransaction } from "ethers";
 import { TransactionReceipt, TransactionResponse } from "@ethersproject/abstract-provider";
 import { CometHarness, TotalsBasicStructOutput } from "../../build/types/CometHarness";
 import { CometConfigStruct } from "../../build/types/ConfigController";
@@ -891,4 +891,16 @@ function convertToBigInt(arr) {
 
 export function getGasUsed(tx: TransactionResponseExt): bigint {
   return tx.receipt.gasUsed.mul(tx.receipt.effectiveGasPrice).toBigInt();
+}
+
+/**
+ * Divides a value in base wei by another value in base wei, taking into account the comet's base scale.
+ * @param n The numerator in base wei.
+ * @param baseWei The denominator in base wei.
+ * @param comet The comet contract instance.
+ * @dev
+ */
+export async function divBaseWei(n: BigNumberish, baseWei: BigNumberish, comet) {
+  const baseScale = await comet.baseScale();
+  return BigNumber.from(n).mul(baseScale).div(baseWei);
 }
