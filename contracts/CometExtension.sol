@@ -236,6 +236,7 @@ contract CometExtension is ICometExtension {
                 daoBaseTrackingSupplySpeed: uint64(daoBaseTrackingSupplySpeed),
                 daoBaseTrackingBorrowSpeed: uint64(daoBaseTrackingBorrowSpeed),
                 baseMinForRewards: uint104(baseMinForRewards),
+                daoBaseMinForRewards: uint104(daoBaseMinForRewards),
                 baseBorrowMin: uint104(baseBorrowMin),
                 targetPercent: uint104(targetPercent),
                 seedReserves: uint104(seedReserves),

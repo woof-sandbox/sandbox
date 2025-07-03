@@ -124,6 +124,7 @@ contract SandboxComet is ISandboxComet {
         /// Rewards are disabled by default
         trackingIndexScale = 1;
         baseMinForRewards = type(uint104).max;
+        daoBaseMinForRewards = type(uint104).max;
 
         /// to avoid explicit initialization
         /// baseTrackingSupplySpeed = 0;
@@ -202,7 +203,7 @@ contract SandboxComet is ISandboxComet {
      * @param baseTrackingSupplySpeed_ The new base tracking supply speed
      * @param baseTrackingBorrowSpeed_ The new base tracking borrow speed
      */
-    function setBaseSpeeds(uint64 baseTrackingSupplySpeed_, uint64 baseTrackingBorrowSpeed_) external override {
+    function setSpeeds(uint64 baseTrackingSupplySpeed_, uint64 baseTrackingBorrowSpeed_) external override {
         if (msg.sender != configController) revert Unauthorized();
         baseTrackingSupplySpeed = baseTrackingSupplySpeed_;
         baseTrackingBorrowSpeed = baseTrackingBorrowSpeed_;
@@ -215,7 +216,7 @@ contract SandboxComet is ISandboxComet {
      * @param daoBaseTrackingSupplySpeed_ The new DAO base tracking supply speed
      * @param daoBaseTrackingBorrowSpeed_ The new DAO base tracking borrow speed
      */
-    function setDaoBaseSpeeds(uint64 daoBaseTrackingSupplySpeed_, uint64 daoBaseTrackingBorrowSpeed_) external override {
+    function setDaoSpeeds(uint64 daoBaseTrackingSupplySpeed_, uint64 daoBaseTrackingBorrowSpeed_) external override {
         address dao = ISandboxController(sandboxController).dao();
 
         if (msg.sender != dao) revert Unauthorized();
@@ -248,14 +249,17 @@ contract SandboxComet is ISandboxComet {
 
         (baseSupplyIndex, baseBorrowIndex) = accruedInterestIndices(timeElapsed);
 
-        if (totalSupplyBase >= baseMinForRewards) {
+        if (totalSupplyBase >= baseMinForRewards)
             trackingSupplyIndex += safe64(divBaseWei(baseTrackingSupplySpeed * timeElapsed, totalSupplyBase));
+
+        if (totalSupplyBase >= daoBaseMinForRewards)
             daoTrackingSupplyIndex += safe64(divBaseWei(daoBaseTrackingSupplySpeed * timeElapsed, totalSupplyBase));
-        }
-        if (totalBorrowBase >= baseMinForRewards) {
+
+        if (totalBorrowBase >= baseMinForRewards)
             trackingBorrowIndex += safe64(divBaseWei(baseTrackingBorrowSpeed * timeElapsed, totalBorrowBase));
+
+        if (totalBorrowBase >= daoBaseMinForRewards)
             daoTrackingBorrowIndex += safe64(divBaseWei(daoBaseTrackingBorrowSpeed * timeElapsed, totalBorrowBase));
-        }
 
         lastAccrualTime = now_;
     }

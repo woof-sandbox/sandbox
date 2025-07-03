@@ -29,6 +29,7 @@ abstract contract ICometExtension is CometCore {
         uint64 daoBaseTrackingSupplySpeed;
         uint64 daoBaseTrackingBorrowSpeed;
         uint104 baseMinForRewards;
+        uint104 daoBaseMinForRewards;
         uint104 baseBorrowMin;
         uint104 targetPercent;
         uint104 seedReserves;

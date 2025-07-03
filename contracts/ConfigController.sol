@@ -237,7 +237,7 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
     function setBaseTrackingSpeeds(address comet, uint64 baseTrackingSupplySpeed_, uint64 baseTrackingBorrowSpeed_) external onlyOwner {
         if (comet == ZERO_ADDRESS) revert ZeroAddress();
         if (!_isCometOwned(comet)) revert UnknownComet();
-        ISandboxComet(comet).setBaseSpeeds(baseTrackingSupplySpeed_, baseTrackingBorrowSpeed_);
+        ISandboxComet(comet).setSpeeds(baseTrackingSupplySpeed_, baseTrackingBorrowSpeed_);
     }
 
     /// @notice Extracts fees to a self and distributes it

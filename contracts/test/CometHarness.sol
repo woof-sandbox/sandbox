@@ -29,6 +29,8 @@ contract CometHarness is SandboxComet {
         baseBorrowIndex = totals.baseBorrowIndex;
         trackingSupplyIndex = totals.trackingSupplyIndex;
         trackingBorrowIndex = totals.trackingBorrowIndex;
+        daoTrackingSupplyIndex = totals.daoTrackingSupplyIndex;
+        daoTrackingBorrowIndex = totals.daoTrackingBorrowIndex;
         totalSupplyBase = totals.totalSupplyBase;
         totalBorrowBase = totals.totalBorrowBase;
         lastAccrualTime = totals.lastAccrualTime;
@@ -40,6 +42,14 @@ contract CometHarness is SandboxComet {
 
     function setBasePrincipal(address account, int104 principal) external {
         userBasic[account].principal = principal;
+    }
+
+    function setBaseMinForRewards(uint104 _baseMinForRewards) external {
+        baseMinForRewards = _baseMinForRewards;
+    }
+
+    function setDaoBaseMinForRewards(uint104 _daoBaseMinForRewards) external {
+        daoBaseMinForRewards = _daoBaseMinForRewards;
     }
 
     function setCollateralBalance(address account, address asset, uint256 balance) external {

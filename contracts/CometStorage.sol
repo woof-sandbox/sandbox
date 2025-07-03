@@ -159,8 +159,11 @@ contract CometStorage {
 
     /// @notice The minimum amount of base principal wei for rewards to accrue
     /// @dev This must be large enough so as to prevent division by base wei from overflowing the 64 bit indices
-    /// @dev uint104
     uint104 public baseMinForRewards;
+
+    /// @notice The minimum amount of base principal wei for dao rewards to accrue
+    /// @dev This must be large enough so as to prevent division by base wei from overflowing the 64 bit indices
+    uint104 public daoBaseMinForRewards;
 
     /// @notice The minimum base amount required to initiate a borrow
     uint public baseBorrowMin;

@@ -50,9 +50,9 @@ abstract contract ISandboxComet is CometCore {
     event BaseSpeedsChanged(uint64 baseTrackingSupplySpeed, uint64 baseTrackingBorrowSpeed);
     event DaoSpeedsChanged(uint64 daoBaseTrackingSupplySpeed_, uint64 daoBaseTrackingBorrowSpeed_);
 
-    function setDaoBaseSpeeds(uint64 daoBaseTrackingSupplySpeed, uint64 daoBaseTrackingBorrowSpeed) external virtual;
+    function setDaoSpeeds(uint64 daoBaseTrackingSupplySpeed, uint64 daoBaseTrackingBorrowSpeed) external virtual;
 
-    function setBaseSpeeds(uint64 baseTrackingSupplySpeed, uint64 baseTrackingBorrowSpeed) external virtual;
+    function setSpeeds(uint64 baseTrackingSupplySpeed, uint64 baseTrackingBorrowSpeed) external virtual;
 
     /// @notice Event emitted when a borrow position is absorbed by the protocol
     event AbsorbDebt(address indexed absorber, address indexed borrower, uint basePaidOut, uint usdValue);
