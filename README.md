@@ -27,9 +27,6 @@ A decentralized finance protocol built on Arbitrum that provides lending and bor
 - **[ConfigControllerFactory.sol](./contracts/ConfigControllerFactory.sol)** - Factory for deploying ConfigController instances
 - **[ConfigController.sol](./contracts/ConfigController.sol)** - Individual controller for managing Comet deployments and proposals
 
-#### Supplementary
-- **[BaseBulker.sol](./contracts/bulkers/BaseBulker.sol)** - Batch transaction execution for multiple Comet operations
-
 ## 🛠️ Getting Started
 
 ### Prerequisites

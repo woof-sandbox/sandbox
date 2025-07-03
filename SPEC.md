@@ -752,14 +752,6 @@ $$
 \end{array}
 $$
 
-
-
-## Bulker etc. Contract :new:
-
-We will have a contract outside of the monolithic protocol contract which provides bulking and other functionality. This isolates some of the code risk. However, this separate contract is still extremely potent, as users which interact with it will need to allow it to operate on their behalf.
-
-See [RFC 018](https://docs.google.com/document/d/1MBO5EfLSt3uHPSUJ1I3shZzkxmpZHxA4k4vz3NNwEe0/edit#heading=h.ufct22s8n9zn)
-
 ### Types
 
 ```

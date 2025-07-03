@@ -48,9 +48,6 @@ EXCLUDE_CONTRACTS=(
     "Base.sol"
     "Script.sol"
     "ERC20.sol"
-
-    # Bulkers will be removed in the next release
-    "BaseBulker.sol"
     
     # Deployment scripts
     "*.s.sol"
