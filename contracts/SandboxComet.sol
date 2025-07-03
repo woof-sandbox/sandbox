@@ -1202,6 +1202,7 @@ contract SandboxComet is ISandboxComet {
         }
     }
 
+    // aderyn-ignore-next-line(contract-locks-ether)
     receive() external payable {
         // Fallback function to receive ETH, if needed
         // Note: This contract does not use ETH, so this is just a placeholder
