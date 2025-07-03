@@ -66,14 +66,16 @@ contract WBTCPriceFeed is IPriceFeed {
      * @return updatedAt Timestamp when the round was last updated; passed on from the BTC / USD price feed
      * @return answeredInRound Round id in which the answer was computed; passed on from the BTC / USD price feed
      **/
-    function latestRoundData() override external view returns (uint80, int256, uint256, uint256, uint80) {
+    function latestRoundData() external view override returns (uint80, int256, uint256, uint256, uint80) {
         (, int256 WBTCToBTCPrice, , , ) = AggregatorV3Interface(WBTCToBTCPriceFeed).latestRoundData();
-        (uint80 roundId_, int256 BTCToUSDPrice, uint256 startedAt_, uint256 updatedAt_, uint80 answeredInRound_) = AggregatorV3Interface(BTCToUSDPriceFeed).latestRoundData();
+        (uint80 roundId_, int256 BTCToUSDPrice, uint256 startedAt_, uint256 updatedAt_, uint80 answeredInRound_) = AggregatorV3Interface(
+            BTCToUSDPriceFeed
+        ).latestRoundData();
 
         // We return the round data of the BTC / USD price feed because of its shorter heartbeat (1hr vs 24hr)
         if (WBTCToBTCPrice <= 0 || BTCToUSDPrice <= 0) return (roundId_, 0, startedAt_, updatedAt_, answeredInRound_);
 
-        int256 price = WBTCToBTCPrice * BTCToUSDPrice * priceFeedScale / combinedScale;
+        int256 price = (WBTCToBTCPrice * BTCToUSDPrice * priceFeedScale) / combinedScale;
         return (roundId_, price, startedAt_, updatedAt_, answeredInRound_);
     }
 

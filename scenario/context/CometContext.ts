@@ -1,6 +1,6 @@
-import { BigNumber, Contract } from 'ethers';
-import { Loader, World, debug } from '../../plugins/scenario';
-import { Migration } from '../../plugins/deployment_manager';
+import { BigNumber, Contract } from "ethers";
+import { Loader, World, debug } from "../../plugins/scenario";
+import { Migration } from "../../plugins/deployment_manager";
 import {
   NativeTokenConstraint,
   TokenBalanceConstraint,
@@ -11,10 +11,10 @@ import {
   CometBalanceConstraint,
   FilterConstraint,
   PriceConstraint,
-  ReservesConstraint
-} from '../constraints';
-import CometActor from './CometActor';
-import CometAsset from './CometAsset';
+  ReservesConstraint,
+} from "../constraints";
+import CometActor from "./CometActor";
+import CometAsset from "./CometAsset";
 import {
   CometInterface,
   ERC20__factory,
@@ -26,14 +26,14 @@ import {
   BaseBulker,
   BaseBridgeReceiver,
   ERC20,
-} from '../../build/types';
-import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
-import { sourceTokens } from '../../plugins/scenario/utils/TokenSourcer';
-import { ProtocolConfiguration, deployComet, COMP_WHALES, WHALES } from '../../src/deploy';
-import { AddressLike, getAddressFromNumber, resolveAddress } from './Address';
-import { max, mineBlocks, setNextBaseFeeToZero, setNextBlockTimestamp } from '../utils';
-import { DynamicConstraint, StaticConstraint } from '../../plugins/scenario/Scenario';
-import { Requirements } from '../constraints/Requirements';
+} from "../../build/types";
+import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
+import { sourceTokens } from "../../plugins/scenario/utils/TokenSourcer";
+import { ProtocolConfiguration, deployComet, COMP_WHALES, WHALES } from "../../src/deploy";
+import { AddressLike, getAddressFromNumber, resolveAddress } from "./Address";
+import { max, mineBlocks, setNextBaseFeeToZero, setNextBlockTimestamp } from "../utils";
+import { DynamicConstraint, StaticConstraint } from "../../plugins/scenario/Scenario";
+import { Requirements } from "../constraints/Requirements";
 
 export type ActorMap = { [name: string]: CometActor };
 export type AssetMap = { [name: string]: CometAsset };
@@ -43,7 +43,7 @@ export type MigrationData = {
   preMigrationBlockNumber?: number;
   skipVerify?: boolean;
   verified?: boolean;
-}
+};
 
 export interface CometProperties {
   actors: ActorMap;
@@ -71,15 +71,14 @@ export class CometContext {
   }
 
   async getCompWhales(): Promise<string[]> {
-    const useMainnetComp = ['mainnet', 'polygon'].includes(this.world.base.network);
-    return COMP_WHALES[useMainnetComp ? 'mainnet' : 'testnet'];
+    const useMainnetComp = ["mainnet", "polygon"].includes(this.world.base.network);
+    return COMP_WHALES[useMainnetComp ? "mainnet" : "testnet"];
   }
 
   async getWhales(): Promise<string[]> {
     const whales: string[] = [];
     const fauceteer = await this.getFauceteer();
-    if (fauceteer)
-      whales.push(fauceteer.address);
+    if (fauceteer) whales.push(fauceteer.address);
     return whales.concat(WHALES[this.world.base.network] || []);
   }
 
@@ -88,33 +87,33 @@ export class CometContext {
   }
 
   async getComp(): Promise<ERC20> {
-    return this.world.deploymentManager.contract('COMP');
+    return this.world.deploymentManager.contract("COMP");
   }
 
   async getComet(): Promise<CometInterface> {
-    return this.world.deploymentManager.contract('comet');
+    return this.world.deploymentManager.contract("comet");
   }
 
   async getCometAdmin(): Promise<CometProxyAdmin> {
-    return this.world.deploymentManager.contract('cometAdmin');
+    return this.world.deploymentManager.contract("cometAdmin");
   }
 
   async getConfigurator(): Promise<Configurator> {
-    return this.world.deploymentManager.contract('configurator');
+    return this.world.deploymentManager.contract("configurator");
   }
 
   async getTimelock(): Promise<SimpleTimelock> {
-    return this.world.deploymentManager.contract('timelock');
+    return this.world.deploymentManager.contract("timelock");
   }
 
   async getGovernor(): Promise<CometActor> {
     const governorAddress = await (await this.getComet()).governor();
     const governorSigner = await this.world.impersonateAddress(governorAddress);
-    return new CometActor('governor', governorSigner, governorAddress, this);
+    return new CometActor("governor", governorSigner, governorAddress, this);
   }
 
   async getRewards(): Promise<CometRewards> {
-    return this.world.deploymentManager.contract('rewards');
+    return this.world.deploymentManager.contract("rewards");
   }
 
   async getRewardToken(): Promise<ERC20> {
@@ -124,15 +123,15 @@ export class CometContext {
   }
 
   async getBulker(): Promise<BaseBulker> {
-    return this.world.deploymentManager.contract('bulker');
+    return this.world.deploymentManager.contract("bulker");
   }
 
   async getFauceteer(): Promise<Fauceteer> {
-    return this.world.deploymentManager.contract('fauceteer');
+    return this.world.deploymentManager.contract("fauceteer");
   }
 
   async getBridgeReceiver(): Promise<BaseBridgeReceiver> {
-    return this.world.deploymentManager.contract('bridgeReceiver');
+    return this.world.deploymentManager.contract("bridgeReceiver");
   }
 
   async getConfiguration(): Promise<ProtocolConfiguration> {
@@ -141,7 +140,7 @@ export class CometContext {
     return configurator.getConfiguration(comet.address);
   }
 
-  async getRewardConfig(): Promise<{token: string, rescaleFactor: BigNumber, shouldUpscale: boolean}> {
+  async getRewardConfig(): Promise<{ token: string; rescaleFactor: BigNumber; shouldUpscale: boolean }> {
     const comet = await this.getComet();
     const rewards = await this.getRewards();
     return await rewards.rewardConfig(comet.address);
@@ -152,20 +151,22 @@ export class CometContext {
 
     const currentComet = await this.getComet();
     const admin = await world.impersonateAddress(await currentComet.governor(), { value: 20n ** 18n });
-    const oldComet = new Contract(currentComet.address, 
+    const oldComet = new Contract(
+      currentComet.address,
       [
-        'function governor() view returns (address)',
-        'function assetList() view returns (address)',
-        'function assetListFactory() view returns (address)'
-      ], admin);
+        "function governor() view returns (address)",
+        "function assetList() view returns (address)",
+        "function assetListFactory() view returns (address)",
+      ],
+      admin
+    );
 
     const deploySpec = { cometMain: true, cometExt: true };
     let withAssetList = false;
     try {
       await oldComet.assetList();
       withAssetList = true;
-    }
-    catch (e) {
+    } catch (e) {
       withAssetList = false;
     }
     const deployed = await deployComet(this.world.deploymentManager, deploySpec, configOverrides, withAssetList, admin);
@@ -173,7 +174,7 @@ export class CometContext {
     await this.world.deploymentManager.spider(deployed);
     await this.setAssets();
 
-    debug('Upgraded comet...');
+    debug("Upgraded comet...");
 
     return this;
   }
@@ -187,7 +188,7 @@ export class CometContext {
       const assetName = this.getAssetByAddress(assetAddress)[0];
       const priceFeed = await this.world.deploymentManager.deploy(
         `${assetName}:priceFeed`,
-        'test/SimplePriceFeed.sol',
+        "test/SimplePriceFeed.sol",
         [newPrices[assetAddress] * 1e8, 8],
         true
       );
@@ -270,7 +271,7 @@ export class CometContext {
   async sourceTokens(amount: number | bigint, asset: CometAsset | string, recipient: AddressLike) {
     const { world } = this;
     const recipientAddress = resolveAddress(recipient);
-    const cometAsset = typeof asset === 'string' ? this.getAssetByAddress(asset) : asset;
+    const cometAsset = typeof asset === "string" ? this.getAssetByAddress(asset) : asset;
     const comet = await this.getComet();
 
     let amountRemaining = BigInt(amount);
@@ -287,13 +288,12 @@ export class CometContext {
         await cometAsset.transfer(signer, amountToTake, recipientAddress, { gasPrice: 0 });
         amountRemaining -= amountToTake;
       }
-      if (amountRemaining <= 0n)
-        break;
+      if (amountRemaining <= 0n) break;
     }
 
     if (amountRemaining != 0n) {
       // Source from logs (expensive, in terms of node API limits)
-      debug('Source Tokens: sourcing from logs...', amountRemaining, cometAsset.address);
+      debug("Source Tokens: sourcing from logs...", amountRemaining, cometAsset.address);
       await sourceTokens({
         dm: this.world.deploymentManager,
         amount: amountRemaining,
@@ -305,11 +305,11 @@ export class CometContext {
   }
 
   async setActors(actors?: { [name: string]: CometActor }) {
-    this.actors = actors ?? await getActors(this);
+    this.actors = actors ?? (await getActors(this));
   }
 
   async setAssets(assets?: { [symbol: string]: CometAsset }) {
-    this.assets = assets ?? await getAssets(this);
+    this.assets = assets ?? (await getAssets(this));
   }
 
   async setNextBaseFeeToZero() {
@@ -346,28 +346,22 @@ async function getActors(context: CometContext): Promise<{ [name: string]: Comet
   const { world } = context;
 
   const comet = await context.getComet();
-  const [
-    localAdminSigner,
-    localPauseGuardianSigner,
-    albertSigner,
-    bettySigner,
-    charlesSigner
-  ] = await world.deploymentManager.getSigners();
+  const [localAdminSigner, localPauseGuardianSigner, albertSigner, bettySigner, charlesSigner] = await world.deploymentManager.getSigners();
 
   const adminAddress = await comet.governor();
   const pauseGuardianAddress = await comet.pauseGuardian();
-  const useLocalAdminSigner = adminAddress === await localAdminSigner.getAddress();
-  const useLocalPauseGuardianSigner = pauseGuardianAddress === await localPauseGuardianSigner.getAddress();
+  const useLocalAdminSigner = adminAddress === (await localAdminSigner.getAddress());
+  const useLocalPauseGuardianSigner = pauseGuardianAddress === (await localPauseGuardianSigner.getAddress());
   const adminSigner = useLocalAdminSigner ? localAdminSigner : await world.impersonateAddress(adminAddress);
   const pauseGuardianSigner = useLocalPauseGuardianSigner ? localPauseGuardianSigner : await world.impersonateAddress(pauseGuardianAddress);
 
   return {
-    admin: await buildActor('admin', adminSigner, context),
-    pauseGuardian: await buildActor('pauseGuardian', pauseGuardianSigner, context),
-    albert: await buildActor('albert', albertSigner, context),
-    betty: await buildActor('betty', bettySigner, context),
-    charles: await buildActor('charles', charlesSigner, context),
-    signer: await buildActor('signer', localAdminSigner, context),
+    admin: await buildActor("admin", adminSigner, context),
+    pauseGuardian: await buildActor("pauseGuardian", pauseGuardianSigner, context),
+    albert: await buildActor("albert", albertSigner, context),
+    betty: await buildActor("betty", bettySigner, context),
+    charles: await buildActor("charles", charlesSigner, context),
+    signer: await buildActor("signer", localAdminSigner, context),
   };
 }
 
@@ -380,16 +374,24 @@ async function getAssets(context: CometContext): Promise<{ [symbol: string]: Com
   const numAssets = await comet.numAssets();
   const assetAddresses = [
     await comet.baseToken(),
-    ...await Promise.all(Array(numAssets).fill(0).map(async (_, i) => {
-      return (await comet.getAssetInfo(i)).asset;
-    })),
+    ...(await Promise.all(
+      Array(numAssets)
+        .fill(0)
+        .map(async (_, i) => {
+          return (await comet.getAssetInfo(i)).asset;
+        })
+    )),
     ...(COMP ? [COMP.address] : []),
   ];
 
-  return Object.fromEntries(await Promise.all(assetAddresses.map(async (address) => {
-    const erc20 = ERC20__factory.connect(address, signer);
-    return [await erc20.symbol(), new CometAsset(erc20)];
-  })));
+  return Object.fromEntries(
+    await Promise.all(
+      assetAddresses.map(async address => {
+        const erc20 = ERC20__factory.connect(address, signer);
+        return [await erc20.symbol(), new CometAsset(erc20)];
+      })
+    )
+  );
 }
 
 async function getInitialContext(world: World): Promise<CometContext> {
@@ -410,13 +412,11 @@ async function getContextProperties(context: CometContext): Promise<CometPropert
     governor: await context.getGovernor(),
     rewards: await context.getRewards(),
     bulker: await context.getBulker(),
-    bridgeReceiver: await context.getBridgeReceiver()
+    bridgeReceiver: await context.getBridgeReceiver(),
   };
 }
 
-export const staticConstraints: StaticConstraint<CometContext>[] = [
-  new NativeTokenConstraint(),
-];
+export const staticConstraints: StaticConstraint<CometContext>[] = [new NativeTokenConstraint()];
 
 export const dynamicConstraints: DynamicConstraint<CometContext, Requirements>[] = [
   new FilterConstraint(),
@@ -427,12 +427,12 @@ export const dynamicConstraints: DynamicConstraint<CometContext, Requirements>[]
   new TokenBalanceConstraint(),
   new UtilizationConstraint(),
   new PriceConstraint(),
-  new ReservesConstraint()
+  new ReservesConstraint(),
 ];
 
 export const scenarioLoader = Loader.get<CometContext, CometProperties, Requirements>().configure(
   staticConstraints,
   getInitialContext,
-  getContextProperties,
+  getContextProperties
 );
 export const scenario = scenarioLoader.scenarioFun(dynamicConstraints);

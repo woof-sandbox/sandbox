@@ -1,33 +1,28 @@
-import hre from 'hardhat';
-import { DeploymentManager } from '../plugins/deployment_manager/DeploymentManager';
-import { ProposalState } from '../scenario/context/Gov';
-import { default as config, requireEnv } from '../hardhat.config';
+import hre from "hardhat";
+import { DeploymentManager } from "../plugins/deployment_manager/DeploymentManager";
+import { ProposalState } from "../scenario/context/Gov";
+import { default as config, requireEnv } from "../hardhat.config";
 
 async function until(fn: () => Promise<boolean>, interval = 6000) {
-  while (!await fn()) {
+  while (!(await fn())) {
     await new Promise(ok => setTimeout(ok, interval));
   }
 }
 
 async function main() {
-  const PROPOSAL_ID = requireEnv('PROPOSAL_ID');
+  const PROPOSAL_ID = requireEnv("PROPOSAL_ID");
   const network = hre.network.name;
   const networkBase = config.scenario.bases.find(b => b.network === network);
   const deployment = networkBase.deployment; // just for gov
 
-  const dm = new DeploymentManager(
-    network,
-    deployment,
-    hre,
-    {
-      writeCacheToDisk: true,
-    }
-  );
+  const dm = new DeploymentManager(network, deployment, hre, {
+    writeCacheToDisk: true,
+  });
   await dm.spider();
 
   const trace = dm.tracer();
-  const governor = await dm.contract('governor');
-  console.log(`Governor via ${network}/${deployment}: ${governor?.address ?? 'NO GOVERNOR FOUND!'}`);
+  const governor = await dm.contract("governor");
+  console.log(`Governor via ${network}/${deployment}: ${governor?.address ?? "NO GOVERNOR FOUND!"}`);
 
   const { startBlock, endBlock, eta } = await governor.proposals(PROPOSAL_ID);
 
@@ -51,7 +46,7 @@ async function main() {
   trace(await governor.queue(PROPOSAL_ID));
 
   await until(async () => {
-    const block = await hre.ethers.provider.getBlock('latest');
+    const block = await hre.ethers.provider.getBlock("latest");
     console.log(`Current block time is: ${block.timestamp} (eta: ${eta})`);
     return block.timestamp > eta;
   });
@@ -62,7 +57,7 @@ async function main() {
 
 main()
   .then(() => process.exit(0))
-  .catch((error) => {
+  .catch(error => {
     console.error(error);
     process.exit(1);
   });

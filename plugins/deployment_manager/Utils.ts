@@ -1,12 +1,12 @@
-import * as fs from 'fs/promises';
-import { HardhatRuntimeEnvironment as HRE } from 'hardhat/types';
-import { Contract } from 'ethers';
-import { ABI, BuildFile, ContractMetadata } from './Types';
+import * as fs from "fs/promises";
+import { HardhatRuntimeEnvironment as HRE } from "hardhat/types";
+import { Contract } from "ethers";
+import { ABI, BuildFile, ContractMetadata } from "./Types";
 
 type InputOrOutput = {
   name: string;
   type: string;
-}
+};
 
 type ABIEntry = {
   type: string;
@@ -14,11 +14,11 @@ type ABIEntry = {
   inputs?: InputOrOutput[];
   outputs?: InputOrOutput[];
   stateMutability?: string;
-}
+};
 
 export function debug(...args: any[]) {
-  if (process.env['DEBUG']) {
-    if (typeof args[0] === 'function') {
+  if (process.env["DEBUG"]) {
+    if (typeof args[0] === "function") {
       console.log(...args[0]());
     } else {
       console.log(...args);
@@ -27,14 +27,7 @@ export function debug(...args: any[]) {
 }
 
 export function stringifyJson<K>(k: K): string {
-  return JSON.stringify(
-    k,
-    (_key, value) =>
-      typeof value === 'bigint'
-        ? value.toString()
-        : value,
-    4
-  );
+  return JSON.stringify(k, (_key, value) => (typeof value === "bigint" ? value.toString() : value), 4);
 }
 
 export async function fileExists(path: string): Promise<boolean> {
@@ -64,8 +57,8 @@ export function getPrimaryContract(buildFile: BuildFile): [string, ContractMetad
   let contracts = Object.fromEntries(
     contractEntries
       .map(([key, value]) => {
-        if (key.includes(':')) {
-          let [source, contractName] = key.split(':');
+        if (key.includes(":")) {
+          let [source, contractName] = key.split(":");
           return [[contractName, { ...value, source } as ContractMetadata]];
         } else {
           return Object.entries(value).map(([contractName, v]) => [contractName, { ...v, key }]);
@@ -76,11 +69,7 @@ export function getPrimaryContract(buildFile: BuildFile): [string, ContractMetad
 
   let contractMetadata = contracts[targetContract];
   if (contractMetadata === undefined) {
-    throw new Error(
-      `Could not find contract ${targetContract} in buildFile with contracts: ${JSON.stringify(
-        Object.keys(contracts)
-      )}`
-    );
+    throw new Error(`Could not find contract ${targetContract} in buildFile with contracts: ${JSON.stringify(Object.keys(contracts))}`);
   }
 
   return [targetContract, contractMetadata];
@@ -89,7 +78,7 @@ export function getPrimaryContract(buildFile: BuildFile): [string, ContractMetad
 export async function getEthersContract<C extends Contract>(address: string, buildFile: BuildFile, hre: HRE): Promise<C> {
   if (!isContract(address, hre)) {
     throw new Error(`${address} is not the contract.`);
-  } 
+  }
   const [_, metadata] = getPrimaryContract(buildFile);
   return new hre.ethers.Contract(address, metadata.abi, hre.ethers.provider) as C;
 }
@@ -97,13 +86,13 @@ export async function getEthersContract<C extends Contract>(address: string, bui
 // merge two ABIs, duplicate entries are removed
 // conflicting entries (like constructors) will defer to the second abi (`abi1`)
 export function mergeABI(abi0: ABI, abi1: ABI): ABIEntry[] {
-  const parsedABI0: ABIEntry[] = typeof abi0 === 'string' ? JSON.parse(abi0) : abi0;
-  const parsedABI1: ABIEntry[] = typeof abi1 === 'string' ? JSON.parse(abi1) : abi1;
+  const parsedABI0: ABIEntry[] = typeof abi0 === "string" ? JSON.parse(abi0) : abi0;
+  const parsedABI1: ABIEntry[] = typeof abi1 === "string" ? JSON.parse(abi1) : abi1;
   const entries = {};
   for (const abiEntry of parsedABI0.concat(parsedABI1)) {
     const { type, name, inputs } = abiEntry;
     const normalizedEntry = { type, name, inputs: inputs && inputs.map(i => ({ type: i.type })) };
-    const key = type === 'constructor' ? 'constructor' : JSON.stringify(normalizedEntry);
+    const key = type === "constructor" ? "constructor" : JSON.stringify(normalizedEntry);
     entries[key] = abiEntry;
   }
   return Object.values(entries);
@@ -113,7 +102,7 @@ export function mergeContracts<C extends Contract>(address: string, contracts: C
   return contracts.slice(1).reduce((merged, contract) => {
     return new hre.ethers.Contract(
       address,
-      mergeABI(merged.interface.format('json'), contract.interface.format('json')),
+      mergeABI(merged.interface.format("json"), contract.interface.format("json")),
       hre.ethers.provider
     );
   }, new hre.ethers.Contract(address, contracts[0].interface, hre.ethers.provider)) as C;
@@ -164,10 +153,7 @@ export async function asyncCallWithTimeout(asyncPromise: Promise<any>, timeLimit
   let timeoutHandle;
 
   const timeoutPromise = new Promise((_resolve, reject) => {
-    timeoutHandle = setTimeout(
-      () => reject(new Error('Async call timeout limit reached')),
-      timeLimit
-    );
+    timeoutHandle = setTimeout(() => reject(new Error("Async call timeout limit reached")), timeLimit);
   });
 
   return Promise.race([asyncPromise, timeoutPromise]).then(result => {

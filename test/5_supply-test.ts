@@ -1,29 +1,57 @@
-import { ethers, event, expect, exp, makeProtocol, portfolio, ReentryAttack, wait, fastForward, defaultAssets, hre } from './helper/helpers';
-import { EvilToken, EvilToken__factory, NonStandardFaucetFeeToken__factory, NonStandardFaucetFeeToken, CometExtension } from '../build/types';
+import {
+  ethers,
+  event,
+  expect,
+  exp,
+  makeProtocol,
+  portfolio,
+  ReentryAttack,
+  wait,
+  fastForward,
+  defaultAssets,
+  hre,
+} from "./helper/helpers";
+import {
+  EvilToken,
+  EvilToken__factory,
+  NonStandardFaucetFeeToken__factory,
+  NonStandardFaucetFeeToken,
+  CometExtension,
+} from "../build/types";
 
-describe('5. supplyTo', function () {
-  it('supplies base from sender if the asset is base', async () => {
+describe("5. supplyTo", function () {
+  it("supplies base from sender if the asset is base", async () => {
     const protocol = await makeProtocol({
-      base: 'USDC',
+      base: "USDC",
       storeFrontPriceFactor: exp(0.5, 18),
       targetPercent: 0.5,
       assets: {
         USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
         COMP: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
         },
         WETH: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
         },
         WBTC: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
-        }
-      }
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
+        },
+      },
     });
-    const { comet, tokens, users: [alice, bob] } = protocol;
+    const {
+      comet,
+      tokens,
+      users: [alice, bob],
+    } = protocol;
     const { USDC } = tokens;
 
     const _i0 = await USDC.allocateTo(bob.address, 100e6);
@@ -42,21 +70,21 @@ describe('5. supplyTo', function () {
         from: bob.address,
         to: comet.address,
         amount: BigInt(100e6),
-      }
+      },
     });
     expect(event(s0, 1)).to.be.deep.equal({
       Supply: {
         from: bob.address,
         dst: alice.address,
         amount: BigInt(100e6),
-      }
+      },
     });
     expect(event(s0, 2)).to.be.deep.equal({
       Transfer: {
         from: ethers.constants.AddressZero,
         to: alice.address,
-        amount: BigInt(100e6) - BigInt(1)
-      }
+        amount: BigInt(100e6) - BigInt(1),
+      },
     });
 
     expect(p0.internal).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n });
@@ -70,28 +98,38 @@ describe('5. supplyTo', function () {
     expect(Number(s0.receipt.gasUsed)).to.be.lessThan(124000);
   });
 
-  it('supplies max base borrow balance (including accrued) from sender if the asset is base', async () => {
+  it("supplies max base borrow balance (including accrued) from sender if the asset is base", async () => {
     const protocol = await makeProtocol({
-      base: 'USDC',
+      base: "USDC",
       storeFrontPriceFactor: exp(0.5, 18),
       targetPercent: 0.5,
       assets: {
         USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
         COMP: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
         },
         WETH: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
         },
         WBTC: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
-        }
-      }
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
+        },
+      },
     });
-    const { comet, tokens, users: [alice, bob] } = protocol;
+    const {
+      comet,
+      tokens,
+      users: [alice, bob],
+    } = protocol;
     const { USDC } = tokens;
 
     await USDC.allocateTo(bob.address, 100e6);
@@ -101,7 +139,7 @@ describe('5. supplyTo', function () {
 
     // Fast forward to accrue some interest
     await fastForward(86400);
-    await ethers.provider.send('evm_mine', []);
+    await ethers.provider.send("evm_mine", []);
 
     const a0 = await portfolio(protocol, alice.address);
     const b0 = await portfolio(protocol, bob.address);
@@ -111,20 +149,20 @@ describe('5. supplyTo', function () {
     const a1 = await portfolio(protocol, alice.address);
     const b1 = await portfolio(protocol, bob.address);
 
-    expect(s0.receipt['events'].length).to.be.equal(2);
+    expect(s0.receipt["events"].length).to.be.equal(2);
     expect(event(s0, 0)).to.be.deep.equal({
       Transfer: {
         from: bob.address,
         to: comet.address,
         amount: aliceAccruedBorrowBalance,
-      }
+      },
     });
     expect(event(s0, 1)).to.be.deep.equal({
       Supply: {
         from: bob.address,
         dst: alice.address,
         amount: aliceAccruedBorrowBalance,
-      }
+      },
     });
 
     expect(-aliceAccruedBorrowBalance).to.not.equal(exp(-50, 6));
@@ -135,32 +173,47 @@ describe('5. supplyTo', function () {
     expect(a1.internal).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n });
     expect(a1.external).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n });
     expect(b1.internal).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n });
-    expect(b1.external).to.be.deep.equal({ USDC: exp(100, 6) - aliceAccruedBorrowBalance, COMP: 0n, WETH: 0n, WBTC: 0n });
+    expect(b1.external).to.be.deep.equal({
+      USDC: exp(100, 6) - aliceAccruedBorrowBalance,
+      COMP: 0n,
+      WETH: 0n,
+      WBTC: 0n,
+    });
     expect(Number(s0.receipt.gasUsed)).to.be.lessThan(120000);
   });
 
-  it('supply max base should supply 0 if user has no borrow position', async () => {
+  it("supply max base should supply 0 if user has no borrow position", async () => {
     const protocol = await makeProtocol({
-      base: 'USDC',
+      base: "USDC",
       storeFrontPriceFactor: exp(0.5, 18),
       targetPercent: 0.5,
       assets: {
         USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
         COMP: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
         },
         WETH: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
         },
         WBTC: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
-        }
-      }
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
+        },
+      },
     });
-    const { comet, tokens, users: [alice, bob] } = protocol;
+    const {
+      comet,
+      tokens,
+      users: [alice, bob],
+    } = protocol;
     const { USDC } = tokens;
 
     await USDC.allocateTo(bob.address, 100e6);
@@ -174,20 +227,20 @@ describe('5. supplyTo', function () {
     const a1 = await portfolio(protocol, alice.address);
     const b1 = await portfolio(protocol, bob.address);
 
-    expect(s0.receipt['events'].length).to.be.equal(2);
+    expect(s0.receipt["events"].length).to.be.equal(2);
     expect(event(s0, 0)).to.be.deep.equal({
       Transfer: {
         from: bob.address,
         to: comet.address,
         amount: 0n,
-      }
+      },
     });
     expect(event(s0, 1)).to.be.deep.equal({
       Supply: {
         from: bob.address,
         dst: alice.address,
         amount: 0n,
-      }
+      },
     });
 
     expect(a0.internal).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n });
@@ -201,28 +254,38 @@ describe('5. supplyTo', function () {
     expect(Number(s0.receipt.gasUsed)).to.be.lessThan(120000);
   });
 
-  it('does not emit Transfer for 0 mint', async () => {
+  it("does not emit Transfer for 0 mint", async () => {
     const protocol = await makeProtocol({
-      base: 'USDC',
+      base: "USDC",
       storeFrontPriceFactor: exp(0.5, 18),
       targetPercent: 0.5,
       assets: {
         USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
         COMP: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
         },
         WETH: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
         },
         WBTC: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
-        }
-      }
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
+        },
+      },
     });
-    const { comet, tokens, users: [alice, bob] } = protocol;
+    const {
+      comet,
+      tokens,
+      users: [alice, bob],
+    } = protocol;
     const { USDC } = tokens;
 
     await USDC.allocateTo(bob.address, 100e6);
@@ -233,20 +296,20 @@ describe('5. supplyTo', function () {
 
     const _a0 = await wait(baseAsB.approve(comet.address, 100e6));
     const s0 = await wait(cometAsB.supplyTo(alice.address, USDC.address, 100e6));
-    expect(s0.receipt['events'].length).to.be.equal(3);
+    expect(s0.receipt["events"].length).to.be.equal(3);
     expect(event(s0, 0)).to.be.deep.equal({
       Transfer: {
         from: bob.address,
         to: comet.address,
         amount: BigInt(100e6),
-      }
+      },
     });
     expect(event(s0, 1)).to.be.deep.equal({
       Supply: {
         from: bob.address,
         dst: alice.address,
         amount: BigInt(100e6),
-      }
+      },
     });
   });
 
@@ -259,73 +322,93 @@ describe('5. supplyTo', function () {
   // later cause an overflow during an addition operation. The new code now explicitly checks
   // this assumption and sets both `repayAmount` and `supplyAmount` to 0 if the assumption is
   // violated.
-  it('supplies 0 and does not revert when dstPrincipalNew < dstPrincipal', async () => {
+  it("supplies 0 and does not revert when dstPrincipalNew < dstPrincipal", async () => {
     const protocol = await makeProtocol({
-      base: 'USDC',
+      base: "USDC",
       storeFrontPriceFactor: exp(0.5, 18),
       targetPercent: 0.5,
       assets: {
         USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
         COMP: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
         },
         WETH: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
         },
         WBTC: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
-        }
-      }
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
+        },
+      },
     });
-    const { comet, tokens, users: [alice] } = protocol;
+    const {
+      comet,
+      tokens,
+      users: [alice],
+    } = protocol;
     const { USDC } = tokens;
 
     //await comet.setBasePrincipal(alice.address, 99999992291226);
 
     const s0 = await wait(comet.connect(alice).supply(USDC.address, 0));
 
-    expect(s0.receipt['events'].length).to.be.equal(2);
+    expect(s0.receipt["events"].length).to.be.equal(2);
     expect(event(s0, 0)).to.be.deep.equal({
       Transfer: {
         from: alice.address,
         to: comet.address,
         amount: BigInt(0),
-      }
+      },
     });
     expect(event(s0, 1)).to.be.deep.equal({
       Supply: {
         from: alice.address,
         dst: alice.address,
         amount: BigInt(0),
-      }
+      },
     });
   });
 
-  it('user supply is same as total supply', async () => {
+  it("user supply is same as total supply", async () => {
     const protocol = await makeProtocol({
-      base: 'USDC',
+      base: "USDC",
       storeFrontPriceFactor: exp(0.5, 18),
       targetPercent: 0.5,
       assets: {
         USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
         COMP: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
         },
         WETH: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
         },
         WBTC: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
-        }
-      }
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
+        },
+      },
     });
-    const { comet, tokens, users: [bob] } = protocol;
+    const {
+      comet,
+      tokens,
+      users: [bob],
+    } = protocol;
     const { USDC } = tokens;
 
     const _i0 = await USDC.allocateTo(bob.address, 10);
@@ -344,28 +427,38 @@ describe('5. supplyTo', function () {
     expect(Number(s0.receipt.gasUsed)).to.be.lessThan(124000);
   });
 
-  it('supplies collateral from sender if the asset is collateral', async () => {
+  it("supplies collateral from sender if the asset is collateral", async () => {
     const protocol = await makeProtocol({
-      base: 'USDC',
+      base: "USDC",
       storeFrontPriceFactor: exp(0.5, 18),
       targetPercent: 0.5,
       assets: {
         USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
         COMP: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
         },
         WETH: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
         },
         WBTC: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
-        }
-      }
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
+        },
+      },
     });
-    const { comet, tokens, users: [alice, bob] } = protocol;
+    const {
+      comet,
+      tokens,
+      users: [alice, bob],
+    } = protocol;
     const { COMP } = tokens;
 
     await COMP.allocateTo(bob.address, 8e8);
@@ -386,7 +479,7 @@ describe('5. supplyTo', function () {
         from: bob.address,
         to: comet.address,
         amount: BigInt(8e8),
-      }
+      },
     });
     expect(event(s0, 1)).to.be.deep.equal({
       SupplyCollateral: {
@@ -394,7 +487,7 @@ describe('5. supplyTo', function () {
         dst: alice.address,
         asset: COMP.address,
         amount: BigInt(8e8),
-      }
+      },
     });
 
     expect(p0.internal).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n });
@@ -409,28 +502,38 @@ describe('5. supplyTo', function () {
     expect(Number(s0.receipt.gasUsed)).to.be.lessThan(155000);
   });
 
-  it('calculates base principal correctly', async () => {
+  it("calculates base principal correctly", async () => {
     const protocol = await makeProtocol({
-      base: 'USDC',
+      base: "USDC",
       storeFrontPriceFactor: exp(0.5, 18),
       targetPercent: 0.5,
       assets: {
         USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
         COMP: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
         },
         WETH: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
         },
         WBTC: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
-        }
-      }
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
+        },
+      },
     });
-    const { comet, tokens, users: [alice, bob] } = protocol;
+    const {
+      comet,
+      tokens,
+      users: [alice, bob],
+    } = protocol;
     const { USDC } = tokens;
 
     await USDC.allocateTo(bob.address, 100e6);
@@ -439,13 +542,13 @@ describe('5. supplyTo', function () {
 
     const alice0 = await portfolio(protocol, alice.address);
     const bob0 = await portfolio(protocol, bob.address);
-    const aliceBasic0 = await comet.userBasic(alice.address);
+    await comet.userBasic(alice.address);
 
     await wait(baseAsB.approve(comet.address, 100e6));
     await wait(cometAsB.supplyTo(alice.address, USDC.address, 100e6));
     const alice1 = await portfolio(protocol, alice.address);
     const bob1 = await portfolio(protocol, bob.address);
-    const aliceBasic1 = await comet.userBasic(alice.address);
+    await comet.userBasic(alice.address);
 
     expect(alice0.internal).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n });
     expect(alice0.external).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n });
@@ -455,31 +558,43 @@ describe('5. supplyTo', function () {
     expect(alice1.external).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n });
     expect(bob1.internal).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n });
     expect(bob1.external).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n });
+    // TODO: Fix: Do not check the principal of alice
     //expect(aliceBasic1.principal).to.be.equal(aliceBasic0.principal.add(50e6)); // 100e6 in present value
   });
 
-  it('reverts if supplying collateral exceeds the supply cap', async () => {
+  it("reverts if supplying collateral exceeds the supply cap", async () => {
     const protocol = await makeProtocol({
-      base: 'USDC',
+      base: "USDC",
       storeFrontPriceFactor: exp(0.5, 18),
       targetPercent: 0.5,
       assets: {
         USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
         COMP: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
+          supplyCap: exp(100, 18),
         },
         WETH: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
         },
         WBTC: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
-        }
-      }
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
+        },
+      },
     });
-    const { comet, tokens, users: [alice, bob] } = protocol;
+    const {
+      comet,
+      tokens,
+      users: [alice, bob],
+    } = protocol;
     const { COMP } = tokens;
 
     const _i0 = await COMP.allocateTo(bob.address, exp(1e10, 18));
@@ -490,28 +605,38 @@ describe('5. supplyTo', function () {
     await expect(cometAsB.supplyTo(alice.address, COMP.address, exp(1e10, 18))).to.be.revertedWith("custom error 'SupplyCapExceeded()'");
   });
 
-  it('reverts if the asset is neither collateral nor base', async () => {
+  it("reverts if the asset is neither collateral nor base", async () => {
     const protocol = await makeProtocol({
-      base: 'USDC',
+      base: "USDC",
       storeFrontPriceFactor: exp(0.5, 18),
       targetPercent: 0.5,
       assets: {
         USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
         COMP: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
         },
         WETH: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
         },
         WBTC: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
-        }
-      }
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
+        },
+      },
     });
-    const { comet, users: [alice, bob], unsupportedToken: USUP } = protocol;
+    const {
+      comet,
+      users: [alice, bob],
+      unsupportedToken: USUP,
+    } = protocol;
 
     const _i0 = await USUP.allocateTo(bob.address, 1);
     const baseAsB = USUP.connect(bob);
@@ -521,28 +646,39 @@ describe('5. supplyTo', function () {
     await expect(cometAsB.supplyTo(alice.address, USUP.address, 1)).to.be.reverted;
   });
 
-  it('reverts if supply is paused', async () => {
+  it("reverts if supply is paused", async () => {
     const protocol = await makeProtocol({
-      base: 'USDC',
+      base: "USDC",
       storeFrontPriceFactor: exp(0.5, 18),
       targetPercent: 0.5,
       assets: {
         USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
         COMP: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
         },
         WETH: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
         },
         WBTC: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
-        }
-      }
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
+        },
+      },
     });
-    const { comet, tokens, configController, users: [alice, bob] } = protocol;
+    const {
+      comet,
+      tokens,
+      configController,
+      users: [alice, bob],
+    } = protocol;
     const { USDC } = tokens;
 
     await USDC.allocateTo(bob.address, 1);
@@ -551,10 +687,7 @@ describe('5. supplyTo', function () {
 
     const configSigner = await ethers.getImpersonatedSigner(configController.address);
 
-    await hre.network.provider.send('hardhat_setBalance', [
-      configController.address,
-      ethers.utils.hexValue(ethers.utils.parseEther('1')),
-    ]);
+    await hre.network.provider.send("hardhat_setBalance", [configController.address, ethers.utils.hexValue(ethers.utils.parseEther("1"))]);
 
     await wait(comet.connect(configSigner).pause(true, false, false, false, false));
     expect(await comet.isSupplyPaused()).to.be.true;
@@ -563,28 +696,38 @@ describe('5. supplyTo', function () {
     await expect(cometAsB.supplyTo(alice.address, USDC.address, 1)).to.be.revertedWith("custom error 'Paused()'");
   });
 
-  it('reverts if supply max for a collateral asset', async () => {
+  it("reverts if supply max for a collateral asset", async () => {
     const protocol = await makeProtocol({
-      base: 'USDC',
+      base: "USDC",
       storeFrontPriceFactor: exp(0.5, 18),
       targetPercent: 0.5,
       assets: {
         USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
         COMP: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
         },
         WETH: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
         },
         WBTC: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
-        }
-      }
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
+        },
+      },
     });
-    const { comet, tokens, users: [alice, bob] } = protocol;
+    const {
+      comet,
+      tokens,
+      users: [alice, bob],
+    } = protocol;
     const { COMP } = tokens;
 
     await COMP.allocateTo(bob.address, 100e6);
@@ -592,19 +735,25 @@ describe('5. supplyTo', function () {
     const cometAsB = comet.connect(bob);
 
     await wait(baseAsB.approve(COMP.address, 100e6));
-    await expect(cometAsB.supplyTo(alice.address, COMP.address, ethers.constants.MaxUint256)).to.be.revertedWith("custom error 'InvalidUInt128()'");
+    await expect(cometAsB.supplyTo(alice.address, COMP.address, ethers.constants.MaxUint256)).to.be.revertedWith(
+      "custom error 'InvalidUInt128()'"
+    );
   });
 
-  it('supplies base the correct amount in a fee-like situation', async () => {
+  it("supplies base the correct amount in a fee-like situation", async () => {
     const assets = defaultAssets();
     // Add USDT to assets on top of default assets
-    assets['USDT'] = {
+    assets["USDT"] = {
       initial: 1e6,
       decimals: 6,
-      factory: (await ethers.getContractFactory('NonStandardFaucetFeeToken')) as NonStandardFaucetFeeToken__factory,
+      factory: (await ethers.getContractFactory("NonStandardFaucetFeeToken")) as NonStandardFaucetFeeToken__factory,
     };
-    const protocol = await makeProtocol({ base: 'USDT', assets: assets });
-    const { comet, tokens, users: [alice, bob] } = protocol;
+    const protocol = await makeProtocol({ base: "USDT", assets: assets });
+    const {
+      comet,
+      tokens,
+      users: [alice, bob],
+    } = protocol;
     const { USDT } = tokens;
 
     // Set fee to 0.1%
@@ -627,21 +776,21 @@ describe('5. supplyTo', function () {
         from: bob.address,
         to: comet.address,
         amount: BigInt(999e6),
-      }
+      },
     });
     expect(event(s0, 1)).to.be.deep.equal({
       Supply: {
         from: bob.address,
         dst: alice.address,
         amount: BigInt(999e6),
-      }
+      },
     });
     expect(event(s0, 2)).to.be.deep.equal({
       Transfer: {
         from: ethers.constants.AddressZero,
         to: alice.address,
         amount: BigInt(999e6) - BigInt(1),
-      }
+      },
     });
 
     expect(p0.internal).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n, USDT: 0n });
@@ -656,17 +805,21 @@ describe('5. supplyTo', function () {
     expect(Number(s0.receipt.gasUsed)).to.be.lessThan(151000);
   });
 
-  it('supplies collateral the correct amount in a fee-like situation', async () => {
+  it("supplies collateral the correct amount in a fee-like situation", async () => {
     const assets = defaultAssets();
     // Add FeeToken Collateral to assets on top of default assets
-    assets['FeeToken'] = {
+    assets["FeeToken"] = {
       initial: 1e8,
       decimals: 18,
-      factory: (await ethers.getContractFactory('NonStandardFaucetFeeToken')) as NonStandardFaucetFeeToken__factory,
+      factory: (await ethers.getContractFactory("NonStandardFaucetFeeToken")) as NonStandardFaucetFeeToken__factory,
     };
 
-    const protocol = await makeProtocol({ base: 'USDC', assets: assets });
-    const { comet, tokens, users: [alice, bob] } = protocol;
+    const protocol = await makeProtocol({ base: "USDC", assets: assets });
+    const {
+      comet,
+      tokens,
+      users: [alice, bob],
+    } = protocol;
     const { FeeToken } = tokens;
 
     // Set fee to 0.1%
@@ -690,7 +843,7 @@ describe('5. supplyTo', function () {
         from: bob.address,
         to: comet.address,
         amount: BigInt(1998e8),
-      }
+      },
     });
     expect(event(s0, 1)).to.be.deep.equal({
       SupplyCollateral: {
@@ -698,14 +851,14 @@ describe('5. supplyTo', function () {
         dst: alice.address,
         asset: FeeToken.address,
         amount: BigInt(1998e8),
-      }
+      },
     });
 
     expect(p0.internal).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n, FeeToken: 0n });
     expect(p0.external).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n, FeeToken: 0n });
     expect(q0.internal).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n, FeeToken: 0n });
     expect(q0.external).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n, FeeToken: exp(2000, 8) });
-    expect(p1.internal).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n, FeeToken:  exp(1998,8)});
+    expect(p1.internal).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n, FeeToken: exp(1998, 8) });
     expect(p1.external).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n, FeeToken: 0n });
     expect(q1.internal).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n, FeeToken: 0n });
     expect(q1.external).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n, FeeToken: 0n });
@@ -714,9 +867,13 @@ describe('5. supplyTo', function () {
     expect(Number(s0.receipt.gasUsed)).to.be.lessThan(190000);
   });
 
-  it('blocks reentrancy from exceeding the supply cap', async () => {
-    const { comet, tokens, users: [alice, bob] } = await makeProtocol({
-      base: 'USDC',
+  it("blocks reentrancy from exceeding the supply cap", async () => {
+    const {
+      comet,
+      tokens,
+      users: [alice, bob],
+    } = await makeProtocol({
+      base: "USDC",
       storeFrontPriceFactor: exp(0.5, 18),
       targetPercent: 0.5,
       assets: {
@@ -725,10 +882,10 @@ describe('5. supplyTo', function () {
           // initial: 1e6,
           decimals: 6,
           initialPrice: 2,
-          factory: await ethers.getContractFactory('EvilToken') as EvilToken__factory,
-          supplyCap: 100e6
-        }
-      }
+          factory: (await ethers.getContractFactory("EvilToken")) as EvilToken__factory,
+          supplyCap: 100e6,
+        },
+      },
     });
     const { EVIL } = <{ EVIL: EvilToken }>tokens;
 
@@ -738,42 +895,53 @@ describe('5. supplyTo', function () {
       destination: bob.address,
       asset: EVIL.address,
       amount: 75e6,
-      maxCalls: 1
+      maxCalls: 1,
     });
     await EVIL.setAttack(attack);
 
     //await comet.connect(alice).allow(EVIL.address, true);
     await wait(EVIL.connect(alice).approve(comet.address, 75e6));
     await EVIL.allocateTo(alice.address, 75e6);
-    await expect(
-      comet.connect(alice).supplyTo(bob.address, EVIL.address, 75e6)
-    ).to.be.revertedWithCustomError(comet, 'ReentrantCallBlocked');
+    await expect(comet.connect(alice).supplyTo(bob.address, EVIL.address, 75e6)).to.be.revertedWithCustomError(
+      comet,
+      "ReentrantCallBlocked"
+    );
   });
 });
 
-describe('supply', function () {
-  it('supplies to sender by default', async () => {
+describe("supply", function () {
+  it("supplies to sender by default", async () => {
     const protocol = await makeProtocol({
-      base: 'USDC',
+      base: "USDC",
       storeFrontPriceFactor: exp(0.5, 18),
       targetPercent: 0.5,
       assets: {
         USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
         COMP: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
         },
         WETH: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
         },
         WBTC: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
-        }
-      }
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
+        },
+      },
     });
-    const { comet, tokens, users: [bob] } = protocol;
+    const {
+      comet,
+      tokens,
+      users: [bob],
+    } = protocol;
     const { USDC } = tokens;
 
     const _i0 = await USDC.allocateTo(bob.address, 100e6);
@@ -791,28 +959,39 @@ describe('supply', function () {
     expect(q1.external).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n });
   });
 
-  it('reverts if supply is paused', async () => {
+  it("reverts if supply is paused", async () => {
     const protocol = await makeProtocol({
-      base: 'USDC',
+      base: "USDC",
       storeFrontPriceFactor: exp(0.5, 18),
       targetPercent: 0.5,
       assets: {
         USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
         COMP: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
         },
         WETH: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
         },
         WBTC: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
-        }
-      }
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
+        },
+      },
     });
-    const { comet, tokens, configController, users: [bob] } = protocol;
+    const {
+      comet,
+      tokens,
+      configController,
+      users: [bob],
+    } = protocol;
     const { USDC } = tokens;
 
     await USDC.allocateTo(bob.address, 100e6);
@@ -820,10 +999,7 @@ describe('supply', function () {
     const cometAsB = comet.connect(bob);
 
     const configSigner = await ethers.getImpersonatedSigner(configController.address);
-    await hre.network.provider.send('hardhat_setBalance', [
-      configController.address,
-      ethers.utils.hexValue(ethers.utils.parseEther('5')),
-    ]);
+    await hre.network.provider.send("hardhat_setBalance", [configController.address, ethers.utils.hexValue(ethers.utils.parseEther("5"))]);
 
     // Pause supply
     await wait(comet.connect(configSigner).pause(true, false, false, false, false));
@@ -834,29 +1010,39 @@ describe('supply', function () {
   });
 });
 
-describe('supplyFrom', function () {
-  it('supplies from `from` if specified and sender has permission', async () => {
+describe("supplyFrom", function () {
+  it("supplies from `from` if specified and sender has permission", async () => {
     const protocol = await makeProtocol({
-      base: 'USDC',
+      base: "USDC",
       storeFrontPriceFactor: exp(0.5, 18),
       targetPercent: 0.5,
       assets: {
         USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
         COMP: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
         },
         WETH: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
         },
         WBTC: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
         },
-      }
+      },
     });
-    const { comet, tokens, users: [alice, bob, charlie] } = protocol;
+    const {
+      comet,
+      tokens,
+      users: [alice, bob, charlie],
+    } = protocol;
     const { COMP } = tokens;
 
     const supplyAmount = 7n;
@@ -867,15 +1053,12 @@ describe('supplyFrom', function () {
     const cometAsC = comet.connect(charlie);
 
     // Approve Charlie the comet to transfer COMP on behalf of bob
-    const cometExtention = await ethers.getContractAt("CometExtension", await comet.extension()) as CometExtension;
-    const approveCalldata = cometExtention.interface.encodeFunctionData(
-      "approve",
-      [charlie.address, ethers.constants.MaxUint256]
-    );
+    const cometExtention = (await ethers.getContractAt("CometExtension", await comet.extension())) as CometExtension;
+    const approveCalldata = cometExtention.interface.encodeFunctionData("approve", [charlie.address, ethers.constants.MaxUint256]);
     await bob.sendTransaction({
       to: comet.address,
       data: approveCalldata,
-      gasLimit: 1_000_000
+      gasLimit: 1_000_000,
     });
 
     await wait(baseAsB.approve(comet.address, supplyAmount));
@@ -897,76 +1080,92 @@ describe('supplyFrom', function () {
     expect(q1.external).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n });
   });
 
-  it('reverts if `from` is specified and sender does not have permission', async () => {
+  it("reverts if `from` is specified and sender does not have permission", async () => {
     const protocol = await makeProtocol({
-      base: 'USDC',
+      base: "USDC",
       storeFrontPriceFactor: exp(0.5, 18),
       targetPercent: 0.5,
       assets: {
-
         USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
         COMP: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
         },
         WETH: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
         },
         WBTC: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
-        }
-      }
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
+        },
+      },
     });
-    const { comet, tokens, users: [alice, bob, charlie] } = protocol;
+    const {
+      comet,
+      tokens,
+      users: [alice, bob, charlie],
+    } = protocol;
     const { COMP } = tokens;
 
-    const _i0 = await COMP.allocateTo(bob.address, 7);
+    await COMP.allocateTo(bob.address, 7);
     const cometAsC = comet.connect(charlie);
 
-    await expect(cometAsC.supplyFrom(bob.address, alice.address, COMP.address, 7))
-      .to.be.revertedWith("custom error 'Unauthorized()'");
+    await expect(cometAsC.supplyFrom(bob.address, alice.address, COMP.address, 7)).to.be.revertedWith("custom error 'Unauthorized()'");
   });
 
-  it('reverts if supply is paused', async () => {
+  it("reverts if supply is paused", async () => {
     const protocol = await makeProtocol({
-      base: 'USDC',
+      base: "USDC",
       storeFrontPriceFactor: exp(0.5, 18),
       targetPercent: 0.5,
       assets: {
         USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
         COMP: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
         },
         WETH: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
         },
         WBTC: {
-          initial: 1e7, decimals: 18, initialPrice: 1,
-          liquidationFactor: exp(0.8, 18)
-        }
-      }
+          initial: 1e7,
+          decimals: 18,
+          initialPrice: 1,
+          liquidationFactor: exp(0.8, 18),
+        },
+      },
     });
-    const { comet, tokens, configController, users: [alice, bob, charlie] } = protocol;
+    const {
+      comet,
+      tokens,
+      configController,
+      users: [alice, bob, charlie],
+    } = protocol;
     const { COMP } = tokens;
 
     await COMP.allocateTo(bob.address, 7);
     const baseAsB = COMP.connect(bob);
-    const cometAsB = comet.connect(bob);
     const cometAsC = comet.connect(charlie);
 
     // Pause supply
+    // TODO: Fix this by creating smart contract that can pause supply
     const configSigner = await ethers.getImpersonatedSigner(configController.address);
-    await hre.network.provider.send('hardhat_setBalance', [
-      configController.address,
-      ethers.utils.hexValue(ethers.utils.parseEther('5')),
-    ]);
+    await hre.network.provider.send("hardhat_setBalance", [configController.address, ethers.utils.hexValue(ethers.utils.parseEther("5"))]);
 
     await wait(comet.connect(configSigner).pause(true, false, false, false, false));
-    
+
     expect(await comet.isSupplyPaused()).to.be.true;
 
     await wait(baseAsB.approve(comet.address, 7));

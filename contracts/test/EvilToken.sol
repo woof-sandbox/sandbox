@@ -55,7 +55,7 @@ contract EvilToken is FaucetToken {
 
     function transfer(address dst, uint256 amount) public override returns (bool) {
         numberOfCalls++;
-        if (numberOfCalls > attack.maxCalls){
+        if (numberOfCalls > attack.maxCalls) {
             return super.transfer(dst, amount);
         } else {
             return performAttack(address(this), dst, amount);
@@ -73,12 +73,8 @@ contract EvilToken is FaucetToken {
 
     function performAttack(address src, address dst, uint256 amount) internal returns (bool) {
         ReentryAttack memory reentryAttack = attack;
-       if (reentryAttack.attackType == AttackType.TRANSFER_FROM) {
-            SandboxComet(payable(msg.sender)).transferFrom(
-                reentryAttack.source,
-                reentryAttack.destination,
-                reentryAttack.amount
-            );
+        if (reentryAttack.attackType == AttackType.TRANSFER_FROM) {
+            SandboxComet(payable(msg.sender)).transferFrom(reentryAttack.source, reentryAttack.destination, reentryAttack.amount);
         } else if (reentryAttack.attackType == AttackType.WITHDRAW_FROM) {
             SandboxComet(payable(msg.sender)).withdrawFrom(
                 reentryAttack.source,
@@ -93,17 +89,11 @@ contract EvilToken is FaucetToken {
                 reentryAttack.asset,
                 reentryAttack.amount
             );
-        }  else if (reentryAttack.attackType == AttackType.BUY_COLLATERAL) {
-            SandboxComet(payable(msg.sender)).buyCollateral(
-                reentryAttack.asset,
-                0,
-                reentryAttack.amount,
-                reentryAttack.destination
-            );
+        } else if (reentryAttack.attackType == AttackType.BUY_COLLATERAL) {
+            SandboxComet(payable(msg.sender)).buyCollateral(reentryAttack.asset, 0, reentryAttack.amount, reentryAttack.destination);
         } else {
             revert("invalid reentry attack");
         }
         return true;
     }
-
 }

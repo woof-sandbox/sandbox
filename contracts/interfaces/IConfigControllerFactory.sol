@@ -51,11 +51,11 @@ abstract contract IConfigControllerFactory {
     /// @param index The index of the controller
     /// @return The address of the controller
     function controllerAddresses(uint index) external view virtual returns (address);
-    
+
     /// @notice Returns the last controller ID
     /// @return The ID of the last controller
     function getLastControllerLength() external view virtual returns (uint);
-    
+
     /// @notice Creates a new ConfigController instance with unique configuration
     /// @param _guardian The address of the protocol guardian
     /// @param _marketFactory The address of the MarketFactory contract
@@ -78,4 +78,4 @@ abstract contract IConfigControllerFactory {
     /// @param _controller The address to check
     /// @return True if the address is a valid controller
     function isController(address _controller) external view virtual returns (bool);
-} 
+}

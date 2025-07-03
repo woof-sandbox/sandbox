@@ -61,7 +61,7 @@ export type Proposal = [
   string[], // targets
   BigNumberish[], // values
   string[], // calldatas
-  string // description
+  string, // description
 ];
 
 // Note: this list could change over time
@@ -73,10 +73,10 @@ export const COMP_WHALES = {
     '0x8169522c2C57883E8EF80C498aAB7820dA539806',
     '0x8d07D225a769b7Af3A923481E1FdF49180e6A265',
     '0x7d1a02C0ebcF06E1A36231A54951E061673ab27f',
-    '0x54A37d93E57c5DA659F508069Cf65A381b61E189'
+    '0x54A37d93E57c5DA659F508069Cf65A381b61E189',
   ],
 
-  testnet: ['0xbbfe34e868343e6f4f5e8b5308de980d7bd88c46']
+  testnet: ['0xbbfe34e868343e6f4f5e8b5308de980d7bd88c46'],
 };
 
 export const WHALES = {

@@ -1,4 +1,4 @@
-import { expect, exp, makeProtocol } from './helper/helpers';
+import { expect, exp, makeProtocol } from "./helper/helpers";
 
 /*
 Prices are set in terms of the base token (USDC with 6 decimals, by default):
@@ -10,18 +10,17 @@ decimals, by default)
 
 */
 
-describe('10. isLiquidatable', function () {
-  it('defaults to false', async () => {
+describe("10. isLiquidatable", function () {
+  it("defaults to false", async () => {
     const protocol = await makeProtocol();
     const {
       comet,
       users: [alice],
     } = protocol;
-
     expect(await comet.isLiquidatable(alice.address)).to.be.false;
   });
 
-  it('is false when user is owed principal', async () => {
+  it("is false when user is owed principal", async () => {
     const {
       comet,
       users: [alice],
@@ -31,7 +30,7 @@ describe('10. isLiquidatable', function () {
     expect(await comet.isLiquidatable(alice.address)).to.be.false;
   });
 
-  it('is true when user owes principal', async () => {
+  it("is true when user owes principal", async () => {
     const {
       comet,
       users: [alice],
@@ -41,7 +40,7 @@ describe('10. isLiquidatable', function () {
     expect(await comet.isLiquidatable(alice.address)).to.be.true;
   });
 
-  it('is false when collateral can cover the borrowed principal', async () => {
+  it("is false when collateral can cover the borrowed principal", async () => {
     const {
       comet,
       tokens,
@@ -53,13 +52,6 @@ describe('10. isLiquidatable', function () {
           initial: 1e7,
           decimals: 18,
           initialPrice: 1,
-          borrowCF: exp(1, 18),
-          liquidateCF: exp(1, 18),
-          liquidationFactor: exp(1, 18),
-          minBorrowCF: exp(0.9, 18),
-          maxBorrowCF: exp(1, 18),
-          minLiquidateCF: exp(1, 18),
-          maxLiquidateCF: exp(1, 18),
           supplyCap: exp(1_000_000, 18),
         },
       },
@@ -70,13 +62,13 @@ describe('10. isLiquidatable', function () {
     await comet.connect(alice).supply(COMP.address, exp(100_000, 18));
     // user owes $100,000
     await comet.setBasePrincipal(alice.address, -100_000_000_000);
-    // but has $100,000 in COMP to cover
-    await comet.setCollateralBalance(alice.address, COMP.address, exp(100_000, 18));
+    // but has $100,000(effective balance with borrowCF) in COMP to cover.
+    await comet.setCollateralBalance(alice.address, COMP.address, exp(170_000, 18));
 
     expect(await comet.isLiquidatable(alice.address)).to.be.false;
   });
 
-  it('is true when the collateral cannot cover the borrowed principal', async () => {
+  it("is true when the collateral cannot cover the borrowed principal", async () => {
     const {
       comet,
       tokens,
@@ -101,7 +93,7 @@ describe('10. isLiquidatable', function () {
     expect(await comet.isLiquidatable(alice.address)).to.be.true;
   });
 
-  it('takes liquidateCollateralFactor into account when comparing principal to collateral', async () => {
+  it("takes liquidateCollateralFactor into account when comparing principal to collateral", async () => {
     const {
       comet,
       tokens,
@@ -113,8 +105,8 @@ describe('10. isLiquidatable', function () {
           initial: 1e7,
           decimals: 18,
           initialPrice: 1, // 1 COMP = 1 USDC
-          borrowCF: exp(0.8, 18),
-          liquidateCF: exp(0.9, 18),
+          borrowCF: exp(0.75, 18),
+          liquidateCF: exp(0.8, 18),
           liquidationFactor: exp(0.9, 18),
           minBorrowCF: exp(0.6, 18),
           maxBorrowCF: exp(0.9, 18),
@@ -133,7 +125,7 @@ describe('10. isLiquidatable', function () {
     expect(await comet.isLiquidatable(alice.address)).to.be.true;
   });
 
-  it('changes when the underlying asset price changes', async () => {
+  it("changes when the underlying asset price changes", async () => {
     const {
       comet,
       tokens,
@@ -146,13 +138,6 @@ describe('10. isLiquidatable', function () {
           initial: 1e7,
           decimals: 18,
           initialPrice: 1,
-          borrowCF: exp(1, 18),
-          liquidateCF: exp(1, 18),
-          liquidationFactor: exp(1, 18),
-          minBorrowCF: exp(1, 18),
-          maxBorrowCF: exp(1, 18),
-          minLiquidateCF: exp(1, 18),
-          maxLiquidateCF: exp(1, 18),
           supplyCap: exp(1_000_000, 18),
         },
       },
@@ -161,8 +146,8 @@ describe('10. isLiquidatable', function () {
 
     // user owes $100,000
     await comet.setBasePrincipal(alice.address, -100_000_000_000);
-    // has $100,000 in COMP to cover
-    await comet.setCollateralBalance(alice.address, COMP.address, exp(100_000, 18));
+    // has $100,000(effective balance with borrowCF) in COMP to cover
+    await comet.setCollateralBalance(alice.address, COMP.address, exp(170_000, 18));
 
     expect(await comet.isLiquidatable(alice.address)).to.be.false;
 
@@ -172,7 +157,7 @@ describe('10. isLiquidatable', function () {
       exp(0.5, 8), // answer
       0, // startedAt
       0, // updatedAt
-      0, // answeredInRound
+      0 // answeredInRound
     );
 
     expect(await comet.isLiquidatable(alice.address)).to.be.true;

@@ -16,7 +16,7 @@ contract NonStandardFeeToken is IERC20NonStandard {
     uint8 public decimals;
     address public owner;
     uint256 public totalSupply;
-    mapping(address => mapping (address => uint256)) public allowance;
+    mapping(address => mapping(address => uint256)) public allowance;
     mapping(address => uint256) public balanceOf;
     event Approval(address indexed owner, address indexed spender, uint256 value);
     event Transfer(address indexed from, address indexed to, uint256 value);
@@ -36,7 +36,7 @@ contract NonStandardFeeToken is IERC20NonStandard {
 
     function transfer(address dst, uint256 amount) external virtual {
         require(amount <= balanceOf[msg.sender], "ERC20: transfer amount exceeds balance");
-        uint256 fee = amount * basisPointsRate / 10000;
+        uint256 fee = (amount * basisPointsRate) / 10000;
         uint256 sendAmount = amount - fee;
         if (fee > maximumFee) {
             fee = maximumFee;
@@ -55,7 +55,7 @@ contract NonStandardFeeToken is IERC20NonStandard {
     function transferFrom(address src, address dst, uint256 amount) external virtual {
         require(amount <= allowance[src][msg.sender], "ERC20: transfer amount exceeds allowance");
         require(amount <= balanceOf[src], "ERC20: transfer amount exceeds balance");
-        uint256 fee = amount * basisPointsRate / 10000;
+        uint256 fee = (amount * basisPointsRate) / 10000;
         uint256 sendAmount = amount - fee;
         if (fee > maximumFee) {
             fee = maximumFee;
@@ -80,7 +80,7 @@ contract NonStandardFeeToken is IERC20NonStandard {
     // For testing, just don't limit access on setting fees
     function setParams(uint256 newBasisPoints, uint256 newMaxFee) public {
         basisPointsRate = newBasisPoints;
-        maximumFee = newMaxFee * (10**decimals);
+        maximumFee = newMaxFee * (10 ** decimals);
 
         emit Params(basisPointsRate, maximumFee);
     }
@@ -92,9 +92,12 @@ contract NonStandardFeeToken is IERC20NonStandard {
  * @notice A simple test token that lets anyone get more of it.
  */
 contract NonStandardFaucetFeeToken is NonStandardFeeToken {
-    constructor(uint256 _initialAmount, string memory _tokenName, uint8 _decimalUnits, string memory _tokenSymbol)
-        NonStandardFeeToken(_initialAmount, _tokenName, _decimalUnits, _tokenSymbol) {
-    }
+    constructor(
+        uint256 _initialAmount,
+        string memory _tokenName,
+        uint8 _decimalUnits,
+        string memory _tokenSymbol
+    ) NonStandardFeeToken(_initialAmount, _tokenName, _decimalUnits, _tokenSymbol) {}
 
     function allocateTo(address _owner, uint256 value) public {
         balanceOf[_owner] += value;

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
 import "@openzeppelin/contracts/proxy/Clones.sol";
@@ -28,16 +28,13 @@ contract SandboxCometFactory is ISandboxCometFactory {
      * @param _cometImplementation The address of the comet implementation contract to be cloned
      * @param _configControllerFactory The address of the config controller factory
      */
-    constructor(
-        address _cometImplementation,
-        address _configControllerFactory
-    ) {
+    constructor(address _cometImplementation, address _configControllerFactory) {
         if (_cometImplementation == address(0) || _configControllerFactory == address(0)) revert InvalidAddress();
 
         cometImplementation = _cometImplementation;
         configControllerFactory = _configControllerFactory;
     }
-    
+
     /**
      * @notice Creates a new comet with the specified configuration
      * @dev Uses OpenZeppelin's Clones library to create a new comet instance
@@ -48,15 +45,15 @@ contract SandboxCometFactory is ISandboxCometFactory {
 
         address comet = Clones.clone(cometImplementation);
         comets.push(comet);
-        
+
         CometExtension ext = new CometExtension(bytes32(0), bytes32(0));
 
         ISandboxComet(comet).factoryInit(msg.sender, address(ext));
-                
+
         emit CometCreated(comet, address(ext), msg.sender);
         return comet;
     }
-    
+
     /**
      * @notice Returns the number of comets created
      * @return The number of comets

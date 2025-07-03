@@ -1,0 +1,74 @@
+#!/bin/sh
+
+# exit when any command fails
+set -e
+
+echo "🔍 Running pre-commit checks..."
+
+# Get staged files
+STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACMR | sed 's| |\\ |g')
+
+# If no staged files, exit successfully
+if [ -z "$STAGED_FILES" ]; then
+    echo "ℹ️  No staged files to check"
+    exit 0
+fi
+
+echo "📁 Staged files: $STAGED_FILES"
+
+# Check if any Solidity files are staged
+SOLIDITY_FILES=$(echo "$STAGED_FILES" | grep '\.sol$' || true)
+
+# Check if any TypeScript/JavaScript files are staged
+TS_FILES=$(echo "$STAGED_FILES" | grep -E '\.(ts|js)$' || true)
+
+# TypeScript compilation check
+echo "🔧 Checking TypeScript compilation..."
+npx tsc --noEmit --project tsconfig.json
+
+# Prettier check on Solidity files (only if Solidity files are staged)
+if [ -n "$SOLIDITY_FILES" ]; then
+    echo "💅 Checking Solidity formatting..."
+    yarn prettier:sol
+else
+    echo "ℹ️  No Solidity files to format"
+fi
+
+# Prettier check on TypeScript files (only if TypeScript files are staged)
+if [ -n "$TS_FILES" ]; then
+    echo "💅 Checking TypeScript formatting..."
+    yarn prettier:ts
+else
+    echo "ℹ️  No TypeScript files to format"
+fi
+
+# ESLint check on staged TypeScript files
+if [ -n "$TS_FILES" ]; then
+    echo "🔍 Running ESLint TS on staged files..."
+    echo "$TS_FILES" | xargs eslint --config .eslintrc.js
+else
+    echo "ℹ️  No TypeScript files to lint"
+fi
+
+# ESLint check on staged Solidity files
+if [ -n "$SOLIDITY_FILES" ]; then
+    echo "🔍 Running ESLint Sol on staged files..."
+    echo "$SOLIDITY_FILES" | xargs yarn lint:sol
+else
+    echo "ℹ️  No Solidity files to lint"
+fi
+
+# Add back the modified/prettified files to staging
+echo "📝 Adding formatted files back to staging..."
+if [ -n "$SOLIDITY_FILES" ] || [ -n "$TS_FILES" ]; then
+    if [ -n "$SOLIDITY_FILES" ]; then
+        echo "$SOLIDITY_FILES" | xargs git add
+    fi
+    if [ -n "$TS_FILES" ]; then
+        echo "$TS_FILES" | xargs git add
+    fi
+fi
+
+echo "✅ All pre-commit checks passed!"
+
+exit 0

@@ -75,8 +75,7 @@ contract CometStorage {
     uint64 internal constant FACTOR_SCALE = 1e18;
 
     /// @dev The storage slot for reentrancy guard flags
-    bytes32 internal constant REENTRANCY_GUARD_FLAG_SLOT =
-        bytes32(keccak256("comet.reentrancy.guard"));
+    bytes32 internal constant REENTRANCY_GUARD_FLAG_SLOT = bytes32(keccak256("comet.reentrancy.guard"));
 
     /// @dev The reentrancy guard statuses
     uint256 internal constant REENTRANCY_GUARD_NOT_ENTERED = 0;
@@ -164,7 +163,7 @@ contract CometStorage {
     /// @notice The minimum base token reserves which must be held before collateral is hodled
     uint public targetPercent;
 
-    /// @notice Seed reserves
+    /// @notice Seed reserves, initialized during the Comet creation
     uint public seedReserves;
 
     /// @notice Unlock timestamp
@@ -185,11 +184,17 @@ contract CometStorage {
 
     /// @notice The number of assets this contract actually supports
     uint8 public numAssets;
+
     /// @notice Marker that the market is closed
     bool internal _closed;
 
     /// @notice Aggregate variables tracked for each collateral asset
     mapping(address => uint256) public totalsCollateral;
+
+    /// @notice Fees aggregation for the controller
+    mapping(address => uint256) public assetFeesController;
+    /// @notice Fees aggregation for the DAO
+    mapping(address => uint256) public assetFeesDAO;
 
     /// @notice Mapping of users to accounts which may be permitted to manage the user account
     mapping(address => mapping(address => bool)) public isAllowed;

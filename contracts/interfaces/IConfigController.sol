@@ -16,7 +16,7 @@ interface IConfigControllerStructs {
         uint64 liquidateCollateralFactor;
         uint64 liquidationFactor;
     }
-    
+
     struct CometConfig {
         address baseToken;
         uint baseTokenCurveId;
@@ -45,14 +45,22 @@ interface IConfigController is IConfigControllerStructs {
     function curatorFee() external view returns (uint);
 
     function curator() external view returns (address);
+
     function owner() external view returns (address);
+
     function guardian() external view returns (address);
+
     function sandboxController() external view returns (address);
+
     function cometFactory() external view returns (address);
+
     function comets(uint) external view returns (address);
+
     function cometsLength() external view returns (uint);
     function name() external view returns (string memory);
-    
+
+    function cometFeeEnabled(address) external view returns (bool);
+
     /// @notice Removes the current curator
     /// @dev Only callable by the owner
     function removeCurator() external;

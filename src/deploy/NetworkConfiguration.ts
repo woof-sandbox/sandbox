@@ -48,7 +48,7 @@ function stringToBigInt(x: ScientificNotation) {
   if (!Number.isInteger(coefficient)) {
     return number(Number(sanitizedInput));
   } else {
-    return BigInt(coefficient) * (10n ** BigInt(exponent));
+    return BigInt(coefficient) * 10n ** BigInt(exponent);
   }
 }
 
@@ -104,19 +104,12 @@ function getContractAddress(contractName: string, contracts: ContractMap, fallba
   let contract = contracts.get(contractName);
   if (!contract) {
     if (fallbackAddress) return fallbackAddress;
-    throw new Error(
-      `Cannot find contract \`${contractName}\` in contract map with keys \`${JSON.stringify(
-        [...contracts.keys()]
-      )}\``
-    );
+    throw new Error(`Cannot find contract \`${contractName}\` in contract map with keys \`${JSON.stringify([...contracts.keys()])}\``);
   }
   return contract.address;
 }
 
-function getAssetConfigs(
-  assets: { [name: string]: NetworkAssetConfiguration },
-  contracts: ContractMap,
-): AssetConfigStruct[] {
+function getAssetConfigs(assets: { [name: string]: NetworkAssetConfiguration }, contracts: ContractMap): AssetConfigStruct[] {
   return Object.entries(assets).map(([assetName, assetConfig]) => ({
     asset: getContractAddress(assetName, contracts, assetConfig.address),
     priceFeed: getContractAddress(`${assetName}:priceFeed`, contracts, assetConfig.priceFeed),
@@ -134,37 +127,38 @@ function getOverridesOrConfig(
   contracts: ContractMap,
 ): ProtocolConfiguration {
   const interestRateInfoMapping = (rates: NetworkRateConfiguration) => ({
-    supplyKink: _ => percentage(rates.supplyKink),
-    supplyPerYearInterestRateSlopeLow: _ => percentage(rates.supplySlopeLow),
-    supplyPerYearInterestRateSlopeHigh: _ => percentage(rates.supplySlopeHigh, false),
-    supplyPerYearInterestRateBase: _ => percentage(rates.supplyBase),
-    borrowKink: _ => percentage(rates.borrowKink),
-    borrowPerYearInterestRateSlopeLow: _ => percentage(rates.borrowSlopeLow),
-    borrowPerYearInterestRateSlopeHigh: _ => percentage(rates.borrowSlopeHigh, false),
-    borrowPerYearInterestRateBase: _ => percentage(rates.borrowBase),
+    supplyKink: (_) => percentage(rates.supplyKink),
+    supplyPerYearInterestRateSlopeLow: (_) => percentage(rates.supplySlopeLow),
+    supplyPerYearInterestRateSlopeHigh: (_) => percentage(rates.supplySlopeHigh, false),
+    supplyPerYearInterestRateBase: (_) => percentage(rates.supplyBase),
+    borrowKink: (_) => percentage(rates.borrowKink),
+    borrowPerYearInterestRateSlopeLow: (_) => percentage(rates.borrowSlopeLow),
+    borrowPerYearInterestRateSlopeHigh: (_) => percentage(rates.borrowSlopeHigh, false),
+    borrowPerYearInterestRateBase: (_) => percentage(rates.borrowBase),
   });
   const trackingInfoMapping = (tracking: NetworkTrackingConfiguration) => ({
-    trackingIndexScale: _ => stringToBigInt(tracking.indexScale),
-    baseTrackingSupplySpeed: _ => stringToBigInt(tracking.baseSupplySpeed),
-    baseTrackingBorrowSpeed: _ => stringToBigInt(tracking.baseBorrowSpeed),
-    baseMinForRewards: _ => stringToBigInt(tracking.baseMinForRewards),
+    trackingIndexScale: (_) => stringToBigInt(tracking.indexScale),
+    baseTrackingSupplySpeed: (_) => stringToBigInt(tracking.baseSupplySpeed),
+    baseTrackingBorrowSpeed: (_) => stringToBigInt(tracking.baseBorrowSpeed),
+    baseMinForRewards: (_) => stringToBigInt(tracking.baseMinForRewards),
   });
   const mapping = () => ({
-    name: _ => config.name,
-    symbol: _ => config.symbol,
-    governor: _ => config.governor,
-    pauseGuardian: _ => config.pauseGuardian,
-    baseToken: _ => getContractAddress(config.baseToken, contracts, config.baseTokenAddress),
-    baseTokenPriceFeed: _ => getContractAddress(`${config.baseToken}:priceFeed`, contracts, config.baseTokenPriceFeed),
-    baseBorrowMin: _ => stringToBigInt(config.borrowMin),
-    storeFrontPriceFactor: _ => percentage(config.storeFrontPriceFactor),
-    targetReserves: _ => stringToBigInt(config.targetReserves),
+    name: (_) => config.name,
+    symbol: (_) => config.symbol,
+    governor: (_) => config.governor,
+    pauseGuardian: (_) => config.pauseGuardian,
+    baseToken: (_) => getContractAddress(config.baseToken, contracts, config.baseTokenAddress),
+    baseTokenPriceFeed: (_) => getContractAddress(`${config.baseToken}:priceFeed`, contracts, config.baseTokenPriceFeed),
+    baseBorrowMin: (_) => stringToBigInt(config.borrowMin),
+    storeFrontPriceFactor: (_) => percentage(config.storeFrontPriceFactor),
+    targetReserves: (_) => stringToBigInt(config.targetReserves),
     ...interestRateInfoMapping(config.rates),
     ...trackingInfoMapping(config.tracking),
-    assetConfigs: _ => getAssetConfigs(config.assets, contracts),
-    rewardTokenAddress: _ => (config.rewardToken || config.rewardTokenAddress) ?
-      getContractAddress(config.rewardToken, contracts, config.rewardTokenAddress) :
-      undefined,
+    assetConfigs: (_) => getAssetConfigs(config.assets, contracts),
+    rewardTokenAddress: (_) =>
+      config.rewardToken || config.rewardTokenAddress
+        ? getContractAddress(config.rewardToken, contracts, config.rewardTokenAddress)
+        : undefined,
   });
   return Object.entries(mapping()).reduce((acc, [k, f]) => {
     return { [k]: overrides[k] ?? f(config), ...acc };
@@ -178,10 +172,10 @@ export async function getConfiguration(
   const config = await deploymentManager.readConfig<NetworkConfiguration>();
   const contracts = await deploymentManager.contracts();
   const resultConfig = getOverridesOrConfig(configOverrides, config, contracts);
-  if(!resultConfig.governor) {
+  if (!resultConfig.governor) {
     resultConfig.governor = (await deploymentManager.getSigner()).address;
   }
-  if(!resultConfig.pauseGuardian) {
+  if (!resultConfig.pauseGuardian) {
     resultConfig.pauseGuardian = (await deploymentManager.getSigner()).address;
   }
   return resultConfig;

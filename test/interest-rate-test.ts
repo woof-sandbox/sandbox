@@ -1,4 +1,4 @@
-import { expect, exp, makeProtocol, wait } from './helper/helpers';
+import { expect, exp, makeProtocol, wait } from "./helper/helpers";
 
 // Interest rate calculations can be checked with this Google Sheet:
 // https://docs.google.com/spreadsheets/d/1G3BWcFPEQYnH-IrHHye5oA0oFIP0Jyj7pybdpMuDOuI
@@ -9,7 +9,7 @@ const MINIMUM_PRECISION_WEI = 1e8; // 1e8 wei of precision
 const SECONDS_PER_YEAR = 31_536_000;
 
 function assertInterestRatesMatch(expectedRate, actualRate, precision = MINIMUM_PRECISION_WEI) {
-  expect((actualRate.sub(expectedRate)).abs()).lte(precision);
+  expect(actualRate.sub(expectedRate).abs()).lte(precision);
 }
 
 const interestRateParams = {
@@ -23,8 +23,8 @@ const interestRateParams = {
   borrowInterestRateSlopeHigh: exp(0.3, 18),
 };
 
-describe.skip('interest rates', function () {
-  it('when below kink utilization', async () => {
+describe.skip("interest rates", function () {
+  it("when below kink utilization", async () => {
     const { comet } = await makeProtocol(interestRateParams);
 
     // 10% utilization
@@ -49,13 +49,13 @@ describe.skip('interest rates', function () {
     expect(utilization).to.be.equal(exp(0.1, 18));
     // interestRateBase + interestRateSlopeLow * utilization
     // = 0 + 0.04 * 0.1 = 0.004
-    assertInterestRatesMatch(exp(.004, 18), supplyRate.mul(SECONDS_PER_YEAR));
+    assertInterestRatesMatch(exp(0.004, 18), supplyRate.mul(SECONDS_PER_YEAR));
     // interestRateBase + interestRateSlopeLow * utilization
     // = 0.01 + 0.05 * 0.1 = 0.015
     assertInterestRatesMatch(exp(0.015, 18), borrowRate.mul(SECONDS_PER_YEAR));
   });
 
-  it('when above kink utilization', async () => {
+  it("when above kink utilization", async () => {
     const { comet } = await makeProtocol(interestRateParams);
 
     // 90% utilization
@@ -86,7 +86,7 @@ describe.skip('interest rates', function () {
     assertInterestRatesMatch(exp(0.08, 18), borrowRate.mul(SECONDS_PER_YEAR));
   });
 
-  it('when 0 utilization', async () => {
+  it("when 0 utilization", async () => {
     const { comet } = await makeProtocol(interestRateParams);
 
     // 0% utilization

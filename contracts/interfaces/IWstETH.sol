@@ -8,18 +8,21 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
  * Note Not a comprehensive interface
  */
 interface IWstETH is IERC20 {
-
     function decimals() external view returns (uint8);
+
     function stETH() external returns (address);
 
     function wrap(uint256 _stETHAmount) external returns (uint256);
+
     function unwrap(uint256 _wstETHAmount) external returns (uint256);
 
     function receive() external payable;
 
     function getWstETHByStETH(uint256 _stETHAmount) external view returns (uint256);
+
     function getStETHByWstETH(uint256 _wstETHAmount) external view returns (uint256);
 
     function stEthPerToken() external view returns (uint256);
+
     function tokensPerStEth() external view returns (uint256);
 }

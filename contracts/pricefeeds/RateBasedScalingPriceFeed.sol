@@ -44,7 +44,13 @@ contract RateBasedScalingPriceFeed is IPriceFeed {
      * @param description_ The description of the price feed
      * @param underlyingToken_ The address of the underlying token
      **/
-    constructor(address underlyingPriceFeed_, uint8 decimals_, uint8 underlyingDecimals_, string memory description_, address underlyingToken_) {
+    constructor(
+        address underlyingPriceFeed_,
+        uint8 decimals_,
+        uint8 underlyingDecimals_,
+        string memory description_,
+        address underlyingToken_
+    ) {
         underlyingPriceFeed = underlyingPriceFeed_;
         if (decimals_ > 18) revert BadDecimals();
         decimals = decimals_;
@@ -53,9 +59,8 @@ contract RateBasedScalingPriceFeed is IPriceFeed {
         uint8 priceFeedDecimals = underlyingDecimals_;
         // Note: Solidity does not allow setting immutables in if/else statements
         shouldUpscale = priceFeedDecimals < decimals_ ? true : false;
-        rescaleFactor = (shouldUpscale
-            ? signed256(10 ** (decimals_ - priceFeedDecimals))
-            : signed256(10 ** (priceFeedDecimals - decimals_))
+        rescaleFactor = (
+            shouldUpscale ? signed256(10 ** (decimals_ - priceFeedDecimals)) : signed256(10 ** (priceFeedDecimals - decimals_))
         );
         underlyingToken = underlyingToken_;
     }
@@ -68,13 +73,12 @@ contract RateBasedScalingPriceFeed is IPriceFeed {
      * @return updatedAt Timestamp when the round was last updated; passed on from underlying price feed
      * @return answeredInRound Round id in which the answer was computed; passed on from underlying price feed
      **/
-    function latestRoundData() override external view returns (
-        uint80 roundId,
-        int256 answer,
-        uint256 startedAt,
-        uint256 updatedAt,
-        uint80 answeredInRound
-    ) {
+    function latestRoundData()
+        external
+        view
+        override
+        returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound)
+    {
         uint256 rate = IRateProvider(underlyingPriceFeed).getRate();
         return (1, scalePrice(signed256(rate)), block.timestamp, block.timestamp, 1);
     }

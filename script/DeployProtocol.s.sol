@@ -26,6 +26,8 @@ contract DeployProtocol is Script {
     address collateralToken3;
     address collateralToken4;
 
+    uint64 internal constant SECONDS_PER_YEAR = 31_536_000;
+
     function run() external {
         // Get owner's private key from .env
         ownerPrivateKey = vm.envUint("OWNER_PRIVATE_KEY");
@@ -118,24 +120,10 @@ contract DeployProtocol is Script {
             collateralPriceFeeds2
         );
 
-        setupBorrowing(
-            comet1,
-            baseToken1,
-            collateralTokens1,
-            curator
-        );
-
-        setupBorrowing(
-            comet2,
-            baseToken1,
-            collateralTokens2,
-            curator
-        );
-
-        setPrices();
-
         // Stop broadcasting
         vm.stopBroadcast();
+
+        setPrices();
 
         // Log deployment addresses
         console.log("Owner Address:", owner);
@@ -171,6 +159,8 @@ contract DeployProtocol is Script {
     }
 
     function setPrices() internal {
+        vm.startBroadcast(ownerPrivateKey);
+
         console.log("Setting prices");
         ManagedSimplePriceFeed(basePriceFeed1).setRoundData(
             0,
@@ -208,6 +198,8 @@ contract DeployProtocol is Script {
             0
         ); // LINK 
         console.log("Prices set");
+
+        vm.stopBroadcast();
     }
 
     function deployCometImplementation() internal returns (address) {
@@ -242,17 +234,16 @@ contract DeployProtocol is Script {
         SandboxController sandboxController = new SandboxController(
             owner, // owner
             address(1), // dao (different from owner)
+            address(2), // treasury (for now random address)
             true, // feeEnabled
-            3e17, // protocolFactorBorrow (30%)
-            2e17, // reserveFactorBorrow (20%)
-            3e17, // protocolFactorLiquidation (30%)
-            2e17, // reserveFactorLiquidation (20%)
             2e17, // targetPercent (20%)
-            95e16, // storeFrontPriceFactor (95%)
+            6e17, // storeFrontPriceFactor (60%)
             300, // minUpdateTime (5 minutes)
             3600, // maxUpdateTime (1 hour)
-            1e18, // suggestedAmountOfSeedReserves
-            3600 // suggestedLockTimeOfSeedReserves (1 hour)
+            250, // suggestedAmountOfSeedReserves
+            3600, // suggestedLockTimeOfSeedReserves (1 hour)
+            [uint64(4e16), uint64(3e16), uint64(2e16)], // reserveCommissions
+            [uint64(4e16), uint64(3e16), uint64(2e16)] // protocolCommissions
         );
         return address(sandboxController);
     }
@@ -304,14 +295,14 @@ contract DeployProtocol is Script {
         
         // Create base asset curve configuration
         ISandboxController.BaseAssetCurve memory curve = ISandboxController.BaseAssetCurve({
-            supplyKink: 8e17, // 80%
-            supplyPerYearInterestRateSlopeLow: 1e16, // 1%
-            supplyPerYearInterestRateSlopeHigh: 2e16, // 2%
-            supplyPerYearInterestRateBase: 1e16, // 1%
-            borrowKink: 8e17, // 80%
-            borrowPerYearInterestRateSlopeLow: 1e16, // 1%
-            borrowPerYearInterestRateSlopeHigh: 2e16, // 2%
-            borrowPerYearInterestRateBase: 1e16 // 1%
+            supplyKink: 9e17, // 90%
+            supplyPerYearInterestRateSlopeLow: 1141552511 * SECONDS_PER_YEAR,
+            supplyPerYearInterestRateSlopeHigh: 101344495180 * SECONDS_PER_YEAR,
+            supplyPerYearInterestRateBase: 140000000 * SECONDS_PER_YEAR,
+            borrowKink: 9e17, // 90%
+            borrowPerYearInterestRateSlopeLow: 880834601 * SECONDS_PER_YEAR,
+            borrowPerYearInterestRateSlopeHigh: 114155251141 * SECONDS_PER_YEAR,
+            borrowPerYearInterestRateBase: 475646879 * SECONDS_PER_YEAR
         });
 
         // Whitelist base asset
@@ -334,12 +325,12 @@ contract DeployProtocol is Script {
         sandboxController.whitelistCollateralAsset(
             collateralToken,
             collateralPriceFeed,
-            8000, // minBorrowCollateralFactor (80%)
-            9000, // maxBorrowCollateralFactor (90%)
-            8500, // minLiquidateCollateralFactor (85%)
-            9500, // maxLiquidateCollateralFactor (95%)
-            5000, // minLiquidationFactor (50%)
-            9000 // maxLiquidationFactor (90%)
+            8e17, // minBorrowCollateralFactor (80%)
+            9e17, // maxBorrowCollateralFactor (90%)
+            8.5e17, // minLiquidateCollateralFactor (85%)
+            9.5e17, // maxLiquidateCollateralFactor (95%)
+            8.5e17, // minLiquidationFactor (85%)
+            9.5e17 // maxLiquidationFactor (95%)
         );
     }
 
@@ -381,12 +372,10 @@ contract DeployProtocol is Script {
         for (uint i = 0; i < collateralTokens.length; i++) {
             collateralConfigs[i] = IConfigController.CollateralTokenConfig({
                 collateralToken: collateralTokens[i],
-                priceFeed: collateralPriceFeeds[i],
-                borrowCollateralFactor: 8000, // 80%
-                liquidateCollateralFactor: 8500, // 85%
-                liquidationFactor: 5000, // 50%
                 supplyCap: 1e24, // 1,000,000 tokens
-                scale: 15 // 15 decimals
+                borrowCollateralFactor: 8.1e17, // 80%
+                liquidateCollateralFactor: 8.5e17, // 85%
+                liquidationFactor: 9e17 // 90%
             });
         }
 
@@ -394,59 +383,12 @@ contract DeployProtocol is Script {
         IConfigController.CometConfig memory cometConfig = IConfigController.CometConfig({
             baseToken: baseToken,
             baseTokenCurveId: 0, // Use first curve
-            collateralTokens: collateralConfigs,
-            options: IConfigController.CometOptions({
-                baseTrackingSupplySpeed: 1e18, // 1x
-                baseTrackingBorrowSpeed: 1e18, // 1x
-                trackingIndexScale: 1e18, // 1x
-                baseMinForRewards: 1e18 // 1x
-            })
+            collateralTokens: collateralConfigs
         });
 
         // Create comet
         address comet = configController.createComet(cometConfig);
 
         return comet;
-    }
-
-    function setupBorrowing(
-        address cometAddr,
-        address baseToken,
-        address[] memory collateralTokens,
-        address user
-    ) internal {
-        ISandboxComet comet = ISandboxComet(cometAddr);
-        ManagedFaucetToken baseTokenContract = ManagedFaucetToken(baseToken);
-
-        // Supply base token to the comet
-        uint256 baseAmount = 1e24; // 1,000,000 base tokens
-        vm.startBroadcast(ownerPrivateKey);
-        baseTokenContract.allocateTo(owner, baseAmount);
-        baseTokenContract.approve(cometAddr, baseAmount);
-        comet.supply(baseToken, baseAmount);
-        vm.stopBroadcast();
-
-        // Supply collateral tokens
-        for (uint i = 0; i < collateralTokens.length; i++) {
-            ManagedFaucetToken collateralToken = ManagedFaucetToken(collateralTokens[i]);
-            uint256 collateralAmount = 1e24; // 1,000,000 collateral tokens
-            vm.startBroadcast(ownerPrivateKey);
-            collateralToken.allocateTo(user, collateralAmount);
-            vm.stopBroadcast();
-            vm.startBroadcast(userPrivateKey);
-            collateralToken.approve(cometAddr, collateralAmount);
-            comet.supply(collateralTokens[i], collateralAmount);
-            vm.stopBroadcast();
-        }
-        
-        // Borrow base token
-        uint256 borrowAmount = 500 * 10 ** baseTokenContract.decimals();
-        vm.startBroadcast(userPrivateKey);
-        comet.withdraw(baseToken, borrowAmount);
-        vm.stopBroadcast();
-
-        console.log("Setup borrowing for Comet:", cometAddr);
-        console.log("Supplied base token amount:", baseAmount);
-        console.log("Borrowed amount:", borrowAmount);
     }
 } 

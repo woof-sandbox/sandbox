@@ -29,4 +29,6 @@ interface IConfigControllerErrors {
     error InvalidProposalType();
     error InvalidSelector();
     error ProposalAlreadyExists();
+    error UnknownComet();
+    error IncorrectValue();
 }

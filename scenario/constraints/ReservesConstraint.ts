@@ -1,9 +1,9 @@
-import { Constraint, Solution } from '../../plugins/scenario';
-import { CometContext } from '../context/CometContext';
-import { expect } from 'chai';
-import { Requirements } from './Requirements';
-import { exp } from '../../test/helper/helpers';
-import { ComparisonOp, parseAmount, getToTransferAmount } from '../utils';
+import { Constraint, Solution } from "../../plugins/scenario";
+import { CometContext } from "../context/CometContext";
+import { expect } from "chai";
+import { Requirements } from "./Requirements";
+import { exp } from "../../test/helper/helpers";
+import { ComparisonOp, parseAmount, getToTransferAmount } from "../utils";
 
 export class ReservesConstraint<T extends CometContext, R extends Requirements> implements Constraint<T, R> {
   async solve(requirements: R, _initialContext: T) {
@@ -21,7 +21,7 @@ export class ReservesConstraint<T extends CometContext, R extends Requirements> 
 
         const amountToSource = getToTransferAmount(amount, currentReserves, decimals);
         // add buffer to adjust for interest accrual
-        await context.sourceTokens(amountToSource * 105n / 100n, baseToken, comet.address);
+        await context.sourceTokens((amountToSource * 105n) / 100n, baseToken, comet.address);
 
         return context;
       });

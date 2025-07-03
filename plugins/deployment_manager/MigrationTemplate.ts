@@ -1,4 +1,4 @@
-import { Cache } from './Cache';
+import { Cache } from "./Cache";
 
 export interface MigrationTemplateVars {
   timestamp: number;
@@ -30,24 +30,16 @@ function now(): number {
   return Math.floor(Date.now() / 1000);
 }
 
-export async function generateMigration(
-  cache: Cache,
-  name: string,
-  timestamp?: number
-): Promise<string> {
+export async function generateMigration(cache: Cache, name: string, timestamp?: number): Promise<string> {
   let templateVars: MigrationTemplateVars = { name, timestamp: timestamp ?? now() };
   let migrationFileName = migrationName(templateVars);
-  let migrationFileSpec = { rel: ['migrations', migrationFileName] };
+  let migrationFileSpec = { rel: ["migrations", migrationFileName] };
 
-  if (await cache.readCache(migrationFileSpec, (x) => x) !== undefined) {
+  if ((await cache.readCache(migrationFileSpec, x => x)) !== undefined) {
     throw new Error(`Migration ${migrationFileName} already exists.`);
   }
 
-  await cache.storeCache(
-    migrationFileSpec,
-    migrationTemplate(templateVars),
-    (x) => x.toString()
-  );
+  await cache.storeCache(migrationFileSpec, migrationTemplate(templateVars), x => x.toString());
 
   return migrationFileName;
 }
