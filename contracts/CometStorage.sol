@@ -183,7 +183,7 @@ contract CometStorage {
     /// @dev Aggregate variables tracked for the entire market
     uint64 internal baseSupplyIndex;
     uint64 internal baseBorrowIndex;
-    uint64 public daoTrackingSupplyIndex; 
+    uint64 public daoTrackingSupplyIndex;
     uint64 public daoTrackingBorrowIndex;
     uint64 internal trackingSupplyIndex;
     uint64 internal trackingBorrowIndex;

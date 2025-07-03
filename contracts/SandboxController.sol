@@ -147,10 +147,10 @@ contract SandboxController is ISandboxController {
 
         _controllerConfiguration = SandboxControllerConfiguration(
             _targetPercent,
+            _suggestedLockTimeOfSeedReserves,
             _minUpdateTime,
             _maxUpdateTime,
             _suggestedAmountOfSeedReserves,
-            _suggestedLockTimeOfSeedReserves,
             _storeFrontPriceFactor
         );
     }

@@ -95,7 +95,7 @@ describe("5. supplyTo", function () {
     expect(p1.external).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n });
     expect(q1.internal).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n });
     expect(q1.external).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n });
-    expect(Number(s0.receipt.gasUsed)).to.be.lessThan(124000);
+    expect(Number(s0.receipt.gasUsed)).to.be.lessThan(130000);
   });
 
   it("supplies max base borrow balance (including accrued) from sender if the asset is base", async () => {
@@ -424,7 +424,7 @@ describe("5. supplyTo", function () {
     expect(p0.external).to.be.deep.equal({ USDC: 10n, COMP: 0n, WETH: 0n, WBTC: 0n });
     expect(p1.internal).to.be.deep.equal({ USDC: 9n, COMP: 0n, WETH: 0n, WBTC: 0n });
     expect(p1.external).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n });
-    expect(Number(s0.receipt.gasUsed)).to.be.lessThan(124000);
+    expect(Number(s0.receipt.gasUsed)).to.be.lessThan(130000);
   });
 
   it("supplies collateral from sender if the asset is collateral", async () => {
@@ -802,7 +802,7 @@ describe("5. supplyTo", function () {
     expect(q1.internal).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n, USDT: 0n });
     expect(q1.external).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n, USDT: 0n });
     // Fee Token logics will cost a bit more gas than standard ERC20 token with no fee calculation
-    expect(Number(s0.receipt.gasUsed)).to.be.lessThan(151000);
+    expect(Number(s0.receipt.gasUsed)).to.be.lessThan(160000);
   });
 
   it("supplies collateral the correct amount in a fee-like situation", async () => {

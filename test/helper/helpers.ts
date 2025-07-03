@@ -33,11 +33,11 @@ import { TransactionReceipt, TransactionResponse } from "@ethersproject/abstract
 import { CometHarness, TotalsBasicStructOutput } from "../../build/types/CometHarness";
 import { CometConfigStruct } from "../../build/types/ConfigController";
 
+export { ethers, expect, hre };
+
 // Snapshot
 export type { SnapshotRestorer } from "@nomicfoundation/hardhat-network-helpers";
 export { takeSnapshot } from "@nomicfoundation/hardhat-network-helpers";
-
-export { ethers, expect, hre };
 
 export type Numeric = number | bigint;
 
@@ -313,7 +313,6 @@ export async function makeCometFactory(cometImpl: Contract, configController: Co
   await cometFactory.deployed();
 
   return cometFactory;
-  return cometFactory;
 }
 
 export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Partial<Protocol>> {
@@ -479,7 +478,7 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Par
     guardian,
     dao,
     curve,
-    seedReserves: sandboxControllerOpts.suggestedAmountOfSeedReserves,
+    seedReserves: suggestedAmountOfSeedReserves,
   };
 }
 
