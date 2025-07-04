@@ -97,11 +97,10 @@ jobs:
           python-version: '3.9'
           
       - name: Install Foundry
+        shell: bash
         run: |
-          curl -L https://foundryL https://foundry.paradigm.xyz | bash
-          export PATH="$.paradigm.xyz | bash
-          export PATH="$HOMEHOME/.foundry/bin:$PATH"
-          /.foundry/bin:$PATH"
+          curl -L https://foundry.paradigm.xyz | bash
+          export PATH="$HOME/.foundry/bin:$PATH"
           foundryup
 
       - name: Install Slither
