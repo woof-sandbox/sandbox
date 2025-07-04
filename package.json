@@ -27,7 +27,8 @@
     }
   },
   "scripts": {
-    "setup": "git submodule update --init --recursive && yarn install",
+    "preinstall": "git submodule update --init --recursive",
+    "postinstall": "yarn setup:hooks",
     "build": "hardhat compile",
     "clean": "hardhat clean && rm -rf build/ cache/ coverage* dist/",
     "test": "hardhat test",
