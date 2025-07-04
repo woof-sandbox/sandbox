@@ -63,14 +63,6 @@ jobs:
       - name: Clean out directory
         run: yarn clean:out
 
-      - name: Upload test results
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: test-results
-          path: test-results.json
-          retention-days: 30
-
   security:
     runs-on: ubuntu-latest
     env:
@@ -113,23 +105,40 @@ jobs:
         run: |
           yarn add @cyfrin/aderyn
 
-      - name: Build contracts for security analysis
-        run: yarn build
-
       - name: Run Slither (if available)
         run: |
           if command -v slither &> /dev/null; then
             yarn slither
+            echo "✅ Slither analysis completed"
           else
             echo "Slither not available, skipping..."
           fi
         continue-on-error: true
 
+      - name: Upload Slither results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: slither-results
+          path: |
+            SLITHER_REPORT.md
+            slither-report.json
+          retention-days: 30
+
       - name: Run Aderyn (if available)
         run: |
-          if command -v aderyn &> /dev/null; then
+          if npx aderyn --version &> /dev/null; then
             yarn aderyn
+            echo "✅ Aderyn analysis completed"
           else
             echo "Aderyn not available, skipping..."
           fi
         continue-on-error: true
+
+      - name: Upload Aderyn results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: aderyn-results
+          path: ADERYN_REPORT.md
+          retention-days: 30
