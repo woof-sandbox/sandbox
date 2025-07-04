@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
-abstract contract ISandboxCometFactory {    
+abstract contract ISandboxCometFactory {
     error InvalidAddress();
     error Unauthorized();
 
@@ -13,6 +13,7 @@ abstract contract ISandboxCometFactory {
 
     /// @notice Returns the address of the comet implementation
     function cometImplementation() external view virtual returns (address);
+
     /// @notice Returns the address of the config controller factory
     function configControllerFactory() external view virtual returns (address);
 

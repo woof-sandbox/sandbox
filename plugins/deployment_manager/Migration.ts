@@ -1,5 +1,5 @@
-import { DeploymentManager } from './DeploymentManager';
-import { FileSpec } from './Cache';
+import { DeploymentManager } from "./DeploymentManager";
+import { FileSpec } from "./Cache";
 
 export interface Actions<T> {
   prepare: (dm: DeploymentManager, govDm: DeploymentManager) => Promise<T>;
@@ -20,8 +20,7 @@ export class Migration<T> {
 
 export async function loadMigration(path: string): Promise<Migration<any>> {
   const { default: thing } = await import(path);
-  if (!(thing instanceof Migration))
-    throw new Error(`Does not export a valid default Migration`);
+  if (!(thing instanceof Migration)) throw new Error(`Does not export a valid default Migration`);
   return thing;
 }
 
@@ -38,5 +37,5 @@ export function migration<T>(name: string, actions: Actions<T>) {
 }
 
 export function getArtifactSpec<T>(migration: Migration<T>): FileSpec {
-  return { rel: ['artifacts', `${migration.name}.json`] };
+  return { rel: ["artifacts", `${migration.name}.json`] };
 }

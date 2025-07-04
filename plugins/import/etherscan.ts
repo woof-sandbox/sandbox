@@ -1,4 +1,4 @@
-import axios from 'axios';
+import axios from "axios";
 
 export interface Result {
   status: string;
@@ -8,18 +8,18 @@ export interface Result {
 
 export function getEtherscanApiUrl(network: string): string {
   let host = {
-    rinkeby: 'api-rinkeby.etherscan.io',
-    ropsten: 'api-ropsten.etherscan.io',
-    sepolia: 'api-sepolia.etherscan.io',
-    mainnet: 'api.etherscan.io',
-    fuji: 'api-testnet.snowtrace.io',
-    avalanche: 'api.snowtrace.io',
-    polygon: 'api.polygonscan.com',
-    arbitrum: 'api.arbiscan.io',
-    base: 'api.basescan.org',
-    optimism: 'api-optimistic.etherscan.io',
-    mantle: 'api.mantlescan.xyz',
-    scroll: 'api.scrollscan.com'
+    rinkeby: "api-rinkeby.etherscan.io",
+    ropsten: "api-ropsten.etherscan.io",
+    sepolia: "api-sepolia.etherscan.io",
+    mainnet: "api.etherscan.io",
+    fuji: "api-testnet.snowtrace.io",
+    avalanche: "api.snowtrace.io",
+    polygon: "api.polygonscan.com",
+    arbitrum: "api.arbiscan.io",
+    base: "api.basescan.org",
+    optimism: "api-optimistic.etherscan.io",
+    mantle: "api.mantlescan.xyz",
+    scroll: "api.scrollscan.com",
   }[network];
 
   if (!host) {
@@ -31,18 +31,18 @@ export function getEtherscanApiUrl(network: string): string {
 
 export function getEtherscanUrl(network: string): string {
   let host = {
-    rinkeby: 'rinkeby.etherscan.io',
-    ropsten: 'ropsten.etherscan.io',
-    sepolia: 'sepolia.etherscan.io',
-    mainnet: 'etherscan.io',
-    fuji: 'testnet.snowtrace.io',
-    avalanche: 'snowtrace.io',
-    polygon: 'polygonscan.com',
-    arbitrum: 'arbiscan.io',
-    base: 'basescan.org',
-    optimism: 'optimistic.etherscan.io',
-    mantle: 'mantlescan.xyz',
-    scroll: 'scrollscan.com'
+    rinkeby: "rinkeby.etherscan.io",
+    ropsten: "ropsten.etherscan.io",
+    sepolia: "sepolia.etherscan.io",
+    mainnet: "etherscan.io",
+    fuji: "testnet.snowtrace.io",
+    avalanche: "snowtrace.io",
+    polygon: "polygonscan.com",
+    arbitrum: "arbiscan.io",
+    base: "basescan.org",
+    optimism: "optimistic.etherscan.io",
+    mantle: "mantlescan.xyz",
+    scroll: "scrollscan.com",
   }[network];
 
   if (!host) {
@@ -65,7 +65,7 @@ export function getEtherscanApiKey(network: string): string {
     base: process.env.BASESCAN_KEY,
     optimism: process.env.OPTIMISMSCAN_KEY,
     mantle: process.env.MANTLESCAN_KEY,
-    scroll: process.env.SCROLLSCAN_KEY
+    scroll: process.env.SCROLLSCAN_KEY,
   }[network];
 
   if (!apiKey) {
@@ -76,6 +76,6 @@ export function getEtherscanApiKey(network: string): string {
 }
 
 export async function get(url, data) {
-  const res = (await axios.get(url, { params: data }))['data'];
+  const res = (await axios.get(url, { params: data }))["data"];
   return res;
 }

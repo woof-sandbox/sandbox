@@ -1,8 +1,8 @@
-import { scenario } from './context/CometContext';
-import { expectRevertCustom } from './utils';
-import { expect } from 'chai';
+import { scenario } from "./context/CometContext";
+import { expectRevertCustom } from "./utils";
+import { expect } from "chai";
 
-scenario('upgrade governor', {}, async ({ comet, configurator, actors }, context) => {
+scenario("upgrade governor", {}, async ({ comet, configurator, actors }, context) => {
   const { admin, albert } = actors;
 
   expect(await comet.governor()).to.equal(admin.address);
@@ -17,13 +17,15 @@ scenario('upgrade governor', {}, async ({ comet, configurator, actors }, context
   expect((await configurator.getConfiguration(comet.address)).governor).to.be.equal(albert.address);
 });
 
-scenario('add assets', {}, async ({ comet, configurator, actors }, context) => {
+scenario("add assets", {}, async ({ comet, configurator, actors }, context) => {
   const { admin } = actors;
   let numAssets = await comet.numAssets();
-  const collateralAssets = await Promise.all(Array(numAssets).fill(0).map((_, i) => comet.getAssetInfo(i)));
-  const contextAssets =
-    Object.values(collateralAssets)
-      .map((asset) => asset.asset); // grab asset address
+  const collateralAssets = await Promise.all(
+    Array(numAssets)
+      .fill(0)
+      .map((_, i) => comet.getAssetInfo(i))
+  );
+  const contextAssets = Object.values(collateralAssets).map(asset => asset.asset); // grab asset address
   expect(collateralAssets.map(a => a.asset)).to.have.members(contextAssets);
 
   // Add new asset and deploy + upgrade
@@ -45,34 +47,29 @@ scenario('add assets', {}, async ({ comet, configurator, actors }, context) => {
 
   // Verify new asset is added
   numAssets = await comet.numAssets();
-  const updatedCollateralAssets = await Promise.all(Array(numAssets).fill(0).map((_, i) => comet.getAssetInfo(i)));
-  const updatedContextAssets =
-    Object.values(updatedCollateralAssets)
-      .map((asset) => asset.asset); // grab asset address
+  const updatedCollateralAssets = await Promise.all(
+    Array(numAssets)
+      .fill(0)
+      .map((_, i) => comet.getAssetInfo(i))
+  );
+  const updatedContextAssets = Object.values(updatedCollateralAssets).map(asset => asset.asset); // grab asset address
   expect(updatedCollateralAssets.length).to.equal(collateralAssets.length + 1);
   expect(updatedCollateralAssets.map(a => a.asset)).to.have.members(updatedContextAssets);
 });
 
-scenario(
-  'reverts if configurator is not called by admin',
-  {},
-  async ({ comet, configurator, actors }) => {
-    const { albert } = actors;
-    await expectRevertCustom(
-      configurator.connect(albert.signer).setGovernor(comet.address, albert.address),
-      'Unauthorized()'
-    );
-  });
+scenario("reverts if configurator is not called by admin", {}, async ({ comet, configurator, actors }) => {
+  const { albert } = actors;
+  await expectRevertCustom(configurator.connect(albert.signer).setGovernor(comet.address, albert.address), "Unauthorized()");
+});
 
-scenario.skip('reverts if proxy is not upgraded by ProxyAdmin', {}, async () => {
+scenario.skip("reverts if proxy is not upgraded by ProxyAdmin", {}, async () => {
   // XXX
 });
 
-
-scenario.skip('fallbacks to implementation if called by non-admin', {}, async () => {
+scenario.skip("fallbacks to implementation if called by non-admin", {}, async () => {
   // XXX
 });
 
-scenario.skip('transfer admin of configurator', {}, async () => {
+scenario.skip("transfer admin of configurator", {}, async () => {
   // XXX
 });

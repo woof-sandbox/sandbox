@@ -1,8 +1,8 @@
-import { Requirements } from './Requirements';
+import { Requirements } from "./Requirements";
 
 export enum FuzzType {
   INT64,
-  UINT64
+  UINT64,
 }
 
 export interface FuzzConfig {
@@ -17,22 +17,21 @@ interface KV {
 }
 
 function isFuzzConfig(object: unknown): object is FuzzConfig {
-  return Object.prototype.hasOwnProperty.call(object, 'type');
+  return Object.prototype.hasOwnProperty.call(object, "type");
 }
 
 function* combos(choices: object[][]) {
   if (choices.length == 0) {
     yield [];
   } else {
-    for (const option of choices[0])
-      for (const combo of combos(choices.slice(1))) yield [option, ...combo];
+    for (const option of choices[0]) for (const combo of combos(choices.slice(1))) yield [option, ...combo];
   }
 }
 
 function getMinValForBits(bits: number, isSigned: boolean = false): bigint {
   let min;
   if (isSigned) {
-    min = 2n ** (BigInt(bits / 2)) * -1n;
+    min = 2n ** BigInt(bits / 2) * -1n;
   } else {
     min = 0n;
   }
@@ -42,9 +41,9 @@ function getMinValForBits(bits: number, isSigned: boolean = false): bigint {
 function getMaxValForBits(bits: number, isSigned: boolean = false): bigint {
   let max;
   if (isSigned) {
-    max = 2n ** (BigInt(bits / 2)) - 1n;
+    max = 2n ** BigInt(bits / 2) - 1n;
   } else {
-    max = 2n ** (BigInt(bits)) - 1n;
+    max = 2n ** BigInt(bits) - 1n;
   }
   return max;
 }
@@ -89,9 +88,9 @@ export function getFuzzedRequirements(requirements: Requirements): Requirements[
     if (isFuzzConfig(value)) {
       let fuzzedValues = getFuzzedValues(value);
       keyValues.push(fuzzedValues.map(v => ({ key, value: v.toString() })));
-    } else if (typeof value === 'object' && typeof value !== null) {
+    } else if (typeof value === "object" && typeof value !== null) {
       // If value is a non-null object, recursively fuzz its properties
-      keyValues.push(getFuzzedRequirements(value).map(v => ({ key, value: v})));
+      keyValues.push(getFuzzedRequirements(value).map(v => ({ key, value: v })));
     } else {
       keyValues.push([{ key, value }]);
     }

@@ -16,7 +16,7 @@ interface IConfigController {
         uint64 liquidateCollateralFactor;
         uint64 liquidationFactor;
     }
-    
+
     struct CometConfig {
         address baseToken;
         uint baseTokenCurveId;
@@ -38,22 +38,32 @@ interface IConfigController {
         uint256 baseMinForRewards;
     }
 
-
     /// @notice Returns the current curator fee in basis points (1% = 100)
     /// @return The curator fee value
     function curatorFee() external view returns (uint);
 
     function curator() external view returns (address);
+
     function owner() external view returns (address);
+
     function guardian() external view returns (address);
+
     function sandboxController() external view returns (address);
+
     function cometFactory() external view returns (address);
+
     function comets(uint) external view returns (address);
+
     function cometsLength() external view returns (uint);
+
     function proposedCurator() external view returns (address);
+
     function curatorProposalExpiry() external view returns (uint);
+
     function name() external view returns (string memory);
-    
+
+    function cometFeeEnabled(address) external view returns (bool);
+
     /// @notice Removes the current curator
     /// @dev Only callable by the owner
     function removeCurator() external;
@@ -67,8 +77,8 @@ interface IConfigController {
     /// @dev Only callable by the owner
     /// @param _cometConfig The configuration parameters for the new comet
     /// @return The address of the newly created comet
-    function createComet(CometConfig memory _cometConfig) external returns(address);
-    
+    function createComet(CometConfig memory _cometConfig) external returns (address);
+
     /// @notice Initializes the ConfigController contract
     /// @param _owner The address of the protocol owner
     /// @param _guardian The address of the protocol guardian

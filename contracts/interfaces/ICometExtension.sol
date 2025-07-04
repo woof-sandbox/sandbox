@@ -55,14 +55,9 @@ abstract contract ICometExtension is CometCore {
         bytes32 s
     ) external virtual;
 
-    function collateralBalanceOf(
-        address account,
-        address asset
-    ) external view virtual returns (uint256);
+    function collateralBalanceOf(address account, address asset) external view virtual returns (uint256);
 
-    function baseTrackingAccrued(
-        address account
-    ) external view virtual returns (uint64);
+    function baseTrackingAccrued(address account) external view virtual returns (uint64);
 
     function baseAccrualScale() external view virtual returns (uint64);
 
@@ -96,9 +91,7 @@ abstract contract ICometExtension is CometCore {
      * @param amount The number of tokens that are approved
      * @return Whether or not the approval succeeded
      */
-    function approve(
-        address spender, address asset, uint256 amount
-    ) external virtual returns (bool);
+    function approve(address spender, address asset, uint256 amount) external virtual returns (bool);
 
     /**
      * @notice Approve `spender` to transfer up to `baseTokenAmount` from `src`
@@ -112,10 +105,5 @@ abstract contract ICometExtension is CometCore {
      */
     function approveAll(address spender, uint256 baseTokenAmount, uint256[] calldata amounts) external virtual returns (bool);
 
-    event Approval(
-        address indexed owner,
-        address indexed spender,
-        address indexed asset,
-        uint256 amount
-    );
+    event Approval(address indexed owner, address indexed spender, address indexed asset, uint256 amount);
 }

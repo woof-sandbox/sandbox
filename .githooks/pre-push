@@ -1,0 +1,67 @@
+#!/bin/sh
+
+# exit when any command fails
+set -e
+
+echo "🚀 Running pre-push checks..."
+
+# Run Prettier check on Solidity files
+echo "💅 Checking Solidity formatting..."
+npx prettier --check 'contracts/**/*.sol' --config .prettierrc.json
+
+# Run tests to ensure everything works
+echo "🧪 Running tests..."
+yarn test
+
+# Compile contracts with Foundry to update out directory
+echo "🔨 Compiling contracts with Foundry..."
+forge build
+
+# Generate Aderyn security report
+echo "🔍 Generating Aderyn security report..."
+if command -v aderyn &> /dev/null; then
+    # Check if ADERYN_REPORT.md exists and is tracked
+    if [ -f "ADERYN_REPORT.md" ]; then
+        # Store the original content hash
+        original_hash=$(git hash-object ADERYN_REPORT.md 2>/dev/null || echo "")
+    fi
+    
+    yarn aderyn
+    
+    # Check if the report was updated
+    if [ -f "ADERYN_REPORT.md" ]; then
+        new_hash=$(git hash-object ADERYN_REPORT.md 2>/dev/null || echo "")
+        if [ "$original_hash" != "$new_hash" ] && [ -n "$new_hash" ]; then
+            echo "✅ Aderyn report generated and updated!"
+            echo "📝 Consider committing the updated ADERYN_REPORT.md:"
+            echo "   git add ADERYN_REPORT.md" | bash
+            echo "   git commit -m 'docs: update Aderyn security report'" | bash
+        else
+            echo "✅ Aderyn report generated successfully!"
+        fi
+    else
+        echo "✅ Aderyn report generated successfully!"
+    fi
+else
+    echo "⚠️  Aderyn not available, skipping security report generation..."
+    echo "   Install Aderyn with: brew install cyfrin/tap/aderyn"
+fi
+
+# Generate documentation 
+echo "📚 Generating documentation for Solidity contracts..."
+yarn doc
+
+# Check if docs directory exists and has changes
+if [ -d "./docs" ]; then
+    echo "📝 Adding generated documentation to staging..."
+    git add docs/
+fi
+
+# Clean out directory to remove non-major artifacts
+echo "🧹 Cleaning out directory..."
+yarn clean:out
+
+echo "✅ All pre-push checks passed!"
+echo "🚀 Ready to push!"
+
+exit 0 

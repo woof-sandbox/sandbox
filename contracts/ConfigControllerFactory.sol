@@ -14,13 +14,13 @@ import "./interfaces/ISandboxCometFactory.sol";
 contract ConfigControllerFactory is IConfigControllerFactory {
     /// @notice The implementation address used for cloning
     address public immutable override configControllerImplementation;
-        /// @notice The implementation address used for cloning
+    /// @notice The implementation address used for cloning
     address public immutable override sandboxController;
     /// @notice The array of controller addresses
     mapping(address => uint) public override controllerIds;
     /// @notice The array of controller addresses
     address[] public override controllerAddresses;
-    
+
     /// @notice constructor
     /// @param _configControllerImplementation The address of the ConfigController implementation
     constructor(address _sandboxController, address _configControllerImplementation) {
@@ -56,8 +56,7 @@ contract ConfigControllerFactory is IConfigControllerFactory {
         /// curator is checked in proposeCurator()
 
         /// check that roles are assigned to different actors
-        if (_curator == msg.sender || _guardian == msg.sender || _curator == _guardian) revert InvalidAddress();       
-
+        if (_curator == msg.sender || _guardian == msg.sender || _curator == _guardian) revert InvalidAddress();
 
         address configController = Clones.clone(configControllerImplementation);
         controllerIds[configController] = controllerAddresses.length;
@@ -73,7 +72,7 @@ contract ConfigControllerFactory is IConfigControllerFactory {
             _curatorProposalDuration,
             _proposalDuration
         );
-        
+
         emit ConfigControllerCreated(
             configController,
             msg.sender,

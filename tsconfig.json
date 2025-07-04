@@ -5,11 +5,22 @@
     "esModuleInterop": true,
     "outDir": "dist",
     "moduleResolution": "node",
-    "declaration": true
+    "declaration": true,
+    "skipLibCheck": true
   },
-  "include": ["./scripts", "./test", "./tasks", "./plugins", "./scenario"],
+  "include": [
+    "./test/helpers",
+    "./test/*.test.ts",
+   
+  ],
+  "exclude": [
+    "./plugins",
+    "./scenario",
+    "./node_modules",
+    "./dist",
+    "./build"
+  ],
   "files": [
-    "./index.ts",
-    "./hardhat.config.ts",
+    "./hardhat.config.ts"
   ]
 }

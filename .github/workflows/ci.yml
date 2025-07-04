@@ -1,0 +1,107 @@
+name: CI
+
+on:
+  push:
+    branches: [dev, develop]
+  pull_request:
+    branches: [dev, develop]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      ANKR_KEY: ${{ secrets.ANKR_KEY }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'yarn'
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Generate TypeScript types
+        run: npx typechain --target ethers-v5 
+
+      - name: Compile contracts
+        run: npx hardhat compile
+
+      - name: TypeScript compilation check
+        run: npx tsc --noEmit --project tsconfig.json
+
+      - name: ESLint check
+        run: yarn lint:ts
+
+      - name: Solhint check
+        run: yarn lint:sol
+
+      - name: TypeScript Prettier check
+        run: npx prettier --check 'test/**/*.ts' 'src/**/*.ts' 'scripts/**/*.ts' 'hardhat.config.ts' --config .prettierrc.json
+
+      - name: Solidity Prettier check
+        run: npx prettier --check 'contracts/**/*.sol' --config .prettierrc.json
+
+      - name: Run tests
+        run: yarn test
+
+      - name: Clean out directory
+        run: yarn clean:out
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results
+          path: test-results.json
+          retention-days: 30
+
+  security:
+    runs-on: ubuntu-latest
+    env:
+      ANKR_KEY: ${{ secrets.ANKR_KEY }}
+    needs: test
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'yarn'
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Build contracts for security analysis
+        run: yarn build
+
+      - name: Run Slither (if available)
+        run: |
+          if command -v slither &> /dev/null; then
+            yarn slither
+          else
+            echo "Slither not available, skipping..."
+          fi
+        continue-on-error: true
+
+      - name: Run Aderyn (if available)
+        run: |
+          if command -v aderyn &> /dev/null; then
+            yarn aderyn
+          else
+            echo "Aderyn not available, skipping..."
+          fi
+        continue-on-error: true

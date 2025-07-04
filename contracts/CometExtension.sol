@@ -6,26 +6,24 @@ import "./interfaces/ICometExtension.sol";
 contract CometExtension is ICometExtension {
     /** Public constants **/
     /// @notice The major version of this contract
-    string public override constant version = "0";
+    string public constant override version = "0";
 
     /** Internal constants **/
     /// @dev The EIP-712 typehash for the contract's domain
-    bytes32 internal constant DOMAIN_TYPEHASH = keccak256(
-        "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"
-    );
+    bytes32 internal constant DOMAIN_TYPEHASH =
+        keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
 
     /// @dev The EIP-712 typehash for allowBySig Authorization
-    bytes32 internal constant AUTHORIZATION_TYPEHASH = keccak256(
-        "Authorization(address owner,address manager,address asset,uint256 amount,uint256 nonce,uint256 expiry)"
-    );
+    bytes32 internal constant AUTHORIZATION_TYPEHASH =
+        keccak256("Authorization(address owner,address manager,address asset,uint256 amount,uint256 nonce,uint256 expiry)");
 
     /// @dev The highest valid value for s in an ECDSA signature pair (0 < s < secp256k1n ÷ 2 + 1)
     ///  See https://ethereum.github.io/yellowpaper/paper.pdf #307)
     uint internal constant MAX_VALID_ECDSA_S = 0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5D576E7357A4501DDFE92F46681B20A0;
-    
+
     /// @dev The name of the SandboxComet
     bytes32 internal immutable name32;
-    
+
     /**
      * @notice Construct a new protocol instance
      * @param _name32 The name of the SandboxComet
@@ -35,41 +33,57 @@ contract CometExtension is ICometExtension {
     }
 
     /** External getters for internal constants **/
-    function baseAccrualScale() override external pure returns (uint64) { return BASE_ACCRUAL_SCALE; }
-    function baseIndexScale() override external pure returns (uint64) { return BASE_INDEX_SCALE; }
-    function factorScale() override external pure returns (uint64) { return FACTOR_SCALE; }
-    function maxAssets() override external pure returns (uint8) { return MAX_ASSETS; }
+    function baseAccrualScale() external pure override returns (uint64) {
+        return BASE_ACCRUAL_SCALE;
+    }
+
+    function baseIndexScale() external pure override returns (uint64) {
+        return BASE_INDEX_SCALE;
+    }
+
+    function factorScale() external pure override returns (uint64) {
+        return FACTOR_SCALE;
+    }
+
+    function maxAssets() external pure override returns (uint8) {
+        return MAX_ASSETS;
+    }
 
     /**
      * @notice Aggregate variables tracked for the entire market
      **/
-    function totalsBasic() public override view returns (TotalsBasic memory) {
-        return TotalsBasic({
-            baseSupplyIndex: baseSupplyIndex,
-            baseBorrowIndex: baseBorrowIndex,
-            trackingSupplyIndex: trackingSupplyIndex,
-            trackingBorrowIndex: trackingBorrowIndex,
-            totalSupplyBase: totalSupplyBase,
-            totalBorrowBase: totalBorrowBase,
-            lastAccrualTime: lastAccrualTime,
-            pauseFlags: pauseFlags
-        });
+    function totalsBasic() public view override returns (TotalsBasic memory) {
+        return
+            TotalsBasic({
+                baseSupplyIndex: baseSupplyIndex,
+                baseBorrowIndex: baseBorrowIndex,
+                trackingSupplyIndex: trackingSupplyIndex,
+                trackingBorrowIndex: trackingBorrowIndex,
+                totalSupplyBase: totalSupplyBase,
+                totalBorrowBase: totalBorrowBase,
+                lastAccrualTime: lastAccrualTime,
+                pauseFlags: pauseFlags
+            });
     }
 
     /**
      * @notice Get the name of the SandboxComet
      * @return The name as a string
      */
-    function name() override public view returns (string memory) {
+    function name() public view override returns (string memory) {
         uint8 i;
         for (i = 0; i < 32; ) {
             if (name32[i] == 0) break;
-            unchecked { i++; }
+            unchecked {
+                i++;
+            }
         }
         bytes memory name_ = new bytes(i);
         for (uint8 j = 0; j < i; ) {
             name_[j] = name32[j];
-            unchecked { j++; }
+            unchecked {
+                j++;
+            }
         }
         return string(name_);
     }
@@ -80,7 +94,7 @@ contract CometExtension is ICometExtension {
      * @param asset The collateral asset to check the balance for
      * @return The collateral balance of the account
      */
-    function collateralBalanceOf(address account, address asset) override external view returns (uint256) {
+    function collateralBalanceOf(address account, address asset) external view override returns (uint256) {
         return userCollateral[account][asset];
     }
 
@@ -89,7 +103,7 @@ contract CometExtension is ICometExtension {
      * @param account The account to query
      * @return The accrued rewards, scaled by `BASE_ACCRUAL_SCALE`
      */
-    function baseTrackingAccrued(address account) override external view returns (uint64) {
+    function baseTrackingAccrued(address account) external view override returns (uint64) {
         return userBasic[account].baseTrackingAccrued;
     }
 
@@ -100,7 +114,7 @@ contract CometExtension is ICometExtension {
      * @param amount The amount of the asset that the spender is allowed to manage
      * @return Whether or not the approval change succeeded
      */
-    function approve(address spender, address asset, uint256 amount) override external returns (bool) {
+    function approve(address spender, address asset, uint256 amount) external override returns (bool) {
         allowInternal(msg.sender, spender, asset, amount);
         return true;
     }
@@ -114,10 +128,10 @@ contract CometExtension is ICometExtension {
      * @dev The length of the amounts array must match the number of assets (baseToken + collateralAssets)
      * @return Whether or not the approval change succeeded
      */
-    function approveAll(address spender, uint256 baseTokenAmount, uint256[] calldata amounts) override external returns (bool) {
+    function approveAll(address spender, uint256 baseTokenAmount, uint256[] calldata amounts) external override returns (bool) {
         uint256 len = collateralAssets.length;
         if (len != amounts.length) revert InvalidLength();
-        
+
         allowInternal(msg.sender, spender, baseToken, baseTokenAmount);
 
         for (uint256 i = 0; i < len; i++) {
@@ -149,18 +163,12 @@ contract CometExtension is ICometExtension {
         uint8 v,
         bytes32 r,
         bytes32 s
-    ) override external {
+    ) external override {
         if (uint256(s) > MAX_VALID_ECDSA_S) revert InvalidValueS();
         // v ∈ {27, 28} (source: https://ethereum.github.io/yellowpaper/paper.pdf #308)
         if (v != 27 && v != 28) revert InvalidValueV();
         bytes32 domainSeparator = keccak256(
-            abi.encode(
-                DOMAIN_TYPEHASH,
-                keccak256(bytes(name())),
-                keccak256(bytes(version)),
-                block.chainid,
-                address(this)
-            )
+            abi.encode(DOMAIN_TYPEHASH, keccak256(bytes(name())), keccak256(bytes(version)), block.chainid, address(this))
         );
         bytes32 structHash = keccak256(abi.encode(AUTHORIZATION_TYPEHASH, owner, manager, asset, amount, nonce, expiry));
         bytes32 digest = keccak256(abi.encodePacked("\x19\x01", domainSeparator, structHash));
@@ -172,7 +180,6 @@ contract CometExtension is ICometExtension {
         allowInternal(signatory, manager, asset, amount);
     }
 
-
     /// @notice Returns the current configuration of the market
     /// @return Configuration struct containing all market parameters
     function getConfiguration() external view returns (Configuration memory) {
@@ -183,25 +190,13 @@ contract CometExtension is ICometExtension {
                 baseTokenPriceFeed: baseTokenPriceFeed,
                 extensionDelegate: address(0), // Not implemented in this version
                 supplyKink: uint64(supplyKink),
-                supplyPerYearInterestRateSlopeLow: uint64(
-                    supplyPerSecondInterestRateSlopeLow * SECONDS_PER_YEAR
-                ),
-                supplyPerYearInterestRateSlopeHigh: uint64(
-                    supplyPerSecondInterestRateSlopeHigh * SECONDS_PER_YEAR
-                ),
-                supplyPerYearInterestRateBase: uint64(
-                    supplyPerSecondInterestRateBase * SECONDS_PER_YEAR
-                ),
+                supplyPerYearInterestRateSlopeLow: uint64(supplyPerSecondInterestRateSlopeLow * SECONDS_PER_YEAR),
+                supplyPerYearInterestRateSlopeHigh: uint64(supplyPerSecondInterestRateSlopeHigh * SECONDS_PER_YEAR),
+                supplyPerYearInterestRateBase: uint64(supplyPerSecondInterestRateBase * SECONDS_PER_YEAR),
                 borrowKink: uint64(borrowKink),
-                borrowPerYearInterestRateSlopeLow: uint64(
-                    borrowPerSecondInterestRateSlopeLow * SECONDS_PER_YEAR
-                ),
-                borrowPerYearInterestRateSlopeHigh: uint64(
-                    borrowPerSecondInterestRateSlopeHigh * SECONDS_PER_YEAR
-                ),
-                borrowPerYearInterestRateBase: uint64(
-                    borrowPerSecondInterestRateBase * SECONDS_PER_YEAR
-                ),
+                borrowPerYearInterestRateSlopeLow: uint64(borrowPerSecondInterestRateSlopeLow * SECONDS_PER_YEAR),
+                borrowPerYearInterestRateSlopeHigh: uint64(borrowPerSecondInterestRateSlopeHigh * SECONDS_PER_YEAR),
+                borrowPerYearInterestRateBase: uint64(borrowPerSecondInterestRateBase * SECONDS_PER_YEAR),
                 storeFrontPriceFactor: uint64(storeFrontPriceFactor),
                 trackingIndexScale: uint64(trackingIndexScale),
                 baseTrackingSupplySpeed: uint64(baseTrackingSupplySpeed),
@@ -225,7 +220,7 @@ contract CometExtension is ICometExtension {
     function allowInternal(address owner, address manager, address asset, uint256 amount) internal {
         uint8 index = collateralAssetIndex[asset];
         if (asset != baseToken && (collateralAssets[index].collateralToken != asset)) revert WrongToken(asset);
-        unchecked {   
+        unchecked {
             allowance[owner][manager][asset] = amount;
         }
         emit Approval(owner, manager, asset, amount);

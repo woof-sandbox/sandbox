@@ -27,15 +27,21 @@
     }
   },
   "scripts": {
-    "setup": "git submodule update --init --recursive && yarn install",
+    "preinstall": "git submodule update --init --recursive",
+    "postinstall": "yarn setup:hooks",
     "build": "hardhat compile",
     "clean": "hardhat clean && rm -rf build/ cache/ coverage* dist/",
     "test": "hardhat test",
     "test:coverage": "hardhat coverage",
     "slither": "slither contracts/ --foundry-out-directory artifacts/ --foundry-compile-all",
-    "lint:ts": "eslint 'plugins/**/*' 'scenario/**/*' 'scripts/**/*' 'src/**/*' 'tasks/**/*' 'test/**/*' hardhat.config.ts",
+    "lint:ts": "eslint 'scripts/**/*.ts' 'test/**/*.ts' 'hardhat.config.ts'",
     "lint:sol": "solhint contracts/**/*.sol contracts/*.sol --config .solhint.json",
-    "aderyn": "aderyn --src contracts/ -o ADERYN_REPORT.md"
+    "aderyn": "aderyn --src contracts/ -o ADERYN_REPORT.md",
+    "prettier:sol": "prettier --write 'contracts/**/*.sol' --config .prettierrc.json",
+    "prettier:ts": "prettier --write 'test/**/*.ts' 'src/**/*.ts' 'scripts/**/*.ts' 'hardhat.config.ts' --config .prettierrc.json",
+    "doc": "hardhat docgen",
+    "clean:out": "./scripts/clean-out.sh",
+    "setup:hooks": "git config core.hooksPath .githooks"
   },
   "author": "Compound Finance",
   "license": "UNLICENSED",
@@ -45,6 +51,7 @@
     "chai": "^4.3.4",
     "chai-as-promised": "^7.1.1",
     "deep-object-diff": "^1.1.9",
+    "hardhat-docgen": "^1.3.0",
     "hardhat-preprocessor": "^0.1.5",
     "jest-diff": "^27.4.2",
     "solc": "^0.8.28",
@@ -85,6 +92,8 @@
     "mocha-junit-reporter": "^2.0.2",
     "mocha-multi-reporters": "^1.5.1",
     "nock": "^13.2.2",
+    "prettier": "^2.8.8",
+    "prettier-plugin-solidity": "1.1.1",
     "sc-istanbul": "^0.4.5",
     "solhint": "^3.3.6",
     "solidity-coverage": "^0.8.16",
@@ -95,6 +104,7 @@
   },
   "repository": "git@github.com:compound-finance/comet.git",
   "resolutions": {
-    "mocha": "^9.1.3"
+    "mocha": "^9.1.3",
+    "prettier": "2.8.8"
   }
 }

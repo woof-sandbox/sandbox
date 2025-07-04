@@ -13,7 +13,6 @@ import "./interfaces/ISandboxController.sol";
 import "./interfaces/ISandboxComet.sol";
 import "./interfaces/ISandboxCometFactory.sol";
 
-
 /**
  * @title ConfigController
  * @author WOOF Software
@@ -73,6 +72,9 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
     /// @notice The address of the ConfigControllerFactory contract
     address public override configControllerFactory;
 
+    /// @notice Controller fee from the Comet's profit
+    mapping(address => bool) public override cometFeeEnabled;
+
     /// @notice Modifier to restrict access to owner only
     modifier onlyOwner() {
         if (msg.sender != owner) revert Unauthorized();
@@ -129,13 +131,13 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
 
         owner = _owner;
         guardian = _guardian;
-        
+
         cometFactory = _cometFactory;
         curatorFee = _curatorFee;
         name = _name;
         curatorProposalDuration = _curatorProposalDuration;
         proposalDuration = _proposalDuration;
-        
+
         _proposeCurator(_curator);
     }
 
@@ -152,11 +154,13 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
 
         /// Check interest curve
         ///
-        ISandboxController.BaseAssetConfiguration memory baseAssetConfig = ISandboxController(sandboxController).baseAssets(_cometConfig.baseToken);
+        ISandboxController.BaseAssetConfiguration memory baseAssetConfig = ISandboxController(sandboxController).baseAssets(
+            _cometConfig.baseToken
+        );
 
         if (baseAssetConfig.baseAssetCurves.length == 0) revert NoCurveRegistered();
         if (_cometConfig.baseTokenCurveId >= baseAssetConfig.baseAssetCurves.length) revert InvalidCurveId();
-        
+
         /// Check collaterals
         ///
         uint _length = _cometConfig.collateralTokens.length;
@@ -183,7 +187,7 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
                 _validateCollateralTokenConfig(collateralTokenConfig);
             }
         }
-        
+
         ISandboxController.SandboxControllerConfiguration memory _sandboxConfig = ISandboxController(sandboxController).config();
         CometGlobalParamsConfig memory _globalConfig = CometGlobalParamsConfig(
             _sandboxConfig.targetPercent,
@@ -191,25 +195,19 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
             _sandboxConfig.suggestedAmountOfSeedReserves,
             _sandboxConfig.suggestedLockTimeOfSeedReserves
         );
-            
+
         address comet = ISandboxCometFactory(cometFactory).createComet(_cometConfig.name);
         ISandboxComet(comet).initialize(_cometConfig, _globalConfig);
 
         uint256 cometsNum = comets.length;
         comets.push(comet);
         cometId[comet] = cometsNum;
-        
+
         if (_sandboxConfig.suggestedAmountOfSeedReserves > 0) {
             IERC20(_cometConfig.baseToken).safeTransferFrom(msg.sender, comet, _sandboxConfig.suggestedAmountOfSeedReserves);
         }
-        
-        emit CometCreated(
-            comet,
-            _cometConfig.baseToken,
-            baseAssetConfig.priceFeed,
-            cometsNum + 1,
-            _cometConfig.baseTokenCurveId
-        );
+
+        emit CometCreated(comet, _cometConfig.baseToken, baseAssetConfig.priceFeed, cometsNum + 1, _cometConfig.baseTokenCurveId);
 
         return comet;
     }
@@ -217,6 +215,31 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
     /// @notice The number of comets created by this controller
     function cometsLength() public view override returns (uint) {
         return comets.length;
+    }
+
+    /// @notice Disables/Enables the controller fee for a specific comet
+    /// @param comet Comet which should be registered in Controller
+    /// @param feeEnabled Flag for fees enabling (true -> fees are enabled)
+    function setCometFee(address comet, bool feeEnabled) external onlyOwner {
+        if (comet == address(0)) revert ZeroAddress();
+        if (!_isCometOwned(comet)) revert UnknownComet();
+        if (cometFeeEnabled[comet] == feeEnabled) revert IncorrectValue();
+
+        cometFeeEnabled[comet] = feeEnabled;
+        emit CometFeeEnabled(address(this), comet, feeEnabled);
+    }
+
+    /// @notice Extracts fees to a self and distributes it
+    /// @param comet Comet which should be registered in Controller
+    /// @param asset Asset (collateral or base asset) to extract
+    function extractFees(address comet, address asset) external onlyOwner {
+        if (comet == address(0)) revert ZeroAddress();
+        if (!_isCometOwned(comet)) revert UnknownComet();
+
+        ISandboxComet(comet).extractFees(asset);
+        /// Note: Comet emits the respective event
+
+        /// TODO: extend method once fee distribution is finished
     }
 
     /// @notice Transfers ownership of the protocol to a new address
@@ -295,10 +318,7 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
     /// @dev Only callable by the owner
     /// @param _curatorProposalDuration New duration for curator proposals in seconds
     /// @param _proposalDuration New duration for comet configuration proposals in seconds
-    function setProposalDurations(
-        uint _curatorProposalDuration,
-        uint _proposalDuration
-    ) external onlyOwner {
+    function setProposalDurations(uint _curatorProposalDuration, uint _proposalDuration) external onlyOwner {
         (uint minUpdateTime, uint maxUpdateTime) = ISandboxController(sandboxController).proposalBoundaries();
         if (_curatorProposalDuration < minUpdateTime || _proposalDuration < minUpdateTime) revert ProposalDurationTooShort();
         if (_curatorProposalDuration > maxUpdateTime || _proposalDuration > maxUpdateTime) revert ProposalDurationTooLong();
@@ -309,33 +329,27 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
         curatorProposalDuration = _curatorProposalDuration;
         proposalDuration = _proposalDuration;
 
-        emit ProposalDurationsUpdated(
-            oldCuratorDuration,
-            _curatorProposalDuration,
-            oldProposalDuration,
-            _proposalDuration
-        );
+        emit ProposalDurationsUpdated(oldCuratorDuration, _curatorProposalDuration, oldProposalDuration, _proposalDuration);
     }
 
     /// @notice Validates comet collateral token configuration
     /// @dev Internal function to validate collateral token parameters
     /// @param collateralTokenConfig The collateral token configuration to validate
-    function _validateCollateralTokenConfig(
-        IConfigController.CollateralTokenConfig memory collateralTokenConfig
-    ) internal view {
+    function _validateCollateralTokenConfig(IConfigController.CollateralTokenConfig memory collateralTokenConfig) internal view {
         if (!ISandboxController(sandboxController).isCollateralTokenWhitelisted(collateralTokenConfig.collateralToken))
             revert CollateralTokenNotWhitelisted();
 
-        ISandboxController.CollateralAssetConfiguration memory collateralAssetLimitations =
-            ISandboxController(sandboxController).collateralAssets(collateralTokenConfig.collateralToken);
+        ISandboxController.CollateralAssetConfiguration memory collateralAssetLimitations = ISandboxController(sandboxController)
+            .collateralAssets(collateralTokenConfig.collateralToken);
         /// supplyCap;
         if (collateralTokenConfig.supplyCap == 0) revert SupplyCapCantBeZero();
         /// in general supply cap is not regulated and is purely config controller owner's responsibility
 
         /// factors order: collaterization <= liquidation factor <= liquidation penalty
-        if (collateralTokenConfig.borrowCollateralFactor > collateralTokenConfig.liquidateCollateralFactor ||
-            collateralTokenConfig.liquidateCollateralFactor > collateralTokenConfig.liquidationFactor)
-            revert WrongCollateralTokenSettings();
+        if (
+            collateralTokenConfig.borrowCollateralFactor > collateralTokenConfig.liquidateCollateralFactor ||
+            collateralTokenConfig.liquidateCollateralFactor > collateralTokenConfig.liquidationFactor
+        ) revert WrongCollateralTokenSettings();
 
         /// borrowCollateralFactor
         /// we rely on SandboxController validatation of limits against 0 and each other
@@ -351,8 +365,7 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
             revert LiquidateCollateralFactorTooLow();
 
         /// liquidationFactor;
-        if (collateralTokenConfig.liquidationFactor > collateralAssetLimitations.maxLiquidationFactor)
-            revert LiquidationFactorTooHigh();
+        if (collateralTokenConfig.liquidationFactor > collateralAssetLimitations.maxLiquidationFactor) revert LiquidationFactorTooHigh();
         else if (collateralTokenConfig.liquidationFactor < collateralAssetLimitations.minLiquidationFactor)
             revert LiquidationFactorTooLow();
     }
@@ -365,3 +378,4 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
         return comets[cometId[comet]] != comet;
     }
 }
+// Test comment

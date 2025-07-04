@@ -1,11 +1,10 @@
-import { DeploymentManager } from '../../plugins/deployment_manager';
-import { impersonateAddress } from '../../plugins/scenario/utils';
-import { executeBridgedProposal } from './bridgeProposal';
-import { setNextBaseFeeToZero } from './hreUtils';
-import { Contract, ethers } from 'ethers';
-import { Log } from '@ethersproject/abstract-provider';
-import {OpenBridgedProposal} from '../context/Gov';
-
+import { DeploymentManager } from "../../plugins/deployment_manager";
+import { impersonateAddress } from "../../plugins/scenario/utils";
+import { executeBridgedProposal } from "./bridgeProposal";
+import { setNextBaseFeeToZero } from "./hreUtils";
+import { Contract, ethers } from "ethers";
+import { Log } from "@ethersproject/abstract-provider";
+import { OpenBridgedProposal } from "../context/Gov";
 
 type BridgeERC20Data = {
   syncData: string;
@@ -16,20 +15,17 @@ type BridgeERC20Data = {
 
 function tryDecodeStateSyncedData(stateSyncedData: any): BridgeERC20Data | undefined {
   try {
-    const { syncData } = ethers.utils.defaultAbiCoder.decode(
-      ['bytes32', 'bytes syncData'],
-      stateSyncedData
-    );
+    const { syncData } = ethers.utils.defaultAbiCoder.decode(["bytes32", "bytes syncData"], stateSyncedData);
     const { user, rootToken, depositData } = ethers.utils.defaultAbiCoder.decode(
-      ['address user', 'address rootToken', 'bytes depositData'],
+      ["address user", "address rootToken", "bytes depositData"],
       syncData
     );
-    const { amount } = ethers.utils.defaultAbiCoder.decode(['uint256 amount'], depositData);
+    const { amount } = ethers.utils.defaultAbiCoder.decode(["uint256 amount"], depositData);
     return {
       syncData,
       user,
       rootToken,
-      amount
+      amount,
     };
   } catch (e) {
     return undefined;
@@ -41,21 +37,21 @@ export default async function relayPolygonMessage(
   bridgeDeploymentManager: DeploymentManager,
   startingBlockNumber: number
 ) {
-  const POLYGON_RECEIVER_ADDRESSS = '0x0000000000000000000000000000000000001001';
+  const POLYGON_RECEIVER_ADDRESSS = "0x0000000000000000000000000000000000001001";
   const childChainManagerProxyAddress =
-    bridgeDeploymentManager.network === 'polygon'
-      ? '0xA6FA4fB5f76172d178d61B04b0ecd319C5d1C0aa'
-      : '0xb5505a6d998549090530911180f38aC5130101c6';
+    bridgeDeploymentManager.network === "polygon"
+      ? "0xA6FA4fB5f76172d178d61B04b0ecd319C5d1C0aa"
+      : "0xb5505a6d998549090530911180f38aC5130101c6";
 
-  const stateSender = await governanceDeploymentManager.getContractOrThrow('stateSender');
-  const bridgeReceiver = await bridgeDeploymentManager.getContractOrThrow('bridgeReceiver');
-  const fxChild = await bridgeDeploymentManager.getContractOrThrow('fxChild');
+  const stateSender = await governanceDeploymentManager.getContractOrThrow("stateSender");
+  const bridgeReceiver = await bridgeDeploymentManager.getContractOrThrow("bridgeReceiver");
+  const fxChild = await bridgeDeploymentManager.getContractOrThrow("fxChild");
   const childChainManager = new Contract(
     childChainManagerProxyAddress,
     [
-      'function rootToChildToken(address rootToken) public view returns (address)',
-      'function onStateReceive(uint256, bytes calldata data) external',
-      'function DEPOSIT() public view returns (bytes32)'
+      "function rootToChildToken(address rootToken) public view returns (address)",
+      "function onStateReceive(uint256, bytes calldata data) external",
+      "function DEPOSIT() public view returns (bytes32)",
     ],
     bridgeDeploymentManager.hre.ethers.provider
   );
@@ -64,14 +60,14 @@ export default async function relayPolygonMessage(
   const filter = stateSender.filters.StateSynced();
   const stateSyncedEvents: Log[] = await governanceDeploymentManager.hre.ethers.provider.getLogs({
     fromBlock: startingBlockNumber,
-    toBlock: 'latest',
+    toBlock: "latest",
     address: stateSender.address,
-    topics: filter.topics!
+    topics: filter.topics!,
   });
 
   for (let stateSyncedEvent of stateSyncedEvents) {
     const {
-      args: { data: stateSyncedData }
+      args: { data: stateSyncedData },
     } = stateSender.interface.parseLog(stateSyncedEvent);
 
     // Try to decode the StateSynced data to determine what type of cross-chain activity this is. So far,
@@ -82,16 +78,10 @@ export default async function relayPolygonMessage(
     if (maybeBridgeERC20Data !== undefined) {
       // Bridging ERC20 token
       const depositSyncType = await childChainManager.DEPOSIT();
-      const data = ethers.utils.defaultAbiCoder.encode(
-        ['bytes32', 'bytes'],
-        [depositSyncType, maybeBridgeERC20Data.syncData]
-      );
-      const polygonReceiverSigner = await impersonateAddress(
-        bridgeDeploymentManager,
-        POLYGON_RECEIVER_ADDRESSS
-      );
+      const data = ethers.utils.defaultAbiCoder.encode(["bytes32", "bytes"], [depositSyncType, maybeBridgeERC20Data.syncData]);
+      const polygonReceiverSigner = await impersonateAddress(bridgeDeploymentManager, POLYGON_RECEIVER_ADDRESSS);
       await setNextBaseFeeToZero(bridgeDeploymentManager);
-      await(
+      await (
         await childChainManager.connect(polygonReceiverSigner).onStateReceive(
           123, // stateId
           data, // data
@@ -104,13 +94,10 @@ export default async function relayPolygonMessage(
       );
     } else {
       // Cross-chain message passing
-      const polygonReceiverSigner = await impersonateAddress(
-        bridgeDeploymentManager,
-        POLYGON_RECEIVER_ADDRESSS
-      );
+      const polygonReceiverSigner = await impersonateAddress(bridgeDeploymentManager, POLYGON_RECEIVER_ADDRESSS);
 
       await setNextBaseFeeToZero(bridgeDeploymentManager);
-      const onStateReceiveTxn = await(
+      const onStateReceiveTxn = await (
         await fxChild.connect(polygonReceiverSigner).onStateReceive(
           123, // stateId
           stateSyncedData, // _data
@@ -118,9 +105,7 @@ export default async function relayPolygonMessage(
         )
       ).wait();
 
-      const proposalCreatedEvent = onStateReceiveTxn.events.find(
-        event => event.address === bridgeReceiver.address
-      );
+      const proposalCreatedEvent = onStateReceiveTxn.events.find(event => event.address === bridgeReceiver.address);
       const { args } = bridgeReceiver.interface.parseLog(proposalCreatedEvent);
       const proposal = args as unknown as OpenBridgedProposal;
       await executeBridgedProposal(bridgeDeploymentManager, proposal);
