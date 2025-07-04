@@ -31,10 +31,13 @@ interface IConfigController {
     }
 
     struct CometRewardOptions {
-        uint256 baseTrackingSupplySpeed;
-        uint256 baseTrackingBorrowSpeed;
-        uint256 trackingIndexScale;
-        uint256 baseMinForRewards;
+        uint104 baseMinForRewards; // 13 bytes
+        uint104 daoBaseMinForRewards; // 13 bytes
+        uint64 trackingIndexScale; // 8 bytes
+        uint64 baseTrackingSupplySpeed; // 8 bytes
+        uint64 baseTrackingBorrowSpeed; // 8 bytes
+        uint64 daoBaseTrackingSupplySpeed; // 8 bytes
+        uint64 daoBaseTrackingBorrowSpeed; // 8 bytes
     }
 
     /// @notice Returns the current curator fee in basis points (1% = 100)
