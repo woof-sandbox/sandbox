@@ -552,6 +552,7 @@ describe("1. System Initialization", function () {
         baseToken: baseToken.address,
         collateralTokens: collateralTokens.map(obj => ({ ...obj })),
         baseTokenCurveId: 0n,
+        name: "Comet",
       };
 
       cometAddress = await configController.callStatic.createComet(marketConfig);
@@ -582,7 +583,10 @@ describe("1. System Initialization", function () {
     });
 
     it("should revert if createComet is called not by controller", async function () {
-      await expect(sandboxCometFactory.connect(owner).createComet()).to.be.revertedWithCustomError(sandboxCometFactory, "Unauthorized");
+      await expect(sandboxCometFactory.connect(owner).createComet("comet")).to.be.revertedWithCustomError(
+        sandboxCometFactory,
+        "Unauthorized"
+      );
     });
 
     it("should revert if createComet is called not from owner on config controller", async function () {

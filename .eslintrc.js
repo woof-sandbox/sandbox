@@ -1,40 +1,36 @@
 module.exports = {
-  'env': {
-    'browser': true,
-    'es2021': true
+  env: {
+    browser: true,
+    es2021: true,
+    node: true,
   },
-  'extends': [
-    'eslint:recommended',
-    'plugin:@typescript-eslint/recommended'
-  ],
-  'parser': '@typescript-eslint/parser',
-  'parserOptions': {
-    'ecmaVersion': 'latest',
-    'sourceType': 'module'
+  extends: ['eslint:recommended', 'plugin:@typescript-eslint/recommended'],
+  parser: '@typescript-eslint/parser',
+  parserOptions: {
+    ecmaVersion: 'latest',
+    sourceType: 'module',
   },
-  'plugins': [
-    '@typescript-eslint'
-  ],
-  'rules': {
-    'max-len': ['error', { 
-      'code': 140,
-      'ignoreUrls': true,
-      'ignoreStrings': true,
-      'ignoreTemplateLiterals': true,
-      'ignoreComments': true,
-      'ignoreRegExpLiterals': true
-    }],
-    'indent': [
+  plugins: ['@typescript-eslint'],
+  rules: {
+    'max-len': [
+      'error',
+      {
+        code: 140,
+        ignoreUrls: true,
+        ignoreStrings: true,
+        ignoreTemplateLiterals: true,
+        ignoreComments: true,
+        ignoreRegExpLiterals: true,
+      },
+    ],
+    indent: [
       'error',
       2,
       {
-        'SwitchCase': 1
-      }
+        SwitchCase: 1,
+      },
     ],
-    'linebreak-style': [
-      'error',
-      'unix'
-    ],
+    'linebreak-style': ['error', 'unix'],
     'no-constant-condition': ['error', { checkLoops: false }],
     'no-inner-declarations': 'off',
     'no-prototype-builtins': 'off',
@@ -50,27 +46,24 @@ module.exports = {
     //     'allowTemplateLiterals': true
     //   }
     // ],
-    'semi': [
-      'error',
-      'always'
-    ],
+    semi: ['error', 'always'],
     '@typescript-eslint/member-delimiter-style': [
       'error',
       {
-        "multiline": {
-          "delimiter": "semi",
-          "requireLast": true
+        multiline: {
+          delimiter: 'semi',
+          requireLast: true,
         },
-        "singleline": {
-          "delimiter": "semi",
-          "requireLast": false
+        singleline: {
+          delimiter: 'semi',
+          requireLast: false,
         },
-      }
+      },
     ],
     '@typescript-eslint/no-empty-interface': 'off',
     '@typescript-eslint/no-explicit-any': 'off',
-    '@typescript-eslint/no-inferrable-types': [ 'warn', { 'ignoreParameters': true } ],
+    '@typescript-eslint/no-inferrable-types': ['warn', { ignoreParameters: true }],
     '@typescript-eslint/no-non-null-assertion': 'off',
-    '@typescript-eslint/no-unused-vars': ['error', { 'varsIgnorePattern': '^_', 'argsIgnorePattern': '^_' } ]
+    '@typescript-eslint/no-unused-vars': ['error', { varsIgnorePattern: '^_', argsIgnorePattern: '^_' }],
   },
 };

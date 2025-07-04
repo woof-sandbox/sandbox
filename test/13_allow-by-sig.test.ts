@@ -112,7 +112,7 @@ describe("13. allowBySig — SandboxComet / CometExtension", function () {
   });
 
   it("fails if manager argument is altered", async function () {
-    const { cometExt, signatureArgs, signature, manager, signer } = this.fixture as Fixture;
+    const { cometExt, signatureArgs, signature, manager } = this.fixture as Fixture;
     const invalidManagerAddress = ethers.Wallet.createRandom().address;
 
     await expect(

@@ -1,50 +1,50 @@
-import { DeploymentManager } from "../../plugins/deployment_manager";
-import { impersonateAddress } from "../../plugins/scenario/utils";
-import { setNextBaseFeeToZero, setNextBlockTimestamp } from "./hreUtils";
-import { ethers } from "ethers";
-import { Log } from "@ethersproject/abstract-provider";
+import { DeploymentManager } from '../../plugins/deployment_manager';
+import { impersonateAddress } from '../../plugins/scenario/utils';
+import { setNextBaseFeeToZero, setNextBlockTimestamp } from './hreUtils';
+import { ethers } from 'ethers';
+import { Log } from '@ethersproject/abstract-provider';
 
 function applyL1ToL2Alias(address: string) {
-  const offset = BigInt("0x1111000000000000000000000000000000001111");
+  const offset = BigInt('0x1111000000000000000000000000000000001111');
   return `0x${(BigInt(address) + offset).toString(16)}`;
 }
 
 export default async function relaySonicMessage(
   governanceDeploymentManager: DeploymentManager,
   bridgeDeploymentManager: DeploymentManager,
-  startingBlockNumber: number
+  startingBlockNumber: number,
 ) {
-  const endpointOrigin = await governanceDeploymentManager.getContractOrThrow("LayerZeroEndpoint");
-  const endpointDestination = await bridgeDeploymentManager.getContractOrThrow("LayerZeroEndpoint");
-  const bridgeReceiver = await bridgeDeploymentManager.getContractOrThrow("bridgeReceiver");
+  const endpointOrigin = await governanceDeploymentManager.getContractOrThrow('LayerZeroEndpoint');
+  const endpointDestination = await bridgeDeploymentManager.getContractOrThrow('LayerZeroEndpoint');
+  const bridgeReceiver = await bridgeDeploymentManager.getContractOrThrow('bridgeReceiver');
 
   const openBridgedProposals: { id: ethers.BigNumber; eta: ethers.BigNumber }[] = [];
 
   const filter = endpointOrigin.filters.PacketSent();
   const sentPacketEvents: Log[] = await governanceDeploymentManager.hre.ethers.provider.getLogs({
     fromBlock: startingBlockNumber,
-    toBlock: "latest",
+    toBlock: 'latest',
     address: endpointOrigin.address,
     topics: filter.topics!,
   });
 
   for (const sentPacketEvent of sentPacketEvents) {
     const {
-      args: { encodedPayload, sendLibrary },
+      args: { encodedPayload },
     } = endpointOrigin.interface.parseLog(sentPacketEvent);
 
     const decodedPayload = ethers.utils.defaultAbiCoder.decode(
       [
-        "uint8", // PACKET_VERSION
-        "uint64", // nonce
-        "uint32", // srcEid
-        "bytes32", // sender
-        "uint32", // dstEid
-        "address", // receiver
-        "bytes32", // guid
-        "bytes", // message
+        'uint8', // PACKET_VERSION
+        'uint64', // nonce
+        'uint32', // srcEid
+        'bytes32', // sender
+        'uint32', // dstEid
+        'address', // receiver
+        'bytes32', // guid
+        'bytes', // message
       ],
-      encodedPayload
+      encodedPayload,
     );
 
     const packetVersion = decodedPayload[0];
@@ -72,7 +72,7 @@ export default async function relaySonicMessage(
     ).wait();
 
     if (receiver === bridgeReceiver.address) {
-      const proposalCreatedEvent = relayMessageTxn.events.find(event => event.address === bridgeReceiver.address);
+      const proposalCreatedEvent = relayMessageTxn.events.find((event) => event.address === bridgeReceiver.address);
       const {
         args: { id, eta },
       } = bridgeReceiver.interface.parseLog(proposalCreatedEvent);

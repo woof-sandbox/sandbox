@@ -493,6 +493,7 @@ async function createComet2(
     baseToken: baseToken.address,
     collateralTokens: collateralTokens,
     baseTokenCurveId: 0n,
+    name: opts.name || "Comet",
   };
 
   await configController.createComet(marketConfig);
@@ -509,6 +510,7 @@ export async function createComet(
     baseToken: baseToken.address,
     collateralTokens: [],
     baseTokenCurveId: 0n,
+    name: "Comet",
   };
 
   for (let token in tokens) {

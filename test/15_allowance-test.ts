@@ -1,9 +1,16 @@
-import { ethers, expect, makeProtocol, makeToken } from './helper/helpers';
-import { CometExtension, CometHarness, CometExtension__factory, CometHarness__factory, FaucetToken, NonStandardFaucetFeeToken } from '../build/types';
-import { Interface } from 'ethers/lib/utils';
-import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
+import { ethers, expect, makeProtocol, makeToken } from "./helper/helpers";
+import {
+  CometExtension,
+  CometHarness,
+  CometExtension__factory,
+  CometHarness__factory,
+  FaucetToken,
+  NonStandardFaucetFeeToken,
+} from "../build/types";
+import { Interface } from "ethers/lib/utils";
+import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
-describe('15. allowance', function () {
+describe("15. allowance", function () {
   let comet: CometHarness & CometExtension;
   let user: SignerWithAddress, alice: SignerWithAddress;
   let tokens: Record<string, FaucetToken | NonStandardFaucetFeeToken>;
@@ -25,15 +32,15 @@ describe('15. allowance', function () {
     const fragments = [
       ...CometHarnessInterface.fragments,
       ...CometExtensionInterface.fragments.filter(
-        (frag) => !CometHarnessInterface.fragments.some((f) => f.type === frag.type && f.name === frag.name),
+        frag => !CometHarnessInterface.fragments.some(f => f.type === frag.type && f.name === frag.name)
       ),
     ];
 
     comet = new ethers.Contract(cometHarness.address, fragments, signer) as typeof comet;
   });
 
-  describe('approve', function () {
-    it('should increase allowance after approve (baseToken)', async () => {
+  describe("approve", function () {
+    it("should increase allowance after approve (baseToken)", async () => {
       const asset = baseToken.address;
       const amount = 100;
       const spender = alice.address;
@@ -47,8 +54,8 @@ describe('15. allowance', function () {
       expect(newAllowance).to.equal(initialAllowance.add(newAllowance));
     });
 
-    it('should increase allowance after approve (collateralToken)', async () => {
-      const asset = tokens['COMP'].address;
+    it("should increase allowance after approve (collateralToken)", async () => {
+      const asset = tokens["COMP"].address;
       const amount = 100;
       const spender = alice.address;
 
@@ -61,67 +68,70 @@ describe('15. allowance', function () {
       expect(newAllowance).to.equal(initialAllowance.add(newAllowance));
     });
 
-    it('should emit Approval event after approve', async () => {
+    it("should emit Approval event after approve", async () => {
       const asset = baseToken.address;
       const amount = 100;
       const spender = alice.address;
 
       await expect(comet.connect(user).approve(spender, asset, amount))
-        .to.emit(comet, 'Approval')
+        .to.emit(comet, "Approval")
         .withArgs(user.address, spender, asset, amount);
     });
 
-    it('should revert if asset is not a base or collateral token', async () => {
-      const asset = (await makeToken({ name: 'FakeToken', symbol: 'FAKE', decimals: 18 })).address;
+    it("should revert if asset is not a base or collateral token", async () => {
+      const asset = (await makeToken({ name: "FakeToken", symbol: "FAKE", decimals: 18 })).address;
       const amount = 100;
       const spender = alice.address;
 
-      await expect(comet.connect(user).approve(spender, asset, amount)).to.be.revertedWithCustomError(comet, 'WrongToken').withArgs(asset);
+      await expect(comet.connect(user).approve(spender, asset, amount)).to.be.revertedWithCustomError(comet, "WrongToken").withArgs(asset);
     });
   });
 
-  describe('approveAll', function () {
-    it('should allow to set allowance for all assets in comet', async () => {
-      const assets = [baseToken.address, ...Object.values(tokens).map((token) => token.address)];
+  describe("approveAll", function () {
+    it("should allow to set allowance for all assets in comet", async () => {
+      const assets = [baseToken.address, ...Object.values(tokens).map(token => token.address)];
       const amounts = [...Array(assets.length - 1).fill(100n)];
       const spender = alice.address;
-      const initialAllowances = await Promise.all(assets.map((asset) => comet.allowance(user.address, spender, asset)));
+      const initialAllowances = await Promise.all(assets.map(asset => comet.allowance(user.address, spender, asset)));
 
       await comet.connect(user).approveAll(spender, amounts[0], amounts.slice(1));
 
-      const newAllowances = await Promise.all(assets.map((asset) => comet.allowance(user.address, spender, asset)));
+      const newAllowances = await Promise.all(assets.map(asset => comet.allowance(user.address, spender, asset)));
 
       newAllowances.forEach((allowance, i) => {
         expect(allowance).to.equal(initialAllowances[i].add(100n));
       });
     });
 
-    it('should emit Approval event for each asset', async () => {
-      const assets = [baseToken.address, ...Object.values(tokens).map((token) => token.address)];
+    it("should emit Approval event for each asset", async () => {
+      const assets = [baseToken.address, ...Object.values(tokens).map(token => token.address)];
       const amounts = [...Array(assets.length - 1).fill(100n)];
       const spender = alice.address;
 
       await expect(comet.connect(user).approveAll(spender, amounts[0], amounts.slice(1)))
-        .to.emit(comet, 'Approval')
+        .to.emit(comet, "Approval")
         .withArgs(user.address, spender, baseToken.address, 100n);
 
       for (let i = 0; i < Object.keys(tokens).length; i++) {
         await expect(comet.connect(user).approveAll(spender, amounts[0], amounts.slice(1)))
-          .to.emit(comet, 'Approval')
+          .to.emit(comet, "Approval")
           .withArgs(user.address, spender, Object.values(tokens)[i].address, 100n);
       }
     });
 
-    it('should revert if amounts length does not match assets length', async () => {
-      const assets = [baseToken.address, ...Object.values(tokens).map((token) => token.address)];
+    it("should revert if amounts length does not match assets length", async () => {
+      const assets = [baseToken.address, ...Object.values(tokens).map(token => token.address)];
       const amounts = [...Array(assets.length).fill(100n)]; // One extra amount
       const spender = alice.address;
 
-      await expect(comet.connect(user).approveAll(spender, amounts[0], amounts.slice(1))).to.be.revertedWithCustomError(comet, 'InvalidLength');
+      await expect(comet.connect(user).approveAll(spender, amounts[0], amounts.slice(1))).to.be.revertedWithCustomError(
+        comet,
+        "InvalidLength"
+      );
     });
   });
 
-  describe('hasPermission', function () {
+  describe("hasPermission", function () {
     let owner: string;
     let manager: string;
     let asset: string;
@@ -137,22 +147,22 @@ describe('15. allowance', function () {
       await comet.connect(user).approve(manager, asset, amount);
     });
 
-    it('should return true if manager has permission for the asset', async () => {
+    it("should return true if manager has permission for the asset", async () => {
       expect(await comet.hasPermission(owner, manager, asset, amount)).to.be.true;
     });
 
-    it('should return true if manager is owner', async () => {
+    it("should return true if manager is owner", async () => {
       expect(await comet.hasPermission(owner, owner, asset, amount)).to.be.true;
     });
 
-    it('should return false if manager has not enough allowance', async () => {
+    it("should return false if manager has not enough allowance", async () => {
       const insufficientAmount = amount + 1;
       expect(await comet.hasPermission(owner, manager, asset, insufficientAmount)).to.be.false;
     });
   });
 
-  describe('spendAllowance', function () {
-    it('should not spend allowance if owner is spender', async () => {
+  describe("spendAllowance", function () {
+    it("should not spend allowance if owner is spender", async () => {
       const asset = baseToken;
       const amount = 100;
       const caller = alice;
@@ -169,7 +179,7 @@ describe('15. allowance', function () {
       expect(newAllowance).to.equal(initialAllowance);
     });
 
-    it('should spend allowance if spender is not owner', async () => {
+    it("should spend allowance if spender is not owner", async () => {
       const asset = baseToken;
       const amount = 100;
       const owner = user;
@@ -189,7 +199,7 @@ describe('15. allowance', function () {
       expect(newAllowance).to.equal(initialAllowance.sub(amount));
     });
 
-    it('should revert if allowance is not enough', async () => {
+    it("should revert if allowance is not enough", async () => {
       const asset = baseToken;
       const amount = 100;
       const owner = user;
@@ -201,7 +211,7 @@ describe('15. allowance', function () {
       await comet.connect(owner).approve(dst.address, asset.address, amount);
 
       await expect(comet.connect(dst).supplyFrom(owner.address, dst.address, asset.address, amount + 1))
-        .to.be.revertedWithCustomError(comet, 'InsufficientAllowance')
+        .to.be.revertedWithCustomError(comet, "InsufficientAllowance")
         .withArgs(asset.address, owner.address, dst.address);
     });
   });
