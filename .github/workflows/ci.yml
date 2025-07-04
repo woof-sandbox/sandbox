@@ -91,6 +91,20 @@ jobs:
       - name: Install dependencies
         run: yarn install --frozen-lockfile
 
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Install Slither
+        run: |
+          pip install slither-analyzer
+          slither --version
+
+      - name: Install Aderyn
+        run: |
+          yarn add @cyfrin/aderyn
+
       - name: Build contracts for security analysis
         run: yarn build
 
