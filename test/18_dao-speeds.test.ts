@@ -1,7 +1,6 @@
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { CometExtension, CometHarness, FaucetToken, NonStandardFaucetFeeToken } from "../build/types";
-import { divBaseWei, ethers, exp, fastForward, makeProtocol, SnapshotRestorer, takeSnapshot } from "./helper/helpers";
-import { expect } from "chai";
+import { divBaseWei, ethers, exp, expect, fastForward, makeProtocol, SnapshotRestorer, takeSnapshot } from "./helper/helpers";
 
 describe("18. DAO speeds", function () {
   let snapshot: SnapshotRestorer;
@@ -19,6 +18,7 @@ describe("18. DAO speeds", function () {
   const BASE_MIN_FOR_REWARDS = exp(1000, 6); // 1000 USDC
   const BASE_TRACKING_SUPPLY_SPEED = 10_000;
   const BASE_TRACKING_BORROW_SPEED = 10_000;
+  const DAO_TRACKING_INDEX_SCALE = 1;
 
   before(async function () {
     const protocol = await makeProtocol({
@@ -39,49 +39,88 @@ describe("18. DAO speeds", function () {
     collateral = protocol.tokens!.COMP;
     dao = protocol.dao as SignerWithAddress;
 
-    cometExtension = (await ethers.getContractAt("CometExtension", comet.address)) as CometExtension;
+    cometExtension = (await ethers.getContractAt("CometExtension", comet.address, owner)) as CometExtension;
 
-    await comet.connect(owner).setDaoBaseMinForRewards(BASE_MIN_FOR_REWARDS);
-    await comet.connect(dao).setDaoSpeeds(BASE_TRACKING_SUPPLY_SPEED, BASE_TRACKING_BORROW_SPEED);
+    await comet
+      .connect(dao)
+      .setDaoIncentiveConfig(DAO_TRACKING_INDEX_SCALE, BASE_MIN_FOR_REWARDS, BASE_TRACKING_SUPPLY_SPEED, BASE_TRACKING_BORROW_SPEED);
 
     snapshot = await takeSnapshot();
   });
 
   afterEach(async () => await snapshot.restore());
 
-  describe("base tracking speed setting", function () {
-    it("dao can set dao base tracking speed", async function () {
+  describe("dao incentive config setting", function () {
+    it("dao can set dao incentive config", async function () {
       // Get current base tracking speed
       let { daoBaseTrackingSupplySpeed, daoBaseTrackingBorrowSpeed } = await cometExtension.getConfiguration();
+      let daoTrackingIndexScale = await comet.daoTrackingIndexScale();
+      let daoBaseMinForRewards = await comet.daoBaseMinForRewards();
 
-      const newDaoBaseTrackingSupplySpeed = exp(1, 6);
-      const newDaoBaseTrackingBorrowSpeed = exp(1, 6);
+      const newDaoTrackingIndexScale = DAO_TRACKING_INDEX_SCALE + 1;
+      const newDaoBaseMinForRewards = BASE_MIN_FOR_REWARDS + 1n;
+      const newDaoBaseTrackingSupplySpeed = BASE_TRACKING_SUPPLY_SPEED + 1;
+      const newDaoBaseTrackingBorrowSpeed = BASE_TRACKING_BORROW_SPEED + 1;
 
       // check that current speeds are not equal to new speeds
       expect(daoBaseTrackingSupplySpeed).to.not.equal(newDaoBaseTrackingSupplySpeed);
       expect(daoBaseTrackingBorrowSpeed).to.not.equal(newDaoBaseTrackingBorrowSpeed);
+      expect(daoTrackingIndexScale).to.not.equal(newDaoTrackingIndexScale);
+      expect(daoBaseMinForRewards).to.not.equal(newDaoBaseMinForRewards);
 
       // update dao base tracking speeds
-      await comet.connect(dao).setDaoSpeeds(newDaoBaseTrackingSupplySpeed, newDaoBaseTrackingBorrowSpeed);
+      await comet
+        .connect(dao)
+        .setDaoIncentiveConfig(
+          newDaoTrackingIndexScale,
+          newDaoBaseMinForRewards,
+          newDaoBaseTrackingSupplySpeed,
+          newDaoBaseTrackingBorrowSpeed
+        );
 
       // Get updated base tracking speed
       ({ daoBaseTrackingSupplySpeed, daoBaseTrackingBorrowSpeed } = await cometExtension.getConfiguration());
+      daoTrackingIndexScale = await comet.daoTrackingIndexScale();
+      daoBaseMinForRewards = await comet.daoBaseMinForRewards();
 
       // check that new speeds are set
       expect(daoBaseTrackingSupplySpeed).to.equal(newDaoBaseTrackingSupplySpeed);
       expect(daoBaseTrackingBorrowSpeed).to.equal(newDaoBaseTrackingBorrowSpeed);
+      expect(daoTrackingIndexScale).to.equal(newDaoTrackingIndexScale);
+      expect(daoBaseMinForRewards).to.equal(newDaoBaseMinForRewards);
     });
 
-    it("should emit an event when dao base speeds are set", async function () {
-      const newSpeed = exp(1, 6);
+    it("should emit an event when dao incentive config is set", async function () {
+      const newTrackingIndexScale = exp(1, 15);
+      const newBaseMinForRewards = exp(1000, 6);
+      const newBaseTrackingSupplySpeed = exp(1, 6);
+      const newBaseTrackingBorrowSpeed = exp(1, 6);
 
-      await expect(comet.connect(dao).setDaoSpeeds(newSpeed, newSpeed)).to.emit(comet, "DaoSpeedsChanged").withArgs(newSpeed, newSpeed);
+      await expect(
+        comet
+          .connect(dao)
+          .setDaoIncentiveConfig(newTrackingIndexScale, newBaseMinForRewards, newBaseTrackingSupplySpeed, newBaseTrackingBorrowSpeed)
+      )
+        .to.emit(comet, "DaoIncentiveConfigChanged")
+        .withArgs(newTrackingIndexScale, newBaseMinForRewards, newBaseTrackingSupplySpeed, newBaseTrackingBorrowSpeed);
     });
 
     it("should revert if non-dao tries to set dao base speeds", async function () {
-      const newSpeed = exp(1, 6);
+      const value = exp(1, 6);
 
-      await expect(comet.connect(alice).setDaoSpeeds(newSpeed, newSpeed)).to.be.revertedWithCustomError(comet, "Unauthorized");
+      await expect(comet.connect(alice).setDaoIncentiveConfig(value, value, value, value)).to.be.revertedWithCustomError(
+        comet,
+        "Unauthorized"
+      );
+    });
+
+    it("should revert if trackingIndexScale is less than 1", async function () {
+      const value = exp(1, 6);
+
+      await expect(comet.connect(dao).setDaoIncentiveConfig(0, value, value, value)).to.be.revertedWithCustomError(
+        comet,
+        "BadTrackingIndexScale"
+      );
     });
   });
 
