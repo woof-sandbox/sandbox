@@ -122,9 +122,10 @@ contract SandboxComet is ISandboxComet {
         baseBorrowIndex = BASE_INDEX_SCALE;
 
         /// Rewards are disabled by default
-        trackingIndexScale = 1;
         baseMinForRewards = type(uint104).max;
         daoBaseMinForRewards = type(uint104).max;
+        trackingIndexScale = 1;
+        daoTrackingIndexScale = 1;
 
         /// to avoid explicit initialization
         /// baseTrackingSupplySpeed = 0;
@@ -198,17 +199,29 @@ contract SandboxComet is ISandboxComet {
         return uint40(block.timestamp);
     }
 
-    /**Add commentMore actions
+    /**
      * @notice Set the base tracking supply and borrow speeds
+     * @param trackingIndexScale_ The new tracking index scale
+     * @param baseMinForRewards_ The new base minimum for rewards
      * @param baseTrackingSupplySpeed_ The new base tracking supply speed
      * @param baseTrackingBorrowSpeed_ The new base tracking borrow speed
      */
-    function setSpeeds(uint64 baseTrackingSupplySpeed_, uint64 baseTrackingBorrowSpeed_) external override {
+    function setIncentiveConfig(
+        uint64 trackingIndexScale_,
+        uint104 baseMinForRewards_,
+        uint64 baseTrackingSupplySpeed_,
+        uint64 baseTrackingBorrowSpeed_
+    ) external override {
         if (msg.sender != configController) revert Unauthorized();
+
+        if (trackingIndexScale_ < 1) revert BadTrackingIndexScale();
+
         baseTrackingSupplySpeed = baseTrackingSupplySpeed_;
         baseTrackingBorrowSpeed = baseTrackingBorrowSpeed_;
+        trackingIndexScale = trackingIndexScale_;
+        baseMinForRewards = baseMinForRewards_;
 
-        emit BaseSpeedsChanged(baseTrackingSupplySpeed_, baseTrackingBorrowSpeed_);
+        emit IncentiveConfigChanged(trackingIndexScale, baseMinForRewards, baseTrackingSupplySpeed, baseTrackingBorrowSpeed);
     }
 
     /**
@@ -216,14 +229,22 @@ contract SandboxComet is ISandboxComet {
      * @param daoBaseTrackingSupplySpeed_ The new DAO base tracking supply speed
      * @param daoBaseTrackingBorrowSpeed_ The new DAO base tracking borrow speed
      */
-    function setDaoSpeeds(uint64 daoBaseTrackingSupplySpeed_, uint64 daoBaseTrackingBorrowSpeed_) external override {
-        address dao = ISandboxController(sandboxController).dao();
+    function setDaoIncentiveConfig(
+        uint64 daoTrackingIndexScale_,
+        uint104 daoBaseMinForRewards_,
+        uint64 daoBaseTrackingSupplySpeed_,
+        uint64 daoBaseTrackingBorrowSpeed_
+    ) external override {
+        if (msg.sender != ISandboxController(sandboxController).dao()) revert Unauthorized();
 
-        if (msg.sender != dao) revert Unauthorized();
+        if (daoTrackingIndexScale_ < 1) revert BadTrackingIndexScale();
+
         daoBaseTrackingSupplySpeed = daoBaseTrackingSupplySpeed_;
         daoBaseTrackingBorrowSpeed = daoBaseTrackingBorrowSpeed_;
+        daoTrackingIndexScale = daoTrackingIndexScale_;
+        daoBaseMinForRewards = daoBaseMinForRewards_;
 
-        emit DaoSpeedsChanged(daoBaseTrackingSupplySpeed_, daoBaseTrackingBorrowSpeed_);
+        emit DaoIncentiveConfigChanged(daoTrackingIndexScale, daoBaseMinForRewards, daoBaseTrackingSupplySpeed, daoBaseTrackingBorrowSpeed);
     }
 
     /**
@@ -615,7 +636,7 @@ contract SandboxComet is ISandboxComet {
             basic.baseTrackingAccrued += safe64((uint104(principal) * indexDelta) / trackingIndexScale / accrualDescaleFactor);
         }
         if (daoIndexDelta > 0) {
-            basic.daoBaseTrackingAccrued += safe64((uint104(principal) * daoIndexDelta) / trackingIndexScale / accrualDescaleFactor);
+            basic.daoBaseTrackingAccrued += safe64((uint104(principal) * daoIndexDelta) / daoTrackingIndexScale / accrualDescaleFactor);
         }
 
         if (principalNew >= 0) {

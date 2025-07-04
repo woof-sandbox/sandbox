@@ -145,6 +145,9 @@ contract CometStorage {
     /// @notice The scale for reward tracking
     uint64 public trackingIndexScale;
 
+    /// @notice The scale for DAO reward tracking
+    uint64 public daoTrackingIndexScale;
+
     /// @notice The speed at which supply rewards are tracked (in trackingIndexScale)
     uint64 public baseTrackingSupplySpeed;
 

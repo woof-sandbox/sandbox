@@ -232,12 +232,20 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
     /// @notice Set speeds for a specific comet
     /// @dev Only callable by the ownerAdd commentMore actions
     /// @param comet The address of the comet
-    /// @param baseTrackingSupplySpeed_ The new base tracking supply speed
-    /// @param baseTrackingBorrowSpeed_ The new base tracking borrow speed
-    function setBaseTrackingSpeeds(address comet, uint64 baseTrackingSupplySpeed_, uint64 baseTrackingBorrowSpeed_) external onlyOwner {
+    /// @param trackingIndexScale The new tracking index scale
+    /// @param baseMinForRewards The new base minimum for rewards
+    /// @param baseTrackingSupplySpeed The new base tracking supply speed
+    /// @param baseTrackingBorrowSpeed The new base tracking borrow speed
+    function setIncentiveConfigOnMarket(
+        address comet,
+        uint64 trackingIndexScale,
+        uint104 baseMinForRewards,
+        uint64 baseTrackingSupplySpeed,
+        uint64 baseTrackingBorrowSpeed
+    ) external onlyOwner {
         if (comet == ZERO_ADDRESS) revert ZeroAddress();
         if (!_isCometOwned(comet)) revert UnknownComet();
-        ISandboxComet(comet).setSpeeds(baseTrackingSupplySpeed_, baseTrackingBorrowSpeed_);
+        ISandboxComet(comet).setIncentiveConfig(trackingIndexScale, baseMinForRewards, baseTrackingSupplySpeed, baseTrackingBorrowSpeed);
     }
 
     /// @notice Extracts fees to a self and distributes it
