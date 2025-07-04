@@ -91,6 +91,12 @@ jobs:
       - name: Install dependencies
         run: yarn install --frozen-lockfile
 
+      - name: Install Foundry
+        run: |
+          curl -L https://foundry.paradigm.xyz | bash
+          source ~/.bashrc
+          foundryup
+
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
