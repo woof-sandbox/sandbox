@@ -56,17 +56,14 @@ interface ISandboxController is ISandboxErrors {
 
     /// TODO: Probarly A LOT OF WASTED SPACE. Decide the biggest variable value.
     struct SandboxControllerConfiguration {
-        /// First 256 bits (32 bytes)
-        uint256 targetPercent; // 32 bytes
-        /// Second 256 bits (32 bytes)
-        uint256 storeFrontPriceFactor; // 32 bytes
-        /// Third 256 bits (32 bytes)
-        uint256 minUpdateTime; // 32 bytes
-        /// Fourth 256 bits (32 bytes)
-        uint256 maxUpdateTime; // 32 bytes
-        /// Fifth 256 bits (32 bytes)
+        /// First 256 bits (8+8+5+5 = 26 bytes)
+        uint64 targetPercent; // 8 bytes
+        uint64 storeFrontPriceFactor; // 8 bytes
+        uint40 minUpdateTime; // 5 bytes
+        uint40 maxUpdateTime; // 5 bytes
+        /// 2nd 256 bits (32 bytes)
         uint256 suggestedAmountOfSeedReserves; // 32 bytes
-        /// Sixth 256 bits (32 bytes)
+        /// 3rd 256 bits (32 bytes)
         uint256 suggestedLockTimeOfSeedReserves; // 32 bytes
     }
 
@@ -113,7 +110,7 @@ interface ISandboxController is ISandboxErrors {
 
     function feeEnabled() external view returns (bool);
 
-    function proposalBoundaries() external view returns (uint, uint);
+    function proposalBoundaries() external view returns (uint40, uint40);
 
     function baseAssetTokens(uint256) external view returns (address);
 

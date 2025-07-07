@@ -685,8 +685,12 @@ describe("3. SandboxController", function () {
       );
     });
 
-    it("reverts if storeFrontPriceFactor >= 1e18", async function () {
+    it("reverts if storeFrontPriceFactor > 1e18", async function () {
       config.storeFrontPriceFactor = parseEther("1").toString();
+      await sandboxController.setConfiguration(config);
+      expect((await sandboxController.config()).storeFrontPriceFactor).to.equal(parseEther("1").toString());
+
+      config.storeFrontPriceFactor = parseEther("1.001").toString();
       await expect(sandboxController.setConfiguration(config)).to.be.revertedWithCustomError(sandboxController, "InvalidFactors");
     });
 

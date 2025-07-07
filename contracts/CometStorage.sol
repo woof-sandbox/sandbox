@@ -134,7 +134,7 @@ contract CometStorage {
 
     /// @notice The fraction of the liquidation penalty that goes to buyers of collateral instead of the protocol
     /// @dev uint64
-    uint public storeFrontPriceFactor;
+    uint64 public storeFrontPriceFactor;
 
     /// @notice The scale for base token (must be less than 18 decimals)
     /// @dev uint64
@@ -161,7 +161,7 @@ contract CometStorage {
     uint public baseBorrowMin;
 
     /// @notice The minimum base token reserves which must be held before collateral is hodled
-    uint public targetPercent;
+    uint64 public targetPercent;
 
     /// @notice Seed reserves, initialized during the Comet creation
     uint public seedReserves;

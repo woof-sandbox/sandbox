@@ -50,7 +50,7 @@ contract SandboxComet is
 
         /// Rely on base token as main characteristic of the market and that it was validated in Controller
         if (baseToken != address(0)) revert AlreadyInitialized();
-        baseToken = comet.baseToken;
+        baseToken = comet.baseToken; // aderyn-fp(state-no-address-check)
 
         uint8 _decimals = IERC20Metadata(comet.baseToken).decimals(); // aderyn-fp(reentrancy-state-change)
         if (_decimals > MAX_BASE_DECIMALS) revert BadDecimals();

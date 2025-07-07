@@ -24,8 +24,8 @@ interface IConfigController {
     }
 
     struct CometGlobalParamsConfig {
-        uint256 targetPercent;
-        uint256 storeFrontPriceFactor;
+        uint64 targetPercent;
+        uint64 storeFrontPriceFactor;
         uint256 suggestedAmountOfSeedReserves;
         uint256 suggestedLockTimeOfSeedReserves;
     }
@@ -39,7 +39,7 @@ interface IConfigController {
 
     /// @notice Returns the current curator fee in basis points (1% = 100)
     /// @return The curator fee value
-    function curatorFee() external view returns (uint);
+    function curatorFee() external view returns (uint32);
 
     function curator() external view returns (address);
 
@@ -57,7 +57,7 @@ interface IConfigController {
 
     function proposedCurator() external view returns (address);
 
-    function curatorProposalExpiry() external view returns (uint);
+    function curatorProposalExpiry() external view returns (uint64);
 
     function name() external view returns (string memory);
 
@@ -91,10 +91,10 @@ interface IConfigController {
         address _curator,
         address _guardian,
         address _cometFactory,
-        uint _curatorFee,
+        uint32 _curatorFee,
         string memory _name,
-        uint _curatorProposalDuration,
-        uint _proposalDuration
+        uint40 _curatorProposalDuration,
+        uint40 _proposalDuration
     ) external;
 
     /// @notice Returns the address of the ConfigControllerFactory

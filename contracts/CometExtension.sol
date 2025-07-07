@@ -21,6 +21,8 @@ contract CometExtension is ICometExtension {
     ///  See https://ethereum.github.io/yellowpaper/paper.pdf #307)
     uint internal constant MAX_VALID_ECDSA_S = 0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5D576E7357A4501DDFE92F46681B20A0;
 
+    uint8 internal constant NAME_LENGTH = 32;
+
     /** Immutable symbol **/
     /// @dev The ERC20 name for wrapped base token
     bytes32 internal immutable name32;
@@ -77,7 +79,7 @@ contract CometExtension is ICometExtension {
      */
     function name() public view override returns (string memory) {
         uint8 i;
-        for (i = 0; i < 32; ) {
+        for (i = 0; i < NAME_LENGTH; ) {
             if (name32[i] == 0) break;
             unchecked {
                 i++;
@@ -99,7 +101,7 @@ contract CometExtension is ICometExtension {
      */
     function symbol() external view override returns (string memory) {
         uint8 i;
-        for (i = 0; i < 32; ) {
+        for (i = 0; i < NAME_LENGTH; ) {
             if (symbol32[i] == 0) break;
             unchecked {
                 i++;
@@ -227,13 +229,13 @@ contract CometExtension is ICometExtension {
                 borrowPerYearInterestRateSlopeLow: uint64(borrowPerSecondInterestRateSlopeLow * SECONDS_PER_YEAR),
                 borrowPerYearInterestRateSlopeHigh: uint64(borrowPerSecondInterestRateSlopeHigh * SECONDS_PER_YEAR),
                 borrowPerYearInterestRateBase: uint64(borrowPerSecondInterestRateBase * SECONDS_PER_YEAR),
-                storeFrontPriceFactor: uint64(storeFrontPriceFactor),
+                storeFrontPriceFactor: storeFrontPriceFactor,
                 trackingIndexScale: uint64(trackingIndexScale),
                 baseTrackingSupplySpeed: uint64(baseTrackingSupplySpeed),
                 baseTrackingBorrowSpeed: uint64(baseTrackingBorrowSpeed),
                 baseMinForRewards: uint104(baseMinForRewards),
                 baseBorrowMin: uint104(baseBorrowMin),
-                targetPercent: uint104(targetPercent),
+                targetPercent: targetPercent,
                 seedReserves: uint104(seedReserves),
                 unlockTimestamp: uint104(unlockTimestamp),
                 assetConfigs: collateralAssets
