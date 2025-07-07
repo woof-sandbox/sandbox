@@ -9,14 +9,17 @@ import {
 } from "../build/types";
 import { Interface } from "ethers/lib/utils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
+import { impersonateAccount, SnapshotRestorer, takeSnapshot } from "@nomicfoundation/hardhat-network-helpers";
 
-describe("15. allowance", function () {
+describe("19. allowance", function () {
   let comet: CometHarness & CometExtension;
   let user: SignerWithAddress, alice: SignerWithAddress;
   let tokens: Record<string, FaucetToken | NonStandardFaucetFeeToken>;
   let baseToken: FaucetToken | NonStandardFaucetFeeToken;
 
-  beforeEach(async () => {
+  let snapshot: SnapshotRestorer;
+
+  before(async () => {
     let cometHarness: CometHarness;
     ({
       comet: cometHarness,
@@ -37,7 +40,11 @@ describe("15. allowance", function () {
     ];
 
     comet = new ethers.Contract(cometHarness.address, fragments, signer) as typeof comet;
+
+    snapshot = await takeSnapshot();
   });
+
+  afterEach(async () => await snapshot.restore());
 
   describe("approve", function () {
     it("should increase allowance after approve (baseToken)", async () => {
@@ -84,6 +91,33 @@ describe("15. allowance", function () {
       const spender = alice.address;
 
       await expect(comet.connect(user).approve(spender, asset, amount)).to.be.revertedWithCustomError(comet, "WrongToken").withArgs(asset);
+    });
+
+    it("should revert if owner is zero address", async () => {
+      const zeroAddress = ethers.constants.AddressZero;
+      await impersonateAccount(zeroAddress);
+      const zeroSigner = await ethers.getSigner(zeroAddress);
+
+      await expect(comet.connect(zeroSigner).approve(alice.address, baseToken.address, 100)).to.be.revertedWithCustomError(
+        comet,
+        "ZeroAddress"
+      );
+    });
+
+    it("should revert if spender is zero address", async () => {
+      const asset = baseToken.address;
+      const amount = 100;
+      const spender = ethers.constants.AddressZero;
+
+      await expect(comet.connect(user).approve(spender, asset, amount)).to.be.revertedWithCustomError(comet, "ZeroAddress");
+    });
+
+    it("should revert if asset is zero address", async () => {
+      const asset = ethers.constants.AddressZero;
+      const amount = 100;
+      const spender = alice.address;
+
+      await expect(comet.connect(user).approve(spender, asset, amount)).to.be.revertedWithCustomError(comet, "ZeroAddress");
     });
   });
 
@@ -213,6 +247,48 @@ describe("15. allowance", function () {
       await expect(comet.connect(dst).supplyFrom(owner.address, dst.address, asset.address, amount + 1))
         .to.be.revertedWithCustomError(comet, "InsufficientAllowance")
         .withArgs(asset.address, owner.address, dst.address);
+    });
+
+    it("should revert if spend amount is zero", async () => {
+      const asset = baseToken.address;
+      const amount = 0;
+
+      await expect(comet.connect(user).supplyFrom(alice.address, user.address, asset, amount)).to.be.revertedWithCustomError(
+        comet,
+        "ZeroAmount"
+      );
+    });
+
+    it("should revert if owner is zero address", async () => {
+      const amount = 0;
+      const asset = baseToken.address;
+
+      const zeroAddress = ethers.constants.AddressZero;
+      await impersonateAccount(zeroAddress);
+      const zeroSigner = await ethers.getSigner(zeroAddress);
+
+      await expect(comet.connect(zeroSigner).supplyFrom(alice.address, user.address, asset, amount)).to.be.revertedWithCustomError(
+        comet,
+        "ZeroAddress"
+      );
+    });
+
+    it("should revert if manager is zero address", async () => {
+      const asset = baseToken.address;
+      const amount = 0;
+      const from = ethers.constants.AddressZero;
+
+      await expect(comet.connect(user).supplyFrom(from, user.address, asset, amount)).to.be.revertedWithCustomError(comet, "ZeroAddress");
+    });
+
+    it("should revert if asset is zero address", async () => {
+      const amount = 0;
+      const asset = ethers.constants.AddressZero;
+
+      await expect(comet.connect(user).supplyFrom(alice.address, user.address, asset, amount)).to.be.revertedWithCustomError(
+        comet,
+        "ZeroAddress"
+      );
     });
   });
 });
