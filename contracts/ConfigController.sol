@@ -116,13 +116,13 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
         configControllerFactory = msg.sender;
 
         /// back-link to ensure that correct sandboxController is used and to bind it with factory - thus avoiding foreign deployments
+        // aderyn-fp-next-line(reentrancy-state-change)
         sandboxController = IConfigControllerFactory(configControllerFactory).sandboxController();
 
         /// Addresses of owner, curator, guardian, sandbox controller and factory are validated in the factory
         /// and it is guaranteed that initialization follows deployment in the same transaction.
         /// So duplicating checks are omitted (as function relies on checks in the factory)
         unchecked {
-            // aderyn-ignore-next-line(reentrancy-state-change)
             if (_curatorFee > FEE_DIVISOR) revert InvalidFeePercentage();
 
             (uint minUpdateTime, uint maxUpdateTime) = ISandboxController(sandboxController).proposalBoundaries();
@@ -130,10 +130,10 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
             if (_curatorProposalDuration > maxUpdateTime || _proposalDuration > maxUpdateTime) revert ProposalDurationTooLong();
         }
 
-        // aderyn-ignore-next-line(reentrancy-state-change)
         owner = _owner;
         guardian = _guardian;
 
+        // aderyn-fp-next-line(reentrancy-state-change)
         cometFactory = _cometFactory;
         curatorFee = _curatorFee;
         name = _name;
