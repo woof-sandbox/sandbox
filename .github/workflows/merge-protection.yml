@@ -12,6 +12,12 @@ jobs:
       ANKR_KEY: ${{ secrets.ANKR_KEY }}
 
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          token: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Check for merge conflicts
         run: |
           git fetch origin dev
