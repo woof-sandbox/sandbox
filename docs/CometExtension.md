@@ -41,20 +41,12 @@ _The highest valid value for s in an ECDSA signature pair (0 < s < secp256k1n ÷
 bytes32 name32
 ```
 
-_The ERC20 name for wrapped base token_
-
-### symbol32
-
-```solidity
-bytes32 symbol32
-```
-
-_The ERC20 symbol for wrapped base token_
+_The name of the SandboxComet_
 
 ### constructor
 
 ```solidity
-constructor(bytes32 _name32, bytes32 _symbol32) public
+constructor(bytes32 _name32) public
 ```
 
 Construct a new protocol instance
@@ -63,8 +55,7 @@ Construct a new protocol instance
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-| _name32 | bytes32 | The ERC20 name for wrapped base token |
-| _symbol32 | bytes32 |  |
+| _name32 | bytes32 | The name of the SandboxComet |
 
 ### baseAccrualScale
 
@@ -106,27 +97,13 @@ Aggregate variables tracked for the entire market
 function name() public view returns (string)
 ```
 
-Get the ERC20 name for wrapped base token
+Get the name of the SandboxComet
 
 #### Return Values
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
 | [0] | string | The name as a string |
-
-### symbol
-
-```solidity
-function symbol() external view returns (string)
-```
-
-Get the ERC20 symbol for wrapped base token
-
-#### Return Values
-
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| [0] | string | The symbol as a string |
 
 ### collateralBalanceOf
 
@@ -172,63 +149,43 @@ Query the total accrued base rewards for an account
 ### approve
 
 ```solidity
-function approve(address spender, uint256 amount) external returns (bool)
+function approve(address spender, address asset, uint256 amount) external
 ```
 
-Approve or disallow `spender` to transfer on sender's behalf
-
-_Note: this binary approval is unlike most other ERC20 tokens
-Note: this grants full approval for spender to manage *all* the owner's assets_
+Approve a spender to transfer a specific amount of an asset on behalf of the sender
 
 #### Parameters
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
 | spender | address | The address of the account which may transfer tokens |
-| amount | uint256 | Either uint.max (to allow) or zero (to disallow) |
+| asset | address | The address of the asset being approved |
+| amount | uint256 | The amount of the asset that the spender is allowed to manage |
 
-#### Return Values
-
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| [0] | bool | Whether or not the approval change succeeded |
-
-### allowance
+### approveAll
 
 ```solidity
-function allowance(address owner, address spender) external view returns (uint256)
+function approveAll(address spender, uint256 baseTokenAmount, uint256[] amounts) external
 ```
 
-Get the current allowance from `owner` for `spender`
+Approve a spender to transfer multiple amounts of assets on behalf of the sender
+note This function assumes that the first asset is the baseToken and the rest are collateral assets
 
-_Note: this binary allowance is unlike most other ERC20 tokens
-Note: this allowance allows spender to manage *all* the owner's assets_
+_Note: The first amount corresponds to the baseToken, followed by each collateral asset in order
+The length of the amounts array must match the number of assets (baseToken + collateralAssets)_
 
 #### Parameters
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-| owner | address | The address of the account which owns the tokens to be spent |
 | spender | address | The address of the account which may transfer tokens |
-
-#### Return Values
-
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| [0] | uint256 | Either uint.max (spender is allowed) or zero (spender is disallowed) |
-
-### allowInternal
-
-```solidity
-function allowInternal(address owner, address manager, bool isAllowed_) internal
-```
-
-_Stores the flag marking whether the manager is allowed to act on behalf of owner_
+| baseTokenAmount | uint256 |  |
+| amounts | uint256[] | The amounts of each asset that the spender is allowed to manage |
 
 ### allowBySig
 
 ```solidity
-function allowBySig(address owner, address manager, bool isAllowed_, uint256 nonce, uint256 expiry, uint8 v, bytes32 r, bytes32 s) external
+function allowBySig(address owner, address manager, address asset, uint256 amount, uint256 nonce, uint256 expiry, uint8 v, bytes32 r, bytes32 s) external
 ```
 
 Sets authorization status for a manager via signature from signatory
@@ -239,7 +196,8 @@ Sets authorization status for a manager via signature from signatory
 | ---- | ---- | ----------- |
 | owner | address | The address that signed the signature |
 | manager | address | The address to authorize (or rescind authorization from) |
-| isAllowed_ | bool | Whether to authorize or rescind authorization from manager |
+| asset | address | The asset for which the authorization applies (must be baseToken or a collateral asset) |
+| amount | uint256 | The amount of the asset that the manager is allowed to manage |
 | nonce | uint256 | The next expected nonce value for the signatory |
 | expiry | uint256 | Expiration time for the signature |
 | v | uint8 | The recovery byte of the signature |
@@ -259,4 +217,21 @@ Returns the current configuration of the market
 | Name | Type | Description |
 | ---- | ---- | ----------- |
 | [0] | struct ICometExtension.Configuration | Configuration struct containing all market parameters |
+
+### allowInternal
+
+```solidity
+function allowInternal(address owner, address manager, address asset, uint256 amount) internal
+```
+
+_Allows a manager to spend an owner's allowance on a specific asset_
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| owner | address | The owner of the assets |
+| manager | address | The manager account |
+| asset | address | The asset being spent |
+| amount | uint256 | The amount to spend |
 
