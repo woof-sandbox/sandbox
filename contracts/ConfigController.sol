@@ -116,6 +116,7 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
         configControllerFactory = msg.sender;
 
         /// back-link to ensure that correct sandboxController is used and to bind it with factory - thus avoiding foreign deployments
+        // aderyn-fp-next-line(reentrancy-state-change)
         sandboxController = IConfigControllerFactory(configControllerFactory).sandboxController();
 
         /// Addresses of owner, curator, guardian, sandbox controller and factory are validated in the factory
@@ -124,6 +125,7 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
         unchecked {
             if (_curatorFee > FEE_DIVISOR) revert InvalidFeePercentage();
 
+            // aderyn-fp-next-line(reentrancy-state-change)
             (uint minUpdateTime, uint maxUpdateTime) = ISandboxController(sandboxController).proposalBoundaries();
             if (_curatorProposalDuration < minUpdateTime || _proposalDuration < minUpdateTime) revert ProposalDurationTooShort();
             if (_curatorProposalDuration > maxUpdateTime || _proposalDuration > maxUpdateTime) revert ProposalDurationTooLong();
