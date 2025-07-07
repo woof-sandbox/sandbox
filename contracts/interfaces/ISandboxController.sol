@@ -56,7 +56,7 @@ interface ISandboxController is ISandboxErrors {
 
     /// TODO: Probarly A LOT OF WASTED SPACE. Decide the biggest variable value.
     struct SandboxControllerConfiguration {
-        /// First 256 bits (8+8+5+5 = 26 bytes)
+        /// First 256 bits (32 bytes) (8+8+5+5 = 26 bytes)
         uint64 targetPercent; // 8 bytes
         uint64 storeFrontPriceFactor; // 8 bytes
         uint40 minUpdateTime; // 5 bytes
@@ -141,8 +141,10 @@ interface ISandboxController is ISandboxErrors {
 
     function changeBaseAssetCurve(address token, uint256 curveIndex, BaseAssetCurve memory newCurve) external;
 
+    // aderyn-fp-next-line(literal-instead-of-constant)
     function setReserveCommissions(uint64[3] calldata reserveCommissions) external;
 
+    // aderyn-fp-next-line(literal-instead-of-constant)
     function setProtocolCommissions(uint64[3] calldata protocolCommissions) external;
 
     function setTreasury(address _treasury) external;

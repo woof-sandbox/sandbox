@@ -281,20 +281,21 @@ contract SandboxController is ISandboxController {
         if (isBaseTokenWhitelisted(token)) revert BaseTokenAlreadyWhitelisted();
 
         /// @dev the price feed is not associated with the token
+        // aderyn-fp-next-line(reentrancy-state-change)
         if (IPriceFeed(priceFeed).underlyingToken() != token) revert WrongPriceFeedUnderlying();
 
         /// @dev this price feed is used for a different token. Prevent arbitrage.
         if (tokenToPriceFeed[token] != address(0) && tokenToPriceFeed[token] != priceFeed) revert DifferentPriceFeedAlreadyUsedForToken();
 
         /// @dev the price feed is dead
-        (, int256 answer, , , ) = IPriceFeed(priceFeed).latestRoundData();
+        (, int256 answer, , , ) = IPriceFeed(priceFeed).latestRoundData(); // aderyn-fp(reentrancy-state-change)
         if (answer <= 0) revert InvalidPriceFeed();
 
         /// @dev the curve configuration is invalid
         if (!isCurveConfigurationValid(baseAssetCurve)) revert InvalidCurveConfiguration();
 
         tokenToPriceFeed[token] = priceFeed;
-        uint8 decimals = IERC20Metadata(token).decimals();
+        uint8 decimals = IERC20Metadata(token).decimals(); // aderyn-fp(reentrancy-state-change)
 
         _baseAssets[token].priceFeed = priceFeed;
         _baseAssets[token].decimals = decimals;
@@ -510,7 +511,8 @@ contract SandboxController is ISandboxController {
      * @return True if valid, false otherwise.
      */
     function isCurveConfigurationValid(BaseAssetCurve memory curve) public pure override returns (bool) {
-        if (curve.supplyKink == 0 || curve.borrowKink == 0 || curve.supplyKink >= 1e18 || curve.borrowKink >= 1e18) return false;
+        if (curve.supplyKink == 0 || curve.borrowKink == 0 || curve.supplyKink >= PARAMETERS_SCALE || curve.borrowKink >= PARAMETERS_SCALE)
+            return false;
 
         if (
             curve.supplyPerYearInterestRateSlopeLow == 0 ||

@@ -11,21 +11,16 @@ import "./ISandboxController.sol";
  * @author Compound
  */
 abstract contract ISandboxComet is CometCore {
-    error Absurd();
     error AlreadyInitialized();
     error AmountTooSmall();
     error BadAsset();
     error BadDecimals();
-    error BadDiscount();
     error BadPrice();
     error BorrowTooSmall();
-    error BorrowCFTooLarge();
     error IncorrectInitialization();
     error InsufficientReserves();
-    error LiquidateCFTooLarge();
     error NoSelfTransfer();
     error NotCollateralized();
-    error NotForSale();
     error NotLiquidatable();
     error Paused();
     error ReentrantCallBlocked();
@@ -33,10 +28,7 @@ abstract contract ISandboxComet is CometCore {
     error TimestampTooLarge();
     error TooManyAssets();
     error TooMuchSlippage();
-    error TransferInFailed();
-    error TransferOutFailed();
     error Unauthorized();
-    error Locked(uint256 currrentTimestamp, uint256 unlockTimestamp);
     error ZeroAddress();
 
     event Supply(address indexed from, address indexed dst, uint amount);

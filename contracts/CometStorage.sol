@@ -185,9 +185,6 @@ contract CometStorage {
     /// @notice The number of assets this contract actually supports
     uint8 public numAssets;
 
-    /// @notice Marker that the market is closed
-    bool internal _closed;
-
     /// @notice Aggregate variables tracked for each collateral asset
     mapping(address => uint256) public totalsCollateral;
 

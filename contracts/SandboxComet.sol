@@ -14,9 +14,7 @@ import "./interfaces/ISandboxController.sol";
  * @notice An efficient monolithic money comet protocol
  * @author WOOF! Software
  */
-contract SandboxComet is
-    ISandboxComet // aderyn-fp(contract-locks-ether)
-{
+contract SandboxComet is ISandboxComet {
     using SafeERC20 for IERC20;
 
     /// @notice can be legally deployed only via the factory which provides correct config controller address
@@ -55,7 +53,7 @@ contract SandboxComet is
         uint8 _decimals = IERC20Metadata(comet.baseToken).decimals(); // aderyn-fp(reentrancy-state-change)
         if (_decimals > MAX_BASE_DECIMALS) revert BadDecimals();
 
-        baseScale = uint64(10 ** _decimals);
+        baseScale = uint64(10 ** _decimals); // aderyn-fp(literal-instead-of-constant)
         if (baseScale < BASE_ACCRUAL_SCALE) revert BadDecimals();
         accrualDescaleFactor = baseScale / BASE_ACCRUAL_SCALE;
 
@@ -78,7 +76,8 @@ contract SandboxComet is
         /// Thus collaterals can be safely added directly into the storage
         for (uint8 i; i < colTokensLength; ++i) {
             address collateralToken = comet.collateralTokens[i].collateralToken;
-            uint64 scale = uint64(10 ** IERC20Metadata(collateralToken).decimals()); // aderyn-fp(reentrancy-state-change)
+            // aderyn-fp-next-line(reentrancy-state-change, literal-instead-of-constant)
+            uint64 scale = uint64(10 ** IERC20Metadata(collateralToken).decimals());
             // aderyn-fp-next-line(reentrancy-state-change)
             address priceFeed = ISandboxController(sandboxController).tokenToPriceFeed(collateralToken);
 
@@ -1194,8 +1193,8 @@ contract SandboxComet is
     /**
      * @notice Fallback to calling the extension delegate for everything else
      */
-    fallback() external payable // aderyn-fp(contract-locks-ether)
-    {
+    // aderyn-fp-next-line(contract-locks-ether)
+    fallback() external payable {
         address delegate = extension;
         assembly ("memory-safe") {
             calldatacopy(0, 0, calldatasize())
@@ -1206,13 +1205,13 @@ contract SandboxComet is
                 revert(0, returndatasize())
             }
             default {
-                return(0, returndatasize())
+                return(0, returndatasize()) // aderyn-fp(yul-return)
             }
         }
     }
 
-    receive() external payable // aderyn-fp(contract-locks-ether)
-    {
+    // aderyn-fp-next-line(contract-locks-ether)
+    receive() external payable {
         // Fallback function to receive ETH, if needed
         // Note: This contract does not use ETH, so this is just a placeholder
         revert("SandboxComet: Cannot receive ETH");
