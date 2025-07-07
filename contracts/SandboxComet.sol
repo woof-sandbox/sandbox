@@ -14,9 +14,8 @@ import "./interfaces/ISandboxController.sol";
  * @notice An efficient monolithic money comet protocol
  * @author WOOF! Software
  */
-contract SandboxComet is
-    ISandboxComet // aderyn-fp(contract-locks-ether)
-{
+// aderyn-ignore-next-line(contract-locks-ether)
+contract SandboxComet is ISandboxComet {
     using SafeERC20 for IERC20;
 
     /// @notice can be legally deployed only via the factory which provides correct config controller address
@@ -1188,8 +1187,8 @@ contract SandboxComet is
     /**
      * @notice Fallback to calling the extension delegate for everything else
      */
+    // aderyn-ignore-next-line(contract-locks-ether)
     fallback() external payable {
-        // aderyn-ignore(contract-locks-ether)
         address delegate = extension;
         assembly ("memory-safe") {
             calldatacopy(0, 0, calldatasize())
@@ -1205,8 +1204,8 @@ contract SandboxComet is
         }
     }
 
+    // aderyn-ignore-next-line(contract-locks-ether)
     receive() external payable {
-        // aderyn-ignore(contract-locks-ether)
         // Fallback function to receive ETH, if needed
         // Note: This contract does not use ETH, so this is just a placeholder
         revert("SandboxComet: Cannot receive ETH");
