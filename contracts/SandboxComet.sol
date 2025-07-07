@@ -14,8 +14,9 @@ import "./interfaces/ISandboxController.sol";
  * @notice An efficient monolithic money comet protocol
  * @author WOOF! Software
  */
-// aderyn-fp-next-line(contract-locks-ether)
-contract SandboxComet is ISandboxComet {
+contract SandboxComet is
+    ISandboxComet // aderyn-fp(contract-locks-ether)
+{
     using SafeERC20 for IERC20;
 
     /// @notice can be legally deployed only via the factory which provides correct config controller address
@@ -32,10 +33,12 @@ contract SandboxComet is ISandboxComet {
         extension = _ext;
     }
 
-    /// @notice replaces your old constructor
+    /// @notice can be called only from Config Controller, as factoryInit prevents any other callers
+    /// @param comet Base token, interest rate curve, collaterals
+    /// @param config Global Comet reserve parameters
     function initialize(
         IConfigController.CometConfig calldata comet,
-        IConfigController.CometGlobalParamsConfig calldata config
+        IConfigController.CometGlobalParamsConfig calldata config // aderyn-fp(state-change-without-event)
     ) external override {
         /// Relies on fact that factory provides correct controller and that it is set by the time of this call
         if (msg.sender != configController) revert IncorrectInitialization();
@@ -104,7 +107,7 @@ contract SandboxComet is ISandboxComet {
         /// Interest rate curve
         ///
 
-        // aderyn-next-line(reentrancy-state-change)
+        // aderyn-fp-next-line(reentrancy-state-change)
         ISandboxController.BaseAssetConfiguration memory bac = ISandboxController(sandboxController).baseAssets(comet.baseToken);
         ISandboxController.BaseAssetCurve memory curve = bac.baseAssetCurves[comet.baseTokenCurveId];
 
@@ -434,7 +437,7 @@ contract SandboxComet is ISandboxComet {
      * @param buyPaused Boolean for pausing buy actions
      */
     function pause(bool supplyPaused, bool transferPaused, bool withdrawPaused, bool absorbPaused, bool buyPaused) external override {
-        address dao = ISandboxController(sandboxController).dao();
+        address dao = ISandboxController(sandboxController).dao(); // aderyn-fp(reentrancy-state-change)
         if (msg.sender != configController && msg.sender != dao) revert Unauthorized();
 
         pauseFlags =
@@ -459,7 +462,7 @@ contract SandboxComet is ISandboxComet {
         // and there is no difference between base asset or collateral
 
         uint256 amount;
-        address dao = ISandboxController(sandboxController).dao();
+        address dao = ISandboxController(sandboxController).dao(); // aderyn-fp(reentrancy-state-change)
 
         if (msg.sender == dao) {
             amount = assetFeesDAO[asset];
@@ -1191,8 +1194,8 @@ contract SandboxComet is ISandboxComet {
     /**
      * @notice Fallback to calling the extension delegate for everything else
      */
-    // aderyn-fp-next-line(contract-locks-ether)
-    fallback() external payable {
+    fallback() external payable // aderyn-fp(contract-locks-ether)
+    {
         address delegate = extension;
         assembly ("memory-safe") {
             calldatacopy(0, 0, calldatasize())
@@ -1208,8 +1211,8 @@ contract SandboxComet is ISandboxComet {
         }
     }
 
-    // aderyn-fp-next-line(contract-locks-ether)
-    receive() external payable {
+    receive() external payable // aderyn-fp(contract-locks-ether)
+    {
         // Fallback function to receive ETH, if needed
         // Note: This contract does not use ETH, so this is just a placeholder
         revert("SandboxComet: Cannot receive ETH");

@@ -26,7 +26,7 @@ import "./interfaces/ISandboxCometFactory.sol";
  */
 contract ConfigController is IConfigController, IConfigControllerErrors, IConfigControllerEvents {
     using SafeERC20 for IERC20;
-    uint256 public constant FEE_DIVISOR = 10_000;
+    uint256 public constant FEE_DIVISOR = 1e4;
     address public constant ZERO_ADDRESS = 0x0000000000000000000000000000000000000000;
 
     /// @notice The address of the protocol owner
@@ -151,11 +151,13 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
         /// Check base token
         ///
         if (_cometConfig.baseToken == ZERO_ADDRESS) revert ZeroAddress();
+        // aderyn-fp-next-line(reentrancy-state-change)
         if (!ISandboxController(sandboxController).isBaseTokenWhitelisted(_cometConfig.baseToken)) revert BaseTokenNotWhitelisted();
         /// Token decimals and price feed decimal are validated on the Comet, as it may be an individual setting
 
         /// Check interest curve
         ///
+        // aderyn-fp-next-line(reentrancy-state-change)
         ISandboxController.BaseAssetConfiguration memory baseAssetConfig = ISandboxController(sandboxController).baseAssets(
             _cometConfig.baseToken
         );
@@ -171,25 +173,30 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
 
         /// Upper boundary for collateral tokens number is checked in Comet, as different Comets may be supported
         if (_length == 0) revert ZeroCollateralAssets();
-        for (uint i; i < _length; ++i) {
-            unchecked {
-                collateralTokenConfig = _cometConfig.collateralTokens[i];
-                address _collateralToken = collateralTokenConfig.collateralToken;
+        for (uint i; i < _length; ) {
+            collateralTokenConfig = _cometConfig.collateralTokens[i];
+            address _collateralToken = collateralTokenConfig.collateralToken;
 
-                /// Quick checks first
-                if (_collateralToken == ZERO_ADDRESS) revert ZeroAddress();
-                if (_collateralToken == _cometConfig.baseToken) revert WrongCollateralTokenSettings();
+            /// Quick checks first
+            if (_collateralToken == ZERO_ADDRESS) revert ZeroAddress();
+            if (_collateralToken == _cometConfig.baseToken) revert WrongCollateralTokenSettings();
 
-                for (uint j; j < i; j++) {
-                    if (addedCollateralTokens[j] == _collateralToken) revert CollateralTokenAlreadyAdded();
+            for (uint j; j < i; ) {
+                if (addedCollateralTokens[j] == _collateralToken) revert CollateralTokenAlreadyAdded();
+                unchecked {
+                    ++j;
                 }
-                addedCollateralTokens[i] = _collateralToken;
+            }
+            addedCollateralTokens[i] = _collateralToken;
 
-                /// Check alignment with settings from SandboxController
-                _validateCollateralTokenConfig(collateralTokenConfig);
+            /// Check alignment with settings from SandboxController
+            _validateCollateralTokenConfig(collateralTokenConfig);
+            unchecked {
+                ++i;
             }
         }
 
+        // aderyn-fp-next-line(reentrancy-state-change)
         ISandboxController.SandboxControllerConfiguration memory _sandboxConfig = ISandboxController(sandboxController).config();
         CometGlobalParamsConfig memory _globalConfig = CometGlobalParamsConfig(
             _sandboxConfig.targetPercent,
@@ -198,8 +205,8 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
             _sandboxConfig.suggestedLockTimeOfSeedReserves
         );
 
-        address comet = ISandboxCometFactory(cometFactory).createComet();
-        ISandboxComet(comet).initialize(_cometConfig, _globalConfig);
+        address comet = ISandboxCometFactory(cometFactory).createComet(); // aderyn-fp(reentrancy-state-change)
+        ISandboxComet(comet).initialize(_cometConfig, _globalConfig); // aderyn-fp(reentrancy-state-change)
 
         uint256 cometsNum = comets.length;
         comets.push(comet);

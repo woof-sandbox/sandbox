@@ -353,13 +353,13 @@ contract SandboxController is ISandboxController {
         if (isCollateralTokenWhitelisted(token)) revert CollateralTokenAlreadyWhitelisted();
 
         /// @dev the price feed is not associated with the token
-        if (IPriceFeed(priceFeed).underlyingToken() != token) revert WrongPriceFeedUnderlying();
+        if (IPriceFeed(priceFeed).underlyingToken() != token) revert WrongPriceFeedUnderlying(); // aderyn-fp(reentrancy-state-change)
 
         /// @dev this price feed is used for a different token. Prevent arbitrage.
         if (tokenToPriceFeed[token] != address(0) && tokenToPriceFeed[token] != priceFeed) revert DifferentPriceFeedAlreadyUsedForToken();
 
         /// @dev the price feed is dead
-        (, int256 answer, , , ) = IPriceFeed(priceFeed).latestRoundData();
+        (, int256 answer, , , ) = IPriceFeed(priceFeed).latestRoundData(); // aderyn-fp(reentrancy-state-change)
         if (answer <= 0) revert InvalidPriceFeed();
 
         /// @dev Validates that all collateral factor parameters are within allowed ranges and maintain logical relationships:
@@ -380,7 +380,7 @@ contract SandboxController is ISandboxController {
 
         tokenToPriceFeed[token] = priceFeed;
 
-        uint8 decimals = IERC20Metadata(token).decimals();
+        uint8 decimals = IERC20Metadata(token).decimals(); // aderyn-fp(reentrancy-state-change)
 
         _collateralAssets[token].collateralToken = token;
         _collateralAssets[token].priceFeed = priceFeed;
