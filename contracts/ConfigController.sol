@@ -181,7 +181,7 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
             if (_collateralToken == address(0)) revert ZeroAddress();
             if (_collateralToken == _cometConfig.baseToken) revert WrongCollateralTokenSettings();
 
-            for (uint j; j < i; ) {
+            for (uint8 j = 0; j < i; ) {
                 if (addedCollateralTokens[j] == _collateralToken) revert CollateralTokenAlreadyAdded();
                 unchecked {
                     ++j;

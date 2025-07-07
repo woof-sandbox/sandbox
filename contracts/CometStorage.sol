@@ -13,15 +13,15 @@ contract CometStorage {
 
     struct TotalsBasic {
         // 1st slot
-        uint64 baseSupplyIndex;
-        uint64 baseBorrowIndex;
-        uint64 trackingSupplyIndex;
-        uint64 trackingBorrowIndex;
+        uint64 baseSupplyIndex; // aderyn-fp(local-variable-shadowing)
+        uint64 baseBorrowIndex; // aderyn-fp(local-variable-shadowing)
+        uint64 trackingSupplyIndex; // aderyn-fp(local-variable-shadowing)
+        uint64 trackingBorrowIndex; // aderyn-fp(local-variable-shadowing)
         // 2nd slot
-        uint104 totalSupplyBase;
-        uint104 totalBorrowBase;
-        uint40 lastAccrualTime;
-        uint8 pauseFlags;
+        uint104 totalSupplyBase; // aderyn-fp(local-variable-shadowing)
+        uint104 totalBorrowBase; // aderyn-fp(local-variable-shadowing)
+        uint40 lastAccrualTime; // aderyn-fp(local-variable-shadowing)
+        uint8 pauseFlags; // aderyn-fp(local-variable-shadowing)
     }
 
     struct UserBasic {
