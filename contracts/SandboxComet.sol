@@ -39,6 +39,7 @@ contract SandboxComet is ISandboxComet {
     ) external override {
         /// Relies on fact that factory provides correct controller and that it is set by the time of this call
         if (msg.sender != configController) revert IncorrectInitialization();
+        // aderyn-fp-next-line(reentrancy-state-change)
         sandboxController = IConfigController(msg.sender).sandboxController();
 
         /// Base asset
@@ -48,16 +49,17 @@ contract SandboxComet is ISandboxComet {
         if (baseToken != address(0)) revert AlreadyInitialized();
         baseToken = comet.baseToken;
 
-        uint8 _decimals = IERC20Metadata(comet.baseToken).decimals();
+        uint8 _decimals = IERC20Metadata(comet.baseToken).decimals(); // aderyn-fp(reentrancy-state-change)
         if (_decimals > MAX_BASE_DECIMALS) revert BadDecimals();
 
         baseScale = uint64(10 ** _decimals);
         if (baseScale < BASE_ACCRUAL_SCALE) revert BadDecimals();
         accrualDescaleFactor = baseScale / BASE_ACCRUAL_SCALE;
 
+        // aderyn-fp-next-line(reentrancy-state-change)
         address _baseTokenPriceFeed = ISandboxController(sandboxController).tokenToPriceFeed(comet.baseToken);
         /// @dev price feed is already checked to be listed in config controller
-        if (IPriceFeed(_baseTokenPriceFeed).decimals() != PRICE_FEED_DECIMALS) revert BadDecimals();
+        if (IPriceFeed(_baseTokenPriceFeed).decimals() != PRICE_FEED_DECIMALS) revert BadDecimals(); // aderyn-fp(reentrancy-state-change)
         baseTokenPriceFeed = _baseTokenPriceFeed;
 
         /// Collaterals
@@ -73,7 +75,8 @@ contract SandboxComet is ISandboxComet {
         /// Thus collaterals can be safely added directly into the storage
         for (uint8 i; i < colTokensLength; ++i) {
             address collateralToken = comet.collateralTokens[i].collateralToken;
-            uint64 scale = uint64(10 ** IERC20Metadata(collateralToken).decimals());
+            uint64 scale = uint64(10 ** IERC20Metadata(collateralToken).decimals()); // aderyn-fp(reentrancy-state-change)
+            // aderyn-fp-next-line(reentrancy-state-change)
             address priceFeed = ISandboxController(sandboxController).tokenToPriceFeed(collateralToken);
 
             collateralAssets.push(
@@ -101,6 +104,7 @@ contract SandboxComet is ISandboxComet {
         /// Interest rate curve
         ///
 
+        // aderyn-next-line(reentrancy-state-change)
         ISandboxController.BaseAssetConfiguration memory bac = ISandboxController(sandboxController).baseAssets(comet.baseToken);
         ISandboxController.BaseAssetCurve memory curve = bac.baseAssetCurves[comet.baseTokenCurveId];
 

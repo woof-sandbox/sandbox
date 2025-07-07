@@ -125,6 +125,7 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
         unchecked {
             if (_curatorFee > FEE_DIVISOR) revert InvalidFeePercentage();
 
+            // aderyn-fp-next-line(reentrancy-state-change)
             (uint minUpdateTime, uint maxUpdateTime) = ISandboxController(sandboxController).proposalBoundaries();
             if (_curatorProposalDuration < minUpdateTime || _proposalDuration < minUpdateTime) revert ProposalDurationTooShort();
             if (_curatorProposalDuration > maxUpdateTime || _proposalDuration > maxUpdateTime) revert ProposalDurationTooLong();
@@ -133,7 +134,6 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
         owner = _owner;
         guardian = _guardian;
 
-        // aderyn-fp-next-line(reentrancy-state-change)
         cometFactory = _cometFactory;
         curatorFee = _curatorFee;
         name = _name;
@@ -321,6 +321,7 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
     /// @param _curatorProposalDuration New duration for curator proposals in seconds
     /// @param _proposalDuration New duration for comet configuration proposals in seconds
     function setProposalDurations(uint _curatorProposalDuration, uint _proposalDuration) external onlyOwner {
+        // aderyn-fp-next-line(reentrancy-state-change)
         (uint minUpdateTime, uint maxUpdateTime) = ISandboxController(sandboxController).proposalBoundaries();
         if (_curatorProposalDuration < minUpdateTime || _proposalDuration < minUpdateTime) revert ProposalDurationTooShort();
         if (_curatorProposalDuration > maxUpdateTime || _proposalDuration > maxUpdateTime) revert ProposalDurationTooLong();
