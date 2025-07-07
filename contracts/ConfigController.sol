@@ -101,6 +101,7 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
     /// @param _name Name of the controller
     /// @param _curatorProposalDuration Duration of curator proposals in seconds
     /// @param _proposalDuration Duration of comet proposals in seconds
+    // aderyn-ignore-next-line(reentrancy-state-change)
     function initialize(
         address _owner,
         address _curator,
