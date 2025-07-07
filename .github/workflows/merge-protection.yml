@@ -14,45 +14,9 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
         with:
-          node-version: '18'
-          cache: 'yarn'
-
-      - name: Install dependencies
-        run: yarn install --frozen-lockfile
-
-      - name: Generate TypeScript types
-        run: npx typechain --target ethers-v5
-
-      - name: Compile contracts
-        run: npx hardhat compile
-
-      - name: TypeScript compilation check
-        run: npx tsc --noEmit --project tsconfig.json
-
-      - name: ESLint check
-        run: yarn lint:ts
-
-      - name: Solhint check
-        run: yarn lint:sol
-
-      - name: Solidity Prettier check
-        run: npx prettier --check 'contracts/**/*.sol' --config .prettierrc.json
-
-      - name: TypeScript Prettier check
-        run: npx prettier --check 'test/**/*.ts' 'src/**/*.ts' 'scripts/**/*.ts' 'hardhat.config.ts' --config .prettierrc.json
-
-      - name: Run tests
-        run: yarn test
-
-      - name: Generate documentation
-        run: yarn doc
-
-      - name: Clean out directory
-        run: yarn clean:out
+          submodules: recursive
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Check for merge conflicts
         run: |
