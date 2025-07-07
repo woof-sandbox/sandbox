@@ -89,9 +89,8 @@ abstract contract ICometExtension is CometCore {
      *  and is subject to issues noted [here](https://eips.ethereum.org/EIPS/eip-20#approve)
      * @param spender The address of the account which may transfer tokens
      * @param amount The number of tokens that are approved
-     * @return Whether or not the approval succeeded
      */
-    function approve(address spender, address asset, uint256 amount) external virtual returns (bool);
+    function approve(address spender, address asset, uint256 amount) external virtual;
 
     /**
      * @notice Approve `spender` to transfer up to `baseTokenAmount` from `src`
@@ -101,9 +100,8 @@ abstract contract ICometExtension is CometCore {
      * @param baseTokenAmount The number of base tokens that are approved
      * @param amounts The number of collateral tokens that are approved
      * @notice The order list of collateral assets must match the order of `collateralAssets`
-     * @return Whether or not the approval succeeded
      */
-    function approveAll(address spender, uint256 baseTokenAmount, uint256[] calldata amounts) external virtual returns (bool);
+    function approveAll(address spender, uint256 baseTokenAmount, uint256[] calldata amounts) external virtual;
 
     event Approval(address indexed owner, address indexed spender, address indexed asset, uint256 amount);
 }

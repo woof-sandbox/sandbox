@@ -5,6 +5,9 @@ import "./CometStorage.sol";
 import "./CometMath.sol";
 
 abstract contract CometCore is CometStorage, CometMath {
+    error ZeroAddress();
+    error ZeroAmount();
+
     /**
      * @notice Determine if the manager has permission to act on behalf of the owner
      * @param owner The owner account
@@ -23,14 +26,14 @@ abstract contract CometCore is CometStorage, CometMath {
      * @param manager The spender account
      * @param asset The asset being spent
      * @param amount The amount to spend
-     * @return Whether or not the allowance was successfully spent
      */
-    function spendAllowance(address owner, address manager, address asset, uint256 amount) internal returns (bool) {
-        if (owner == manager) return true;
-        unchecked {
-            allowance[owner][manager][asset] -= amount;
-        }
-        return true;
+    function spendAllowance(address owner, address manager, address asset, uint256 amount) internal {
+        if (owner == manager) return;
+
+        if (owner == address(0) || manager == address(0) || asset == address(0)) revert ZeroAddress();
+        if (amount == 0) revert ZeroAmount();
+
+        allowance[owner][manager][asset] -= amount;
     }
 
     /**

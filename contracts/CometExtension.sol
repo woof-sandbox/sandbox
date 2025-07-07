@@ -112,11 +112,9 @@ contract CometExtension is ICometExtension {
      * @param spender The address of the account which may transfer tokens
      * @param asset The address of the asset being approved
      * @param amount The amount of the asset that the spender is allowed to manage
-     * @return Whether or not the approval change succeeded
      */
-    function approve(address spender, address asset, uint256 amount) external override returns (bool) {
+    function approve(address spender, address asset, uint256 amount) external override {
         allowInternal(msg.sender, spender, asset, amount);
-        return true;
     }
 
     /**
@@ -126,9 +124,8 @@ contract CometExtension is ICometExtension {
      * @param amounts The amounts of each asset that the spender is allowed to manage
      * @dev Note: The first amount corresponds to the baseToken, followed by each collateral asset in order
      * @dev The length of the amounts array must match the number of assets (baseToken + collateralAssets)
-     * @return Whether or not the approval change succeeded
      */
-    function approveAll(address spender, uint256 baseTokenAmount, uint256[] calldata amounts) external override returns (bool) {
+    function approveAll(address spender, uint256 baseTokenAmount, uint256[] calldata amounts) external override {
         uint256 len = collateralAssets.length;
         if (len != amounts.length) revert InvalidLength();
 
@@ -138,7 +135,6 @@ contract CometExtension is ICometExtension {
             address asset = collateralAssets[i].collateralToken;
             allowInternal(msg.sender, spender, asset, amounts[i]);
         }
-        return true;
     }
 
     /**
@@ -219,10 +215,11 @@ contract CometExtension is ICometExtension {
      */
     function allowInternal(address owner, address manager, address asset, uint256 amount) internal {
         uint8 index = collateralAssetIndex[asset];
+        if (owner == address(0) || manager == address(0) || asset == address(0)) revert ZeroAddress();
         if (asset != baseToken && (collateralAssets[index].collateralToken != asset)) revert WrongToken(asset);
-        unchecked {
-            allowance[owner][manager][asset] = amount;
-        }
+
+        allowance[owner][manager][asset] = amount;
+
         emit Approval(owner, manager, asset, amount);
     }
 }
