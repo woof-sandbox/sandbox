@@ -116,7 +116,7 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
         configControllerFactory = msg.sender;
 
         /// back-link to ensure that correct sandboxController is used and to bind it with factory - thus avoiding foreign deployments
-        // aderyn-fp-next-line(reentrancy-state-change)
+        // aderyn-ignore-next-line(reentrancy-state-change)
         sandboxController = IConfigControllerFactory(configControllerFactory).sandboxController();
 
         /// Addresses of owner, curator, guardian, sandbox controller and factory are validated in the factory
