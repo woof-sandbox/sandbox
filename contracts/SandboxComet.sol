@@ -14,7 +14,6 @@ import "./interfaces/ISandboxController.sol";
  * @notice An efficient monolithic money comet protocol
  * @author WOOF! Software
  */
-// aderyn-fp-next-line(contract-locks-ether)
 contract SandboxComet is ISandboxComet {
     using SafeERC20 for IERC20;
 
