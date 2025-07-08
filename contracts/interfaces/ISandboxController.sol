@@ -118,9 +118,9 @@ interface ISandboxController is ISandboxErrors {
 
     function tokenToPriceFeed(address) external view returns (address);
 
-    function reserveCommission(uint) external view returns (uint64);
+    function reserveCommission(uint256) external view returns (uint64);
 
-    function protocolCommission(uint) external view returns (uint64);
+    function protocolCommission(uint256) external view returns (uint64);
 
     function getCommissions(uint256, uint256, uint256) external view returns (uint64, uint64);
 

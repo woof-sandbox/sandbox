@@ -217,13 +217,13 @@ contract SandboxComet is ISandboxComet {
     /**
      * @dev Calculate accrued interest indices for base token supply and borrows
      **/
-    function accruedInterestIndices(uint timeElapsed) internal view returns (uint64, uint64) {
+    function accruedInterestIndices(uint40 timeElapsed) internal view returns (uint64, uint64) {
         uint64 baseSupplyIndex_ = baseSupplyIndex;
         uint64 baseBorrowIndex_ = baseBorrowIndex;
         if (timeElapsed > 0) {
             uint utilization = getUtilization();
-            uint supplyRate = getSupplyRate(utilization);
-            uint borrowRate = getBorrowRate(utilization);
+            uint64 supplyRate = getSupplyRate(utilization);
+            uint64 borrowRate = getBorrowRate(utilization);
             baseSupplyIndex_ += safe64(mulFactor(baseSupplyIndex_, supplyRate * timeElapsed));
             baseBorrowIndex_ += safe64(mulFactor(baseBorrowIndex_, borrowRate * timeElapsed));
         }
@@ -232,7 +232,7 @@ contract SandboxComet is ISandboxComet {
 
     function accrueInternal() internal {
         uint40 now_ = getNowInternal();
-        uint timeElapsed = uint256(now_ - lastAccrualTime);
+        uint40 timeElapsed = now_ - lastAccrualTime;
 
         if (timeElapsed != 0) {
             (baseSupplyIndex, baseBorrowIndex) = accruedInterestIndices(timeElapsed);
@@ -336,7 +336,7 @@ contract SandboxComet is ISandboxComet {
      */
     function getReserves() public view override returns (int) {
         (uint64 baseSupplyIndex_, uint64 baseBorrowIndex_) = accruedInterestIndices(getNowInternal() - lastAccrualTime);
-        uint balance = IERC20(baseToken).balanceOf(address(this));
+        uint256 balance = IERC20(baseToken).balanceOf(address(this));
         uint totalSupply_ = presentValueSupply(baseSupplyIndex_, totalSupplyBase);
         uint totalBorrow_ = presentValueBorrow(baseBorrowIndex_, totalBorrowBase);
         return signed256(balance) - signed256(totalSupply_) + signed256(totalBorrow_);
