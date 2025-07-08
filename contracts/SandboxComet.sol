@@ -21,6 +21,7 @@ contract SandboxComet is ISandboxComet {
     /// @notice can be legally deployed only via the factory which provides correct config controller address
     /// @param _configController legal address of the config controller which triggered the factory
     /// @param _ext extension deployed by the same factory
+    // aderyn-fp-next-line(state-change-without-event)
     function factoryInit(address _configController, address _ext) external override {
         if (factory != address(0) || configController != address(0)) revert AlreadyInitialized();
         if (_configController == address(0) || _ext == address(0)) revert IncorrectInitialization();
@@ -30,11 +31,14 @@ contract SandboxComet is ISandboxComet {
         factory = msg.sender;
         configController = _configController;
         extension = _ext;
+
+        /// Note: event is generated in ConfigController
     }
 
     /// @notice can be called only from Config Controller, as factoryInit prevents any other callers
     /// @param comet Base token, interest rate curve, collaterals
     /// @param config Global Comet reserve parameters
+    // aderyn-fp-next-line(state-change-without-event)
     function initialize(
         IConfigController.CometConfig calldata comet,
         IConfigController.CometGlobalParamsConfig calldata config // aderyn-fp(state-change-without-event)
@@ -139,6 +143,8 @@ contract SandboxComet is ISandboxComet {
         /// to avoid explicit initialization
         /// baseTrackingSupplySpeed = 0;
         /// baseTrackingBorrowSpeed = 0;
+
+        /// Note: event is generated in ConfigController
     }
 
     /**
@@ -243,6 +249,7 @@ contract SandboxComet is ISandboxComet {
     /**
      * @notice Accrue interest and rewards for an account
      **/
+    // aderyn-fp-next-line(state-change-without-event)
     function accrueAccount(address account) external override {
         accrueInternal();
 
@@ -937,7 +944,7 @@ contract SandboxComet is ISandboxComet {
     function absorb(address absorber, address[] calldata accounts) external override {
         if (isAbsorbPaused()) revert Paused();
         accrueInternal();
-        for (uint i = 0; i < accounts.length; ) {
+        for (uint8 i = 0; i < accounts.length; ) {
             absorbInternal(absorber, accounts[i]);
             unchecked {
                 i++;

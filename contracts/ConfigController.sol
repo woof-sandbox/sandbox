@@ -167,13 +167,13 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
 
         /// Check collaterals
         ///
-        uint _length = _cometConfig.collateralTokens.length;
+        uint256 _length = _cometConfig.collateralTokens.length;
         CollateralTokenConfig memory collateralTokenConfig;
         address[] memory addedCollateralTokens = new address[](_length);
 
         /// Upper boundary for collateral tokens number is checked in Comet, as different Comets may be supported
         if (_length == 0) revert ZeroCollateralAssets();
-        for (uint i; i < _length; ) {
+        for (uint8 i; i < _length; ) {
             collateralTokenConfig = _cometConfig.collateralTokens[i];
             address _collateralToken = collateralTokenConfig.collateralToken;
 
@@ -256,7 +256,10 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
     /// @param _newOwner The address of the new owner
     function grantOwnership(address _newOwner) external onlyOwner {
         if (_newOwner == address(0)) revert ZeroAddress();
+        address oldOwner = owner;
         owner = _newOwner;
+
+        emit OwnershipGranted(oldOwner, _newOwner);
     }
 
     /// @notice Proposes a new curator

@@ -17,4 +17,6 @@ interface IConfigControllerEvents {
     );
 
     event CometFeeEnabled(address indexed controller, address indexed comet, bool enabled);
+
+    event OwnershipGranted(address indexed oldOwner, address indexed newOwner);
 }

@@ -78,7 +78,7 @@ contract CometStorage {
     bytes32 internal constant REENTRANCY_GUARD_FLAG_SLOT = bytes32(keccak256("comet.reentrancy.guard"));
 
     /// @dev The reentrancy guard statuses
-    uint256 internal constant REENTRANCY_GUARD_NOT_ENTERED = 0;
+    uint256 internal constant REENTRANCY_GUARD_NOT_ENTERED = 0; // aderyn-fp(unused-state-variable)
     uint256 internal constant REENTRANCY_GUARD_ENTERED = 1;
 
     /** General configuration constants **/
