@@ -287,7 +287,7 @@ _uint64_
 ### storeFrontPriceFactor
 
 ```solidity
-uint256 storeFrontPriceFactor
+uint64 storeFrontPriceFactor
 ```
 
 The fraction of the liquidation penalty that goes to buyers of collateral instead of the protocol
@@ -356,7 +356,7 @@ The minimum base amount required to initiate a borrow
 ### targetPercent
 
 ```solidity
-uint256 targetPercent
+uint64 targetPercent
 ```
 
 The minimum base token reserves which must be held before collateral is hodled
@@ -442,14 +442,6 @@ uint8 numAssets
 ```
 
 The number of assets this contract actually supports
-
-### _closed
-
-```solidity
-bool _closed
-```
-
-Marker that the market is closed
 
 ### totalsCollateral
 

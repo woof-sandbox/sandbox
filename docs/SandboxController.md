@@ -4,28 +4,34 @@
 
 _Manages base asset configurations and interest rate baseAssetCurves._
 
-### MARKET_STATES
-
-```solidity
-uint256 MARKET_STATES
-```
-
 ### PARAMETERS_SCALE
 
 ```solidity
-uint256 PARAMETERS_SCALE
+uint64 PARAMETERS_SCALE
 ```
 
 ### MAX_TARGET_PERCENT
 
 ```solidity
-uint256 MAX_TARGET_PERCENT
+uint64 MAX_TARGET_PERCENT
 ```
 
 ### MAX_COMMISSIONS
 
 ```solidity
 uint64 MAX_COMMISSIONS
+```
+
+### MIN_FACTOR
+
+```solidity
+uint64 MIN_FACTOR
+```
+
+### MARKET_STATES
+
+```solidity
+uint8 MARKET_STATES
 ```
 
 ### treasury
@@ -173,7 +179,7 @@ _Both owner and dao are considered "authorized."
 ### constructor
 
 ```solidity
-constructor(address _owner, address _dao, address _treasury, bool _feeEnabled, uint256 _targetPercent, uint256 _storeFrontPriceFactor, uint256 _minUpdateTime, uint256 _maxUpdateTime, uint256 _suggestedAmountOfSeedReserves, uint256 _suggestedLockTimeOfSeedReserves, uint64[3] _reserveCommissions, uint64[3] _protocolCommissions) public
+constructor(address _owner, address _dao, address _treasury, bool _feeEnabled, uint64 _targetPercent, uint64 _storeFrontPriceFactor, uint40 _minUpdateTime, uint40 _maxUpdateTime, uint256 _suggestedAmountOfSeedReserves, uint256 _suggestedLockTimeOfSeedReserves, uint64[3] _reserveCommissions, uint64[3] _protocolCommissions) public
 ```
 
 _Set all global parameters (including owner and DAO) at deployment.
@@ -189,10 +195,10 @@ The length of the `_reserveCommissions` and `_protocolCommissions` arrays must b
 | _dao | address | The address of the DAO (governance). |
 | _treasury | address | The address of the treasury. |
 | _feeEnabled | bool | Global fee flag for the entire protocol. |
-| _targetPercent | uint256 | < 0.5 (50%) |
-| _storeFrontPriceFactor | uint256 | < 1e18 |
-| _minUpdateTime | uint256 | > 0 |
-| _maxUpdateTime | uint256 | reasonable time for the proposal duration |
+| _targetPercent | uint64 | < 0.5 (50%) |
+| _storeFrontPriceFactor | uint64 | < 1e18 |
+| _minUpdateTime | uint40 | > 0 |
+| _maxUpdateTime | uint40 | reasonable time for the proposal duration |
 | _suggestedAmountOfSeedReserves | uint256 | The suggested amount of seed reserves in $. Decimals are 6. |
 | _suggestedLockTimeOfSeedReserves | uint256 | The suggested lock time of seed reserves in seconds. |
 | _reserveCommissions | uint64[3] | The reserve commission factors for each market state. |
@@ -537,7 +543,7 @@ Returns base asset baseAssetCurves for a given token.
 ### proposalBoundaries
 
 ```solidity
-function proposalBoundaries() external view returns (uint256, uint256)
+function proposalBoundaries() external view returns (uint40, uint40)
 ```
 
 Returns the proposal boundaries of the sandbox controller.
@@ -546,8 +552,8 @@ Returns the proposal boundaries of the sandbox controller.
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-| [0] | uint256 | The proposal boundaries. |
-| [1] | uint256 |  |
+| [0] | uint40 | The proposal boundaries. |
+| [1] | uint40 |  |
 
 ### borrowMin
 
