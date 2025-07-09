@@ -44,13 +44,14 @@ contract ConfigControllerFactory is IConfigControllerFactory {
         address _curator,
         address _guardian,
         address _marketFactory,
-        uint _curatorFee,
+        uint32 _curatorFee,
         string memory _name,
-        uint _curatorProposalDuration,
-        uint _proposalDuration
+        uint40 _curatorProposalDuration,
+        uint40 _proposalDuration
     ) external override returns (address) {
         if (_marketFactory == address(0)) revert ZeroAddress();
         /// Check that correct factory is used - to avoid foreign factories
+        // aderyn-fp-next-line(reentrancy-state-change)
         if (ISandboxCometFactory(_marketFactory).configControllerFactory() != address(this)) revert InvalidFactory();
         /// no check for guardian - guardian may be set as address(0) as market can be run without it
         /// curator is checked in proposeCurator()

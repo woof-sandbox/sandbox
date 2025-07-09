@@ -13,7 +13,6 @@
         "useTabs": false,
         "singleQuote": false,
         "bracketSpacing": true,
-        "explicitTypes": "always",
         "compiler": "0.8.28"
       }
     },

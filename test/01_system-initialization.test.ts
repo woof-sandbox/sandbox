@@ -318,13 +318,13 @@ describe("1. System Initialization", function () {
     });
 
     it("should revert on deployment with invalid fee percentage", async function () {
-      const maxFee = await configControllerImpl.FEE_DIVISOR();
+      const maxFee = (await configControllerImpl.FEE_DIVISOR()).toNumber();
       await expect(
         configControllerFactory.createConfigController(
           curator.address,
           guardian.address,
           sandboxCometFactory.address,
-          maxFee.add(1),
+          maxFee + 1,
           configControllerOpts._name,
           configControllerOpts._curatorProposalDuration,
           configControllerOpts._proposalDuration
@@ -342,7 +342,7 @@ describe("1. System Initialization", function () {
           sandboxCometFactory.address,
           configControllerOpts._curatorFee,
           configControllerOpts._name,
-          minUpdateTime.sub(1),
+          minUpdateTime - 1,
           configControllerOpts._proposalDuration
         )
       ).to.be.revertedWithCustomError(_ConfigController, "ProposalDurationTooShort");
@@ -355,7 +355,7 @@ describe("1. System Initialization", function () {
           configControllerOpts._curatorFee,
           configControllerOpts._name,
           configControllerOpts._curatorProposalDuration,
-          minUpdateTime.sub(1)
+          minUpdateTime - 1
         )
       ).to.be.revertedWithCustomError(_ConfigController, "ProposalDurationTooShort");
     });
@@ -371,7 +371,7 @@ describe("1. System Initialization", function () {
           sandboxCometFactory.address,
           configControllerOpts._curatorFee,
           configControllerOpts._name,
-          maxUpdateTime.add(1),
+          maxUpdateTime + 1,
           configControllerOpts._proposalDuration
         )
       ).to.be.revertedWithCustomError(_ConfigController, "ProposalDurationTooLong");
@@ -384,7 +384,7 @@ describe("1. System Initialization", function () {
           configControllerOpts._curatorFee,
           configControllerOpts._name,
           configControllerOpts._curatorProposalDuration,
-          maxUpdateTime.add(1)
+          maxUpdateTime + 1
         )
       ).to.be.revertedWithCustomError(_ConfigController, "ProposalDurationTooLong");
     });

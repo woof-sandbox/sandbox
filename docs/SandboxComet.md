@@ -25,7 +25,14 @@ can be legally deployed only via the factory which provides correct config contr
 function initialize(struct IConfigController.CometConfig comet, struct IConfigController.CometGlobalParamsConfig config) external
 ```
 
-replaces your old constructor
+can be called only from Config Controller, as factoryInit prevents any other callers
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| comet | struct IConfigController.CometConfig | Base token, interest rate curve, collaterals |
+| config | struct IConfigController.CometGlobalParamsConfig | Global Comet reserve parameters |
 
 ### nonReentrant
 
@@ -96,7 +103,7 @@ function getNowInternal() internal view virtual returns (uint40)
 ### accruedInterestIndices
 
 ```solidity
-function accruedInterestIndices(uint256 timeElapsed) internal view returns (uint64, uint64)
+function accruedInterestIndices(uint40 timeElapsed) internal view returns (uint64, uint64)
 ```
 
 _Calculate accrued interest indices for base token supply and borrows_
@@ -434,16 +441,6 @@ function doTransferIn(address asset, address from, uint256 amount) internal retu
 ```
 
 _Safe ERC20 transfer in and returns the final amount transferred (taking into account any fees)
-Note: Safely handles non-standard ERC-20 tokens that do not return a value.
-See here: https://medium.com/coinmonks/missing-return-value-bug-at-least-130-tokens-affected-d67bf08521ca_
-
-### doTransferOut
-
-```solidity
-function doTransferOut(address asset, address to, uint256 amount) internal
-```
-
-_Safe ERC20 transfer out
 Note: Safely handles non-standard ERC-20 tokens that do not return a value.
 See here: https://medium.com/coinmonks/missing-return-value-bug-at-least-130-tokens-affected-d67bf08521ca_
 

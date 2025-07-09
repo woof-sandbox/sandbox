@@ -7,7 +7,7 @@ echo "🚀 Running pre-push checks..."
 
 # Run Prettier check on Solidity files
 echo "💅 Checking Solidity formatting..."
-npx prettier --check 'contracts/**/*.sol' --config .prettierrc.json
+npx prettier --check 'contracts/**/*.sol' --config .prettierrc.json --end-of-line auto
 
 # Run tests to ensure everything works
 echo "🧪 Running tests..."

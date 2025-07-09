@@ -1,3 +1,4 @@
+/* eslint-disable */
 module.exports = {
   env: {
     browser: true,
@@ -30,7 +31,7 @@ module.exports = {
         SwitchCase: 1,
       },
     ],
-    'linebreak-style': ['error', 'unix'],
+    'linebreak-style': 'off',
     'no-constant-condition': ['error', { checkLoops: false }],
     'no-inner-declarations': 'off',
     'no-prototype-builtins': 'off',

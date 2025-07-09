@@ -35,6 +35,12 @@ uint256 MAX_VALID_ECDSA_S
 _The highest valid value for s in an ECDSA signature pair (0 < s < secp256k1n ÷ 2 + 1)
  See https://ethereum.github.io/yellowpaper/paper.pdf #307)_
 
+### NAME_LENGTH
+
+```solidity
+uint8 NAME_LENGTH
+```
+
 ### name32
 
 ```solidity

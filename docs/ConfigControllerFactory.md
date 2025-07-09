@@ -54,7 +54,7 @@ constructor
 ### createConfigController
 
 ```solidity
-function createConfigController(address _curator, address _guardian, address _marketFactory, uint256 _curatorFee, string _name, uint256 _curatorProposalDuration, uint256 _proposalDuration) external returns (address)
+function createConfigController(address _curator, address _guardian, address _marketFactory, uint32 _curatorFee, string _name, uint40 _curatorProposalDuration, uint40 _proposalDuration) external returns (address)
 ```
 
 Creates a new ConfigController instance with unique configuration
@@ -67,10 +67,10 @@ Sets msg.sender as an owner of the newly created Config Controller
 | _curator | address | The address of the protocol curator |
 | _guardian | address | The address of the protocol guardian |
 | _marketFactory | address | The address of the MarketFactory contract |
-| _curatorFee | uint256 | Initial curator fee in basis points (1% = 100) |
+| _curatorFee | uint32 | Initial curator fee in basis points (1% = 100) |
 | _name | string | Name of the controller |
-| _curatorProposalDuration | uint256 | Duration of curator proposals in seconds |
-| _proposalDuration | uint256 | Duration of market proposals in seconds |
+| _curatorProposalDuration | uint40 | Duration of curator proposals in seconds |
+| _proposalDuration | uint40 | Duration of market proposals in seconds |
 
 #### Return Values
 

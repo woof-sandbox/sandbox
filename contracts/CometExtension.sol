@@ -19,7 +19,9 @@ contract CometExtension is ICometExtension {
 
     /// @dev The highest valid value for s in an ECDSA signature pair (0 < s < secp256k1n ÷ 2 + 1)
     ///  See https://ethereum.github.io/yellowpaper/paper.pdf #307)
-    uint internal constant MAX_VALID_ECDSA_S = 0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5D576E7357A4501DDFE92F46681B20A0;
+    uint256 internal constant MAX_VALID_ECDSA_S = 0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5D576E7357A4501DDFE92F46681B20A0;
+
+    uint8 internal constant NAME_LENGTH = 32;
 
     /// @dev The name of the SandboxComet
     bytes32 internal immutable name32;
@@ -72,7 +74,7 @@ contract CometExtension is ICometExtension {
      */
     function name() public view override returns (string memory) {
         uint8 i;
-        for (i = 0; i < 32; ) {
+        for (i = 0; i < NAME_LENGTH; ) {
             if (name32[i] == 0) break;
             unchecked {
                 i++;
@@ -185,23 +187,23 @@ contract CometExtension is ICometExtension {
                 baseToken: baseToken,
                 baseTokenPriceFeed: baseTokenPriceFeed,
                 extensionDelegate: address(0), // Not implemented in this version
-                supplyKink: uint64(supplyKink),
-                supplyPerYearInterestRateSlopeLow: uint64(supplyPerSecondInterestRateSlopeLow * SECONDS_PER_YEAR),
-                supplyPerYearInterestRateSlopeHigh: uint64(supplyPerSecondInterestRateSlopeHigh * SECONDS_PER_YEAR),
-                supplyPerYearInterestRateBase: uint64(supplyPerSecondInterestRateBase * SECONDS_PER_YEAR),
-                borrowKink: uint64(borrowKink),
-                borrowPerYearInterestRateSlopeLow: uint64(borrowPerSecondInterestRateSlopeLow * SECONDS_PER_YEAR),
-                borrowPerYearInterestRateSlopeHigh: uint64(borrowPerSecondInterestRateSlopeHigh * SECONDS_PER_YEAR),
-                borrowPerYearInterestRateBase: uint64(borrowPerSecondInterestRateBase * SECONDS_PER_YEAR),
-                storeFrontPriceFactor: uint64(storeFrontPriceFactor),
+                supplyKink: supplyKink,
+                supplyPerYearInterestRateSlopeLow: supplyPerSecondInterestRateSlopeLow * SECONDS_PER_YEAR,
+                supplyPerYearInterestRateSlopeHigh: supplyPerSecondInterestRateSlopeHigh * SECONDS_PER_YEAR,
+                supplyPerYearInterestRateBase: supplyPerSecondInterestRateBase * SECONDS_PER_YEAR,
+                borrowKink: borrowKink,
+                borrowPerYearInterestRateSlopeLow: borrowPerSecondInterestRateSlopeLow * SECONDS_PER_YEAR,
+                borrowPerYearInterestRateSlopeHigh: borrowPerSecondInterestRateSlopeHigh * SECONDS_PER_YEAR,
+                borrowPerYearInterestRateBase: borrowPerSecondInterestRateBase * SECONDS_PER_YEAR,
+                storeFrontPriceFactor: storeFrontPriceFactor,
                 trackingIndexScale: uint64(trackingIndexScale),
                 baseTrackingSupplySpeed: uint64(baseTrackingSupplySpeed),
                 baseTrackingBorrowSpeed: uint64(baseTrackingBorrowSpeed),
                 baseMinForRewards: uint104(baseMinForRewards),
                 baseBorrowMin: uint104(baseBorrowMin),
-                targetPercent: uint104(targetPercent),
+                targetPercent: targetPercent,
                 seedReserves: uint104(seedReserves),
-                unlockTimestamp: uint104(unlockTimestamp),
+                unlockTimestamp: unlockTimestamp,
                 assetConfigs: collateralAssets
             });
     }

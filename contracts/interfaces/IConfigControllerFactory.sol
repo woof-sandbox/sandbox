@@ -25,10 +25,10 @@ abstract contract IConfigControllerFactory {
         address indexed curator,
         address guardian,
         address marketFactory,
-        uint curatorFee,
+        uint32 curatorFee,
         string name,
-        uint curatorProposalDuration,
-        uint proposalDuration,
+        uint40 curatorProposalDuration,
+        uint40 proposalDuration,
         uint controllerId
     );
     error InvalidAddress();
@@ -68,10 +68,10 @@ abstract contract IConfigControllerFactory {
         address _curator,
         address _guardian,
         address _marketFactory,
-        uint _curatorFee,
+        uint32 _curatorFee,
         string memory _name,
-        uint _curatorProposalDuration,
-        uint _proposalDuration
+        uint40 _curatorProposalDuration,
+        uint40 _proposalDuration
     ) external virtual returns (address);
 
     /// @notice Checks if an address is a valid controller
