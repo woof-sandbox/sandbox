@@ -73,7 +73,20 @@ abstract contract ISandboxComet is CometCore {
 
     event SpeedsChanged(uint baseTrackingSupplySpeed, uint baseTrackingBorrowSpeed, bool dao_);
 
+    /// @notice Event emitted when a new collateral asset is added to the protocol
+    event CollateralAssetAdded(
+        address indexed collateralToken,
+        uint64 scale,
+        address priceFeed,
+        uint64 borrowCollateralFactor,
+        uint128 supplyCap,
+        uint64 liquidateCollateralFactor,
+        uint64 liquidationFactor
+    );
+
     event ControllerFeeDisabled(bool disabled);
+    
+    function addCollateralAsset(IConfigController.CollateralTokenConfig calldata collateralTokenConfig) external virtual;
 
     function supply(address asset, uint amount) external virtual;
 

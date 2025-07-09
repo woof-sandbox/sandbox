@@ -66,23 +66,11 @@ contract SandboxComet is ISandboxComet {
         /// Collateral and pricefeed for collateral are listed in SandboxController
         /// Collateral parameters are validated in ConfigController (including non-repeatability)
         /// Thus collaterals can be safely added directly into the storage
-        for (uint8 i; i < colTokensLength; ++i) {
-            address collateralToken = comet.collateralTokens[i].collateralToken;
-            uint64 scale = uint64(10 ** IERC20NonStandard(collateralToken).decimals());
-            address priceFeed = ISandboxController(sandboxController).tokenToPriceFeed(collateralToken);
 
-            collateralAssets.push(
-                CollateralAsset(
-                    comet.collateralTokens[i].collateralToken,
-                    priceFeed,
-                    comet.collateralTokens[i].supplyCap,
-                    comet.collateralTokens[i].borrowCollateralFactor,
-                    comet.collateralTokens[i].liquidateCollateralFactor,
-                    comet.collateralTokens[i].liquidationFactor,
-                    scale
-                )
-            );
-            collateralAssetIndex[comet.collateralTokens[i].collateralToken] = i;
+        for (uint8 i; i < colTokensLength; ) {
+            _addCollateralAsset(comet.collateralTokens[i], i);
+            unchecked { ++i; }
+
         }
 
         /// Reserves
@@ -161,8 +149,8 @@ contract SandboxComet is ISandboxComet {
      */
     function nonReentrantAfter() internal {
         bytes32 slot = REENTRANCY_GUARD_FLAG_SLOT;
-        uint256 status;
-        assembly ("memory-safe") {
+        // uint256 status; // @ todo unused local variable
+        assembly ('memory-safe') {
             sstore(slot, REENTRANCY_GUARD_NOT_ENTERED)
         }
     }
@@ -1244,9 +1232,59 @@ contract SandboxComet is ISandboxComet {
         }
     }
 
+
+    /**
+     * @notice Add a new collateral asset to the protocol
+     * @param collateralTokenConfig The configuration for the collateral token
+     * @dev Note: Only the config controller can add new collateral assets
+     * @dev Note: Reverts if the maximum number of assets has been reached
+     */
+    function addCollateralAsset(IConfigController.CollateralTokenConfig calldata collateralTokenConfig) external override {
+        if (msg.sender != configController) revert Unauthorized();
+        if (numAssets == MAX_ASSETS) revert TooManyAssets();
+
+        (uint64 scale, address priceFeed) = _addCollateralAsset(collateralTokenConfig, numAssets++);
+
+        emit CollateralAssetAdded(
+            collateralTokenConfig.collateralToken,
+            scale,
+            priceFeed,
+            collateralTokenConfig.borrowCollateralFactor,
+            collateralTokenConfig.supplyCap,
+            collateralTokenConfig.liquidateCollateralFactor,
+            collateralTokenConfig.liquidationFactor
+        );
+    }
+
+    /**
+     * @dev Internal function to add a collateral asset to the protocol
+     * @param collateralTokenConfig The configuration for the collateral token
+     * @param numAsset The index of the asset being added
+     * @return scale The scale of the collateral asset
+     * @return priceFeed The price feed address for the collateral asset
+     */
+    function _addCollateralAsset(IConfigController.CollateralTokenConfig calldata collateralTokenConfig, uint8 numAsset) internal returns (uint64 scale, address priceFeed) {
+        scale = uint64(10 ** IERC20NonStandard(collateralTokenConfig.collateralToken).decimals());
+        priceFeed = ISandboxController(sandboxController).tokenToPriceFeed(collateralTokenConfig.collateralToken);
+
+        collateralAssets.push(
+            CollateralAsset(
+                collateralTokenConfig.collateralToken,
+                scale,
+                priceFeed,
+                collateralTokenConfig.borrowCollateralFactor,
+                collateralTokenConfig.supplyCap,
+                collateralTokenConfig.liquidateCollateralFactor,
+                collateralTokenConfig.liquidationFactor
+            )
+        );
+
+        collateralAssetIndex[collateralTokenConfig.collateralToken] = numAsset;
+
     receive() external payable {
         // Fallback function to receive ETH, if needed
         // Note: This contract does not use ETH, so this is just a placeholder
         revert("SandboxComet: Cannot receive ETH");
+
     }
 }
