@@ -82,7 +82,7 @@ interface IConfigController is IConfigControllerStructs {
     /// @param _proposalType The type of the proposal
     /// @return The id of the newly created proposal
     function createProposal(bytes memory _calldata, uint8 _proposalType) external returns (uint256);
-    
+
     /// @notice Initializes the ConfigController contract
     /// @param _owner The address of the protocol owner
     /// @param _guardian The address of the protocol guardian

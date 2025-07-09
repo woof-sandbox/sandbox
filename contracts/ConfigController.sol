@@ -12,6 +12,9 @@ import "./interfaces/IConfigControllerFactory.sol";
 import "./interfaces/ISandboxController.sol";
 import "./interfaces/ISandboxComet.sol";
 import "./interfaces/ISandboxCometFactory.sol";
+import "./interfaces/ISandboxCometAddCollateral.sol";
+
+import "hardhat/console.sol";
 
 /**
  * @title ConfigController
@@ -62,6 +65,9 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
 
     /// @notice Counter for unique proposal IDs
     uint256 public proposalCounter;
+
+    /// @notice Controller fee from the Comet's profit
+    mapping(address => bool) public override cometFeeEnabled;
 
     /// @notice Modifier to restrict access to owner only
     modifier onlyOwner() {
@@ -123,7 +129,6 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
         cometFactory = _cometFactory;
         curatorFee = _curatorFee;
         name = _name;
-        
         _proposeCurator(abi.encode(_curator), proposalCounter);
     }
 
@@ -145,7 +150,7 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
     function _proposeCurator(bytes memory _calldata, uint256 _proposalId) internal {
         // Decode the proposed curator address from calldata
         address proposedCuratorAddress = abi.decode(_calldata, (address));
-        
+        /// --- Before executing the proposal checks ---
         // Validate the proposed curator
         /// Check if the curator is the same as the c urrent curator.
         if (proposedCuratorAddress == curator) revert InvalidCurator();
@@ -153,26 +158,50 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
         if (proposedCuratorAddress == owner) revert InvalidCurator();
         /// Check if the curator is the same as the guardian.
         if (proposedCuratorAddress == guardian) revert InvalidCurator();
-        
         // Create the proposal
         proposals[_proposalId] = Proposal({
             proposer: msg.sender,
             proposalType: ProposalType.ProposeCurator,
             expirationTime: uint40(block.timestamp + 1 weeks), /// TODO: Change to sandboxController.proposalBoundaries()
-            maturityTime: uint40(block.timestamp + 1 weeks), /// TODO: Change to sandboxController.proposalBoundaries()
+            maturityTime: 0,
             call: _calldata
         });
     
         emit CuratorProposed(curator, proposedCuratorAddress, block.timestamp + 1 weeks);
     }
 
+    /**
+     * @notice Creates a new proposal
+     * @param _calldata The calldata of the proposal
+     * @param _proposalType The type of the proposal
+     * @return The id of the proposal
+     * 
+     * Types of proposals:
+     * - ProposeCurator (0)
+     *   For this type, the calldata is the proposed curator address.
+     *   Maturity time is 0.
+     *  
+     *   Proposal lifecycle:
+     * - Proposed by owner.
+     * - Without maturity time. 
+     *   Since there is no maturity time, Guardian can't revert this type of proposal.
+     * - Accepted by the new curator.
+     * 
+     * - ProposeNewCollateralToken (1)
+     *   For this type, the calldata is the collateral token configuration.
+     *   Maturity time is 0.
+     *   Proposal lifecycle:
+     * - Proposed by owner.
+     * - Without maturity time. 
+     *   Since there is no maturity time, Guardian can't revert this type of proposal.
+     * - Accepted by the new curator.
+     */
     function createProposal(
-        bytes memory _calldata,
+        bytes calldata _calldata,
         uint8 _proposalType
     ) external returns (uint256) {
         // Check if proposal type is valid
         if (_proposalType >= uint8(ProposalType.ProposeNewCollateralToken) + 1) revert InvalidProposalType();
-        
         // Increment proposal counter
         proposalCounter++;
         uint256 proposalId = proposalCounter;
@@ -182,17 +211,21 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
             /// Decode selector
             bytes4 selector = bytes4(_calldata[:4]);
             /// Check if the selector is valid
-            if (selector != IConfigController.proposeNewCollateralToken.selector) revert InvalidSelector();
+            if (selector != ISandboxCometAddCollateral.addCollateral.selector) revert InvalidSelector();
             /// Decode the collateral token configuration from calldata
             CollateralTokenConfig memory collateralConfig = abi.decode(_calldata[4:], (CollateralTokenConfig));
-            
+            console.log("collateralConfig", collateralConfig.collateralToken);
+            console.log("collateralConfig", collateralConfig.supplyCap);
+            console.log("collateralConfig", collateralConfig.borrowCollateralFactor);
+            console.log("collateralConfig", collateralConfig.liquidateCollateralFactor);
+            console.log("collateralConfig", collateralConfig.liquidationFactor);
             // Validate the collateral token configuration using internal function
             _validateCollateralTokenConfig(collateralConfig);
             
             // Create the proposal
             proposals[proposalId] = Proposal({
                 proposer: msg.sender,
-                proposalType: ProposalType(_proposalType),
+                proposalType: ProposalType.ProposeNewCollateralToken,
                 expirationTime: uint40(block.timestamp + 1 weeks), /// TODO: Change to sandboxController.proposalBoundaries()
                 maturityTime: uint40(block.timestamp + 1 weeks), /// TODO: Change to sandboxController.proposalBoundaries()
                 call: _calldata
@@ -218,20 +251,46 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
         
         /// Accept the curator role proposal.
         if (_proposal.proposalType == ProposalType.ProposeCurator) {
-            if (msg.sender != abi.decode(_proposal.call, (address))) revert Unauthorized();
-            /// Check if the proposal has expired.
+            address proposedCuratorAddress = abi.decode(_proposal.call, (address));
+            /**
+             * --- Regular checks ---
+             * The most significant checks. If they fail, the proposal can't be executed. Since that we performed them earlier.           
+             * - Check if the sender is the proposed curator.
+             * - Check if the proposal has expired.
+             */
+            if (msg.sender != proposedCuratorAddress) revert Unauthorized();
             if (block.timestamp > _proposal.expirationTime) revert ProposalExpired();
-            
-            curator = msg.sender;
 
-            // emit ProposalAccepted(uint8(_proposal.proposalType), msg.sender, _proposal.call);
-        }
-        
+            /** 
+             * --- Before executing the proposal checks ---
+             * Since can be a several proposals with the same type, we need to perform a few checks:
+             * - Check if the proposedCurator is not the same as the current curator.
+             * - Check if the proposedCurator is not the same as the owner.
+             * - Check if the proposedCurator is not the same as the guardian.
+             */
+            if (curator == proposedCuratorAddress) revert InvalidCurator();
+            if (owner == proposedCuratorAddress) revert InvalidCurator();
+            if (guardian == proposedCuratorAddress) revert InvalidCurator();           
+            /// We emit the event before the storage update to avoid to save the old curator in the event logs.
+            emit CuratorAccepted(curator, proposedCuratorAddress);
+            
+            curator = proposedCuratorAddress;
+
+            /**
+             * --- After executing the proposal ---
+             * - We must mark the proposal as not active.
+             * - No additional checks are needed, since the only the ConfigController is evolved.
+             */
+            _proposal.expirationTime = 0;
+            
         /// Accept the new collateral token proposal.
-        if (_proposal.proposalType == ProposalType.ProposeNewCollateralToken) {
+        } else if (_proposal.proposalType == ProposalType.ProposeNewCollateralToken) {
             /// Check if the proposal has expired.
             if (block.timestamp > _proposal.expirationTime) revert ProposalExpired();
-            
+            require(comets.length > 0, "No comets available");
+            address comet = comets[comets.length - 1];
+            (bool success, bytes memory result) = comet.call(_proposal.call);
+            require(success, "Comet call failed");
             // emit ProposalAccepted(uint8(_proposal.proposalType), msg.sender, _proposal.call);
         }
     }

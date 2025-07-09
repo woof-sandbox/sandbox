@@ -1,16 +1,25 @@
-import { SnapshotRestorer, takeSnapshot } from "@nomicfoundation/hardhat-network-helpers";
-import { ConfigController } from "../build/types";
-import { makeProtocol } from "./helper/helpers";
-import { ethers } from "hardhat";
-import { expect } from "chai";
+import { takeSnapshot } from "@nomicfoundation/hardhat-network-helpers";
+import { makeProtocol, ethers, expect } from "./helper/helpers";
+import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
+import { ContractTransaction, ContractReceipt } from "ethers";
 
 describe("17. Proposals", () => {
-    let configController: ConfigController;
-    let snapshot: SnapshotRestorer;
+    let configController;
+    let snapshot;
+    let owner;
+    let comet;
+    let curator;
+    let tokens;
+    let users;
 
     before(async () => {
-        const { configController: controller } = await makeProtocol();
-        configController = controller;
+        const protocol = await makeProtocol();
+        configController = protocol.configController;
+        owner = protocol.owner;
+        tokens = protocol.tokens;
+        comet = await configController.comets(0);
+        users = protocol.users;
+        curator = protocol.curator;
     });
 
     beforeEach(async () => {
@@ -21,40 +30,35 @@ describe("17. Proposals", () => {
         await snapshot.restore();
     });
 
-    it("should create a proposal for new collateral token", async () => {
-        // Create a CollateralTokenConfig struct
-        const collateralTokenConfig = {
-            collateralToken: "0x1234567890123456789012345678901234567890", // Example token address
-            supplyCap: ethers.utils.parseEther("1000000"), // 1,000,000 tokens
-            borrowCollateralFactor: 8000, // 80% (scaled by 100)
-            liquidateCollateralFactor: 8500, // 85% (scaled by 100)
-            liquidationFactor: 5000, // 50% (scaled by 100)
-        };
-
-        // Encode the proposeNewCollateralToken function call
-        // First, we need to create the function signature
-        const functionSignature = "function addCollateralToken(tuple(address,uint128,uint64,uint64,uint64))";
-        const functionSelector = ethers.utils.id(functionSignature).slice(0, 10);
+    describe("ProposeCurator", () => {
+        let newCurator: SignerWithAddress;
         
-        // Encode the parameters (CollateralTokenConfig struct)
-        const encodedParams = ethers.utils.defaultAbiCoder.encode(
-            ["tuple(address,uint128,uint64,uint64,uint64)"],
-            [[
-                collateralTokenConfig.collateralToken,
-                collateralTokenConfig.supplyCap,
-                collateralTokenConfig.borrowCollateralFactor,
-                collateralTokenConfig.liquidateCollateralFactor,
-                collateralTokenConfig.liquidationFactor
-            ]]
-        );
+        beforeEach(async () => {
+            newCurator = users[0];
+        });
 
-        // Combine function selector with encoded parameters
-        const calldata = functionSelector + encodedParams.slice(2);
+        it("should create and execute a proposal for new curator", async () => {
+            /// Encode the new curator address
+            const encodedNewCurator: string = ethers.utils.defaultAbiCoder.encode(["address"], [newCurator.address]);
+            /// Create the proposal. Type 0 is ProposeCurator.
+            await configController.createProposal(encodedNewCurator, 0);
+            /// Accept the proposal.
+            const tx: ContractTransaction = await configController.connect(newCurator).acceptProposal(await configController.proposalCounter());
+            const txReceipt: ContractReceipt = await tx.wait();
+            /// Check if the curator is the new curator.
+            expect(await configController.curator()).to.equal(newCurator.address);
+            // Check if the event was emitted
+            const event = txReceipt.events?.find(e => e.event === "CuratorAccepted");
+            
+            expect(event).to.not.be.undefined;
+            if (event && event.args) {
+                expect(event.args[0]).to.equal(curator.address);
+                expect(event.args[1]).to.equal(newCurator.address);
+            }
+        });
+    });
 
-        // Create the proposal with proposal type 1 (ProposeNewCollateralToken)
-        const proposalId = await configController.createProposal(calldata, 1);
+    describe("ProposeNewCollateralToken", () => {
         
-        // Verify the proposal was created
-        expect(proposalId).to.be.gt(0);
     });
 });

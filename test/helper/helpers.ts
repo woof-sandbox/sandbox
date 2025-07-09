@@ -441,8 +441,7 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Par
   );
 
   const configController = (await ConfigControllerFactory.attach(await configControllerFactory.controllerAddresses(0))) as ConfigController;
-
-  await configController.connect(curator).acceptCuratorRole();
+  await configController.connect(curator).acceptProposal(await configController.proposalCounter());
 
   const curve = {
     supplyKink,
@@ -554,6 +553,7 @@ export const makeProtocol = async (opts: ProtocolOpts = {}) => {
     users,
     guardian,
     owner,
+    curator,
     unsupportedToken,
   } = await makeConfigController(opts);
 
@@ -575,6 +575,7 @@ export const makeProtocol = async (opts: ProtocolOpts = {}) => {
     users,
     guardian,
     owner,
+    curator,
     unsupportedToken,
     seedReserves,
     sandboxController,

@@ -10,7 +10,8 @@ interface IConfigControllerEvents {
     event CuratorCanceled(address indexed oldCurator);
     event CuratorProposalCancelled(address indexed proposedCurator);
     event GuardianUpdated(address indexed oldGuardian, address indexed newGuardian);
-    
+    event CometFeeEnabled(address configController, address _comet, bool _enabled);
+
     event ProposeNewCollateralToken(address indexed proposer, IConfigControllerStructs.CollateralTokenConfig collateralConfig);
 
     event ProposalDurationsUpdated(
