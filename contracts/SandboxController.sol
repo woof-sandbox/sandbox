@@ -107,7 +107,7 @@ contract SandboxController is ISandboxController {
         bool _feeEnabled,
         SandboxControllerConfiguration memory _config,
         uint64[MARKET_STATES] memory _reserveCommissions,
-        uint64[MARKET_STATES] memory _protocolCommissions
+        uint64[MARKET_STATES] memory _protocolCommissions /* uint40  duration */ // @todo add duration to the constructor
     ) {
         if (_owner == address(0) || _dao == address(0) || _treasury == address(0)) revert ZeroAddress();
         if (_owner == _dao) revert IncorrectSetting();

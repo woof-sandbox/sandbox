@@ -201,10 +201,22 @@ contract SandboxComet is CometCore, ISandboxComet {
      */
     function getAssetInfoByAddress(address asset) public view override returns (CollateralAsset memory, uint8 index) {
         index = collateralAssetIndex[asset];
-        if (index == 0 && asset != collateralAssets[0].collateralToken) {
-            revert BadAsset();
+
+        // Check if the asset exists in the active collateralAssets array
+        // Special case for index 0: verify by comparing the actual token address
+        if (index != 0 || (collateralAssets.length > 0 && asset == collateralAssets[0].collateralToken)) {
+            return (collateralAssets[index], index);
         }
-        return (collateralAssets[index], index);
+
+        // If not found in active list, check the removedCollateralAssets array
+        index = removedCollateralAssetIndex[asset];
+        // Special case for index 0 again
+        if (index != 0 || (removedCollateralAssets.length > 0 && asset == removedCollateralAssets[0].collateralToken)) {
+            return (removedCollateralAssets[index], index);
+        }
+
+        // Asset not found in either list — revert with an error
+        revert BadAsset();
     }
 
     /**
@@ -235,6 +247,8 @@ contract SandboxComet is CometCore, ISandboxComet {
         uint40 now_ = getNowInternal();
         uint40 timeElapsed = now_ - lastAccrualTime;
 
+        if (_collateralRemovalState.removalInProgress) _prepareCollateralRemoval();
+
         if (timeElapsed != 0) {
             (baseSupplyIndex, baseBorrowIndex) = accruedInterestIndices(timeElapsed);
             if (totalSupplyBase >= baseMinForRewards) {
@@ -245,6 +259,244 @@ contract SandboxComet is CometCore, ISandboxComet {
             }
             lastAccrualTime = now_;
         }
+    }
+
+    /**
+     * @notice Linearly interpolates a curve parameter value during a transition period.
+     * @dev
+     * This function is used to smoothly update protocol curve parameters (such as supplyKink, interest rate slopes, etc.)
+     * from a starting value to a target value over a specified duration. It ensures that the parameter changes
+     * at a constant rate, providing a predictable and gradual transition rather than an abrupt jump.
+     *
+     * The algorithm works for both increasing and decreasing transitions. At any point during the transition,
+     * the value is calculated as a function of the elapsed time since the start of the transition.
+     *
+     * The formula used in this implementation is:
+     *   if (targetValue > startValue):
+     *       interpolated = currentValue + (((targetValue - startValue) * elapsed / duration) - (currentValue - startValue))
+     *   else:
+     *       interpolated = currentValue - (((startValue - targetValue) * elapsed / duration) - (startValue - currentValue))
+     *
+     * This means:
+     * - At the start (elapsed = 0):      interpolated = startValue
+     * - At the end (elapsed = duration): interpolated = targetValue
+     * - In between:                      interpolated is proportionally between startValue and targetValue
+     *
+     * Example 1: Increasing transition
+     *   Suppose we want to transition supplyKink from 200 to 800 over 10 seconds.
+     *   - startValue = 200
+     *   - targetValue = 800
+     *   - duration = 10
+     *
+     *   At elapsed = 0, currentValue = 200:
+     *     interpolated = 200 + ((800 - 200) * 0 / 10 - (200 - 200))
+     *                  = 200 + (0 - 0)
+     *                  = 200
+     *
+     *   At elapsed = 5, currentValue = 500:
+     *     interpolated = 500 + ((800 - 200) * 5 / 10 - (500 - 200))
+     *                  = 500 + (300 - 300)
+     *                  = 500
+     *
+     *   At elapsed = 10, currentValue = 800:
+     *     interpolated = 800 + ((800 - 200) * 10 / 10 - (800 - 200))
+     *                  = 800 + (600 - 600)
+     *                  = 800
+     *
+     * Example 2: Decreasing transition
+     *   Suppose we want to transition supplyKink from 900 to 300 over 10 seconds.
+     *   - startValue = 900
+     *   - targetValue = 300
+     *   - duration = 10
+     *
+     *   At elapsed = 0, currentValue = 900:
+     *     interpolated = 900 - ((900 - 300) * 0 / 10 - (900 - 900))
+     *                  = 900 - (0 - 0)
+     *                  = 900
+     *
+     *   At elapsed = 4, currentValue = 660:
+     *     interpolated = 660 - ((900 - 300) * 4 / 10 - (900 - 660))
+     *                  = 660 - (240 - 240)
+     *                  = 660
+     *
+     *   At elapsed = 10, currentValue = 300:
+     *     interpolated = 300 - ((900 - 300) * 10 / 10 - (900 - 300))
+     *                  = 300 - (600 - 600)
+     *                  = 300
+     *
+     * Example 3: No change
+     *   If startValue = targetValue = 500, duration = 10, any elapsed, currentValue = 500:
+     *     interpolated = 500 + ((500 - 500) * elapsed / 10 - (500 - 500))
+     *                  = 500 + (0 - 0)
+     *                  = 500
+     *
+     * Usage:
+     *   This function is called internally by the protocol during a curve transition, typically in a function like
+     *   `progressTransition(now_)`, to update each curve parameter to its correct value for the current time.
+     *
+     * @param startValue   The value of the parameter at the start of the transition.
+     * @param targetValue  The value of the parameter at the end of the transition.
+     * @param currentValue The current value of the parameter (used for incremental calculation).
+     * @param elapsed      The time elapsed since the start of the transition, in seconds.
+     * @param duration     The total duration of the transition, in seconds.
+     * @return The interpolated value as a uint64, representing the parameter's value at the current elapsed time.
+     */
+    function interpolateValue(
+        uint256 startValue,
+        uint256 targetValue,
+        uint256 currentValue,
+        uint40 elapsed,
+        uint40 duration
+    ) internal pure returns (uint64) {
+        if (targetValue > startValue) {
+            return safe64(currentValue + ((((targetValue - startValue) * elapsed) / duration) - (currentValue - startValue)));
+        } else {
+            return safe64(currentValue - ((((startValue - targetValue) * elapsed) / duration) - (startValue - currentValue)));
+        }
+    }
+
+    /**
+     * @notice Initiates the removal process for a collateral asset from the market.
+     * @dev
+     * - Can only be called by the config controller.
+     * - Reverts if a collateral removal process is already in progress.
+     * - Retrieves the collateral asset and its index by address.
+     * - Sets up the collateral removal state, including:
+     *   - The collateral token address.
+     *   - The starting borrow and liquidate collateral factors.
+     *   - The start and end timestamps for the removal period.
+     *   - The index of the collateral asset in the active list.
+     *   - The removalInProgress flag set to true.
+     * - Emits an {InitiateCollateralRemoval} event with the asset index, token address, start time, and end time.
+     * @param removalAsset The address of the collateral asset to be removed.
+     */
+    function initiateCollateralRemoval(address removalAsset) external override {
+        require(msg.sender == configController, Unauthorized());
+
+        CollateralRemovalState memory collateralRemovalState_ = _collateralRemovalState;
+
+        require(
+            !collateralRemovalState_.removalInProgress,
+            CollateralRemovalInProgress(
+                collateralRemovalState_.collateralToken,
+                collateralRemovalState_.startTime,
+                collateralRemovalState_.endTime
+            )
+        );
+
+        (CollateralAsset memory asset, uint8 assetIndex) = getAssetInfoByAddress(removalAsset);
+
+        uint40 now_ = getNowInternal();
+        uint40 duration = 7 days; // @todo ISandboxController(sandboxController).collateralRemovalDuration();
+
+        // Set the collateral removal state
+        _collateralRemovalState = CollateralRemovalState({
+            collateralToken: asset.collateralToken,
+            startBorrowCollateralFactor: asset.borrowCollateralFactor,
+            startLiquidateCollateralFactor: asset.liquidateCollateralFactor,
+            startTime: now_,
+            endTime: now_ + duration,
+            collateralAssetIndex: assetIndex,
+            removalInProgress: true
+        });
+
+        emit CollateralRemovalInitiated(assetIndex, asset.collateralToken, now_, now_ + duration);
+    }
+
+    /**
+     * @notice Prepares the collateral removal process by updating the collateral asset factors.
+     * @dev
+     * This internal function manages the gradual removal of a collateral asset from the market.
+     * - If the removal period has ended (current time >= endTime), it sets the borrow and liquidate collateral factors
+     *   to their target values and finalizes the removal by calling `_finalizeCollateralRemoval`.
+     * - If the removal period is still ongoing, it linearly interpolates the borrow and liquidate collateral factors
+     *   between their starting and target values based on the elapsed time, and updates the collateral asset in storage.
+     * - This function is intended to be called during interest accrual or other internal state updates to ensure
+     *   that the collateral removal process progresses smoothly over time.
+     */
+    function _prepareCollateralRemoval() internal {
+        emit Debug(1);
+        CollateralRemovalState memory collateralRemovalState_ = _collateralRemovalState;
+
+        CollateralAsset memory collateralAsset_ = collateralAssets[collateralRemovalState_.collateralAssetIndex];
+
+        // If the end time of the collateral removal is reached, finalize the removal of the asset
+        if (collateralRemovalState_.endTime <= getNowInternal()) {
+            emit Debug(2);
+            // Set the borrow and liquidate collateral factors to the target values
+            collateralAsset_.borrowCollateralFactor = TARGET_BORROW_COLLATERAL_FACTOR;
+            collateralAsset_.liquidateCollateralFactor = TARGET_LIQUIDATE_COLLATERAL_FACTOR;
+            // Remove the collateral asset from the list of active collateral assets and save it to the removed assets list
+            _finalizeCollateralRemoval(collateralAsset_, collateralRemovalState_);
+        } else {
+            emit Debug(3);
+            // Calculate the new borrow collateral factors
+            collateralAsset_.borrowCollateralFactor = interpolateValue(
+                collateralRemovalState_.startBorrowCollateralFactor,
+                TARGET_BORROW_COLLATERAL_FACTOR,
+                collateralAsset_.borrowCollateralFactor,
+                collateralRemovalState_.startTime,
+                collateralRemovalState_.endTime
+            );
+            // Calculate the new liquidate collateral factors
+            collateralAsset_.liquidateCollateralFactor = interpolateValue(
+                collateralRemovalState_.startLiquidateCollateralFactor,
+                TARGET_LIQUIDATE_COLLATERAL_FACTOR,
+                collateralAsset_.liquidateCollateralFactor,
+                collateralRemovalState_.startTime,
+                collateralRemovalState_.endTime
+            );
+
+            // Update the asset in the list with the new borrow and liquidate collateral factors
+            collateralAssets[collateralRemovalState_.collateralAssetIndex] = collateralAsset_;
+        }
+    }
+
+    event Debug(uint256 value); // @todo remove after debugging
+
+    /**
+     * @notice Finalizes the removal of a collateral asset from the market.
+     * @dev
+     * - Appends the removed collateral asset to the `removedCollateralAssets` array and updates the corresponding index mapping.
+     * - Increments the `numRemovedAssets` counter.
+     * - Removes the asset from the active `collateralAssets` array by replacing it with the last element and popping the array.
+     * - Decrements the `numAssets` counter and deletes the asset's index from the active mapping.
+     * - Marks the end of the collateral removal process by setting the `removalInProgress` flag to false.
+     * - Emits a {CollateralAssetRemoved} event with the asset index and token address.
+     * @param collateralAsset The CollateralAsset struct containing the parameters of the removed collateral.
+     * @param collateralRemovalState The CollateralRemovalState struct containing the state of the removal process.
+     */
+    function _finalizeCollateralRemoval(
+        CollateralAsset memory collateralAsset,
+        CollateralRemovalState memory collateralRemovalState
+    ) internal {
+        // Save the removed asset to the removed assets list
+        removedCollateralAssets.push(collateralAsset);
+        // Save the current removed assets count and updated it
+        uint8 removedAssetIndex = numRemovedAssets++;
+        // Update the index mapping for removed assets
+        removedCollateralAssetIndex[collateralRemovalState.collateralToken] = removedAssetIndex;
+
+        // Remove the asset from the list
+        collateralAssets[collateralRemovalState.collateralAssetIndex] = collateralAssets[numAssets - 1];
+        collateralAssets.pop();
+        // Update the asset count
+        numAssets--;
+        // Update the index mapping
+        delete collateralAssetIndex[collateralRemovalState.collateralToken];
+
+        // Mark the end of a collateral removal process
+        _collateralRemovalState.removalInProgress = false;
+
+        emit CollateralRemovalFinalized(removedAssetIndex, collateralRemovalState.collateralToken);
+    }
+
+    /**
+     * @notice Check whether a collateral removal process is in progress
+     * @return Whether a collateral removal process is currently ongoing
+     */
+    function isCollateralRemovalInProgress() public view override returns (bool) {
+        return _collateralRemovalState.removalInProgress;
     }
 
     /**
@@ -703,6 +955,7 @@ contract SandboxComet is CometCore, ISandboxComet {
      */
     function supplyCollateral(address from, address dst, address asset, uint256 amount) internal {
         amount = doTransferIn(asset, from, amount);
+        // accrueInternal(); // @todo may not be necessary
 
         (CollateralAsset memory assetInfo, uint8 index) = getAssetInfoByAddress(asset);
         uint256 totals = totalsCollateral[asset];
@@ -1257,5 +1510,5 @@ contract SandboxComet is CometCore, ISandboxComet {
         // Fallback function to receive ETH, if needed
         // Note: This contract does not use ETH, so this is just a placeholder
         revert("SandboxComet: Cannot receive ETH");
-    }
+    } // @todo remove
 }

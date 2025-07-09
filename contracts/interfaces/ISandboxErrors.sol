@@ -20,4 +20,6 @@ interface ISandboxErrors {
     error Unauthorized();
     error NotOwner(address caller);
     error NotDao(address caller);
+
+    error CollateralRemovalInProgress(address removalAsset, uint40 startTime, uint40 endTime);
 }

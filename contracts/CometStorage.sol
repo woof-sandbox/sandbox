@@ -49,6 +49,12 @@ contract CometStorage is ICometStructures {
     uint256 internal constant REENTRANCY_GUARD_NOT_ENTERED = 0; // aderyn-fp(unused-state-variable)
     uint256 internal constant REENTRANCY_GUARD_ENTERED = 1;
 
+    /// @dev The target borrow collateral factor for the processing removal of collateral assets
+    uint64 internal constant TARGET_BORROW_COLLATERAL_FACTOR = 0;
+
+    /// @dev The target liquidate collateral factor for the processing removal of collateral assets
+    uint64 internal constant TARGET_LIQUIDATE_COLLATERAL_FACTOR = 1e18;
+
     /** General configuration constants **/
     /// @notice Config Controller address
     address public configController;
@@ -150,8 +156,14 @@ contract CometStorage is ICometStructures {
     uint40 internal lastAccrualTime;
     uint8 internal pauseFlags;
 
+    /// @notice The current collateral removal process state
+    CollateralRemovalState internal _collateralRemovalState;
+
     /// @notice The number of assets this contract actually supports
     uint8 public numAssets;
+
+    /// @notice The number of assets that have been removed
+    uint8 public numRemovedAssets;
 
     /// @notice Aggregate variables tracked for each collateral asset
     mapping(address => uint256) public totalsCollateral;
@@ -179,5 +191,12 @@ contract CometStorage is ICometStructures {
     mapping(address => mapping(address => uint)) public userCollateral;
 
     mapping(address => uint8) public collateralAssetIndex;
+
+    /// @notice Mapping indexes for collateral assets that have been removed
+    mapping(address => uint8) public removedCollateralAssetIndex;
+
     CollateralAsset[] public collateralAssets;
+
+    /// @notice The list of collateral assets that have been removed
+    CollateralAsset[] public removedCollateralAssets;
 }

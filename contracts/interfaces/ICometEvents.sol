@@ -34,4 +34,10 @@ interface ICometEvents {
     event PauseAction(bool supplyPaused, bool transferPaused, bool withdrawPaused, bool absorbPaused, bool buyPaused);
 
     event ControllerFeeDisabled(bool disabled);
+
+    /// @notice Event emitted when collateral removal is initiated
+    event CollateralRemovalInitiated(uint8 indexed collateralAssetIndex, address indexed collateralToken, uint40 startTime, uint40 endTime);
+
+    /// @notice Event emitted when collateral removal is finalized
+    event CollateralRemovalFinalized(uint8 removedAssetIndex, address indexed removedAsset);
 }

@@ -35,4 +35,14 @@ interface ICometStructures {
         uint64 liquidationFactor;
         uint64 scale;
     }
+
+    struct CollateralRemovalState {
+        address collateralToken;
+        uint64 startBorrowCollateralFactor;
+        uint64 startLiquidateCollateralFactor;
+        uint40 startTime;
+        uint40 endTime;
+        uint8 collateralAssetIndex;
+        bool removalInProgress;
+    }
 }

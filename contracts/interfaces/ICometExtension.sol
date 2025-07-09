@@ -107,4 +107,8 @@ abstract contract ICometExtension is CometCore {
      * @param approved Flag to set
      */
     function approveAll(address spender, bool approved) external virtual;
+
+    function targetBorrowCollateralFactor() external pure virtual returns (uint64);
+
+    function targetLiquidateCollateralFactor() external pure virtual returns (uint64);
 }
