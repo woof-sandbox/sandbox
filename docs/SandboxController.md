@@ -179,7 +179,7 @@ _Both owner and dao are considered "authorized."
 ### constructor
 
 ```solidity
-constructor(address _owner, address _dao, address _treasury, bool _feeEnabled, uint64 _targetPercent, uint64 _storeFrontPriceFactor, uint40 _minUpdateTime, uint40 _maxUpdateTime, uint256 _suggestedAmountOfSeedReserves, uint256 _suggestedLockTimeOfSeedReserves, uint64[3] _reserveCommissions, uint64[3] _protocolCommissions) public
+constructor(address _owner, address _dao, address _treasury, bool _feeEnabled, uint64 _targetPercent, uint64 _storeFrontPriceFactor, uint40 _minUpdateTime, uint40 _maxUpdateTime, uint256 _suggestedAmountOfSeedReserves, uint40 _suggestedLockTimeOfSeedReserves, uint64[3] _reserveCommissions, uint64[3] _protocolCommissions) public
 ```
 
 _Set all global parameters (including owner and DAO) at deployment.
@@ -200,7 +200,7 @@ The length of the `_reserveCommissions` and `_protocolCommissions` arrays must b
 | _minUpdateTime | uint40 | > 0 |
 | _maxUpdateTime | uint40 | reasonable time for the proposal duration |
 | _suggestedAmountOfSeedReserves | uint256 | The suggested amount of seed reserves in $. Decimals are 6. |
-| _suggestedLockTimeOfSeedReserves | uint256 | The suggested lock time of seed reserves in seconds. |
+| _suggestedLockTimeOfSeedReserves | uint40 | The suggested lock time of seed reserves in seconds. |
 | _reserveCommissions | uint64[3] | The reserve commission factors for each market state. |
 | _protocolCommissions | uint64[3] | The protocol commission factors for each market state. |
 

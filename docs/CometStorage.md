@@ -372,7 +372,7 @@ Seed reserves, initialized during the Comet creation
 ### unlockTimestamp
 
 ```solidity
-uint256 unlockTimestamp
+uint64 unlockTimestamp
 ```
 
 Unlock timestamp
