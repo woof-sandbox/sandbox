@@ -41,7 +41,7 @@ contract SandboxComet is ISandboxComet {
     // aderyn-fp-next-line(state-change-without-event)
     function initialize(
         IConfigController.CometConfig calldata comet,
-        IConfigController.CometGlobalParamsConfig calldata config // aderyn-fp(state-change-without-event)
+        IConfigController.CometGlobalParamsConfig calldata config
     ) external override {
         /// Relies on fact that factory provides correct controller and that it is set by the time of this call
         if (msg.sender != configController) revert IncorrectInitialization();
