@@ -2,18 +2,6 @@
 
 ## CometCore
 
-### ZeroAddress
-
-```solidity
-error ZeroAddress()
-```
-
-### ZeroAmount
-
-```solidity
-error ZeroAmount()
-```
-
 ### hasPermission
 
 ```solidity
