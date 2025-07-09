@@ -1,13 +1,11 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
-import "./CometStorage.sol";
-import "./CometMath.sol";
+import { CometStorage } from "contracts/CometStorage.sol";
+import { CometMath } from "contracts/CometMath.sol";
+import { ICometErrors } from "contracts/interfaces/ICometErrors.sol";
 
-abstract contract CometCore is CometStorage, CometMath {
-    error ZeroAddress();
-    error ZeroAmount();
-
+abstract contract CometCore is CometStorage, CometMath, ICometErrors {
     /**
      * @notice Determine if the manager has permission to act on behalf of the owner
      * @param owner The owner account
