@@ -34,7 +34,6 @@ abstract contract ICometExtension is CometCore {
         CollateralAsset[] assetConfigs;
     }
 
-    error BadAmount();
     error BadNonce();
     error BadSignatory();
     error InvalidValueS();
