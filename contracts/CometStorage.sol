@@ -102,35 +102,35 @@ contract CometStorage {
 
     /// @notice The point in the supply rates separating the low interest rate slope and the high interest rate slope (factor)
     /// @dev uint64
-    uint public supplyKink;
+    uint64 public supplyKink;
 
     /// @notice Per second supply interest rate slope applied when utilization is below kink (factor)
     /// @dev uint64
-    uint public supplyPerSecondInterestRateSlopeLow;
+    uint64 public supplyPerSecondInterestRateSlopeLow;
 
     /// @notice Per secollateralTokenscond supply interest rate slope applied when utilization is above kink (factor)
     /// @dev uint64
-    uint public supplyPerSecondInterestRateSlopeHigh;
+    uint64 public supplyPerSecondInterestRateSlopeHigh;
 
     /// @notice Per second supply base interest rate (factor)
     /// @dev uint64
-    uint public supplyPerSecondInterestRateBase;
+    uint64 public supplyPerSecondInterestRateBase;
 
     /// @notice The point in the borrow rate separating the low interest rate slope and the high interest rate slope (factor)
     /// @dev uint64
-    uint public borrowKink;
+    uint64 public borrowKink;
 
     /// @notice Per second borrow interest rate slope applied when utilization is below kink (factor)
     /// @dev uint64
-    uint public borrowPerSecondInterestRateSlopeLow;
+    uint64 public borrowPerSecondInterestRateSlopeLow;
 
     /// @notice Per second borrow interest rate slope applied when utilization is above kink (factor)
     /// @dev uint64
-    uint public borrowPerSecondInterestRateSlopeHigh;
+    uint64 public borrowPerSecondInterestRateSlopeHigh;
 
     /// @notice Per second borrow base interest rate (factor)
     /// @dev uint64
-    uint public borrowPerSecondInterestRateBase;
+    uint64 public borrowPerSecondInterestRateBase;
 
     /// @notice The fraction of the liquidation penalty that goes to buyers of collateral instead of the protocol
     /// @dev uint64
