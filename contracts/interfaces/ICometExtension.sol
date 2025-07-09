@@ -30,7 +30,7 @@ abstract contract ICometExtension is CometCore {
         uint104 baseBorrowMin;
         uint64 targetPercent;
         uint104 seedReserves;
-        uint104 unlockTimestamp;
+        uint64 unlockTimestamp;
         CollateralAsset[] assetConfigs;
     }
 

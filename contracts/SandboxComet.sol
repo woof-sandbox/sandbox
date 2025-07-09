@@ -106,7 +106,7 @@ contract SandboxComet is ISandboxComet {
         /// It can be safely assumed, that reserve parameters are validated in Sandbox Controller
         targetPercent = config.targetPercent;
         seedReserves = config.suggestedAmountOfSeedReserves;
-        unlockTimestamp = block.timestamp + config.suggestedLockTimeOfSeedReserves;
+        unlockTimestamp = safe64(block.timestamp + config.suggestedLockTimeOfSeedReserves);
 
         /// Interest rate curve
         ///
@@ -357,7 +357,7 @@ contract SandboxComet is ISandboxComet {
         uint8 nAssets = numAssets;
         for (uint8 i = 0; i < nAssets; ) {
             if (isInAsset(assetsIn, i)) {
-                if (liquidity >= 0) return true;
+                if (liquidity >= 0) break;
 
                 CollateralAsset memory asset = getAssetInfo(i);
                 uint newAmount = mulPrice(userCollateral[account][asset.collateralToken], getPrice(asset.priceFeed), asset.scale);
@@ -386,7 +386,7 @@ contract SandboxComet is ISandboxComet {
         uint8 nAssets = numAssets;
         for (uint8 i = 0; i < nAssets; ) {
             if (isInAsset(assetsIn, i)) {
-                if (liquidity >= 0) return false;
+                if (liquidity >= 0) break;
 
                 CollateralAsset memory asset = getAssetInfo(i);
                 uint newAmount = mulPrice(userCollateral[account][asset.collateralToken], getPrice(asset.priceFeed), asset.scale);

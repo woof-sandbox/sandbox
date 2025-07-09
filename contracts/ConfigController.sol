@@ -173,6 +173,7 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
 
         /// Upper boundary for collateral tokens number is checked in Comet, as different Comets may be supported
         if (_length == 0) revert ZeroCollateralAssets();
+        // aderyn-fp-next-line(require-revert-in-loop)
         for (uint8 i; i < _length; ) {
             collateralTokenConfig = _cometConfig.collateralTokens[i];
             address _collateralToken = collateralTokenConfig.collateralToken;
@@ -201,8 +202,8 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
         CometGlobalParamsConfig memory _globalConfig = CometGlobalParamsConfig(
             _sandboxConfig.targetPercent,
             _sandboxConfig.storeFrontPriceFactor,
-            _sandboxConfig.suggestedAmountOfSeedReserves,
-            _sandboxConfig.suggestedLockTimeOfSeedReserves
+            _sandboxConfig.suggestedLockTimeOfSeedReserves,
+            _sandboxConfig.suggestedAmountOfSeedReserves
         );
 
         address comet = ISandboxCometFactory(cometFactory).createComet(); // aderyn-fp(reentrancy-state-change)
@@ -222,7 +223,7 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
     }
 
     /// @notice The number of comets created by this controller
-    function cometsLength() public view override returns (uint) {
+    function cometsLength() public view override returns (uint256) {
         return comets.length;
     }
 

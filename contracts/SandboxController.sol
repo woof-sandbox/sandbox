@@ -113,7 +113,7 @@ contract SandboxController is ISandboxController {
         uint40 _minUpdateTime,
         uint40 _maxUpdateTime,
         uint256 _suggestedAmountOfSeedReserves,
-        uint256 _suggestedLockTimeOfSeedReserves,
+        uint40 _suggestedLockTimeOfSeedReserves,
         uint64[MARKET_STATES] memory _reserveCommissions,
         uint64[MARKET_STATES] memory _protocolCommissions
     ) {
@@ -152,8 +152,8 @@ contract SandboxController is ISandboxController {
             _storeFrontPriceFactor,
             _minUpdateTime,
             _maxUpdateTime,
-            _suggestedAmountOfSeedReserves,
-            _suggestedLockTimeOfSeedReserves
+            _suggestedLockTimeOfSeedReserves,
+            _suggestedAmountOfSeedReserves
         );
     }
 
@@ -166,6 +166,7 @@ contract SandboxController is ISandboxController {
      * @param _reserveCommissions The new reserve commission factors, scaled by 1e18 (100%).
      */
     function setReserveCommissions(uint64[MARKET_STATES] calldata _reserveCommissions) external override onlyOwner {
+        // aderyn-fp-next-line(require-revert-in-loop)
         for (uint8 i; i < MARKET_STATES; ) {
             /// Check if the sum of the `reserveCommission` and the `protocolCommission` is less than 80%
             /// This needed to leave something for the ConfigController owner and curator.
@@ -189,6 +190,7 @@ contract SandboxController is ISandboxController {
      * @param _protocolCommissions The new protocol commission factors, scaled by 1e18 (100%).
      */
     function setProtocolCommissions(uint64[MARKET_STATES] calldata _protocolCommissions) external override onlyOwner {
+        // aderyn-fp-next-line(require-revert-in-loop)
         for (uint8 i; i < MARKET_STATES; ) {
             /// Check if the sum of the `protocolCommission` and the `reserveCommission` is less than 80%
             /// This needed to leave something for the ConfigController owner and curator.

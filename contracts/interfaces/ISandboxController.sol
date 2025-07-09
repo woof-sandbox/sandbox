@@ -54,17 +54,15 @@ interface ISandboxController is ISandboxErrors {
         /// "Free" space 16 bytes
     }
 
-    /// TODO: Probarly A LOT OF WASTED SPACE. Decide the biggest variable value.
     struct SandboxControllerConfiguration {
-        /// First 256 bits (32 bytes) (8+8+5+5 = 26 bytes)
+        /// First 256 bits (32 bytes) (8+8+5+5+5 = 31 bytes)
         uint64 targetPercent; // 8 bytes
         uint64 storeFrontPriceFactor; // 8 bytes
         uint40 minUpdateTime; // 5 bytes
         uint40 maxUpdateTime; // 5 bytes
+        uint40 suggestedLockTimeOfSeedReserves; // 5 bytes
         /// 2nd 256 bits (32 bytes)
         uint256 suggestedAmountOfSeedReserves; // 32 bytes
-        /// 3rd 256 bits (32 bytes)
-        uint256 suggestedLockTimeOfSeedReserves; // 32 bytes
     }
 
     event BaseAssetWhitelisted(

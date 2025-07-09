@@ -237,7 +237,7 @@ contract CometExtension is ICometExtension {
                 baseBorrowMin: uint104(baseBorrowMin),
                 targetPercent: targetPercent,
                 seedReserves: uint104(seedReserves),
-                unlockTimestamp: uint104(unlockTimestamp),
+                unlockTimestamp: unlockTimestamp,
                 assetConfigs: collateralAssets
             });
     }

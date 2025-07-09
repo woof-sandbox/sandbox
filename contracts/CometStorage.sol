@@ -167,7 +167,7 @@ contract CometStorage {
     uint public seedReserves;
 
     /// @notice Unlock timestamp
-    uint public unlockTimestamp;
+    uint64 public unlockTimestamp;
 
     /// @notice Factor to divide by when accruing rewards in order to preserve 6 decimals (i.e. baseScale / 1e6)
     uint internal accrualDescaleFactor;

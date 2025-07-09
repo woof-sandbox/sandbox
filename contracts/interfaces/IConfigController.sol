@@ -19,15 +19,15 @@ interface IConfigController {
 
     struct CometConfig {
         address baseToken;
-        uint baseTokenCurveId;
+        uint8 baseTokenCurveId;
         CollateralTokenConfig[] collateralTokens;
     }
 
     struct CometGlobalParamsConfig {
         uint64 targetPercent;
         uint64 storeFrontPriceFactor;
+        uint40 suggestedLockTimeOfSeedReserves;
         uint256 suggestedAmountOfSeedReserves;
-        uint256 suggestedLockTimeOfSeedReserves;
     }
 
     struct CometRewardOptions {
@@ -51,9 +51,9 @@ interface IConfigController {
 
     function cometFactory() external view returns (address);
 
-    function comets(uint) external view returns (address);
+    function comets(uint256) external view returns (address);
 
-    function cometsLength() external view returns (uint);
+    function cometsLength() external view returns (uint256);
 
     function proposedCurator() external view returns (address);
 

@@ -17,7 +17,7 @@ contract SandboxControllerNoCurvesTest is SandboxController {
         uint40 _minUpdateTime,
         uint40 _maxUpdateTime,
         uint256 _suggestedAmountOfSeedReserves,
-        uint256 _suggestedLockTimeOfSeedReserves,
+        uint40 _suggestedLockTimeOfSeedReserves,
         uint64[3] memory _reserveCommissions,
         uint64[3] memory _protocolCommissions
     )
