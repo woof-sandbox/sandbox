@@ -318,7 +318,7 @@ describe("1. System Initialization", function () {
     });
 
     it("should revert on deployment with invalid fee percentage", async function () {
-      const maxFee = (await configControllerImpl.FEE_DIVISOR()).toNumber();
+      const maxFee = await configControllerImpl.FEE_DIVISOR();
       await expect(
         configControllerFactory.createConfigController(
           curator.address,

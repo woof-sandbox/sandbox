@@ -169,7 +169,7 @@ describe("ConfigController", () => {
     it("should allow owner to set valid durations", async function () {
       const { configController, owner, sandboxController } = await makeConfigController();
 
-      const maxUpdateTime = (await sandboxController.proposalBoundaries())[1].toNumber();
+      const maxUpdateTime = (await sandboxController.proposalBoundaries())[1];
       const newDuration = maxUpdateTime - 1 * 24 * 60 * 60; // 6 days
 
       const oldCuratorDuration = await configController.curatorProposalDuration();
@@ -195,7 +195,8 @@ describe("ConfigController", () => {
     it("should revert when minUpdate is higher than new duration", async function () {
       const { configController, owner, sandboxController } = await makeConfigController();
 
-      const minUpdateTime = (await sandboxController.proposalBoundaries())[0].toNumber();
+      const proposalBoundaries = await sandboxController.proposalBoundaries();
+      const minUpdateTime = proposalBoundaries[0];
       const newDuration = minUpdateTime + 1 * 60 * 24 * 24; // +1 days
       await expect(configController.connect(owner).setProposalDurations(newDuration, minUpdateTime - 1)).to.be.revertedWithCustomError(
         configController,
@@ -228,7 +229,7 @@ describe("ConfigController", () => {
     it("should emit event with correct old and new values", async function () {
       const { configController, owner, sandboxController } = await makeConfigController();
 
-      const maxUpdateTime = (await sandboxController.proposalBoundaries())[1].toNumber();
+      const maxUpdateTime = (await sandboxController.proposalBoundaries())[1];
       const newDuration = maxUpdateTime - 1 * 24 * 60 * 60; // 6 days
 
       const oldCuratorDuration = await configController.curatorProposalDuration();
