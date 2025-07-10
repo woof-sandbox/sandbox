@@ -498,14 +498,6 @@ bool controllerFeeDisabled
 
 Marker that controller fees are disabled
 
-### _closed
-
-```solidity
-bool _closed
-```
-
-Marker that the market is closed
-
 ### totalsCollateral
 
 ```solidity
