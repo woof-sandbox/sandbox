@@ -100,6 +100,40 @@ function getNowInternal() internal view virtual returns (uint40)
 | ---- | ---- | ----------- |
 | [0] | uint40 | The current timestamp |
 
+### setIncentiveConfig
+
+```solidity
+function setIncentiveConfig(uint64 trackingIndexScale_, uint104 baseMinForRewards_, uint64 baseTrackingSupplySpeed_, uint64 baseTrackingBorrowSpeed_) external
+```
+
+Set the base tracking supply and borrow speeds
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| trackingIndexScale_ | uint64 | The new tracking index scale |
+| baseMinForRewards_ | uint104 | The new base minimum for rewards |
+| baseTrackingSupplySpeed_ | uint64 | The new base tracking supply speed |
+| baseTrackingBorrowSpeed_ | uint64 | The new base tracking borrow speed |
+
+### setDaoIncentiveConfig
+
+```solidity
+function setDaoIncentiveConfig(uint64 daoTrackingIndexScale_, uint104 daoBaseMinForRewards_, uint64 daoBaseTrackingSupplySpeed_, uint64 daoBaseTrackingBorrowSpeed_) external
+```
+
+Set the DAO base tracking supply and borrow speeds
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| daoTrackingIndexScale_ | uint64 |  |
+| daoBaseMinForRewards_ | uint104 |  |
+| daoBaseTrackingSupplySpeed_ | uint64 | The new DAO base tracking supply speed |
+| daoBaseTrackingBorrowSpeed_ | uint64 | The new DAO base tracking borrow speed |
+
 ### accruedInterestIndices
 
 ```solidity

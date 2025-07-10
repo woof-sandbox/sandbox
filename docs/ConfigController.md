@@ -229,6 +229,26 @@ Disables/Enables the controller fee for a specific comet
 | comet | address | Comet which should be registered in Controller |
 | feeEnabled | bool | Flag for fees enabling (true -> fees are enabled) |
 
+### setIncentiveConfigOnMarket
+
+```solidity
+function setIncentiveConfigOnMarket(address comet, uint64 trackingIndexScale, uint104 baseMinForRewards, uint64 baseTrackingSupplySpeed, uint64 baseTrackingBorrowSpeed) external
+```
+
+Set speeds for a specific comet
+
+_Only callable by the ownerAdd commentMore actions_
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| comet | address | The address of the comet |
+| trackingIndexScale | uint64 | The new tracking index scale |
+| baseMinForRewards | uint104 | The new base minimum for rewards |
+| baseTrackingSupplySpeed | uint64 | The new base tracking supply speed |
+| baseTrackingBorrowSpeed | uint64 | The new base tracking borrow speed |
+
 ### extractFees
 
 ```solidity

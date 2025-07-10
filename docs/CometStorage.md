@@ -12,6 +12,8 @@ struct TotalsBasic {
   uint64 baseBorrowIndex;
   uint64 trackingSupplyIndex;
   uint64 trackingBorrowIndex;
+  uint64 daoTrackingSupplyIndex;
+  uint64 daoTrackingBorrowIndex;
   uint104 totalSupplyBase;
   uint104 totalBorrowBase;
   uint40 lastAccrualTime;
@@ -26,6 +28,8 @@ struct UserBasic {
   int104 principal;
   uint64 baseTrackingIndex;
   uint64 baseTrackingAccrued;
+  uint64 daoBaseTrackingIndex;
+  uint64 daoBaseTrackingAccrued;
   uint24 assetsIn;
 }
 ```
@@ -292,58 +296,81 @@ uint64 storeFrontPriceFactor
 
 The fraction of the liquidation penalty that goes to buyers of collateral instead of the protocol
 
-_uint64_
-
 ### baseScale
 
 ```solidity
-uint256 baseScale
+uint64 baseScale
 ```
 
 The scale for base token (must be less than 18 decimals)
 
-_uint64_
-
 ### trackingIndexScale
 
 ```solidity
-uint256 trackingIndexScale
+uint64 trackingIndexScale
 ```
 
 The scale for reward tracking
 
-_uint64_
+### daoTrackingIndexScale
+
+```solidity
+uint64 daoTrackingIndexScale
+```
+
+The scale for DAO reward tracking
 
 ### baseTrackingSupplySpeed
 
 ```solidity
-uint256 baseTrackingSupplySpeed
+uint64 baseTrackingSupplySpeed
 ```
 
 The speed at which supply rewards are tracked (in trackingIndexScale)
 
-_uint64_
-
 ### baseTrackingBorrowSpeed
 
 ```solidity
-uint256 baseTrackingBorrowSpeed
+uint64 baseTrackingBorrowSpeed
 ```
 
 The speed at which borrow rewards are tracked (in trackingIndexScale)
 
-_uint64_
+### daoBaseTrackingSupplySpeed
+
+```solidity
+uint64 daoBaseTrackingSupplySpeed
+```
+
+The speed at which DAO supply rewards are tracked (in trackingIndexScale)
+
+### daoBaseTrackingBorrowSpeed
+
+```solidity
+uint64 daoBaseTrackingBorrowSpeed
+```
+
+The speed at which DAO supply rewards are tracked (in trackingIndexScale)
 
 ### baseMinForRewards
 
 ```solidity
-uint256 baseMinForRewards
+uint104 baseMinForRewards
 ```
 
 The minimum amount of base principal wei for rewards to accrue
 
-_This must be large enough so as to prevent division by base wei from overflowing the 64 bit indices
-uint104_
+_This must be large enough so as to prevent division by base wei from overflowing the 64 bit indices_
+
+### daoBaseMinForRewards
+
+```solidity
+uint104 daoBaseMinForRewards
+```
+
+The minimum amount of base principal wei for dao rewards to accrue
+
+_This must be large enough so as to prevent division by base wei from overflowing the 64 bit indices_
 
 ### baseBorrowMin
 
@@ -385,6 +412,14 @@ uint256 accrualDescaleFactor
 
 Factor to divide by when accruing rewards in order to preserve 6 decimals (i.e. baseScale / 1e6)
 
+### suggestedReserves
+
+```solidity
+uint256 suggestedReserves
+```
+
+Suggested reserves
+
 ### baseSupplyIndex
 
 ```solidity
@@ -397,6 +432,18 @@ _Aggregate variables tracked for the entire market_
 
 ```solidity
 uint64 baseBorrowIndex
+```
+
+### daoTrackingSupplyIndex
+
+```solidity
+uint64 daoTrackingSupplyIndex
+```
+
+### daoTrackingBorrowIndex
+
+```solidity
+uint64 daoTrackingBorrowIndex
 ```
 
 ### trackingSupplyIndex
@@ -442,6 +489,22 @@ uint8 numAssets
 ```
 
 The number of assets this contract actually supports
+
+### controllerFeeDisabled
+
+```solidity
+bool controllerFeeDisabled
+```
+
+Marker that controller fees are disabled
+
+### _closed
+
+```solidity
+bool _closed
+```
+
+Marker that the market is closed
 
 ### totalsCollateral
 
