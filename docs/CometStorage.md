@@ -116,6 +116,22 @@ _The reentrancy guard statuses_
 uint256 REENTRANCY_GUARD_ENTERED
 ```
 
+### TARGET_BORROW_COLLATERAL_FACTOR
+
+```solidity
+uint64 TARGET_BORROW_COLLATERAL_FACTOR
+```
+
+_The target borrow collateral factor for the processing removal of collateral assets_
+
+### TARGET_LIQUIDATE_COLLATERAL_FACTOR
+
+```solidity
+uint64 TARGET_LIQUIDATE_COLLATERAL_FACTOR
+```
+
+_The target liquidate collateral factor for the processing removal of collateral assets_
+
 ### configController
 
 ```solidity
@@ -395,6 +411,14 @@ uint40 lastAccrualTime
 uint8 pauseFlags
 ```
 
+### _collateralRemovalState
+
+```solidity
+struct ICometStructures.CollateralRemovalState _collateralRemovalState
+```
+
+The current collateral removal process state
+
 ### numAssets
 
 ```solidity
@@ -402,6 +426,14 @@ uint8 numAssets
 ```
 
 The number of assets this contract actually supports
+
+### numRemovedAssets
+
+```solidity
+uint8 numRemovedAssets
+```
+
+The number of assets that have been removed
 
 ### totalsCollateral
 
@@ -475,9 +507,25 @@ Mapping of users to collateral data per collateral asset
 mapping(address => uint8) collateralAssetIndex
 ```
 
+### removedCollateralAssetIndex
+
+```solidity
+mapping(address => uint8) removedCollateralAssetIndex
+```
+
+Mapping indexes for collateral assets that have been removed
+
 ### collateralAssets
 
 ```solidity
 struct ICometStructures.CollateralAsset[] collateralAssets
 ```
+
+### removedCollateralAssets
+
+```solidity
+struct ICometStructures.CollateralAsset[] removedCollateralAssets
+```
+
+The list of collateral assets that have been removed
 

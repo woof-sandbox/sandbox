@@ -100,4 +100,12 @@ contract CometHarness is SandboxComet {
     function spendAllowanceExternal(address owner, address manager, address asset, uint256 amount) external {
         spendAllowance(owner, manager, asset, amount);
     }
+
+    function targetBorrowCollateralFactor() external pure returns (uint64) {
+        return TARGET_BORROW_COLLATERAL_FACTOR;
+    }
+
+    function targetLiquidateCollateralFactor() external pure returns (uint64) {
+        return TARGET_LIQUIDATE_COLLATERAL_FACTOR;
+    }
 }

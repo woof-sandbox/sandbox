@@ -16,6 +16,7 @@ contract SandboxController is ISandboxController {
     uint64 public constant MAX_COMMISSIONS = 8e17; //80%
     uint64 public constant MIN_FACTOR = 1e17; //10%
     uint8 public constant MARKET_STATES = 3;
+    uint40 public constant MIN_COLLATERAL_REMOVAL_DURATION = 7 days;
 
     /// @notice treasury address. This is the address that will receive the fees.
     address public treasury; /// 20 bytes
@@ -25,6 +26,8 @@ contract SandboxController is ISandboxController {
     address public override dao; /// 20 bytes
     /// @notice feeEnabled flag. This is the flag that will be used to enable/disable the fees for all markets.
     bool public override feeEnabled; /// 1 byte
+    /// @notice removal collateral duration. This is the duration of the collateral removal process.
+    uint40 public override removalCollateralDuration; /// 5 bytes
     /// @notice controller configuration.
     /// Holds:
     /// targetPercent,
@@ -107,7 +110,8 @@ contract SandboxController is ISandboxController {
         bool _feeEnabled,
         SandboxControllerConfiguration memory _config,
         uint64[MARKET_STATES] memory _reserveCommissions,
-        uint64[MARKET_STATES] memory _protocolCommissions /* uint40  duration */ // @todo add duration to the constructor
+        uint64[MARKET_STATES] memory _protocolCommissions,
+        uint40 _removalCollateralDuration
     ) {
         if (_owner == address(0) || _dao == address(0) || _treasury == address(0)) revert ZeroAddress();
         if (_owner == _dao) revert IncorrectSetting();
@@ -127,6 +131,7 @@ contract SandboxController is ISandboxController {
         }
         reserveCommission = _reserveCommissions;
         protocolCommission = _protocolCommissions;
+        removalCollateralDuration = _removalCollateralDuration;
 
         owner = _owner;
         dao = _dao;
@@ -533,5 +538,16 @@ contract SandboxController is ISandboxController {
      */
     function config() external view override returns (SandboxControllerConfiguration memory) {
         return _controllerConfiguration;
+    }
+
+    /**
+     * @notice Sets the duration for collateral removal.
+     * @param newDuration The new duration in seconds.
+     * @dev The new duration must be at least 7 days.
+     */
+    function setCollateralRemovalDuration(uint40 newDuration) external override onlyOwner {
+        if (newDuration < MIN_COLLATERAL_REMOVAL_DURATION) revert RemovalDurationTooShort();
+        emit CollateralRemovalDurationChanged(removalCollateralDuration, newDuration);
+        removalCollateralDuration = newDuration;
     }
 }

@@ -160,6 +160,7 @@ export interface SandboxControllerOpts {
   config?: SandboxControllerConfigurationStruct;
   reserveCommissions?: [bigint, bigint, bigint];
   protocolCommissions?: [bigint, bigint, bigint];
+  removalCollateralDuration?: number;
 }
 
 export type SandboxControllerInfo = {
@@ -661,6 +662,7 @@ export function defaultSandboxControllerOpts(partial?: Partial<SandboxController
     },
     reserveCommissions: partial?.reserveCommissions ?? [exp(0.01, 18), exp(0.02, 18), exp(0.03, 18)],
     protocolCommissions: partial?.protocolCommissions ?? [exp(0.01, 18), exp(0.02, 18), exp(0.03, 18)],
+    removalCollateralDuration: partial?.removalCollateralDuration ?? 7 * 24 * 60 * 60,
   };
 }
 
@@ -711,7 +713,8 @@ export async function makeSandboxController(opts: SandboxControllerOpts, factory
     opts.feeEnabled,
     opts.config,
     opts.reserveCommissions,
-    opts.protocolCommissions
+    opts.protocolCommissions,
+    opts.removalCollateralDuration
   );
   await sandboxController.deployed();
 

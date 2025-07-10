@@ -119,4 +119,12 @@ interface ICometErrors {
     error MaxAllowanceRestricted();
 
     error IncorrectApproval();
+
+    /**
+     * @notice Error thrown when an operation is attempted on a removed collateral asset
+     * @param removalAsset The address of the removed collateral asset
+     * @param startTime The start time of the removal process
+     * @param endTime The end time of the removal process
+     */
+    error CollateralRemovalInProgress(address removalAsset, uint40 startTime, uint40 endTime);
 }
