@@ -54,20 +54,15 @@ interface ISandboxController is ISandboxErrors {
         /// "Free" space 16 bytes
     }
 
-    /// TODO: Probarly A LOT OF WASTED SPACE. Decide the biggest variable value.
     struct SandboxControllerConfiguration {
-        /// First 256 bits (32 bytes)
-        uint256 targetPercent; // 32 bytes
-        /// Second 256 bits (32 bytes)
-        uint256 storeFrontPriceFactor; // 32 bytes
-        /// Third 256 bits (32 bytes)
-        uint256 minUpdateTime; // 32 bytes
-        /// Fourth 256 bits (32 bytes)
-        uint256 maxUpdateTime; // 32 bytes
-        /// Fifth 256 bits (32 bytes)
+        /// First 256 bits (32 bytes) (8+8+5+5+5 = 31 bytes)
+        uint64 targetPercent; // 8 bytes
+        uint64 storeFrontPriceFactor; // 8 bytes
+        uint40 minUpdateTime; // 5 bytes
+        uint40 maxUpdateTime; // 5 bytes
+        uint40 suggestedLockTimeOfSeedReserves; // 5 bytes
+        /// 2nd 256 bits (32 bytes)
         uint256 suggestedAmountOfSeedReserves; // 32 bytes
-        /// Sixth 256 bits (32 bytes)
-        uint256 suggestedLockTimeOfSeedReserves; // 32 bytes
     }
 
     event BaseAssetWhitelisted(
@@ -113,7 +108,7 @@ interface ISandboxController is ISandboxErrors {
 
     function feeEnabled() external view returns (bool);
 
-    function proposalBoundaries() external view returns (uint, uint);
+    function proposalBoundaries() external view returns (uint40, uint40);
 
     function baseAssetTokens(uint256) external view returns (address);
 
@@ -121,9 +116,9 @@ interface ISandboxController is ISandboxErrors {
 
     function tokenToPriceFeed(address) external view returns (address);
 
-    function reserveCommission(uint) external view returns (uint64);
+    function reserveCommission(uint256) external view returns (uint64);
 
-    function protocolCommission(uint) external view returns (uint64);
+    function protocolCommission(uint256) external view returns (uint64);
 
     function getCommissions(uint256, uint256, uint256) external view returns (uint64, uint64);
 
@@ -144,8 +139,10 @@ interface ISandboxController is ISandboxErrors {
 
     function changeBaseAssetCurve(address token, uint256 curveIndex, BaseAssetCurve memory newCurve) external;
 
+    // aderyn-fp-next-line(literal-instead-of-constant)
     function setReserveCommissions(uint64[3] calldata reserveCommissions) external;
 
+    // aderyn-fp-next-line(literal-instead-of-constant)
     function setProtocolCommissions(uint64[3] calldata protocolCommissions) external;
 
     function setTreasury(address _treasury) external;
