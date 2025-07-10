@@ -12,12 +12,12 @@ contract SandboxControllerNoCurvesTest is SandboxController {
         address _dao,
         address _treasury,
         bool _feeEnabled,
-        uint256 _targetPercent,
+        uint64 _targetPercent,
         uint64 _storeFrontPriceFactor,
-        uint256 _minUpdateTime,
-        uint256 _maxUpdateTime,
+        uint40 _minUpdateTime,
+        uint40 _maxUpdateTime,
         uint256 _suggestedAmountOfSeedReserves,
-        uint256 _suggestedLockTimeOfSeedReserves,
+        uint40 _suggestedLockTimeOfSeedReserves,
         uint64[3] memory _reserveCommissions,
         uint64[3] memory _protocolCommissions
     )
@@ -44,7 +44,7 @@ contract SandboxControllerNoCurvesTest is SandboxController {
         /// @dev the price feed is not associated with the token
         if (IPriceFeed(priceFeed).underlyingToken() != token) revert WrongPriceFeedUnderlying();
         tokenToPriceFeed[token] = priceFeed;
-        uint8 decimals = IERC20NonStandard(token).decimals();
+        uint8 decimals = IERC20Metadata(token).decimals();
 
         _baseAssets[token].priceFeed = priceFeed;
         _baseAssets[token].decimals = decimals;

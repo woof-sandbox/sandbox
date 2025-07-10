@@ -47,7 +47,7 @@ describe("8. CometExtension", () => {
         "uint104 baseBorrowMin," +
         "uint104 targetPercent," +
         "uint104 seedReserves," +
-        "uint104 unlockTimestamp," +
+        "uint64 unlockTimestamp," +
         "tuple(address collateralToken, address priceFeed, uint256 borrowCollateralFactor, uint256 liquidateCollateralFactor, uint256 liquidationFactor, uint256 supplyCap, uint256 scale)[] assetConfigs" +
         "))",
     ];

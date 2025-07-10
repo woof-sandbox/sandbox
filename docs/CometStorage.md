@@ -207,7 +207,7 @@ The address of the price feed for the base token
 ### supplyKink
 
 ```solidity
-uint256 supplyKink
+uint64 supplyKink
 ```
 
 The point in the supply rates separating the low interest rate slope and the high interest rate slope (factor)
@@ -217,7 +217,7 @@ _uint64_
 ### supplyPerSecondInterestRateSlopeLow
 
 ```solidity
-uint256 supplyPerSecondInterestRateSlopeLow
+uint64 supplyPerSecondInterestRateSlopeLow
 ```
 
 Per second supply interest rate slope applied when utilization is below kink (factor)
@@ -227,7 +227,7 @@ _uint64_
 ### supplyPerSecondInterestRateSlopeHigh
 
 ```solidity
-uint256 supplyPerSecondInterestRateSlopeHigh
+uint64 supplyPerSecondInterestRateSlopeHigh
 ```
 
 Per secollateralTokenscond supply interest rate slope applied when utilization is above kink (factor)
@@ -237,7 +237,7 @@ _uint64_
 ### supplyPerSecondInterestRateBase
 
 ```solidity
-uint256 supplyPerSecondInterestRateBase
+uint64 supplyPerSecondInterestRateBase
 ```
 
 Per second supply base interest rate (factor)
@@ -247,7 +247,7 @@ _uint64_
 ### borrowKink
 
 ```solidity
-uint256 borrowKink
+uint64 borrowKink
 ```
 
 The point in the borrow rate separating the low interest rate slope and the high interest rate slope (factor)
@@ -257,7 +257,7 @@ _uint64_
 ### borrowPerSecondInterestRateSlopeLow
 
 ```solidity
-uint256 borrowPerSecondInterestRateSlopeLow
+uint64 borrowPerSecondInterestRateSlopeLow
 ```
 
 Per second borrow interest rate slope applied when utilization is below kink (factor)
@@ -267,7 +267,7 @@ _uint64_
 ### borrowPerSecondInterestRateSlopeHigh
 
 ```solidity
-uint256 borrowPerSecondInterestRateSlopeHigh
+uint64 borrowPerSecondInterestRateSlopeHigh
 ```
 
 Per second borrow interest rate slope applied when utilization is above kink (factor)
@@ -277,7 +277,7 @@ _uint64_
 ### borrowPerSecondInterestRateBase
 
 ```solidity
-uint256 borrowPerSecondInterestRateBase
+uint64 borrowPerSecondInterestRateBase
 ```
 
 Per second borrow base interest rate (factor)
@@ -287,7 +287,7 @@ _uint64_
 ### storeFrontPriceFactor
 
 ```solidity
-uint256 storeFrontPriceFactor
+uint64 storeFrontPriceFactor
 ```
 
 The fraction of the liquidation penalty that goes to buyers of collateral instead of the protocol
@@ -356,7 +356,7 @@ The minimum base amount required to initiate a borrow
 ### targetPercent
 
 ```solidity
-uint256 targetPercent
+uint64 targetPercent
 ```
 
 The minimum base token reserves which must be held before collateral is hodled
@@ -372,7 +372,7 @@ Seed reserves, initialized during the Comet creation
 ### unlockTimestamp
 
 ```solidity
-uint256 unlockTimestamp
+uint64 unlockTimestamp
 ```
 
 Unlock timestamp
@@ -442,14 +442,6 @@ uint8 numAssets
 ```
 
 The number of assets this contract actually supports
-
-### _closed
-
-```solidity
-bool _closed
-```
-
-Marker that the market is closed
 
 ### totalsCollateral
 

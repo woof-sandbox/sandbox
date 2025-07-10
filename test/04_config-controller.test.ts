@@ -170,7 +170,7 @@ describe("ConfigController", () => {
       const { configController, owner, sandboxController } = await makeConfigController();
 
       const maxUpdateTime = (await sandboxController.proposalBoundaries())[1];
-      const newDuration = maxUpdateTime.sub(1 * 24 * 60 * 60); // 6 days
+      const newDuration = maxUpdateTime - 1 * 24 * 60 * 60; // 6 days
 
       const oldCuratorDuration = await configController.curatorProposalDuration();
       const oldProposalDuration = await configController.proposalDuration();
@@ -196,13 +196,13 @@ describe("ConfigController", () => {
       const { configController, owner, sandboxController } = await makeConfigController();
 
       const minUpdateTime = (await sandboxController.proposalBoundaries())[0];
-      const newDuration = minUpdateTime.add(1 * 60 * 24 * 24); // +1 days
-      await expect(configController.connect(owner).setProposalDurations(newDuration, minUpdateTime.sub(1))).to.be.revertedWithCustomError(
+      const newDuration = minUpdateTime + 1 * 60 * 24 * 24; // +1 days
+      await expect(configController.connect(owner).setProposalDurations(newDuration, minUpdateTime - 1)).to.be.revertedWithCustomError(
         configController,
         "ProposalDurationTooShort"
       );
 
-      await expect(configController.connect(owner).setProposalDurations(minUpdateTime.sub(1), newDuration)).to.be.revertedWithCustomError(
+      await expect(configController.connect(owner).setProposalDurations(minUpdateTime - 1, newDuration)).to.be.revertedWithCustomError(
         configController,
         "ProposalDurationTooShort"
       );
@@ -229,7 +229,7 @@ describe("ConfigController", () => {
       const { configController, owner, sandboxController } = await makeConfigController();
 
       const maxUpdateTime = (await sandboxController.proposalBoundaries())[1];
-      const newDuration = maxUpdateTime.sub(1 * 24 * 60 * 60); // 6 days
+      const newDuration = maxUpdateTime - 1 * 24 * 60 * 60; // 6 days
 
       const oldCuratorDuration = await configController.curatorProposalDuration();
       const oldProposalDuration = await configController.proposalDuration();

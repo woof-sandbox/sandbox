@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
-import { IERC20NonStandard } from "./interfaces/IERC20NonStandard.sol";
+import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
+
 import { IPriceFeed } from "./interfaces/IPriceFeed.sol";
 import { ISandboxController } from "./interfaces/ISandboxController.sol";
 
@@ -10,10 +11,11 @@ import { ISandboxController } from "./interfaces/ISandboxController.sol";
  * @dev Manages base asset configurations and interest rate baseAssetCurves.
  */
 contract SandboxController is ISandboxController {
-    uint256 public constant MARKET_STATES = 3;
-    uint256 public constant PARAMETERS_SCALE = 1e18; //100%
-    uint256 public constant MAX_TARGET_PERCENT = 5e17; //50%
+    uint64 public constant PARAMETERS_SCALE = 1e18; //100%
+    uint64 public constant MAX_TARGET_PERCENT = 5e17; //50%
     uint64 public constant MAX_COMMISSIONS = 8e17; //80%
+    uint64 public constant MIN_FACTOR = 1e17; //10%
+    uint8 public constant MARKET_STATES = 3;
 
     /// @notice treasury address. This is the address that will receive the fees.
     address public treasury; /// 20 bytes
@@ -106,12 +108,12 @@ contract SandboxController is ISandboxController {
         address _dao,
         address _treasury,
         bool _feeEnabled,
-        uint256 _targetPercent,
+        uint64 _targetPercent,
         uint64 _storeFrontPriceFactor,
-        uint256 _minUpdateTime,
-        uint256 _maxUpdateTime,
+        uint40 _minUpdateTime,
+        uint40 _maxUpdateTime,
         uint256 _suggestedAmountOfSeedReserves,
-        uint256 _suggestedLockTimeOfSeedReserves,
+        uint40 _suggestedLockTimeOfSeedReserves,
         uint64[MARKET_STATES] memory _reserveCommissions,
         uint64[MARKET_STATES] memory _protocolCommissions
     ) {
@@ -125,14 +127,14 @@ contract SandboxController is ISandboxController {
 
         if (
             _targetPercent > MAX_TARGET_PERCENT || /// Validate that the targetPercent is not bigger than 50%.
-            _storeFrontPriceFactor >= PARAMETERS_SCALE || /// Validate that the storeFrontPriceFactor is not bigger than 100%.
+            _storeFrontPriceFactor > PARAMETERS_SCALE || /// Validate that the storeFrontPriceFactor is not bigger than 100%.
             _minUpdateTime == 0 ||
             _maxUpdateTime < _minUpdateTime || /// Validate that the minUpdateTime is not 0 and the maxUpdateTime > minUpdateTime.
             _suggestedAmountOfSeedReserves == 0 || /// Validate that the suggestedAmountOfSeedReserves is not 0.
             _suggestedLockTimeOfSeedReserves == 0 /// Validate that the suggestedLockTimeOfSeedReserves is not 0.
         ) revert InvalidFactors();
 
-        for (uint256 i; i < MARKET_STATES; ) {
+        for (uint8 i; i < MARKET_STATES; ) {
             /// Validate that the reserveCommissions and protocolCommissions are not bigger than 80%. 100% = 1e18.
             /// This needed to leave something for the ConfigController owner and curator.
             if (reserveCommission[i] + protocolCommission[i] > MAX_COMMISSIONS) revert InvalidCommissions();
@@ -147,11 +149,11 @@ contract SandboxController is ISandboxController {
 
         _controllerConfiguration = SandboxControllerConfiguration(
             _targetPercent,
-            _suggestedLockTimeOfSeedReserves,
+            _storeFrontPriceFactor,
             _minUpdateTime,
             _maxUpdateTime,
-            _suggestedAmountOfSeedReserves,
-            _storeFrontPriceFactor
+            _suggestedLockTimeOfSeedReserves,
+            _suggestedAmountOfSeedReserves
         );
     }
 
@@ -164,6 +166,7 @@ contract SandboxController is ISandboxController {
      * @param _reserveCommissions The new reserve commission factors, scaled by 1e18 (100%).
      */
     function setReserveCommissions(uint64[MARKET_STATES] calldata _reserveCommissions) external override onlyOwner {
+        // aderyn-fp-next-line(require-revert-in-loop)
         for (uint8 i; i < MARKET_STATES; ) {
             /// Check if the sum of the `reserveCommission` and the `protocolCommission` is less than 80%
             /// This needed to leave something for the ConfigController owner and curator.
@@ -187,6 +190,7 @@ contract SandboxController is ISandboxController {
      * @param _protocolCommissions The new protocol commission factors, scaled by 1e18 (100%).
      */
     function setProtocolCommissions(uint64[MARKET_STATES] calldata _protocolCommissions) external override onlyOwner {
+        // aderyn-fp-next-line(require-revert-in-loop)
         for (uint8 i; i < MARKET_STATES; ) {
             /// Check if the sum of the `protocolCommission` and the `reserveCommission` is less than 80%
             /// This needed to leave something for the ConfigController owner and curator.
@@ -279,20 +283,21 @@ contract SandboxController is ISandboxController {
         if (isBaseTokenWhitelisted(token)) revert BaseTokenAlreadyWhitelisted();
 
         /// @dev the price feed is not associated with the token
+        // aderyn-fp-next-line(reentrancy-state-change)
         if (IPriceFeed(priceFeed).underlyingToken() != token) revert WrongPriceFeedUnderlying();
 
         /// @dev this price feed is used for a different token. Prevent arbitrage.
         if (tokenToPriceFeed[token] != address(0) && tokenToPriceFeed[token] != priceFeed) revert DifferentPriceFeedAlreadyUsedForToken();
 
         /// @dev the price feed is dead
-        (, int256 answer, , , ) = IPriceFeed(priceFeed).latestRoundData();
+        (, int256 answer, , , ) = IPriceFeed(priceFeed).latestRoundData(); // aderyn-fp(reentrancy-state-change)
         if (answer <= 0) revert InvalidPriceFeed();
 
         /// @dev the curve configuration is invalid
         if (!isCurveConfigurationValid(baseAssetCurve)) revert InvalidCurveConfiguration();
 
         tokenToPriceFeed[token] = priceFeed;
-        uint8 decimals = IERC20NonStandard(token).decimals();
+        uint8 decimals = IERC20Metadata(token).decimals(); // aderyn-fp(reentrancy-state-change)
 
         _baseAssets[token].priceFeed = priceFeed;
         _baseAssets[token].decimals = decimals;
@@ -352,13 +357,13 @@ contract SandboxController is ISandboxController {
         if (isCollateralTokenWhitelisted(token)) revert CollateralTokenAlreadyWhitelisted();
 
         /// @dev the price feed is not associated with the token
-        if (IPriceFeed(priceFeed).underlyingToken() != token) revert WrongPriceFeedUnderlying();
+        if (IPriceFeed(priceFeed).underlyingToken() != token) revert WrongPriceFeedUnderlying(); // aderyn-fp(reentrancy-state-change)
 
         /// @dev this price feed is used for a different token. Prevent arbitrage.
         if (tokenToPriceFeed[token] != address(0) && tokenToPriceFeed[token] != priceFeed) revert DifferentPriceFeedAlreadyUsedForToken();
 
         /// @dev the price feed is dead
-        (, int256 answer, , , ) = IPriceFeed(priceFeed).latestRoundData();
+        (, int256 answer, , , ) = IPriceFeed(priceFeed).latestRoundData(); // aderyn-fp(reentrancy-state-change)
         if (answer <= 0) revert InvalidPriceFeed();
 
         /// @dev Validates that all collateral factor parameters are within allowed ranges and maintain logical relationships:
@@ -366,12 +371,12 @@ contract SandboxController is ISandboxController {
         /// - maxBorrowCollateralFactor <= maxLiquidateCollateralFactor <= maxLiquidationFactor <= 100%
         /// - min <= max for each factor
         if (
-            minBorrowCollateralFactor < 1e17 ||
+            minBorrowCollateralFactor < MIN_FACTOR ||
             minBorrowCollateralFactor > minLiquidateCollateralFactor ||
             minLiquidateCollateralFactor > minLiquidationFactor ||
             maxBorrowCollateralFactor > maxLiquidateCollateralFactor ||
             maxLiquidateCollateralFactor > maxLiquidationFactor ||
-            maxLiquidationFactor > 1e18 ||
+            maxLiquidationFactor > PARAMETERS_SCALE ||
             minBorrowCollateralFactor > maxBorrowCollateralFactor ||
             minLiquidateCollateralFactor > maxLiquidateCollateralFactor ||
             minLiquidationFactor > maxLiquidationFactor
@@ -379,11 +384,11 @@ contract SandboxController is ISandboxController {
 
         tokenToPriceFeed[token] = priceFeed;
 
-        uint256 decimals = IERC20NonStandard(token).decimals();
+        uint8 decimals = IERC20Metadata(token).decimals(); // aderyn-fp(reentrancy-state-change)
 
         _collateralAssets[token].collateralToken = token;
         _collateralAssets[token].priceFeed = priceFeed;
-        _collateralAssets[token].decimals = uint8(decimals);
+        _collateralAssets[token].decimals = decimals;
         _collateralAssets[token].maxBorrowCollateralFactor = maxBorrowCollateralFactor;
         _collateralAssets[token].minBorrowCollateralFactor = minBorrowCollateralFactor;
         _collateralAssets[token].minLiquidateCollateralFactor = minLiquidateCollateralFactor;
@@ -420,12 +425,12 @@ contract SandboxController is ISandboxController {
      */
     function setConfiguration(SandboxControllerConfiguration memory _config) external override onlyOwner {
         if (
-            _config.storeFrontPriceFactor >= 1e18 ||
+            _config.storeFrontPriceFactor > PARAMETERS_SCALE ||
             _config.minUpdateTime == 0 ||
             _config.maxUpdateTime < _config.minUpdateTime ||
             _config.suggestedAmountOfSeedReserves == 0 ||
             _config.suggestedLockTimeOfSeedReserves == 0 ||
-            _config.targetPercent > 5e17
+            _config.targetPercent > MAX_TARGET_PERCENT
         ) revert InvalidFactors();
 
         emit ConfigurationChanged(_controllerConfiguration, _config);
@@ -508,7 +513,8 @@ contract SandboxController is ISandboxController {
      * @return True if valid, false otherwise.
      */
     function isCurveConfigurationValid(BaseAssetCurve memory curve) public pure override returns (bool) {
-        if (curve.supplyKink == 0 || curve.borrowKink == 0 || curve.supplyKink >= 1e18 || curve.borrowKink >= 1e18) return false;
+        if (curve.supplyKink == 0 || curve.borrowKink == 0 || curve.supplyKink >= PARAMETERS_SCALE || curve.borrowKink >= PARAMETERS_SCALE)
+            return false;
 
         if (
             curve.supplyPerYearInterestRateSlopeLow == 0 ||
@@ -552,7 +558,7 @@ contract SandboxController is ISandboxController {
      * @notice Returns the proposal boundaries of the sandbox controller.
      * @return The proposal boundaries.
      */
-    function proposalBoundaries() external view override returns (uint256, uint256) {
+    function proposalBoundaries() external view override returns (uint40, uint40) {
         SandboxControllerConfiguration memory _c = _controllerConfiguration;
         return (_c.minUpdateTime, _c.maxUpdateTime);
     }

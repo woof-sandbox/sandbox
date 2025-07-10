@@ -87,28 +87,7 @@ const relationConfigMap: RelationConfigMap = {
   },
   cometAdmin: {
   },
-  // timelock: {
-  //   relations: {
-  //     governor: {
-  //       field: async (timelock) => timelock.admin(),
-  //     }
-  //   }
-  // },
 
-  // governor: {
-  //   artifact: 'contracts/IProxy.sol:IProxy',
-  //   delegates: {
-  //     field: async (governor) => governor.implementation(),
-  //   },
-  //   relations: {
-  //     COMP: {
-  //       field: async (governor) => governor.comp(),
-  //     }
-  //   }
-  // },
-  // 'governor:implementation': {
-  //   artifact: 'contracts/IGovernorBravo.sol:IGovernorBravo',
-  // },
 
   COMP: {
     artifact: 'contracts/IComp.sol:IComp',

@@ -13,17 +13,17 @@ contract CometStorage {
 
     struct TotalsBasic {
         // 1st slot
-        uint64 baseSupplyIndex;
-        uint64 baseBorrowIndex;
-        uint64 trackingSupplyIndex;
-        uint64 trackingBorrowIndex;
-        uint64 daoTrackingSupplyIndex;
-        uint64 daoTrackingBorrowIndex;
+        uint64 baseSupplyIndex; // aderyn-fp(local-variable-shadowing)
+        uint64 baseBorrowIndex; // aderyn-fp(local-variable-shadowing)
+        uint64 trackingSupplyIndex; // aderyn-fp(local-variable-shadowing)
+        uint64 trackingBorrowIndex; // aderyn-fp(local-variable-shadowing)
+        uint64 daoTrackingSupplyIndex; // aderyn-fp(local-variable-shadowing)
+        uint64 daoTrackingBorrowIndex; // aderyn-fp(local-variable-shadowing)
         // 2nd slot
-        uint104 totalSupplyBase;
-        uint104 totalBorrowBase;
-        uint40 lastAccrualTime;
-        uint8 pauseFlags;
+        uint104 totalSupplyBase; // aderyn-fp(local-variable-shadowing)
+        uint104 totalBorrowBase; // aderyn-fp(local-variable-shadowing)
+        uint40 lastAccrualTime; // aderyn-fp(local-variable-shadowing)
+        uint8 pauseFlags; // aderyn-fp(local-variable-shadowing)
     }
 
     struct UserBasic {
@@ -82,7 +82,7 @@ contract CometStorage {
     bytes32 internal constant REENTRANCY_GUARD_FLAG_SLOT = bytes32(keccak256("comet.reentrancy.guard"));
 
     /// @dev The reentrancy guard statuses
-    uint256 internal constant REENTRANCY_GUARD_NOT_ENTERED = 0;
+    uint256 internal constant REENTRANCY_GUARD_NOT_ENTERED = 0; // aderyn-fp(unused-state-variable)
     uint256 internal constant REENTRANCY_GUARD_ENTERED = 1;
 
     /** General configuration constants **/
@@ -106,35 +106,35 @@ contract CometStorage {
 
     /// @notice The point in the supply rates separating the low interest rate slope and the high interest rate slope (factor)
     /// @dev uint64
-    uint public supplyKink;
+    uint64 public supplyKink;
 
     /// @notice Per second supply interest rate slope applied when utilization is below kink (factor)
     /// @dev uint64
-    uint public supplyPerSecondInterestRateSlopeLow;
+    uint64 public supplyPerSecondInterestRateSlopeLow;
 
     /// @notice Per secollateralTokenscond supply interest rate slope applied when utilization is above kink (factor)
     /// @dev uint64
-    uint public supplyPerSecondInterestRateSlopeHigh;
+    uint64 public supplyPerSecondInterestRateSlopeHigh;
 
     /// @notice Per second supply base interest rate (factor)
     /// @dev uint64
-    uint public supplyPerSecondInterestRateBase;
+    uint64 public supplyPerSecondInterestRateBase;
 
     /// @notice The point in the borrow rate separating the low interest rate slope and the high interest rate slope (factor)
     /// @dev uint64
-    uint public borrowKink;
+    uint64 public borrowKink;
 
     /// @notice Per second borrow interest rate slope applied when utilization is below kink (factor)
     /// @dev uint64
-    uint public borrowPerSecondInterestRateSlopeLow;
+    uint64 public borrowPerSecondInterestRateSlopeLow;
 
     /// @notice Per second borrow interest rate slope applied when utilization is above kink (factor)
     /// @dev uint64
-    uint public borrowPerSecondInterestRateSlopeHigh;
+    uint64 public borrowPerSecondInterestRateSlopeHigh;
 
     /// @notice Per second borrow base interest rate (factor)
     /// @dev uint64
-    uint public borrowPerSecondInterestRateBase;
+    uint64 public borrowPerSecondInterestRateBase;
 
     /// @notice The fraction of the liquidation penalty that goes to buyers of collateral instead of the protocol
     uint64 public storeFrontPriceFactor;
@@ -172,13 +172,13 @@ contract CometStorage {
     uint public baseBorrowMin;
 
     /// @notice The minimum base token reserves which must be held before collateral is hodled
-    uint public targetPercent;
+    uint64 public targetPercent;
 
     /// @notice Seed reserves, initialized during the Comet creation
     uint public seedReserves;
 
     /// @notice Unlock timestamp
-    uint public unlockTimestamp;
+    uint64 public unlockTimestamp;
 
     /// @notice Factor to divide by when accruing rewards in order to preserve 6 decimals (i.e. baseScale / 1e6)
     uint internal accrualDescaleFactor;
