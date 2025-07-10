@@ -204,9 +204,6 @@ contract CometStorage {
     /// @notice Marker that controller fees are disabled
     bool public controllerFeeDisabled;
 
-    /// @notice Marker that the market is closed
-    bool internal _closed;
-
     /// @notice Aggregate variables tracked for each collateral asset
     mapping(address => uint256) public totalsCollateral;
 
