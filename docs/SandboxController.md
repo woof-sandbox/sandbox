@@ -34,6 +34,12 @@ uint64 MIN_FACTOR
 uint8 MARKET_STATES
 ```
 
+### MIN_COLLATERAL_REMOVAL_DURATION
+
+```solidity
+uint40 MIN_COLLATERAL_REMOVAL_DURATION
+```
+
 ### treasury
 
 ```solidity
@@ -69,13 +75,22 @@ bool feeEnabled
 20 bytes
 feeEnabled flag. This is the flag that will be used to enable/disable the fees for all markets.
 
+### removalCollateralDuration
+
+```solidity
+uint40 removalCollateralDuration
+```
+
+1 byte
+removal collateral duration. This is the duration of the collateral removal process.
+
 ### _controllerConfiguration
 
 ```solidity
 struct ISandboxController.SandboxControllerConfiguration _controllerConfiguration
 ```
 
-1 byte
+5 bytes
 controller configuration.
 Holds:
 targetPercent,
@@ -163,7 +178,7 @@ _Both owner and dao are considered "authorized."
 ### constructor
 
 ```solidity
-constructor(address _owner, address _dao, address _treasury, bool _feeEnabled, struct ISandboxController.SandboxControllerConfiguration _config, uint64[3] _reserveCommissions, uint64[3] _protocolCommissions) public
+constructor(address _owner, address _dao, address _treasury, bool _feeEnabled, struct ISandboxController.SandboxControllerConfiguration _config, uint64[3] _reserveCommissions, uint64[3] _protocolCommissions, uint40 _removalCollateralDuration) public
 ```
 
 _Set all global parameters (including owner and DAO) at deployment.
@@ -182,6 +197,7 @@ The length of the `_reserveCommissions` and `_protocolCommissions` arrays must b
 | _config | struct ISandboxController.SandboxControllerConfiguration | SanboxController config: _targetPercent, < 0.5 (50%) _storeFrontPriceFactor, < 1e18 _minUpdateTime, > 0 _maxUpdateTime, reasonable time for the proposal duration _suggestedAmountOfSeedReserves The suggested amount of seed reserves in $. Decimals are 6. _suggestedLockTimeOfSeedReserves The suggested lock time of seed reserves in seconds. |
 | _reserveCommissions | uint64[3] | The reserve commission factors for each market state. |
 | _protocolCommissions | uint64[3] | The protocol commission factors for each market state. |
+| _removalCollateralDuration | uint40 |  |
 
 ### setMarketStateCommissions
 
@@ -541,4 +557,20 @@ Returns the configuration of the sandbox controller.
 | Name | Type | Description |
 | ---- | ---- | ----------- |
 | [0] | struct ISandboxController.SandboxControllerConfiguration | The sandbox controller configuration. |
+
+### setCollateralRemovalDuration
+
+```solidity
+function setCollateralRemovalDuration(uint40 newDuration) external
+```
+
+Sets the duration for collateral removal.
+
+_The new duration must be at least 7 days._
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| newDuration | uint40 | The new duration in seconds. |
 

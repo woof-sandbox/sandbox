@@ -90,5 +90,5 @@ interface ISandboxComet {
 
     function initiateCollateralRemoval(address removedAsset) external virtual;
 
-    function isCollateralRemovalInProgress() public view virtual returns (bool);
+    function isCollateralRemovalInProgress() external view virtual returns (bool);
 }

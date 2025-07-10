@@ -78,6 +78,8 @@ interface ISandboxController is ISandboxErrors {
     event OwnerTransferred(address oldOwner, address newOwner);
     event DaoTransferred(address oldDao, address newDao);
 
+    event CollateralRemovalDurationChanged(uint40 oldDuration, uint40 newDuration);
+
     function treasury() external view returns (address);
 
     function owner() external view returns (address);
@@ -87,6 +89,8 @@ interface ISandboxController is ISandboxErrors {
     function feeEnabled() external view returns (bool);
 
     function proposalBoundaries() external view returns (uint40, uint40);
+
+    function removalCollateralDuration() external view returns (uint40);
 
     function tokenToPriceFeed(address) external view returns (address);
 
@@ -120,6 +124,8 @@ interface ISandboxController is ISandboxErrors {
     function setConfiguration(SandboxControllerConfiguration memory _config) external;
 
     function setFeeEnabled(bool _feeEnabled) external;
+
+    function setCollateralRemovalDuration(uint40 _removalCollateralDuration) external;
 
     function transferOwner(address newOwner) external;
 

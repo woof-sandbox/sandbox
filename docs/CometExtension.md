@@ -89,6 +89,18 @@ function factorScale() external pure returns (uint64)
 function maxAssets() external pure returns (uint8)
 ```
 
+### targetBorrowCollateralFactor
+
+```solidity
+function targetBorrowCollateralFactor() external pure returns (uint64)
+```
+
+### targetLiquidateCollateralFactor
+
+```solidity
+function targetLiquidateCollateralFactor() external pure returns (uint64)
+```
+
 ### totalsBasic
 
 ```solidity

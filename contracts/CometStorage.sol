@@ -53,7 +53,7 @@ contract CometStorage is ICometStructures {
     uint64 internal constant TARGET_BORROW_COLLATERAL_FACTOR = 0;
 
     /// @dev The target liquidate collateral factor for the processing removal of collateral assets
-    uint64 internal constant TARGET_LIQUIDATE_COLLATERAL_FACTOR = 1e18;
+    uint64 internal constant TARGET_LIQUIDATE_COLLATERAL_FACTOR = 0;
 
     /** General configuration constants **/
     /// @notice Config Controller address

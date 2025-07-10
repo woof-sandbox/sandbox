@@ -21,5 +21,6 @@ interface ISandboxErrors {
     error NotOwner(address caller);
     error NotDao(address caller);
 
-    error CollateralRemovalInProgress(address removalAsset, uint40 startTime, uint40 endTime);
+    /// @notice Thrown when attempting to set a collateral removal duration that is too short.
+    error RemovalDurationTooShort();
 }

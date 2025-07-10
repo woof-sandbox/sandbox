@@ -41,7 +41,7 @@ interface ICometStructures {
         uint64 startBorrowCollateralFactor;
         uint64 startLiquidateCollateralFactor;
         uint40 startTime;
-        uint40 endTime;
+        uint40 duration;
         uint8 collateralAssetIndex;
         bool removalInProgress;
     }

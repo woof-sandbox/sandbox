@@ -356,38 +356,92 @@ contract SandboxComet is CometCore, ISandboxComet {
     }
 
     /**
-     * @notice Initiates the removal process for a collateral asset from the market.
+     * @notice Initiates the collateral removal process for a given collateral asset.
      * @dev
-     * - Can only be called by the config controller.
-     * - Reverts if a collateral removal process is already in progress.
-     * - Retrieves the collateral asset and its index by address.
-     * - Sets up the collateral removal state, including:
-     *   - The collateral token address.
-     *   - The starting borrow and liquidate collateral factors.
-     *   - The start and end timestamps for the removal period.
-     *   - The index of the collateral asset in the active list.
-     *   - The removalInProgress flag set to true.
-     * - Emits an {InitiateCollateralRemoval} event with the asset index, token address, start time, and end time.
-     * @param removalAsset The address of the collateral asset to be removed.
+     * This function begins a controlled and gradual removal process of a collateral asset from the protocol.
+     * It is intended to allow safe offboarding of an asset without causing sudden liquidations or collateral shortfalls.
+     *
+     * ---
+     * Access Control:
+     * - Only the `configController` is authorized to call this method.
+     * - Unauthorized calls will revert with `Unauthorized()`.
+     *
+     * ---
+     * Process Constraints:
+     * - Only one collateral removal process can be active at a time.
+     * - If a removal is already in progress, the function will revert with `CollateralRemovalInProgress(...)`,
+     *   providing:
+     *     - The currently offboarding token address.
+     *     - The start time of the active removal process.
+     *     - The scheduled end time.
+     *
+     * ---
+     * On Initialization:
+     * - Retrieves the collateral asset metadata via `getAssetInfoByAddress(...)`.
+     * - Stores the current state in `_collateralRemovalState`:
+     *     - `collateralToken`: Address of the token being removed.
+     *     - `startBorrowCollateralFactor` / `startLiquidateCollateralFactor`: Initial values before removal.
+     *     - `startTime`: Current timestamp.
+     *     - `duration`: Offboarding period, retrieved from `SandboxController`.
+     *     - `collateralAssetIndex`: Index in the active collateral array.
+     *     - `removalInProgress`: Flag set to `true`.
+     * - Sets the collateral’s `supplyCap` to zero to block new supply immediately.
+     *
+     * ---
+     * Safety and User Experience:
+     * - Borrow and liquidation collateral factors are **reduced linearly** over time using `interpolateValue(...)`.
+     * - This design prevents abrupt liquidations at the start of removal, even if the removed asset represented
+     *   a large share of the user's borrowing power.
+     * - The progressive decline gives users the opportunity to:
+     *     - Withdraw the soon-to-be-removed collateral voluntarily.
+     *     - Avoid opening new borrow positions against this collateral.
+     * - Once the removal period ends, collateral factors reach 0%, and the asset is fully offboarded.
+     *
+     * ---
+     * Post-Removal Behavior:
+     * - If a user did not withdraw the collateral before the process ended:
+     *     - They can **still withdraw it** without restrictions.
+     *     - As long as their borrow position remains solvent, they will **not be liquidated** solely due to
+     *       the collateral becoming inactive.
+     *     - If the asset was not supporting an active borrow, it remains withdrawable regardless.
+     *
+     * ---
+     * Lifecycle Summary:
+     * 1. Initiation via this method.
+     * 2. Progressive factor decay handled by `_prepareCollateralRemoval()` during internal state updates.
+     * 3. Finalization via `_finalizeCollateralRemoval()` once the duration elapses.
+     * 4. The asset is removed from active listings and added to the `removedCollateralAssets` array.
+     * 5. `removalInProgress` is set to `false`. The rest of the `_collateralRemovalState` remains in storage
+     *    for gas efficiency and will be overwritten on the next removal.
+     *
+     * @param removalAsset The address of the collateral asset to begin removing from the market.
+     *
+     * Emits a {CollateralRemovalInitiated} event including:
+     * - The index of the collateral in the active array.
+     * - The token address.
+     * - The start and end timestamps of the removal window.
+     *
+     * Reverts if:
+     * - The caller is not the config controller.
+     * - A removal process is already in progress.
      */
     function initiateCollateralRemoval(address removalAsset) external override {
-        require(msg.sender == configController, Unauthorized());
+        if (msg.sender != configController) revert Unauthorized();
 
         CollateralRemovalState memory collateralRemovalState_ = _collateralRemovalState;
 
-        require(
-            !collateralRemovalState_.removalInProgress,
-            CollateralRemovalInProgress(
+        if (collateralRemovalState_.removalInProgress) {
+            revert CollateralRemovalInProgress(
                 collateralRemovalState_.collateralToken,
                 collateralRemovalState_.startTime,
-                collateralRemovalState_.endTime
-            )
-        );
+                collateralRemovalState_.startTime + collateralRemovalState_.duration
+            );
+        }
 
         (CollateralAsset memory asset, uint8 assetIndex) = getAssetInfoByAddress(removalAsset);
 
         uint40 now_ = getNowInternal();
-        uint40 duration = 7 days; // @todo ISandboxController(sandboxController).collateralRemovalDuration();
+        uint40 duration = ISandboxController(sandboxController).removalCollateralDuration();
 
         // Set the collateral removal state
         _collateralRemovalState = CollateralRemovalState({
@@ -395,12 +449,15 @@ contract SandboxComet is CometCore, ISandboxComet {
             startBorrowCollateralFactor: asset.borrowCollateralFactor,
             startLiquidateCollateralFactor: asset.liquidateCollateralFactor,
             startTime: now_,
-            endTime: now_ + duration,
+            duration: duration,
             collateralAssetIndex: assetIndex,
             removalInProgress: true
         });
 
-        emit CollateralRemovalInitiated(assetIndex, asset.collateralToken, now_, now_ + duration);
+        // Set the supply capitalization to 0, so that it is impossible to supply a collateral asset after initializing the removal process
+        collateralAssets[assetIndex].supplyCap = 0;
+
+        emit CollateralRemovalInitiated(assetIndex, asset.collateralToken, now_, (now_ + duration));
     }
 
     /**
@@ -415,44 +472,36 @@ contract SandboxComet is CometCore, ISandboxComet {
      *   that the collateral removal process progresses smoothly over time.
      */
     function _prepareCollateralRemoval() internal {
-        emit Debug(1);
         CollateralRemovalState memory collateralRemovalState_ = _collateralRemovalState;
-
-        CollateralAsset memory collateralAsset_ = collateralAssets[collateralRemovalState_.collateralAssetIndex];
-
+        CollateralAsset storage collateralAsset = collateralAssets[collateralRemovalState_.collateralAssetIndex];
+        uint40 now_ = getNowInternal();
         // If the end time of the collateral removal is reached, finalize the removal of the asset
-        if (collateralRemovalState_.endTime <= getNowInternal()) {
-            emit Debug(2);
+        if ((collateralRemovalState_.startTime + collateralRemovalState_.duration) <= now_) {
             // Set the borrow and liquidate collateral factors to the target values
-            collateralAsset_.borrowCollateralFactor = TARGET_BORROW_COLLATERAL_FACTOR;
-            collateralAsset_.liquidateCollateralFactor = TARGET_LIQUIDATE_COLLATERAL_FACTOR;
+            collateralAsset.borrowCollateralFactor = TARGET_BORROW_COLLATERAL_FACTOR;
+            collateralAsset.liquidateCollateralFactor = TARGET_LIQUIDATE_COLLATERAL_FACTOR;
             // Remove the collateral asset from the list of active collateral assets and save it to the removed assets list
-            _finalizeCollateralRemoval(collateralAsset_, collateralRemovalState_);
+            _finalizeCollateralRemoval(collateralAsset, collateralRemovalState_);
         } else {
-            emit Debug(3);
-            // Calculate the new borrow collateral factors
-            collateralAsset_.borrowCollateralFactor = interpolateValue(
+            uint40 elapsed = now_ - collateralRemovalState_.startTime;
+            // Calculate and set the new borrow collateral factors
+            collateralAsset.borrowCollateralFactor = interpolateValue(
                 collateralRemovalState_.startBorrowCollateralFactor,
                 TARGET_BORROW_COLLATERAL_FACTOR,
-                collateralAsset_.borrowCollateralFactor,
-                collateralRemovalState_.startTime,
-                collateralRemovalState_.endTime
+                collateralAsset.borrowCollateralFactor,
+                elapsed,
+                collateralRemovalState_.duration
             );
-            // Calculate the new liquidate collateral factors
-            collateralAsset_.liquidateCollateralFactor = interpolateValue(
+            // Calculate and set the new liquidate collateral factors
+            collateralAsset.liquidateCollateralFactor = interpolateValue(
                 collateralRemovalState_.startLiquidateCollateralFactor,
                 TARGET_LIQUIDATE_COLLATERAL_FACTOR,
-                collateralAsset_.liquidateCollateralFactor,
-                collateralRemovalState_.startTime,
-                collateralRemovalState_.endTime
+                collateralAsset.liquidateCollateralFactor,
+                elapsed,
+                collateralRemovalState_.duration
             );
-
-            // Update the asset in the list with the new borrow and liquidate collateral factors
-            collateralAssets[collateralRemovalState_.collateralAssetIndex] = collateralAsset_;
         }
     }
-
-    event Debug(uint256 value); // @todo remove after debugging
 
     /**
      * @notice Finalizes the removal of a collateral asset from the market.
@@ -955,7 +1004,6 @@ contract SandboxComet is CometCore, ISandboxComet {
      */
     function supplyCollateral(address from, address dst, address asset, uint256 amount) internal {
         amount = doTransferIn(asset, from, amount);
-        // accrueInternal(); // @todo may not be necessary
 
         (CollateralAsset memory assetInfo, uint8 index) = getAssetInfoByAddress(asset);
         uint256 totals = totalsCollateral[asset];
@@ -1504,11 +1552,4 @@ contract SandboxComet is CometCore, ISandboxComet {
             }
         }
     }
-
-    // aderyn-fp-next-line(contract-locks-ether)
-    receive() external payable {
-        // Fallback function to receive ETH, if needed
-        // Note: This contract does not use ETH, so this is just a placeholder
-        revert("SandboxComet: Cannot receive ETH");
-    } // @todo remove
 }
