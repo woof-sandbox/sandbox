@@ -224,20 +224,3 @@ Returns the current configuration of the market
 | ---- | ---- | ----------- |
 | [0] | struct ICometExtension.Configuration | Configuration struct containing all market parameters |
 
-### allowInternal
-
-```solidity
-function allowInternal(address owner, address manager, address asset, uint256 amount) internal
-```
-
-_Allows a manager to spend an owner's allowance on a specific asset_
-
-#### Parameters
-
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| owner | address | The owner of the assets |
-| manager | address | The manager account |
-| asset | address | The asset being spent |
-| amount | uint256 | The amount to spend |
-
