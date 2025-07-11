@@ -124,6 +124,7 @@ describe("2. System Params Validation", function () {
       baseToken: baseToken.address,
       collateralTokens: collateralTokens.map(obj => ({ ...obj })),
       baseTokenCurveId: 0n,
+      name: "Comet",
     };
   });
 
@@ -133,6 +134,7 @@ describe("2. System Params Validation", function () {
         baseToken: baseToken.address,
         collateralTokens: collateralTokens.map(obj => ({ ...obj })),
         baseTokenCurveId: 0n,
+        name: "Comet",
       };
     });
     describe("Comet parameters validation", function () {
@@ -338,6 +340,7 @@ describe("2. System Params Validation", function () {
           baseToken: baseToken.address,
           collateralTokens: collateralTokens.map(obj => ({ ...obj })),
           baseTokenCurveId: 0n,
+          name: "Comet",
         };
       });
       it("should revert if token decimals is greater than max base decimals", async () => {
@@ -410,6 +413,7 @@ describe("2. System Params Validation", function () {
           baseToken: baseToken.address,
           collateralTokens: collateralTokens.map(obj => ({ ...obj })),
           baseTokenCurveId: 0n,
+          name: "Comet",
         };
         const cometAddress = await configController.callStatic.createComet(marketConfig);
         await configController.createComet(marketConfig);

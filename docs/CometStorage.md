@@ -467,13 +467,14 @@ mapping(address => uint256) assetFeesDAO
 
 Fees aggregation for the DAO
 
-### isAllowed
+### allowance
 
 ```solidity
-mapping(address => mapping(address => bool)) isAllowed
+mapping(address => mapping(address => mapping(address => uint256))) allowance
 ```
 
 Mapping of users to accounts which may be permitted to manage the user account
+user => spender => asset (base or collateral) => amount
 
 ### userNonce
 

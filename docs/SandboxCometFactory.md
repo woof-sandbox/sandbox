@@ -48,7 +48,7 @@ Constructs a new SandboxCometFactory
 ### createComet
 
 ```solidity
-function createComet() external returns (address)
+function createComet(string _name) external returns (address)
 ```
 
 Creates a new comet with the specified configuration

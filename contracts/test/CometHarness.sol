@@ -96,4 +96,8 @@ contract CometHarness is SandboxComet {
     function accrue() external {
         accrueInternal();
     }
+
+    function spendAllowanceExternal(address owner, address manager, address asset, uint256 amount) external {
+        spendAllowance(owner, manager, asset, amount);
+    }
 }

@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
-import "./interfaces/IConfigController.sol";
-
 /**
  * @title Compound's Comet Storage Interface
  * @dev Versions can enforce append-only storage slots via inheritance.
@@ -194,7 +192,8 @@ contract CometStorage {
     mapping(address => uint256) public assetFeesDAO;
 
     /// @notice Mapping of users to accounts which may be permitted to manage the user account
-    mapping(address => mapping(address => bool)) public isAllowed;
+    /// @notice user => spender => asset (base or collateral) => amount
+    mapping(address => mapping(address => mapping(address => uint))) public allowance;
 
     /// @notice The next expected nonce for an address, for validating authorizations via signature
     mapping(address => uint) public userNonce;

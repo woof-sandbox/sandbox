@@ -313,6 +313,7 @@ describe("5. supplyTo", function () {
     });
   });
 
+  // TODO: recreate scenario with new conditions (now reverts on 0)
   // This is an edge-case that can occur when a user supplies 0 base.
   // When `amount=0` in `supplyBase`, `dstPrincipalNew = principalValue(presentValue(dstPrincipal))`
   // In some cases, `dstPrincipalNew` can actually be less than `dstPrincipal` due to the fact
@@ -322,7 +323,7 @@ describe("5. supplyTo", function () {
   // later cause an overflow during an addition operation. The new code now explicitly checks
   // this assumption and sets both `repayAmount` and `supplyAmount` to 0 if the assumption is
   // violated.
-  it("supplies 0 and does not revert when dstPrincipalNew < dstPrincipal", async () => {
+  it.skip("supplies 0 and does not revert when dstPrincipalNew < dstPrincipal", async () => {
     const protocol = await makeProtocol({
       base: "USDC",
       storeFrontPriceFactor: exp(0.5, 18),
@@ -1053,13 +1054,8 @@ describe("supplyFrom", function () {
     const cometAsC = comet.connect(charlie);
 
     // Approve Charlie the comet to transfer COMP on behalf of bob
-    const cometExtention = (await ethers.getContractAt("CometExtension", await comet.extension())) as CometExtension;
-    const approveCalldata = cometExtention.interface.encodeFunctionData("approve", [charlie.address, ethers.constants.MaxUint256]);
-    await bob.sendTransaction({
-      to: comet.address,
-      data: approveCalldata,
-      gasLimit: 1_000_000,
-    });
+    const cometExtention = (await ethers.getContractAt("CometExtension", comet.address)) as CometExtension;
+    await cometExtention.connect(bob).approve(charlie.address, COMP.address, supplyAmount);
 
     await wait(baseAsB.approve(comet.address, supplyAmount));
     const p0 = await portfolio(protocol, alice.address);
@@ -1115,9 +1111,10 @@ describe("supplyFrom", function () {
     const { COMP } = tokens;
 
     await COMP.allocateTo(bob.address, 7);
-    const cometAsC = comet.connect(charlie);
 
-    await expect(cometAsC.supplyFrom(bob.address, alice.address, COMP.address, 7)).to.be.revertedWith("custom error 'Unauthorized()'");
+    await expect(comet.connect(charlie).supplyFrom(bob.address, alice.address, COMP.address, 7))
+      .to.be.revertedWithCustomError(comet, "InsufficientAllowance")
+      .withArgs(COMP.address, bob.address, charlie.address);
   });
 
   it("reverts if supply is paused", async () => {

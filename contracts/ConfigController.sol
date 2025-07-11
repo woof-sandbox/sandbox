@@ -206,7 +206,7 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
             _sandboxConfig.suggestedAmountOfSeedReserves
         );
 
-        address comet = ISandboxCometFactory(cometFactory).createComet(); // aderyn-fp(reentrancy-state-change)
+        address comet = ISandboxCometFactory(cometFactory).createComet(_cometConfig.name); // aderyn-fp(reentrancy-state-change)
         ISandboxComet(comet).initialize(_cometConfig, _globalConfig); // aderyn-fp(reentrancy-state-change)
 
         uint256 cometsNum = comets.length;

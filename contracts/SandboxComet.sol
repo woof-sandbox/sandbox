@@ -608,7 +608,7 @@ contract SandboxComet is ISandboxComet {
      * @dev Note: Safely handles non-standard ERC-20 tokens that do not return a value.
      * See here: https://medium.com/coinmonks/missing-return-value-bug-at-least-130-tokens-affected-d67bf08521ca
      */
-    function doTransferIn(address asset, address from, uint amount) internal returns (uint) {
+    function doTransferIn(address asset, address from, uint256 amount) internal returns (uint256) {
         uint256 preTransferBalance = IERC20(asset).balanceOf(address(this));
         IERC20(asset).safeTransferFrom(from, address(this), amount);
         return IERC20(asset).balanceOf(address(this)) - preTransferBalance;
@@ -619,7 +619,7 @@ contract SandboxComet is ISandboxComet {
      * @param asset The asset to supply
      * @param amount The quantity to supply
      */
-    function supply(address asset, uint amount) external override {
+    function supply(address asset, uint256 amount) external override {
         return supplyInternal(msg.sender, msg.sender, msg.sender, asset, amount);
     }
 
@@ -629,7 +629,7 @@ contract SandboxComet is ISandboxComet {
      * @param asset The asset to supply
      * @param amount The quantity to supply
      */
-    function supplyTo(address dst, address asset, uint amount) external override {
+    function supplyTo(address dst, address asset, uint256 amount) external override {
         return supplyInternal(msg.sender, msg.sender, dst, asset, amount);
     }
 
@@ -640,7 +640,7 @@ contract SandboxComet is ISandboxComet {
      * @param asset The asset to supply
      * @param amount The quantity to supply
      */
-    function supplyFrom(address from, address dst, address asset, uint amount) external override {
+    function supplyFrom(address from, address dst, address asset, uint256 amount) external override {
         return supplyInternal(msg.sender, from, dst, asset, amount);
     }
 
@@ -648,9 +648,11 @@ contract SandboxComet is ISandboxComet {
      * @dev Supply either collateral or base asset, depending on the asset, if operator is allowed
      * @dev Note: Specifying an `amount` of uint256.max will repay all of `dst`'s accrued base borrow balance
      */
-    function supplyInternal(address operator, address from, address dst, address asset, uint amount) internal nonReentrant {
+    function supplyInternal(address operator, address from, address dst, address asset, uint256 amount) internal nonReentrant {
+        if (amount == 0) revert ZeroAmount();
         if (isSupplyPaused()) revert Paused();
-        if (!hasPermission(from, operator)) revert Unauthorized();
+        if (!hasPermission(from, operator, asset, amount)) revert InsufficientAllowance(asset, from, operator);
+        spendAllowance(from, operator, asset, amount);
 
         if (asset == baseToken) {
             if (amount == type(uint256).max) {
@@ -716,7 +718,7 @@ contract SandboxComet is ISandboxComet {
      * @param amount The quantity to transfer
      * @return true
      */
-    function transfer(address dst, uint amount) external override returns (bool) {
+    function transfer(address dst, uint256 amount) external override returns (bool) {
         transferInternal(msg.sender, msg.sender, dst, baseToken, amount);
         return true;
     }
@@ -728,7 +730,7 @@ contract SandboxComet is ISandboxComet {
      * @param amount The quantity to transfer
      * @return true
      */
-    function transferFrom(address src, address dst, uint amount) external override returns (bool) {
+    function transferFrom(address src, address dst, uint256 amount) external override returns (bool) {
         transferInternal(msg.sender, src, dst, baseToken, amount);
         return true;
     }
@@ -739,7 +741,7 @@ contract SandboxComet is ISandboxComet {
      * @param asset The asset to transfer
      * @param amount The quantity to transfer
      */
-    function transferAsset(address dst, address asset, uint amount) external override {
+    function transferAsset(address dst, address asset, uint256 amount) external override {
         return transferInternal(msg.sender, msg.sender, dst, asset, amount);
     }
 
@@ -750,7 +752,7 @@ contract SandboxComet is ISandboxComet {
      * @param asset The asset to transfer
      * @param amount The quantity to transfer
      */
-    function transferAssetFrom(address src, address dst, address asset, uint amount) external override {
+    function transferAssetFrom(address src, address dst, address asset, uint256 amount) external override {
         return transferInternal(msg.sender, src, dst, asset, amount);
     }
 
@@ -758,9 +760,11 @@ contract SandboxComet is ISandboxComet {
      * @dev Transfer either collateral or base asset, depending on the asset, if operator is allowed
      * @dev Note: Specifying an `amount` of uint256.max will transfer all of `src`'s accrued base balance
      */
-    function transferInternal(address operator, address src, address dst, address asset, uint amount) internal nonReentrant {
+    function transferInternal(address operator, address src, address dst, address asset, uint256 amount) internal nonReentrant {
+        if (amount == 0) revert ZeroAmount();
         if (isTransferPaused()) revert Paused();
-        if (!hasPermission(src, operator)) revert Unauthorized();
+        if (!hasPermission(src, operator, asset, amount)) revert InsufficientAllowance(asset, src, operator);
+        spendAllowance(src, operator, asset, amount);
         if (src == dst) revert NoSelfTransfer();
 
         if (asset == baseToken) {
@@ -840,7 +844,7 @@ contract SandboxComet is ISandboxComet {
      * @param asset The asset to withdraw
      * @param amount The quantity to withdraw
      */
-    function withdraw(address asset, uint amount) external override {
+    function withdraw(address asset, uint256 amount) external override {
         return withdrawInternal(msg.sender, msg.sender, msg.sender, asset, amount);
     }
 
@@ -850,7 +854,7 @@ contract SandboxComet is ISandboxComet {
      * @param asset The asset to withdraw
      * @param amount The quantity to withdraw
      */
-    function withdrawTo(address to, address asset, uint amount) external override {
+    function withdrawTo(address to, address asset, uint256 amount) external override {
         return withdrawInternal(msg.sender, msg.sender, to, asset, amount);
     }
 
@@ -861,7 +865,7 @@ contract SandboxComet is ISandboxComet {
      * @param asset The asset to withdraw
      * @param amount The quantity to withdraw
      */
-    function withdrawFrom(address src, address to, address asset, uint amount) external override {
+    function withdrawFrom(address src, address to, address asset, uint256 amount) external override {
         return withdrawInternal(msg.sender, src, to, asset, amount);
     }
 
@@ -869,9 +873,11 @@ contract SandboxComet is ISandboxComet {
      * @dev Withdraw either collateral or base asset, depending on the asset, if operator is allowed
      * @dev Note: Specifying an `amount` of uint256.max will withdraw all of `src`'s accrued base balance
      */
-    function withdrawInternal(address operator, address src, address to, address asset, uint amount) internal nonReentrant {
+    function withdrawInternal(address operator, address src, address to, address asset, uint256 amount) internal nonReentrant {
+        if (amount == 0) revert ZeroAmount();
         if (isWithdrawPaused()) revert Paused();
-        if (!hasPermission(src, operator)) revert Unauthorized();
+        if (!hasPermission(src, operator, asset, amount)) revert InsufficientAllowance(asset, src, operator);
+        spendAllowance(src, operator, asset, amount);
 
         if (asset == baseToken) {
             if (amount == type(uint256).max) {
