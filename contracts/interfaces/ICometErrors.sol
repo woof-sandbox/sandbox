@@ -109,4 +109,10 @@ interface ICometErrors {
      * @param manager The address attempting to spend tokens
      */
     error InsufficientAllowance(address token, address owner, address manager);
+
+    /**
+     * @notice Error thrown when the operation is performed with neither base nor collateral token
+     * @param token Detected token
+     */
+    error WrongToken(address token);
 }

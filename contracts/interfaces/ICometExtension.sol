@@ -39,7 +39,6 @@ abstract contract ICometExtension is CometCore {
     error InvalidValueS();
     error InvalidValueV();
     error SignatureExpired();
-    error WrongToken(address token);
     error InvalidLength();
 
     function allowBySig(
@@ -101,6 +100,4 @@ abstract contract ICometExtension is CometCore {
      * @notice The order list of collateral assets must match the order of `collateralAssets`
      */
     function approveAll(address spender, uint256 baseTokenAmount, uint256[] calldata amounts) external virtual;
-
-    event Approval(address indexed owner, address indexed spender, address indexed asset, uint256 amount);
 }

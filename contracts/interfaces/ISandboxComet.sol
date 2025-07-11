@@ -11,61 +11,25 @@ import "./ISandboxController.sol";
  * @author Compound
  */
 abstract contract ISandboxComet is CometCore {
-    event Supply(address indexed from, address indexed dst, uint amount);
-    event Transfer(address indexed from, address indexed to, uint amount);
-    event Withdraw(address indexed src, address indexed to, uint amount);
+    function supply(address asset, uint256 amount) external virtual;
 
-    event SupplyCollateral(address indexed from, address indexed dst, address indexed asset, uint amount);
-    event TransferCollateral(address indexed from, address indexed to, address indexed asset, uint amount);
-    event WithdrawCollateral(address indexed src, address indexed to, address indexed asset, uint amount);
+    function supplyTo(address dst, address asset, uint256 amount) external virtual;
 
-    /// @notice Event emitted when a borrow position is absorbed by the protocol
-    event AbsorbDebt(address indexed absorber, address indexed borrower, uint basePaidOut, uint usdValue);
+    function supplyFrom(address from, address dst, address asset, uint256 amount) external virtual;
 
-    /// @notice Event emitted when a user's collateral is absorbed by the protocol
-    event AbsorbCollateral(
-        address indexed absorber,
-        address indexed borrower,
-        address indexed asset,
-        uint collateralAbsorbed,
-        uint usdValue
-    );
+    function transfer(address dst, uint256 amount) external virtual returns (bool);
 
-    /// @notice Event emitted when a collateral asset is purchased from the protocol
-    event BuyCollateral(address indexed buyer, address indexed asset, uint baseAmount, uint collateralAmount);
+    function transferFrom(address src, address dst, uint256 amount) external virtual returns (bool);
 
-    /// @notice Event emitted when fees are extracted either to DAO or to protocol
-    event FeesExtracted(address indexed comet, address indexed asset, uint amoint, address to);
+    function transferAsset(address dst, address asset, uint256 amount) external virtual;
 
-    /// @notice Event emitted when an action is paused/unpaused
-    event PauseAction(bool supplyPaused, bool transferPaused, bool withdrawPaused, bool absorbPaused, bool buyPaused);
+    function transferAssetFrom(address src, address dst, address asset, uint256 amount) external virtual;
 
-    /// @notice Event emitted when reserves are withdrawn by the governor
-    event WithdrawReserves(address indexed to, uint amount);
+    function withdraw(address asset, uint256 amount) external virtual;
 
-    event SpeedsChanged(uint baseTrackingSupplySpeed, uint baseTrackingBorrowSpeed, bool dao_);
+    function withdrawTo(address to, address asset, uint256 amount) external virtual;
 
-    event ControllerFeeDisabled(bool disabled);
-
-    function supply(address asset, uint amount) external virtual;
-
-    function supplyTo(address dst, address asset, uint amount) external virtual;
-
-    function supplyFrom(address from, address dst, address asset, uint amount) external virtual;
-
-    function transfer(address dst, uint amount) external virtual returns (bool);
-
-    function transferFrom(address src, address dst, uint amount) external virtual returns (bool);
-
-    function transferAsset(address dst, address asset, uint amount) external virtual;
-
-    function transferAssetFrom(address src, address dst, address asset, uint amount) external virtual;
-
-    function withdraw(address asset, uint amount) external virtual;
-
-    function withdrawTo(address to, address asset, uint amount) external virtual;
-
-    function withdrawFrom(address src, address to, address asset, uint amount) external virtual;
+    function withdrawFrom(address src, address to, address asset, uint256 amount) external virtual;
 
     function factoryInit(address, address) external virtual;
 

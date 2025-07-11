@@ -207,21 +207,4 @@ contract CometExtension is ICometExtension {
                 assetConfigs: collateralAssets
             });
     }
-
-    /**
-     * @dev Allows a manager to spend an owner's allowance on a specific asset
-     * @param owner The owner of the assets
-     * @param manager The manager account
-     * @param asset The asset being spent
-     * @param amount The amount to spend
-     */
-    function allowInternal(address owner, address manager, address asset, uint256 amount) internal {
-        uint8 index = collateralAssetIndex[asset];
-        if (owner == address(0) || manager == address(0) || asset == address(0)) revert ZeroAddress();
-        if (asset != baseToken && (collateralAssets[index].collateralToken != asset)) revert WrongToken(asset);
-
-        allowance[owner][manager][asset] = amount;
-
-        emit Approval(owner, manager, asset, amount);
-    }
 }

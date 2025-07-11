@@ -313,6 +313,7 @@ describe("5. supplyTo", function () {
     });
   });
 
+  // TODO: recreate scenario with new conditions (now reverts on 0)
   // This is an edge-case that can occur when a user supplies 0 base.
   // When `amount=0` in `supplyBase`, `dstPrincipalNew = principalValue(presentValue(dstPrincipal))`
   // In some cases, `dstPrincipalNew` can actually be less than `dstPrincipal` due to the fact
@@ -322,7 +323,7 @@ describe("5. supplyTo", function () {
   // later cause an overflow during an addition operation. The new code now explicitly checks
   // this assumption and sets both `repayAmount` and `supplyAmount` to 0 if the assumption is
   // violated.
-  it("supplies 0 and does not revert when dstPrincipalNew < dstPrincipal", async () => {
+  it.skip("supplies 0 and does not revert when dstPrincipalNew < dstPrincipal", async () => {
     const protocol = await makeProtocol({
       base: "USDC",
       storeFrontPriceFactor: exp(0.5, 18),

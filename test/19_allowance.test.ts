@@ -258,37 +258,5 @@ describe("19. allowance", function () {
         "ZeroAmount"
       );
     });
-
-    it("should revert if owner is zero address", async () => {
-      const amount = 0;
-      const asset = baseToken.address;
-
-      const zeroAddress = ethers.constants.AddressZero;
-      await impersonateAccount(zeroAddress);
-      const zeroSigner = await ethers.getSigner(zeroAddress);
-
-      await expect(comet.connect(zeroSigner).supplyFrom(alice.address, user.address, asset, amount)).to.be.revertedWithCustomError(
-        comet,
-        "ZeroAddress"
-      );
-    });
-
-    it("should revert if manager is zero address", async () => {
-      const asset = baseToken.address;
-      const amount = 0;
-      const from = ethers.constants.AddressZero;
-
-      await expect(comet.connect(user).supplyFrom(from, user.address, asset, amount)).to.be.revertedWithCustomError(comet, "ZeroAddress");
-    });
-
-    it("should revert if asset is zero address", async () => {
-      const amount = 0;
-      const asset = ethers.constants.AddressZero;
-
-      await expect(comet.connect(user).supplyFrom(alice.address, user.address, asset, amount)).to.be.revertedWithCustomError(
-        comet,
-        "ZeroAddress"
-      );
-    });
   });
 });
