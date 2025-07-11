@@ -33,6 +33,10 @@ import { CometConfigStruct } from "../../build/types/ConfigController";
 
 export { ethers, expect, hre };
 
+// Snapshot
+export type { SnapshotRestorer } from "@nomicfoundation/hardhat-network-helpers";
+export { takeSnapshot } from "@nomicfoundation/hardhat-network-helpers";
+
 export type Numeric = number | bigint;
 
 export enum ReentryAttack {
