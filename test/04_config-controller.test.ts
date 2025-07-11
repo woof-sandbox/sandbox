@@ -195,8 +195,7 @@ describe("ConfigController", () => {
     it("should revert when minUpdate is higher than new duration", async function () {
       const { configController, owner, sandboxController } = await makeConfigController();
 
-      const proposalBoundaries = await sandboxController.proposalBoundaries();
-      const minUpdateTime = proposalBoundaries[0];
+      const minUpdateTime = (await sandboxController.proposalBoundaries())[0];
       const newDuration = minUpdateTime + 1 * 60 * 24 * 24; // +1 days
       await expect(configController.connect(owner).setProposalDurations(newDuration, minUpdateTime - 1)).to.be.revertedWithCustomError(
         configController,

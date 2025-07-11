@@ -28,8 +28,8 @@ module.exports = {
       'error',
       2,
       {
-        SwitchCase: 1,
-      },
+        'SwitchCase': 1
+      }
     ],
     'linebreak-style': 'off',
     'no-constant-condition': ['error', { checkLoops: false }],

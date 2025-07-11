@@ -41,6 +41,7 @@ contract SandboxCometFactory is ISandboxCometFactory {
      * @return The address of the newly created comet
      */
     function createComet(string calldata _name) external override returns (address) {
+        // aderyn-fp-next-line(reentrancy-state-change)
         if (!IConfigControllerFactory(configControllerFactory).isController(msg.sender)) revert Unauthorized();
 
         address comet = Clones.clone(cometImplementation);
