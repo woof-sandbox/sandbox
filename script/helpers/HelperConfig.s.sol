@@ -25,6 +25,8 @@ contract HelperConfig is Script {
         address wbtcPriceFeed;
         address compPriceFeed;
         address linkPriceFeed;
+        address comet1;
+        address comet2;
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -72,7 +74,9 @@ contract HelperConfig is Script {
                 wethPriceFeed: 0xF71BA22FdD2Aaf3dc1EDE5a234004eaa46904E7E,
                 wbtcPriceFeed: 0x651D96AfbeE282C1D58ECFce0D2dd8515255e020,
                 compPriceFeed: 0x9d82DcF7Fe854EBCE8AF6D0B2206E2Cfb62a8EcE,
-                linkPriceFeed: 0x62E979Ddfc74A6d4E23624cF1EdF0612E501c7a5
+                linkPriceFeed: 0x62E979Ddfc74A6d4E23624cF1EdF0612E501c7a5,
+                comet1: 0xf11456686371F64Da3Cb5659EA3925D40fe48E53,
+                comet2: 0x1C75628833fB1EaE31A1BB5F1a05E70f41EEF39d
             });
     }
 
@@ -90,7 +94,9 @@ contract HelperConfig is Script {
                 wethPriceFeed: 0x639Fe6ab55C921f74e7fac1ee960C0B6293ba612,
                 wbtcPriceFeed: 0x6ce185860a4963106506C203335A2910413708e9,
                 compPriceFeed: 0xe7C53FFd03Eb6ceF7d208bC4C13446c76d1E5884,
-                linkPriceFeed: 0x86E53CF1B870786351Da77A57575e79CB55812CB
+                linkPriceFeed: 0x86E53CF1B870786351Da77A57575e79CB55812CB,
+                comet1: address(0),
+                comet2: address(0)
             });
     }
 }

@@ -1,14 +1,16 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
-import "forge-std/Script.sol";
-import "../contracts/SandboxController.sol";
-import "../contracts/ConfigControllerFactory.sol";
-import "../contracts/SandboxCometFactory.sol";
-import "../contracts/SandboxComet.sol";
-import "../contracts/test/ManagedFaucetToken.sol";
-import "../contracts/test/ManagedSimplePriceFeed.sol";
-import "../contracts/interfaces/ISandboxComet.sol";
+import { Script, console } from "forge/lib/forge-std/src/Script.sol";
+import { SandboxController } from "contracts/SandboxController.sol";
+import { ConfigController } from "contracts/ConfigController.sol";
+import { ConfigControllerFactory } from "contracts/ConfigControllerFactory.sol";
+import { IConfigController } from "contracts/interfaces/IConfigController.sol";
+import { ISandboxController } from "contracts/interfaces/ISandboxController.sol";
+import { SandboxCometFactory } from "contracts/SandboxCometFactory.sol";
+import { SandboxComet } from "contracts/SandboxComet.sol";
+import { ManagedFaucetToken } from "contracts/test/ManagedFaucetToken.sol";
+import { ManagedSimplePriceFeed } from "contracts/test/ManagedSimplePriceFeed.sol";
 import { HelperConfig } from "script/helpers/HelperConfig.s.sol";
 
 contract DeployProtocol is Script {
@@ -285,8 +287,8 @@ contract DeployProtocol is Script {
         address configControllerAddr,
         address baseToken,
         address basePriceFeed,
-        address[] memory collateralTokens,
-        address[] memory collateralPriceFeeds
+        address[] calldata collateralTokens,
+        address[] calldata collateralPriceFeeds
     ) internal returns (address) {
         IConfigController configController = IConfigController(configControllerAddr);
 
