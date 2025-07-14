@@ -31,6 +31,10 @@ import { TransactionReceipt, TransactionResponse } from "@ethersproject/abstract
 import { CometHarness, TotalsBasicStructOutput } from "../../build/types/CometHarness";
 import { CometConfigStruct } from "../../build/types/ConfigController";
 
+// Snapshot
+export type { SnapshotRestorer } from "@nomicfoundation/hardhat-network-helpers";
+export { takeSnapshot } from "@nomicfoundation/hardhat-network-helpers";
+
 export { ethers, expect, hre };
 
 export type Numeric = number | bigint;
@@ -493,6 +497,7 @@ async function createComet2(
     baseToken: baseToken.address,
     collateralTokens: collateralTokens,
     baseTokenCurveId: 0n,
+    name: opts.name || "Comet",
   };
 
   await configController.createComet(marketConfig);
@@ -509,6 +514,7 @@ export async function createComet(
     baseToken: baseToken.address,
     collateralTokens: [],
     baseTokenCurveId: 0n,
+    name: "Comet",
   };
 
   for (let token in tokens) {

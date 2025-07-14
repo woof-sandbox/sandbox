@@ -1,18 +1,53 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
-import "./CometStorage.sol";
-import "./CometMath.sol";
+import { CometStorage } from "contracts/CometStorage.sol";
+import { CometMath } from "contracts/CometMath.sol";
+import { ICometErrors } from "contracts/interfaces/ICometErrors.sol";
+import { ICometEvents } from "contracts/interfaces/ICometEvents.sol";
 
-abstract contract CometCore is CometStorage, CometMath {
+abstract contract CometCore is CometStorage, CometMath, ICometErrors, ICometEvents {
     /**
      * @notice Determine if the manager has permission to act on behalf of the owner
      * @param owner The owner account
      * @param manager The manager account
+     * @param asset The address of the asset being checked
+     * @param amount The amount of the asset being checked
      * @return Whether or not the manager has permission
      */
-    function hasPermission(address owner, address manager) public view returns (bool) {
-        return owner == manager || isAllowed[owner][manager];
+    function hasPermission(address owner, address manager, address asset, uint256 amount) public view returns (bool) {
+        return owner == manager || allowance[owner][manager][asset] >= amount;
+    }
+
+    /**
+     * @notice Spend the allowance of an asset for a spender on behalf of an owner
+     * @param owner The owner account
+     * @param manager The spender account
+     * @param asset The asset being spent
+     * @param amount The amount to spend
+     */
+    function spendAllowance(address owner, address manager, address asset, uint256 amount) internal {
+        if (owner == manager) return;
+        if (amount == 0) revert ZeroAmount();
+
+        allowInternal(owner, manager, asset, allowance[owner][manager][asset] - amount);
+    }
+
+    /**
+     * @dev Allows a manager to spend an owner's allowance on a specific asset
+     * @param owner The owner of the assets
+     * @param manager The manager account
+     * @param asset The asset being spent
+     * @param amount The amount to spend
+     */
+    function allowInternal(address owner, address manager, address asset, uint256 amount) internal {
+        uint8 index = collateralAssetIndex[asset];
+        if (owner == address(0) || manager == address(0) || asset == address(0)) revert ZeroAddress();
+        if (asset != baseToken && (collateralAssets[index].collateralToken != asset)) revert WrongToken(asset);
+
+        allowance[owner][manager][asset] = amount;
+
+        emit Approval(owner, manager, asset, amount);
     }
 
     /**

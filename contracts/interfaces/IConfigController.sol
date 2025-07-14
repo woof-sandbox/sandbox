@@ -21,6 +21,7 @@ interface IConfigController {
         address baseToken;
         uint8 baseTokenCurveId;
         CollateralTokenConfig[] collateralTokens;
+        string name;
     }
 
     struct CometGlobalParamsConfig {

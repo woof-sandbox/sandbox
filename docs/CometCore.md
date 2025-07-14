@@ -5,7 +5,7 @@
 ### hasPermission
 
 ```solidity
-function hasPermission(address owner, address manager) public view returns (bool)
+function hasPermission(address owner, address manager, address asset, uint256 amount) public view returns (bool)
 ```
 
 Determine if the manager has permission to act on behalf of the owner
@@ -16,12 +16,48 @@ Determine if the manager has permission to act on behalf of the owner
 | ---- | ---- | ----------- |
 | owner | address | The owner account |
 | manager | address | The manager account |
+| asset | address | The address of the asset being checked |
+| amount | uint256 | The amount of the asset being checked |
 
 #### Return Values
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
 | [0] | bool | Whether or not the manager has permission |
+
+### spendAllowance
+
+```solidity
+function spendAllowance(address owner, address manager, address asset, uint256 amount) internal
+```
+
+Spend the allowance of an asset for a spender on behalf of an owner
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| owner | address | The owner account |
+| manager | address | The spender account |
+| asset | address | The asset being spent |
+| amount | uint256 | The amount to spend |
+
+### allowInternal
+
+```solidity
+function allowInternal(address owner, address manager, address asset, uint256 amount) internal
+```
+
+_Allows a manager to spend an owner's allowance on a specific asset_
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| owner | address | The owner of the assets |
+| manager | address | The manager account |
+| asset | address | The asset being spent |
+| amount | uint256 | The amount to spend |
 
 ### presentValue
 
