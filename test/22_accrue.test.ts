@@ -1,4 +1,17 @@
-import { ethers, expect, exp, fastForward, getBlock, makeProtocol, wait, setTotalsBasic } from "./helper/helpers";
+import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
+import { CometHarness, ConfigController } from "../build/types";
+import {
+  ethers,
+  expect,
+  exp,
+  fastForward,
+  getBlock,
+  makeProtocol,
+  wait,
+  setTotalsBasic,
+  SnapshotRestorer,
+  takeSnapshot,
+} from "./helper/helpers";
 
 function projectBaseIndex(index, rate, time, factorScale = exp(1, 18)) {
   return index.add(index.mul(rate.mul(time)).div(factorScale));
@@ -8,51 +21,32 @@ function projectTrackingIndex(index, speed, time, base, baseScale = exp(1, 6)) {
   return index.add(speed.mul(time).mul(baseScale).div(base));
 }
 
-describe.skip("accrue", function () {
-  it("fails if baseMinForRewards = 0", async () => {
-    await expect(
-      makeProtocol({
-        baseMinForRewards: 0,
-      })
-    ).to.be.revertedWith("custom error 'BadMinimum()'");
+describe.skip("22. accrue", function () {
+  let snapshot: SnapshotRestorer;
+
+  let comet: CometHarness;
+  let unusedAccount: SignerWithAddress;
+  let dao: SignerWithAddress;
+  let owner: SignerWithAddress;
+  let configController: ConfigController;
+
+  before(async () => {
+    ({
+      comet,
+      users: [unusedAccount],
+      dao,
+      configController,
+      owner,
+    } = await makeProtocol());
+
+    snapshot = await takeSnapshot();
   });
 
-  it("accrue initially succeeds and has the right parameters", async () => {
-    await ethers.provider.send("hardhat_reset", []); // ensure clean start...
-
-    const start = (await getBlock()).timestamp + 100;
-
-    const params = {
-      baseMinForRewards: 12331,
-      baseTrackingSupplySpeed: 668,
-      baseTrackingBorrowSpeed: 777,
-      start,
-    };
-    const { comet } = await makeProtocol(params);
-
-    await wait(comet.setNow(params.start));
-    await setTotalsBasic(comet, { lastAccrualTime: params.start });
-    const t0 = await comet.totalsBasic();
-    expect(t0.trackingSupplyIndex).to.be.equal(0);
-    expect(t0.trackingBorrowIndex).to.be.equal(0);
-    expect(t0.baseSupplyIndex).to.be.equal(exp(1, 15));
-    expect(t0.baseBorrowIndex).to.be.equal(exp(1, 15));
-    expect(t0.totalSupplyBase).to.be.equal(0);
-    expect(t0.totalBorrowBase).to.be.equal(0);
-
-    expect(t0.lastAccrualTime).to.equal(start);
-
-    const _a0 = await wait(comet.accrue());
-    expect(await comet.baseMinForRewards()).to.be.equal(params.baseMinForRewards);
-    expect(await comet.baseTrackingSupplySpeed()).to.be.equal(params.baseTrackingSupplySpeed);
-    expect(await comet.baseTrackingBorrowSpeed()).to.be.equal(params.baseTrackingBorrowSpeed);
-  });
+  afterEach(async () => await snapshot.restore());
 
   it("accrues correctly with no time elapsed", async () => {
-    const { comet } = await makeProtocol();
-
     const now = Math.floor(Date.now() / 1000);
-    const _f0 = await wait(comet.setNow(now)); // this freezes the timestamp for the entire test
+    await wait(comet.setNow(now)); // this freezes the timestamp for the entire test
 
     const totals = {
       trackingSupplyIndex: 0,
@@ -63,13 +57,30 @@ describe.skip("accrue", function () {
       totalBorrowBase: 1000n,
       lastAccrualTime: 0,
       pauseFlags: 0,
+      daoTrackingSupplyIndex: 0,
+      daoTrackingBorrowIndex: 0,
     };
-    const _s0 = await wait(comet.setTotalsBasic(totals));
+
+    await wait(comet.setTotalsBasic(totals));
+
+    await comet.connect(dao).setDaoIncentiveConfig(
+      exp(1, 15), // trackingIndexScale
+      12000n, // baseMinForRewards
+      exp(1, 15), // baseTrackingSupplySpeed
+      exp(1, 15) // baseTrackingBorrowSpeed
+    );
+    await configController.connect(owner).setIncentiveConfigOnMarket(
+      comet.address,
+      exp(1, 15), // trackingIndexScale
+      12000n, // baseMinForRewards
+      exp(1, 15), // baseTrackingSupplySpeed
+      exp(1, 15) // baseTrackingBorrowSpeed
+    );
 
     const t0 = await comet.totalsBasic();
-    const _a1 = await wait(comet.accrue());
+    await comet.accrue();
     const t1 = await comet.totalsBasic();
-    const _a2 = await wait(comet.accrue());
+    await comet.accrue();
     const t2 = await comet.totalsBasic();
 
     expect(t0.lastAccrualTime).to.be.equal(0);
@@ -197,8 +208,6 @@ describe.skip("accrue", function () {
   });
 
   it("reverts on overflows", async () => {
-    const { comet } = await makeProtocol();
-
     const t0 = await comet.totalsBasic();
     const t1 = Object.assign({}, t0, {
       baseSupplyIndex: 2n ** 64n - 1n,
@@ -224,8 +233,6 @@ describe.skip("accrue", function () {
   });
 
   it("supports up to the maximum timestamp then breaks", async () => {
-    const { comet } = await makeProtocol();
-
     await fastForward(100);
     const _a0 = await wait(comet.accrue());
 
@@ -233,15 +240,8 @@ describe.skip("accrue", function () {
     await expect(wait(comet.accrue())).to.be.revertedWith("custom error 'TimestampTooLarge()'");
     await ethers.provider.send("hardhat_reset", []); // dont break downstream tests...
   });
-});
 
-describe.skip("accrueAccount", function () {
   it("has no effect when called on an address with no protocol activity", async () => {
-    const {
-      comet,
-      users: [unusedAccount],
-    } = await makeProtocol();
-
     const userBasic0 = await comet.userBasic(unusedAccount.address);
     await comet.accrueAccount(unusedAccount.address);
     const userBasic1 = await comet.userBasic(unusedAccount.address);

@@ -872,7 +872,7 @@ export function getGasUsed(tx: TransactionResponseExt): bigint {
  * @param comet The comet contract instance.
  * @dev
  */
-export async function divBaseWei(n: BigNumberish, baseWei: BigNumberish, comet) {
+export async function divBaseWei(n: BigNumberish, baseWei: BigNumberish, comet: CometHarness) {
   const baseScale = await comet.baseScale();
   return BigNumber.from(n).mul(baseScale).div(baseWei);
 }

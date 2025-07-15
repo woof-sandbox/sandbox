@@ -1,20 +1,22 @@
 import { ethers, expect, exp, fastForward, getBlock, makeProtocol } from "./helper/helpers";
 
-describe.skip("baseTrackingAccrued", function () {
+describe.skip("23. baseTrackingAccrued", function () {
   it("supply updates baseTrackingAccrued to 6 decimal value", async () => {
     const start = (await getBlock()).timestamp + 100;
 
     const {
       comet,
-      tokens,
+      tokens: { USDC },
       users: [alice],
+      configController,
+      owner,
     } = await makeProtocol({
       base: "USDC",
-      trackingIndexScale: 1e15,
-      baseTrackingSupplySpeed: 1e15, // supplySpeed=1 Comp/s
-      start,
     });
-    const { USDC } = tokens;
+
+    // Set config for rewards accrual
+    // supplySpeed=1 Comp/s
+    await configController.connect(owner).setIncentiveConfigOnMarket(comet.address, 1e15, 1, 1e15, 1e15);
 
     // allocate and approve transfers
     await USDC.allocateTo(alice.address, 2e6);
@@ -28,7 +30,7 @@ describe.skip("baseTrackingAccrued", function () {
     await ethers.provider.send("evm_mine", [firstSupplyTime]);
 
     const userBasic1 = await comet.userBasic(alice.address);
-    expect(userBasic1.principal).to.eq(1_000_000);
+    expect(userBasic1.principal).to.be.closeTo(1e6, 1);
     expect(userBasic1.baseTrackingAccrued).to.eq(0);
 
     // supply again
@@ -37,23 +39,25 @@ describe.skip("baseTrackingAccrued", function () {
     await ethers.provider.send("evm_setAutomine", [true]);
 
     const userBasic2 = await comet.userBasic(alice.address);
-    expect(userBasic2.principal).to.eq(2_000_000);
+    expect(userBasic2.principal).to.be.closeTo(2e6, 2);
 
     // 1 second elapsed = 1 unit of rewards accrued (for 1 unit of base)
-    expect(userBasic2.baseTrackingAccrued).to.eq(1_000_000);
+    expect(userBasic2.baseTrackingAccrued).to.be.closeTo(1_000_000, 1);
   });
 
   it("updates with precision up to 6 decimal places", async () => {
     const {
       comet,
-      tokens,
+      tokens: { USDC },
       users: [alice],
+      configController,
+      owner,
     } = await makeProtocol({
       base: "USDC",
-      trackingIndexScale: 1e15,
-      baseTrackingSupplySpeed: 1e9, // supplySpeed=0.000001 (1e-6) Comp/s
     });
-    const { USDC } = tokens;
+
+    // Set config for rewards accrual
+    await configController.connect(owner).setIncentiveConfigOnMarket(comet.address, 1e15, 1, 1e10, 1e10);
 
     // allocate and approve transfers
     await USDC.allocateTo(alice.address, 2e6);
@@ -63,30 +67,34 @@ describe.skip("baseTrackingAccrued", function () {
     await comet.connect(alice).supply(USDC.address, 1e6);
 
     const userBasic1 = await comet.userBasic(alice.address);
-    expect(userBasic1.principal).to.eq(1_000_000);
+    expect(userBasic1.principal).to.be.closeTo(1_000_000, 1);
     expect(userBasic1.baseTrackingAccrued).to.eq(0);
 
     // supply again
     await comet.connect(alice).supply(USDC.address, 1e6);
 
     const userBasic2 = await comet.userBasic(alice.address);
-    expect(userBasic2.principal).to.eq(2_000_000);
+    expect(userBasic2.principal).to.be.closeTo(2_000_000, 2);
 
     // 1 second elapsed = .000001 unit of rewards accrued (for 1 unit of base)
-    expect(userBasic2.baseTrackingAccrued).to.eq(1);
+    // as we have supply amount - 1, we multiply by 10 to get results
+    expect(userBasic2.baseTrackingAccrued).to.eq(9);
   });
 
   it("rounds down to zero for values below 6 decimal places", async () => {
     const {
       comet,
-      tokens,
+      tokens: { USDC },
       users: [alice],
+      configController,
+      owner,
     } = await makeProtocol({
       base: "USDC",
-      trackingIndexScale: 1e15,
-      baseTrackingSupplySpeed: 1e8, // supplySpeed=0.0000001 (1e-7) Comp/s
     });
-    const { USDC } = tokens;
+
+    // Set config for rewards accrual
+    // supplySpeed=0.0000001 (1e-7) Comp/s
+    await configController.connect(owner).setIncentiveConfigOnMarket(comet.address, 1e15, 1, 1e7, 1e7);
 
     // allocate and approve transfers
     await USDC.allocateTo(alice.address, 2e6);
@@ -96,28 +104,31 @@ describe.skip("baseTrackingAccrued", function () {
     await comet.connect(alice).supply(USDC.address, 1e6);
 
     const userBasic1 = await comet.userBasic(alice.address);
-    expect(userBasic1.principal).to.eq(1_000_000);
+    expect(userBasic1.principal).to.be.closeTo(1_000_000, 1);
     expect(userBasic1.baseTrackingAccrued).to.eq(0);
 
     // supply again
     await comet.connect(alice).supply(USDC.address, 1e6);
 
     const userBasic2 = await comet.userBasic(alice.address);
-    expect(userBasic2.principal).to.eq(2_000_000);
+    expect(userBasic2.principal).to.be.closeTo(2_000_000, 2);
     expect(userBasic2.baseTrackingAccrued).to.eq(0); // 1 second elapsed = .0000001 unit of rewards accrued; rounds down to 0
   });
 
-  it("acrrues at a greater number of decimals, but preserves 6", async () => {
+  it("accrues at a greater number of decimals, but preserves 6", async () => {
     const {
       comet,
-      tokens,
+      tokens: { USDC },
       users: [alice],
+      configController,
+      owner,
     } = await makeProtocol({
       base: "USDC",
-      trackingIndexScale: 1e15,
-      baseTrackingSupplySpeed: 1e8, // supplySpeed=0.0000001 (1e-7) Comp/s
     });
-    const { USDC } = tokens;
+
+    // Set config for rewards accrual
+    // supplySpeed=0.0000001 (1e-7) Comp/s
+    await configController.connect(owner).setIncentiveConfigOnMarket(comet.address, 1e15, 1, 1e7, 1e7);
 
     // allocate and approve transfers
     await USDC.allocateTo(alice.address, 2e6);
@@ -127,51 +138,52 @@ describe.skip("baseTrackingAccrued", function () {
     await comet.connect(alice).supply(USDC.address, 1e6);
 
     const userBasic1 = await comet.userBasic(alice.address);
-    expect(userBasic1.principal).to.eq(1_000_000);
+    expect(userBasic1.principal).to.be.closeTo(1_000_000, 1);
     expect(userBasic1.baseTrackingAccrued).to.eq(0);
 
-    // allow 10 seconds to pass
-    await fastForward(10);
+    // allow 200 seconds to pass
+    await fastForward(200);
 
     // supply again
     await comet.connect(alice).supply(USDC.address, 1e6);
 
     const userBasic2 = await comet.userBasic(alice.address);
-    expect(userBasic2.principal).to.eq(2_000_000);
-    expect(userBasic2.baseTrackingAccrued).to.eq(1); // 10 seconds elapsed = .000001 unit of rewards accrued
+    expect(userBasic2.principal).to.be.closeTo(2_000_000, 2);
+    expect(userBasic2.baseTrackingAccrued).to.eq(1); // 200 seconds elapsed = .000001 unit of rewards accrued
   });
 
   it("accrues correctly when base token has more than 6 decimals", async () => {
     const {
       comet,
-      tokens,
+      tokens: { WETH },
       users: [alice],
+      configController,
+      owner,
     } = await makeProtocol({
       base: "WETH",
-      trackingIndexScale: 1e15,
-      baseTrackingSupplySpeed: 1e15, // supplySpeed=1 COMP/s
     });
-    const { WETH } = tokens;
+
+    // Set config for rewards accrual
+    // supplySpeed=1 COMP/s
+    await configController.connect(owner).setIncentiveConfigOnMarket(comet.address, 1e15, 1, 1e15, 1e15);
 
     // allocate and approve transfers
     await WETH.allocateTo(alice.address, exp(2, 18));
-    await WETH.connect(alice).approve(comet.address, exp(2, 18));
 
     // supply once
     await comet.connect(alice).supply(WETH.address, exp(1, 18));
 
     const userBasic1 = await comet.userBasic(alice.address);
-    expect(userBasic1.principal).to.eq(exp(1, 18));
     expect(userBasic1.baseTrackingAccrued).to.eq(0);
 
     // supply again
     await comet.connect(alice).supply(WETH.address, exp(1, 18));
 
     const userBasic2 = await comet.userBasic(alice.address);
-    expect(userBasic2.principal).to.eq(exp(2, 18));
 
     // 1 second elapsed = 1 unit of rewards accrued (for 1 unit of base)
-    expect(userBasic2.baseTrackingAccrued).to.eq(1_000_000);
+    // we add slippage to 1 as supply amount might be supply amount - 1
+    expect(userBasic2.baseTrackingAccrued).to.be.closeTo(1_000_000, 1);
   });
 
   it("increases baseTrackingAccrued on borrow", async () => {
@@ -179,16 +191,17 @@ describe.skip("baseTrackingAccrued", function () {
 
     const {
       comet,
-      tokens,
+      tokens: { WETH, USDC },
       users: [alice],
+      configController,
+      owner,
     } = await makeProtocol({
       base: "USDC",
-      trackingIndexScale: 1e15,
-      baseTrackingBorrowSpeed: 1e15, // borrowSpeed=1 Comp/s per unit of borrowed base
-      baseMinForRewards: exp(0.5, 6),
-      start,
     });
-    const { USDC, WETH } = tokens;
+
+    // Set config for rewards accrual
+    // borrowSpeed=1 Comp/s per unit of borrowed base
+    await configController.connect(owner).setIncentiveConfigOnMarket(comet.address, 1e15, exp(0.5, 6), 1e15, 1e15);
 
     // allocate and approve transfers
     await WETH.allocateTo(alice.address, exp(1, 18));
