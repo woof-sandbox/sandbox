@@ -26,6 +26,23 @@ contract CometStorage {
         uint8 pauseFlags; // aderyn-fp(local-variable-shadowing)
     }
 
+    /**
+     * @notice User account data for base token positions and reward tracking
+     * @param principal The user's base token principal amount.
+     *              Positive values represent supply positions,
+     *              negative values represent borrow positions.
+     * @param baseTrackingIndex The user's base tracking index for protocol rewards.
+     *              Used to calculate how many protocol rewards the user
+     *              has earned since their last update.
+     * @param baseTrackingAccrued The amount of protocol rewards accrued but not yet
+     *              claimed by the user.
+     * @param daoBaseTrackingIndex The user's DAO tracking index for DAO rewards.
+     *              Similar to baseTrackingIndex but for DAO-specific rewards.
+     * @param daoBaseTrackingAccrued The amount of DAO rewards accrued but not yet
+     *              claimed by the user.
+     * @param assetsIn Bit vector indicating which collateral assets
+     *              the user has a non-zero balance in.
+     */
     struct UserBasic {
         int104 principal;
         uint64 baseTrackingIndex;
@@ -154,10 +171,10 @@ contract CometStorage {
     /// @notice The speed at which borrow rewards are tracked (in trackingIndexScale)
     uint64 public baseTrackingBorrowSpeed;
 
-    /// @notice The speed at which DAO supply rewards are tracked (in trackingIndexScale)
+    /// @notice The speed at which DAO supply rewards are tracked (in daoTrackingIndexScale)
     uint64 public daoBaseTrackingSupplySpeed;
 
-    /// @notice The speed at which DAO supply rewards are tracked (in trackingIndexScale)
+    /// @notice The speed at which DAO borrow rewards are tracked (in daoTrackingIndexScale)
     uint64 public daoBaseTrackingBorrowSpeed;
 
     /// @notice The minimum amount of base principal wei for rewards to accrue

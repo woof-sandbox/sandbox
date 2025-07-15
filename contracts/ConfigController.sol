@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
-import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import "./interfaces/IConfigController.sol";
@@ -240,8 +239,8 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
     }
 
     /// @notice Set speeds for a specific comet
-    /// @dev Only callable by the ownerAdd commentMore actions
-    /// @param comet The address of the comet
+    /// @dev Only callable by the owner
+    /// @param comet The address of the comet to set speeds for
     /// @param trackingIndexScale The new tracking index scale
     /// @param baseMinForRewards The new base minimum for rewards
     /// @param baseTrackingSupplySpeed The new base tracking supply speed
@@ -409,7 +408,6 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
     /// @return True if the comet is owned by this controller
     function _isCometOwned(address comet) internal view returns (bool) {
         if (cometsLength() == 0) return false;
-        return comets[cometId[comet]] != comet;
+        return comets[cometId[comet]] == comet;
     }
 }
-// Test comment

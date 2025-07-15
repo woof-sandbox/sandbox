@@ -24,6 +24,7 @@ abstract contract ICometExtension is CometCore {
         uint64 borrowPerYearInterestRateBase;
         uint64 storeFrontPriceFactor;
         uint64 trackingIndexScale;
+        uint64 daoTrackingIndexScale;
         uint64 baseTrackingSupplySpeed;
         uint64 baseTrackingBorrowSpeed;
         uint64 daoBaseTrackingSupplySpeed;

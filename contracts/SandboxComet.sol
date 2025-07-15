@@ -9,6 +9,8 @@ import "./interfaces/IPriceFeed.sol";
 import "./interfaces/IConfigController.sol";
 import "./interfaces/ISandboxController.sol";
 
+import "hardhat/console.sol";
+
 /**
  * @title Compound's Comet Contract
  * @notice An efficient monolithic money comet protocol
@@ -131,8 +133,6 @@ contract SandboxComet is ISandboxComet {
         }
 
         /// Indexes
-        ///
-
         lastAccrualTime = getNowInternal();
         baseSupplyIndex = BASE_INDEX_SCALE;
         baseBorrowIndex = BASE_INDEX_SCALE;
@@ -142,10 +142,6 @@ contract SandboxComet is ISandboxComet {
         daoBaseMinForRewards = type(uint104).max;
         trackingIndexScale = 1;
         daoTrackingIndexScale = 1;
-
-        /// to avoid explicit initialization
-        /// baseTrackingSupplySpeed = 0;
-        /// baseTrackingBorrowSpeed = 0;
 
         /// Note: event is generated in ConfigController
     }
@@ -244,6 +240,8 @@ contract SandboxComet is ISandboxComet {
 
     /**
      * @notice Set the DAO base tracking supply and borrow speeds
+     * @param daoTrackingIndexScale_ The new DAO tracking index scale
+     * @param daoBaseMinForRewards_ The new DAO base minimum for rewards
      * @param daoBaseTrackingSupplySpeed_ The new DAO base tracking supply speed
      * @param daoBaseTrackingBorrowSpeed_ The new DAO base tracking borrow speed
      */
@@ -281,11 +279,16 @@ contract SandboxComet is ISandboxComet {
         return (baseSupplyIndex_, baseBorrowIndex_);
     }
 
+    /**
+     * @dev Accrue interest (and rewards) in base token supply and borrows
+     */
     function accrueInternal() internal {
         uint40 now_ = getNowInternal();
         uint40 timeElapsed = now_ - lastAccrualTime;
 
         (baseSupplyIndex, baseBorrowIndex) = accruedInterestIndices(timeElapsed);
+
+        console.log("Test");
 
         if (totalSupplyBase >= baseMinForRewards)
             trackingSupplyIndex += safe64(divBaseWei(baseTrackingSupplySpeed * timeElapsed, totalSupplyBase));
@@ -293,8 +296,16 @@ contract SandboxComet is ISandboxComet {
         if (totalSupplyBase >= daoBaseMinForRewards)
             daoTrackingSupplyIndex += safe64(divBaseWei(daoBaseTrackingSupplySpeed * timeElapsed, totalSupplyBase));
 
-        if (totalBorrowBase >= baseMinForRewards)
+        if (totalBorrowBase >= baseMinForRewards) {
+            console.log("Test2");
+            // uint256 tE = timeElapsed;
+            // uint256 bs = baseTrackingBorrowSpeed;
+            // uint256 res = tE * bs;
+            // console.log("res: ", res);
+            // console.log("TimeElapsed: ", timeElapsed);
+            // console.log("baseTrackingBorrowSpeed: ", baseTrackingBorrowSpeed);
             trackingBorrowIndex += safe64(divBaseWei(baseTrackingBorrowSpeed * timeElapsed, totalBorrowBase));
+        }
 
         if (totalBorrowBase >= daoBaseMinForRewards)
             daoTrackingBorrowIndex += safe64(divBaseWei(daoBaseTrackingBorrowSpeed * timeElapsed, totalBorrowBase));
@@ -587,6 +598,7 @@ contract SandboxComet is ISandboxComet {
      * @dev Divide a number by an amount of base
      */
     function divBaseWei(uint n, uint baseWei) internal view returns (uint) {
+        console.log("divBaseWei: n=%s, baseWei=%s, baseScale=%s", n, baseWei, baseScale);
         return (n * baseScale) / baseWei;
     }
 
