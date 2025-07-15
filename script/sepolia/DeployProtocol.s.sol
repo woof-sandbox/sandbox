@@ -287,8 +287,8 @@ contract DeployProtocol is Script {
         address configControllerAddr,
         address baseToken,
         address basePriceFeed,
-        address[] calldata collateralTokens,
-        address[] calldata collateralPriceFeeds
+        address[] memory collateralTokens,
+        address[] memory collateralPriceFeeds
     ) internal returns (address) {
         IConfigController configController = IConfigController(configControllerAddr);
 
