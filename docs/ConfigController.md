@@ -237,13 +237,13 @@ function setIncentiveConfigOnMarket(address comet, uint64 trackingIndexScale, ui
 
 Set speeds for a specific comet
 
-_Only callable by the ownerAdd commentMore actions_
+_Only callable by the owner_
 
 #### Parameters
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-| comet | address | The address of the comet |
+| comet | address | The address of the comet to set speeds for |
 | trackingIndexScale | uint64 | The new tracking index scale |
 | baseMinForRewards | uint104 | The new base minimum for rewards |
 | baseTrackingSupplySpeed | uint64 | The new base tracking supply speed |

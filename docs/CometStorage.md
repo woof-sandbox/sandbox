@@ -23,6 +23,13 @@ struct TotalsBasic {
 
 ### UserBasic
 
+User account data for base token positions and reward tracking
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+
 ```solidity
 struct UserBasic {
   int104 principal;
@@ -342,7 +349,7 @@ The speed at which borrow rewards are tracked (in trackingIndexScale)
 uint64 daoBaseTrackingSupplySpeed
 ```
 
-The speed at which DAO supply rewards are tracked (in trackingIndexScale)
+The speed at which DAO supply rewards are tracked (in daoTrackingIndexScale)
 
 ### daoBaseTrackingBorrowSpeed
 
@@ -350,7 +357,7 @@ The speed at which DAO supply rewards are tracked (in trackingIndexScale)
 uint64 daoBaseTrackingBorrowSpeed
 ```
 
-The speed at which DAO supply rewards are tracked (in trackingIndexScale)
+The speed at which DAO borrow rewards are tracked (in daoTrackingIndexScale)
 
 ### baseMinForRewards
 

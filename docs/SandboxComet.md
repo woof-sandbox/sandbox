@@ -129,8 +129,8 @@ Set the DAO base tracking supply and borrow speeds
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-| daoTrackingIndexScale_ | uint64 |  |
-| daoBaseMinForRewards_ | uint104 |  |
+| daoTrackingIndexScale_ | uint64 | The new DAO tracking index scale |
+| daoBaseMinForRewards_ | uint104 | The new DAO base minimum for rewards |
 | daoBaseTrackingSupplySpeed_ | uint64 | The new DAO base tracking supply speed |
 | daoBaseTrackingBorrowSpeed_ | uint64 | The new DAO base tracking borrow speed |
 
@@ -147,6 +147,8 @@ _Calculate accrued interest indices for base token supply and borrows_
 ```solidity
 function accrueInternal() internal
 ```
+
+_Accrue interest (and rewards) in base token supply and borrows_
 
 ### accrueAccount
 
