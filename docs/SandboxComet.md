@@ -745,6 +745,22 @@ function quoteCollateral(address asset, uint256 baseAmount) public view returns 
 | asset | address | The collateral asset to get the quote for |
 | baseAmount | uint256 | The amount of the base asset to get the quote for |
 
+### totalSupply
+
+```solidity
+function totalSupply() external view returns (uint256)
+```
+
+Get the total number of tokens in circulation
+
+_Note: uses updated interest indices to calculate_
+
+#### Return Values
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| [0] | uint256 | The supply of tokens |
+
 ### totalBorrow
 
 ```solidity
