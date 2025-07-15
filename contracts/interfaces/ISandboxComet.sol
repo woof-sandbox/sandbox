@@ -56,6 +56,8 @@ abstract contract ISandboxComet is CometCore {
 
     function totalBorrow() external view virtual returns (uint256);
 
+    function totalSupply() external view virtual returns (uint256);
+
     function balanceOf(address owner) public view virtual returns (uint256);
 
     function borrowBalanceOf(address account) public view virtual returns (uint256);

@@ -1136,6 +1136,16 @@ contract SandboxComet is ISandboxComet {
     }
 
     /**
+     * @notice Get the total number of tokens in circulation
+     * @dev Note: uses updated interest indices to calculate
+     * @return The supply of tokens
+     **/
+    function totalSupply() external view override returns (uint256) {
+        (uint64 baseSupplyIndex_, ) = accruedInterestIndices(getNowInternal() - lastAccrualTime);
+        return presentValueSupply(baseSupplyIndex_, totalSupplyBase);
+    }
+
+    /**
      * @notice Get the total amount of debt
      * @dev Note: uses updated interest indices to calculate
      * @return The amount of debt
