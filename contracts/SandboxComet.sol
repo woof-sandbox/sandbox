@@ -9,7 +9,7 @@ import "./interfaces/IPriceFeed.sol";
 import "./interfaces/IConfigController.sol";
 import "./interfaces/ISandboxController.sol";
 
-import "hardhat/console.sol";
+// import "hardhat/console.sol";
 
 /**
  * @title Compound's Comet Contract
@@ -288,7 +288,7 @@ contract SandboxComet is ISandboxComet {
 
         (baseSupplyIndex, baseBorrowIndex) = accruedInterestIndices(timeElapsed);
 
-        console.log("Test");
+        // console.log("Test");
 
         if (totalSupplyBase >= baseMinForRewards)
             trackingSupplyIndex += safe64(divBaseWei(baseTrackingSupplySpeed * timeElapsed, totalSupplyBase));
@@ -297,7 +297,7 @@ contract SandboxComet is ISandboxComet {
             daoTrackingSupplyIndex += safe64(divBaseWei(daoBaseTrackingSupplySpeed * timeElapsed, totalSupplyBase));
 
         if (totalBorrowBase >= baseMinForRewards) {
-            console.log("Test2");
+            // console.log("Test2");
             // uint256 tE = timeElapsed;
             // uint256 bs = baseTrackingBorrowSpeed;
             // uint256 res = tE * bs;
@@ -598,7 +598,7 @@ contract SandboxComet is ISandboxComet {
      * @dev Divide a number by an amount of base
      */
     function divBaseWei(uint n, uint baseWei) internal view returns (uint) {
-        console.log("divBaseWei: n=%s, baseWei=%s, baseScale=%s", n, baseWei, baseScale);
+        // console.log("divBaseWei: n=%s, baseWei=%s, baseScale=%s", n, baseWei, baseScale);
         return (n * baseScale) / baseWei;
     }
 
