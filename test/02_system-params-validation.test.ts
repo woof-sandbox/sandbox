@@ -8,6 +8,7 @@ import {
   makePriceFeed,
   sandboxListBaseAsset,
   sandboxListCollateralAsset,
+  DEFAULT_UPDATE_TIME,
 } from "./helper/helpers";
 import {
   ConfigController,
@@ -33,14 +34,12 @@ describe("2. System Params Validation", function () {
 
   let configControllerImpl: ConfigController;
   let sandboxCometImpl: SandboxComet;
-  // TODO: Merge in the constant.
-  const _minUpdateTime = 7 * 24 * 60 * 60;
 
   const configControllerOpts = {
     _curatorFee: 1000,
     _name: "ConfigController",
-    _curatorProposalDuration: 7 * 24 * 60 * 60,
-    _proposalDuration: 7 * 24 * 60 * 60,
+    _curatorProposalDuration: DEFAULT_UPDATE_TIME,
+    _proposalDuration: DEFAULT_UPDATE_TIME,
   };
 
   let signers;
@@ -73,7 +72,7 @@ describe("2. System Params Validation", function () {
       "SandboxControllerNoCurvesTest"
     )) as SandboxControllerNoCurvesTest__factory;
     sandboxController = (
-      await makeSandboxController(defaultSandboxControllerOpts({ minUpdateTime: _minUpdateTime }), SandboxControllerFactoryTest)
+      await makeSandboxController(defaultSandboxControllerOpts({ minUpdateTime: DEFAULT_UPDATE_TIME }), SandboxControllerFactoryTest)
     ).sandboxController;
 
     const configControllerFactory = await _ConfigControllerFactory.deploy(sandboxController.address, configControllerImpl.address);
@@ -215,9 +214,9 @@ describe("2. System Params Validation", function () {
         );
       });
 
-      it("should revert if the borrow collateral factor is greater than liquidate collateral factor", async () => {
-        marketConfig.collateralTokens[0].borrowCollateralFactor = exp(0.8, 18);
-        marketConfig.collateralTokens[0].liquidateCollateralFactor = exp(0.7, 18);
+      it("should revert if the liquidate collateral factor is greater than liquidate factor", async () => {
+        marketConfig.collateralTokens[0].liquidateCollateralFactor = exp(0.8, 18);
+        marketConfig.collateralTokens[0].liquidationFactor = exp(0.7, 18);
 
         await expect(configController.createComet(marketConfig)).to.be.revertedWithCustomError(
           configController,

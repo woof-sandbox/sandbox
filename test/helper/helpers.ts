@@ -264,6 +264,9 @@ export const factorScale = factor(1);
 export const ONE = factorScale;
 export const ZERO = factor(0);
 
+export const DEFAULT_UPDATE_TIME = 7 * 24 * 60 * 60;
+export const MIN_UPDATE_TIME = 300;
+
 export async function getBlock(n?: number, ethers_ = ethers): Promise<Block> {
   const blockNumber = n == undefined ? await ethers_.provider.getBlockNumber() : n;
   return ethers_.provider.getBlock(blockNumber);
@@ -361,8 +364,8 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Par
     dao: dao,
     feeEnabled: false,
     storeFrontPriceFactor: (opts.storeFrontPriceFactor ?? exp(0.1, 18)).toString(),
-    minUpdateTime: 300,
-    maxUpdateTime: 7 * 24 * 60 * 60,
+    minUpdateTime: MIN_UPDATE_TIME,
+    maxUpdateTime: DEFAULT_UPDATE_TIME,
     suggestedAmountOfSeedReserves: suggestedAmountOfSeedReserves,
     suggestedLockTimeOfSeedReserves: 3600,
     targetPercent: opts.targetPercent
@@ -428,8 +431,8 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Par
     cometFactory.address,
     1000,
     "ConfigController",
-    7 * 24 * 60 * 60,
-    7 * 24 * 60 * 60
+    DEFAULT_UPDATE_TIME,
+    DEFAULT_UPDATE_TIME
   );
 
   const configController = (await ConfigControllerFactory.attach(await configControllerFactory.controllerAddresses(0))) as ConfigController;
@@ -663,8 +666,8 @@ export function defaultSandboxControllerOpts(partial?: Partial<SandboxController
     feeEnabled: partial?.feeEnabled ?? false,
     storeFrontPriceFactor: partial?.storeFrontPriceFactor ?? ethers.utils.parseEther("0.9999999999").toString(),
     targetPercent: partial?.targetPercent ?? ethers.utils.parseEther("0.5").toString(),
-    minUpdateTime: partial?.minUpdateTime ?? 300,
-    maxUpdateTime: partial?.maxUpdateTime ?? 7 * 24 * 60 * 60,
+    minUpdateTime: partial?.minUpdateTime ?? MIN_UPDATE_TIME,
+    maxUpdateTime: partial?.maxUpdateTime ?? DEFAULT_UPDATE_TIME,
     suggestedAmountOfSeedReserves: partial?.suggestedAmountOfSeedReserves ?? ethers.utils.parseEther("500").toString(),
     suggestedLockTimeOfSeedReserves: partial?.suggestedLockTimeOfSeedReserves ?? 86400,
     reserveCommissions: partial?.reserveCommissions ?? [exp(0.01, 18), exp(0.02, 18), exp(0.03, 18)],
@@ -689,8 +692,8 @@ export async function makeOnlyConfigController(
     cometFactory,
     1000,
     "ConfigController",
-    7 * 24 * 60 * 60,
-    7 * 24 * 60 * 60
+    DEFAULT_UPDATE_TIME,
+    DEFAULT_UPDATE_TIME
   );
   const receipt: ContractReceipt = await tx.wait();
   const [createConfigControllerEvent] = receipt.events.filter(event => event.event === "ConfigControllerCreated");

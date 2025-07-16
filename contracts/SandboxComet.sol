@@ -4,6 +4,7 @@ pragma solidity 0.8.28;
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
+import "./CometCore.sol";
 import "./interfaces/ISandboxComet.sol";
 import "./interfaces/IPriceFeed.sol";
 import "./interfaces/IConfigController.sol";
@@ -15,7 +16,7 @@ import "./interfaces/ISandboxController.sol";
  * @author WOOF! Software
  */
 // aderyn-fp-next-line(contract-locks-ether)
-contract SandboxComet is ISandboxComet {
+contract SandboxComet is CometCore, ISandboxComet {
     using SafeERC20 for IERC20;
 
     /// @notice can be legally deployed only via the factory which provides correct config controller address
