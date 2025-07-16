@@ -718,7 +718,7 @@ describe("3. SandboxController", function () {
     });
 
     it("updates configuration with valid values and emits event", async function () {
-      expect((await sandboxController.config()).storeFrontPriceFactor).to.equal(parseEther("0.9999999999").toString());
+      expect((await sandboxController.config()).storeFrontPriceFactor).to.equal(parseEther("0.6").toString());
       expect((await sandboxController.config()).minUpdateTime).to.equal(MIN_UPDATE_TIME);
       expect((await sandboxController.config()).maxUpdateTime).to.equal(DEFAULT_UPDATE_TIME);
       expect((await sandboxController.config()).suggestedAmountOfSeedReserves).to.equal(ethers.utils.parseEther("500").toString());
@@ -736,7 +736,7 @@ describe("3. SandboxController", function () {
       const rcpt = await tx.wait();
       const ev = rcpt.events?.find((e: any) => e.event === "ConfigurationChanged");
       /// old config
-      expect(ev.args.oldConfig.storeFrontPriceFactor).to.equal(parseEther("0.9999999999").toString());
+      expect(ev.args.oldConfig.storeFrontPriceFactor).to.equal(parseEther("0.6").toString());
       expect(ev.args.oldConfig.minUpdateTime).to.equal(MIN_UPDATE_TIME);
       expect(ev.args.oldConfig.maxUpdateTime).to.equal(DEFAULT_UPDATE_TIME);
       expect(ev.args.oldConfig.suggestedAmountOfSeedReserves).to.equal(ethers.utils.parseEther("500").toString());

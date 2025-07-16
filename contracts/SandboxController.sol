@@ -117,27 +117,25 @@ contract SandboxController is ISandboxController {
         uint64[MARKET_STATES] memory _reserveCommissions,
         uint64[MARKET_STATES] memory _protocolCommissions
     ) {
-        if (_owner == address(0) || _dao == address(0)) revert ZeroAddress();
+        if (_owner == address(0) || _dao == address(0) || _treasury == address(0)) revert ZeroAddress();
         if (_owner == _dao) revert IncorrectSetting();
-        if (_treasury == address(0)) revert ZeroAddress();
-        owner = _owner;
-        dao = _dao;
-        feeEnabled = _feeEnabled;
-        treasury = _treasury;
 
         if (
-            _targetPercent > MAX_TARGET_PERCENT || /// Validate that the targetPercent is not bigger than 50%.
-            _storeFrontPriceFactor > PARAMETERS_SCALE || /// Validate that the storeFrontPriceFactor is not bigger than 100%.
-            _minUpdateTime == 0 ||
-            _maxUpdateTime < _minUpdateTime || /// Validate that the minUpdateTime is not 0 and the maxUpdateTime > minUpdateTime.
-            _suggestedAmountOfSeedReserves == 0 || /// Validate that the suggestedAmountOfSeedReserves is not 0.
-            _suggestedLockTimeOfSeedReserves == 0 /// Validate that the suggestedLockTimeOfSeedReserves is not 0.
+            _targetPercent > MAX_TARGET_PERCENT || /// not bigger than 50%.
+            _storeFrontPriceFactor > PARAMETERS_SCALE /// not bigger than 100%.
         ) revert InvalidFactors();
+
+        if (
+            _minUpdateTime == 0 ||
+            _maxUpdateTime < _minUpdateTime ||
+            _suggestedAmountOfSeedReserves == 0 ||
+            _suggestedLockTimeOfSeedReserves == 0
+        ) revert IncorrectSetting();
 
         for (uint8 i; i < MARKET_STATES; ) {
             /// Validate that the reserveCommissions and protocolCommissions are not bigger than 80%. 100% = 1e18.
             /// This needed to leave something for the ConfigController owner and curator.
-            if (reserveCommission[i] + protocolCommission[i] > MAX_COMMISSIONS) revert InvalidCommissions();
+            if (_reserveCommissions[i] + _protocolCommissions[i] > MAX_COMMISSIONS) revert InvalidCommissions();
 
             reserveCommission[i] = _reserveCommissions[i];
             protocolCommission[i] = _protocolCommissions[i];
@@ -146,6 +144,11 @@ contract SandboxController is ISandboxController {
                 ++i;
             }
         }
+
+        owner = _owner;
+        dao = _dao;
+        feeEnabled = _feeEnabled;
+        treasury = _treasury;
 
         _controllerConfiguration = SandboxControllerConfiguration(
             _targetPercent,

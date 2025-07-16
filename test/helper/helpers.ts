@@ -156,11 +156,10 @@ export interface SandboxControllerOpts {
   dao?: any;
   treasury?: any;
   feeEnabled?: boolean;
-  storeFrontPriceFactor?: string;
   targetPercent?: string;
+  storeFrontPriceFactor?: string;
   minUpdateTime?: number;
   maxUpdateTime?: number;
-  maxCollateralAssets?: number;
   suggestedAmountOfSeedReserves?: string;
   suggestedLockTimeOfSeedReserves?: number;
   reserveCommissions?: [bigint, bigint, bigint];
@@ -664,8 +663,8 @@ export function defaultSandboxControllerOpts(partial?: Partial<SandboxController
     dao: partial?.dao,
     treasury: partial?.treasury ?? ethers.Wallet.createRandom().address,
     feeEnabled: partial?.feeEnabled ?? false,
-    storeFrontPriceFactor: partial?.storeFrontPriceFactor ?? ethers.utils.parseEther("0.9999999999").toString(),
     targetPercent: partial?.targetPercent ?? ethers.utils.parseEther("0.5").toString(),
+    storeFrontPriceFactor: partial?.storeFrontPriceFactor ?? ethers.utils.parseEther("0.6").toString(),
     minUpdateTime: partial?.minUpdateTime ?? MIN_UPDATE_TIME,
     maxUpdateTime: partial?.maxUpdateTime ?? DEFAULT_UPDATE_TIME,
     suggestedAmountOfSeedReserves: partial?.suggestedAmountOfSeedReserves ?? ethers.utils.parseEther("500").toString(),

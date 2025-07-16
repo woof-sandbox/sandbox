@@ -340,6 +340,8 @@ contract SandboxComet is CometCore, ISandboxComet {
         uint256 balance = IERC20(baseToken).balanceOf(address(this));
         uint totalSupply_ = presentValueSupply(baseSupplyIndex_, totalSupplyBase);
         uint totalBorrow_ = presentValueBorrow(baseBorrowIndex_, totalBorrowBase);
+
+        /// TODO: deduct controller and dao fees
         return signed256(balance) - signed256(totalSupply_) + signed256(totalBorrow_);
     }
 
