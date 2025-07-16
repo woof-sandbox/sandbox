@@ -1,27 +1,16 @@
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
-import { CometHarness, ConfigController } from "../build/types";
-import {
-  expect,
-  exp,
-  SnapshotRestorer,
-  fastForward,
-  makeProtocol,
-  setTotalsBasic,
-  takeSnapshot,
-  // divBaseWei,
-} from "./helper/helpers";
+import { CometHarness } from "../build/types";
+import { expect, exp, SnapshotRestorer, fastForward, makeProtocol, setTotalsBasic, takeSnapshot } from "./helper/helpers";
 import { BigNumber } from "ethers";
 import { time } from "@nomicfoundation/hardhat-network-helpers";
 
-describe("24. total tracking index bounds", function () {
+describe("25. dao total tracking index bounds", function () {
   let snapshot: SnapshotRestorer;
 
   let cometScale6: CometHarness;
   let cometScale18: CometHarness;
-  let configControllerScale6: ConfigController;
-  let configControllerScale18: ConfigController;
-  let ownerScale6: SignerWithAddress;
-  let ownerScale18: SignerWithAddress;
+  let daoScale6: SignerWithAddress;
+  let daoScale18: SignerWithAddress;
 
   // Config for 6 scale
   const paramsScale6 = {
@@ -40,37 +29,27 @@ describe("24. total tracking index bounds", function () {
   };
 
   before(async () => {
-    ({
-      comet: cometScale6,
-      configController: configControllerScale6,
-      owner: ownerScale6,
-    } = await makeProtocol({
+    ({ comet: cometScale6, dao: daoScale6 } = await makeProtocol({
       base: "USDC",
     }));
 
-    ({
-      comet: cometScale18,
-      configController: configControllerScale18,
-      owner: ownerScale18,
-    } = await makeProtocol({
+    ({ comet: cometScale18, dao: daoScale18 } = await makeProtocol({
       base: "WETH",
     }));
 
     // Set config for rewards accrual
-    await configControllerScale6
-      .connect(ownerScale6)
-      .setIncentiveConfigOnMarket(
-        cometScale6.address,
+    await cometScale6
+      .connect(daoScale6)
+      .setDaoIncentiveConfig(
         paramsScale6.trackingIndexScale,
         paramsScale6.baseMinForRewards,
         paramsScale6.baseTrackingSupplySpeed,
         paramsScale6.baseTrackingBorrowSpeed
       );
 
-    await configControllerScale18
-      .connect(ownerScale18)
-      .setIncentiveConfigOnMarket(
-        cometScale18.address,
+    await cometScale18
+      .connect(daoScale18)
+      .setDaoIncentiveConfig(
         paramsScale18.trackingIndexScale,
         paramsScale18.baseMinForRewards,
         paramsScale18.baseTrackingSupplySpeed,
@@ -83,7 +62,7 @@ describe("24. total tracking index bounds", function () {
   afterEach(async () => await snapshot.restore());
 
   describe("base scale of 6", function () {
-    it("should not overflow upper bound hit on tracking supply index after 10 years", async () => {
+    it("should not overflow upper bound hit on dao tracking supply index after 10 years", async () => {
       // make a huge supply amount
       await setTotalsBasic(cometScale6, {
         totalSupplyBase: exp(10_000_000, 6), // 10 million USDC base units
@@ -105,7 +84,7 @@ describe("24. total tracking index bounds", function () {
       );
     });
 
-    it("should not overflow upper bound hit on tracking borrow index after 10 years", async () => {
+    it("should not overflow upper bound hit on dao tracking borrow index after 10 years", async () => {
       // make a huge borrow amount
       await setTotalsBasic(cometScale6, {
         totalBorrowBase: exp(10_000_000, 6), // 10 million USDC base units
@@ -127,7 +106,7 @@ describe("24. total tracking index bounds", function () {
       );
     });
 
-    it("lower bound hit on tracking supply index", async () => {
+    it("lower bound hit on dao tracking supply index", async () => {
       const t0 = await setTotalsBasic(cometScale6, {
         totalSupplyBase: BigNumber.from(exp(0.001, 15)).mul(await cometScale6.baseScale()), // 1e15 base units
       });
@@ -136,7 +115,7 @@ describe("24. total tracking index bounds", function () {
       const t1 = await cometScale6.totalsBasic();
 
       // Tracking index should properly accrue
-      expect(t1.trackingSupplyIndex).to.not.be.equal(t0.trackingSupplyIndex);
+      expect(t1.daoTrackingSupplyIndex).to.not.be.equal(t0.daoTrackingSupplyIndex);
 
       const t2 = await setTotalsBasic(cometScale6, {
         totalSupplyBase: BigNumber.from(exp(0.001, 15))
@@ -148,10 +127,10 @@ describe("24. total tracking index bounds", function () {
       const t3 = await cometScale6.totalsBasic();
 
       // Lower bound has hit and tracking index no longer accrues
-      expect(t3.trackingSupplyIndex).to.be.equal(t2.trackingSupplyIndex);
+      expect(t3.daoTrackingSupplyIndex).to.be.equal(t2.daoTrackingSupplyIndex);
     });
 
-    it("lower bound hit on tracking borrow index", async () => {
+    it("lower bound hit on dao tracking borrow index", async () => {
       const t0 = await setTotalsBasic(cometScale6, {
         totalBorrowBase: BigNumber.from(exp(0.001, 15)).mul(await cometScale6.baseScale()), // 1e15 base units
       });
@@ -160,7 +139,7 @@ describe("24. total tracking index bounds", function () {
       const t1 = await cometScale6.totalsBasic();
 
       // Tracking index should properly accrue
-      expect(t1.trackingBorrowIndex).to.not.be.equal(t0.trackingBorrowIndex);
+      expect(t1.daoTrackingBorrowIndex).to.not.be.equal(t0.daoTrackingBorrowIndex);
 
       const t2 = await setTotalsBasic(cometScale6, {
         totalBorrowBase: BigNumber.from(exp(0.001, 15))
@@ -172,10 +151,10 @@ describe("24. total tracking index bounds", function () {
       const t3 = await cometScale6.totalsBasic();
 
       // Lower bound has hit and tracking index no longer accrues
-      expect(t3.trackingBorrowIndex).to.be.equal(t2.trackingBorrowIndex);
+      expect(t3.daoTrackingBorrowIndex).to.be.equal(t2.daoTrackingBorrowIndex);
     });
 
-    it("should make overflow if no accrue made for long inactivity (supply))", async () => {
+    it("should make overflow if no accrue made for long inactivity (dao supply))", async () => {
       // make a huge supply amount
       await setTotalsBasic(cometScale6, {
         totalSupplyBase: exp(10_000_000, 6), // 10 million USDC base units
@@ -199,7 +178,7 @@ describe("24. total tracking index bounds", function () {
       );
     });
 
-    it("should make overflow if no accrue made for long inactivity (borrow))", async () => {
+    it("should make overflow if no accrue made for long inactivity (dao borrow))", async () => {
       // make a huge borrow amount
       await setTotalsBasic(cometScale6, {
         totalBorrowBase: exp(10_000_000, 6), // 10 million USDC base units
@@ -225,7 +204,7 @@ describe("24. total tracking index bounds", function () {
   });
 
   describe("base scale of 18", function () {
-    it("should not overflow upper bound hit on tracking supply index after 10 years", async () => {
+    it("should not overflow upper bound hit on dao tracking supply index after 10 years", async () => {
       await setTotalsBasic(cometScale18, {
         totalSupplyBase: exp(15_000, 18), // 15_000 WETH base units
       });
@@ -246,7 +225,7 @@ describe("24. total tracking index bounds", function () {
       );
     });
 
-    it("should not overflow upper bound hit on tracking borrow index after 10 years", async () => {
+    it("should not overflow upper bound hit on dao tracking borrow index after 10 years", async () => {
       // make a huge borrow amount
       await setTotalsBasic(cometScale18, {
         totalBorrowBase: exp(15_000, 18), // 15_000 WETH base units
@@ -268,7 +247,7 @@ describe("24. total tracking index bounds", function () {
       );
     });
 
-    it("lower bound hit on tracking supply index", async () => {
+    it("lower bound hit on dao tracking supply index", async () => {
       const t0 = await setTotalsBasic(cometScale18, {
         totalSupplyBase: BigNumber.from(exp(1, 12)).mul(await cometScale18.baseScale()), // 1e12 base units
       });
@@ -277,7 +256,7 @@ describe("24. total tracking index bounds", function () {
       const t1 = await cometScale18.totalsBasic();
 
       // Tracking index should properly accrue
-      expect(t1.trackingSupplyIndex).to.not.be.equal(t0.trackingSupplyIndex);
+      expect(t1.daoTrackingSupplyIndex).to.not.be.equal(t0.daoTrackingSupplyIndex);
 
       const t2 = await setTotalsBasic(cometScale18, {
         totalSupplyBase: BigNumber.from(exp(1, 13)).mul(await cometScale18.baseScale()), // 1e13 base units
@@ -287,10 +266,10 @@ describe("24. total tracking index bounds", function () {
       const t3 = await cometScale18.totalsBasic();
 
       // Lower bound has hit and tracking index no longer accrues
-      expect(t3.trackingSupplyIndex).to.be.equal(t2.trackingSupplyIndex);
+      expect(t3.daoTrackingSupplyIndex).to.be.equal(t2.daoTrackingSupplyIndex);
     });
 
-    it("lower bound hit on tracking borrow index", async () => {
+    it("lower bound hit on dao tracking borrow index", async () => {
       const t0 = await setTotalsBasic(cometScale18, {
         totalBorrowBase: BigNumber.from(exp(1, 12)).mul(await cometScale18.baseScale()), // 1e12 base units
       });
@@ -299,7 +278,7 @@ describe("24. total tracking index bounds", function () {
       const t1 = await cometScale18.totalsBasic();
 
       // Tracking index should properly accrue
-      expect(t1.trackingBorrowIndex).to.not.be.equal(t0.trackingBorrowIndex);
+      expect(t1.daoTrackingBorrowIndex).to.not.be.equal(t0.daoTrackingBorrowIndex);
 
       const t2 = await setTotalsBasic(cometScale18, {
         totalBorrowBase: BigNumber.from(exp(1, 13)).mul(await cometScale18.baseScale()), // 1e13 base units
@@ -309,10 +288,10 @@ describe("24. total tracking index bounds", function () {
       const t3 = await cometScale18.totalsBasic();
 
       // Lower bound has hit and tracking index no longer accrues
-      expect(t3.trackingBorrowIndex).to.be.equal(t2.trackingBorrowIndex);
+      expect(t3.daoTrackingBorrowIndex).to.be.equal(t2.daoTrackingBorrowIndex);
     });
 
-    it("should make overflow if no accrue made for long inactivity (supply))", async () => {
+    it("should make overflow if no accrue made for long inactivity (dao supply))", async () => {
       // make a huge supply amount
       await setTotalsBasic(cometScale18, {
         totalSupplyBase: exp(15_000, 18), // 15_000 WETH base units
@@ -336,7 +315,7 @@ describe("24. total tracking index bounds", function () {
       );
     });
 
-    it("should make overflow if no accrue made for long inactivity (borrow))", async () => {
+    it("should make overflow if no accrue made for long inactivity (dao borrow))", async () => {
       // make a huge borrow amount
       await setTotalsBasic(cometScale18, {
         totalBorrowBase: exp(15_000, 18), // 15_000 WETH base units

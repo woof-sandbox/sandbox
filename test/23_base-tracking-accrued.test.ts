@@ -1,6 +1,6 @@
 import { ethers, expect, exp, fastForward, getBlock, makeProtocol } from "./helper/helpers";
 
-describe.skip("23. baseTrackingAccrued", function () {
+describe("23. baseTrackingAccrued", function () {
   it("supply updates baseTrackingAccrued to 6 decimal value", async () => {
     const start = (await getBlock()).timestamp + 100;
 

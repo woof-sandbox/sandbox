@@ -13,6 +13,7 @@ describe("18. DAO speeds", function () {
   let owner: SignerWithAddress;
   let alice: SignerWithAddress;
   let bob: SignerWithAddress;
+  let unusedAccount: SignerWithAddress;
   let dao: SignerWithAddress;
 
   const BASE_MIN_FOR_REWARDS = exp(1000, 6); // 1000 USDC
@@ -35,7 +36,7 @@ describe("18. DAO speeds", function () {
 
     comet = protocol.comet;
     baseToken = protocol.baseToken!;
-    [owner, alice, bob] = protocol.users!;
+    [owner, alice, bob, unusedAccount] = protocol.users!;
     collateral = protocol.tokens!.COMP;
     dao = protocol.dao as SignerWithAddress;
 
@@ -323,5 +324,54 @@ describe("18. DAO speeds", function () {
         expect(daoBaseTrackingIndex).to.eq(expectedDaoTrackingBorrowIndex);
       });
     });
+  });
+
+  it("reverts on overflows", async () => {
+    const t0 = await comet.totalsBasic();
+
+    const t1 = Object.assign({}, t0, {
+      baseSupplyIndex: 2n ** 64n - 1n,
+      totalSupplyBase: 14000,
+      totalBorrowBase: 13000, // needs to have positive utilization for supply rate to be > 0
+    });
+
+    await fastForward(998);
+
+    await comet.setTotalsBasic(t1);
+    await fastForward(2);
+
+    await expect(comet.accrue()).to.be.revertedWith(
+      "code 0x11 (Arithmetic operation underflowed or overflowed outside of an unchecked block)"
+    );
+
+    const t2 = Object.assign({}, t0, {
+      baseBorrowIndex: 2n ** 64n - 1n,
+    });
+    await fastForward(998);
+    const _s1 = await comet.setTotalsBasic(t2);
+    await fastForward(2);
+    await expect(comet.accrue()).to.be.revertedWith(
+      "code 0x11 (Arithmetic operation underflowed or overflowed outside of an unchecked block)"
+    );
+  });
+
+  it("supports up to the maximum timestamp then breaks", async () => {
+    await fastForward(100);
+    await comet.accrue();
+
+    await fastForward(2 ** 40);
+    await expect(comet.accrue()).to.be.revertedWith("custom error 'TimestampTooLarge()'");
+  });
+
+  it("has no effect when called on an address with no protocol activity", async () => {
+    const userBasic0 = await comet.userBasic(unusedAccount.address);
+    await comet.accrueAccount(unusedAccount.address);
+    const userBasic1 = await comet.userBasic(unusedAccount.address);
+
+    expect(userBasic0).to.deep.equal(userBasic1);
+    expect(userBasic1.principal).to.eq(0);
+    expect(userBasic1.baseTrackingIndex).to.eq(0);
+    expect(userBasic1.baseTrackingAccrued).to.eq(0);
+    expect(userBasic1.assetsIn).to.eq(0);
   });
 });

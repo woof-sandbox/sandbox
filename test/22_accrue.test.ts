@@ -1,223 +1,353 @@
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
-import { CometHarness, ConfigController } from "../build/types";
-import {
-  ethers,
-  expect,
-  exp,
-  fastForward,
-  getBlock,
-  makeProtocol,
-  wait,
-  setTotalsBasic,
-  SnapshotRestorer,
-  takeSnapshot,
-} from "./helper/helpers";
+import { CometExtension, CometHarness, ConfigController, FaucetToken, NonStandardFaucetFeeToken } from "../build/types";
+import { ethers, expect, exp, fastForward, makeProtocol, SnapshotRestorer, takeSnapshot, divBaseWei } from "./helper/helpers";
 
-function projectBaseIndex(index, rate, time, factorScale = exp(1, 18)) {
-  return index.add(index.mul(rate.mul(time)).div(factorScale));
-}
-
-function projectTrackingIndex(index, speed, time, base, baseScale = exp(1, 6)) {
-  return index.add(speed.mul(time).mul(baseScale).div(base));
-}
-
-describe.skip("22. accrue", function () {
+describe("22. accrue", function () {
   let snapshot: SnapshotRestorer;
 
   let comet: CometHarness;
   let unusedAccount: SignerWithAddress;
-  let dao: SignerWithAddress;
   let owner: SignerWithAddress;
   let configController: ConfigController;
+  let cometExtension: CometExtension;
+  let baseToken: FaucetToken | NonStandardFaucetFeeToken;
+  let collateral: FaucetToken | NonStandardFaucetFeeToken;
+
+  let alice: SignerWithAddress;
+  let bob: SignerWithAddress;
+
+  const BASE_MIN_FOR_REWARDS = exp(1000, 6); // 1000 USDC
+  const BASE_TRACKING_SUPPLY_SPEED = 10_000;
+  const BASE_TRACKING_BORROW_SPEED = 10_000;
+  const DAO_TRACKING_INDEX_SCALE = 1;
 
   before(async () => {
     ({
       comet,
-      users: [unusedAccount],
-      dao,
+      users: [alice, bob, unusedAccount],
       configController,
       owner,
-    } = await makeProtocol());
+      baseToken,
+      tokens: { COMP: collateral },
+    } = await makeProtocol({
+      base: "USDC",
+
+      assets: {
+        USDC: { decimals: 6, initialPrice: 1 },
+        COMP: {
+          decimals: 18,
+          initialPrice: 100,
+        },
+      },
+    }));
+
+    cometExtension = (await ethers.getContractAt("CometExtension", comet.address, owner)) as CometExtension;
+
+    await configController
+      .connect(owner)
+      .setIncentiveConfigOnMarket(
+        comet.address,
+        DAO_TRACKING_INDEX_SCALE,
+        BASE_MIN_FOR_REWARDS,
+        BASE_TRACKING_SUPPLY_SPEED,
+        BASE_TRACKING_BORROW_SPEED
+      );
 
     snapshot = await takeSnapshot();
   });
 
   afterEach(async () => await snapshot.restore());
 
-  it("accrues correctly with no time elapsed", async () => {
-    const now = Math.floor(Date.now() / 1000);
-    await wait(comet.setNow(now)); // this freezes the timestamp for the entire test
+  describe("accrue tracking indexes", function () {
+    it("total supply base >= baseMinForRewards, then increase trackingSupplyIndex", async function () {
+      // Supply base tokens to achive assertion condition
+      const { baseMinForRewards } = await cometExtension.getConfiguration();
 
-    const totals = {
-      trackingSupplyIndex: 0,
-      trackingBorrowIndex: 0,
-      baseSupplyIndex: 2e15,
-      baseBorrowIndex: 3e15,
-      totalSupplyBase: 1000n,
-      totalBorrowBase: 1000n,
-      lastAccrualTime: 0,
-      pauseFlags: 0,
-      daoTrackingSupplyIndex: 0,
-      daoTrackingBorrowIndex: 0,
-    };
+      await baseToken.allocateTo(alice.address, baseMinForRewards.add(exp(10, 6)));
+      await comet.connect(alice).supply(baseToken.address, baseMinForRewards.add(exp(10, 6)));
 
-    await wait(comet.setTotalsBasic(totals));
+      const { totalSupplyBase } = await cometExtension.totalsBasic();
+      expect(totalSupplyBase).to.be.greaterThanOrEqual(Number(baseMinForRewards));
 
-    await comet.connect(dao).setDaoIncentiveConfig(
-      exp(1, 15), // trackingIndexScale
-      12000n, // baseMinForRewards
-      exp(1, 15), // baseTrackingSupplySpeed
-      exp(1, 15) // baseTrackingBorrowSpeed
-    );
-    await configController.connect(owner).setIncentiveConfigOnMarket(
-      comet.address,
-      exp(1, 15), // trackingIndexScale
-      12000n, // baseMinForRewards
-      exp(1, 15), // baseTrackingSupplySpeed
-      exp(1, 15) // baseTrackingBorrowSpeed
-    );
+      let { trackingSupplyIndex } = await cometExtension.totalsBasic();
 
-    const t0 = await comet.totalsBasic();
-    await comet.accrue();
-    const t1 = await comet.totalsBasic();
-    await comet.accrue();
-    const t2 = await comet.totalsBasic();
+      // skip 1000 seconds to accrue tracking supply index
+      const skipTime = 1000;
+      await fastForward(skipTime);
+      await comet.accrueAccount(alice.address);
 
-    expect(t0.lastAccrualTime).to.be.equal(0);
-    expect(t0.totalSupplyBase).to.be.equal(totals.totalSupplyBase);
-    expect(t0.totalBorrowBase).to.be.equal(totals.totalBorrowBase);
+      ({ trackingSupplyIndex } = await cometExtension.totalsBasic());
 
-    expect(t1.lastAccrualTime).to.be.equal(now);
-    expect(t2.lastAccrualTime).to.be.equal(now);
-    expect(t2.baseSupplyIndex).to.be.equal(t1.baseSupplyIndex);
-    expect(t2.baseBorrowIndex).to.be.equal(t1.baseBorrowIndex);
-    expect(t2.trackingSupplyIndex).to.be.equal(t1.trackingSupplyIndex);
-    expect(t2.trackingBorrowIndex).to.be.equal(t1.trackingBorrowIndex);
-    expect(t2.totalSupplyBase).to.be.equal(t1.totalSupplyBase);
-    expect(t2.totalSupplyBase).to.be.equal(t1.totalSupplyBase);
-  });
+      // calculate expected tracking supply index
+      const expectedTrackingSupplyIndex = await divBaseWei(BASE_TRACKING_SUPPLY_SPEED * skipTime, totalSupplyBase, comet);
 
-  it("accrues correctly with time elapsed and less than min rewards", async () => {
-    await ethers.provider.send("hardhat_reset", []); // ensure clean start...
-
-    const start = (await getBlock()).timestamp + 100;
-    const params = {
-      baseMinForRewards: 12000n,
-      trackingIndexScale: exp(1, 15),
-      start,
-    };
-    const { comet } = await makeProtocol(params);
-    await setTotalsBasic(comet, { lastAccrualTime: params.start });
-    const t1 = await setTotalsBasic(comet, {
-      totalSupplyBase: 11000n,
-      totalBorrowBase: 11000n,
+      expect(trackingSupplyIndex).to.eq(expectedTrackingSupplyIndex);
     });
 
-    const utilization = await comet.getUtilization();
-    const supplyRate = await comet.getSupplyRate(utilization);
-    const borrowRate = await comet.getBorrowRate(utilization);
+    it("total borrow base >= baseMinForRewards, then increase trackingBorrowIndex", async function () {
+      // Supply base tokens to achieve assertion condition
+      const { baseMinForRewards } = await cometExtension.getConfiguration();
 
-    await ethers.provider.send("evm_setAutomine", [false]);
-    const _a1 = await comet.accrue();
-    await ethers.provider.send("evm_mine", [start + 1000]);
-    await ethers.provider.send("evm_setAutomine", [true]);
+      await baseToken.allocateTo(alice.address, baseMinForRewards.add(exp(10, 6)));
+      await comet.connect(alice).supply(baseToken.address, baseMinForRewards.add(exp(10, 6)));
 
-    const t2 = await comet.totalsBasic();
+      // Borrow base tokens to achieve assertion condition
+      await collateral.allocateTo(bob.address, exp(1000, 18));
+      await comet.connect(bob).supply(collateral.address, exp(1000, 18));
+      await comet.connect(bob).withdraw(baseToken.address, baseMinForRewards.add(exp(10, 6)));
 
-    const timeElapsed = t2.lastAccrualTime - t1.lastAccrualTime;
-    expect(timeElapsed).to.be.equal(1000);
+      const { totalBorrowBase } = await cometExtension.totalsBasic();
+      expect(totalBorrowBase).to.be.greaterThanOrEqual(Number(baseMinForRewards));
 
-    expect(t2.baseSupplyIndex).to.be.equal(projectBaseIndex(t1.baseSupplyIndex, supplyRate, timeElapsed));
-    expect(t2.baseBorrowIndex).to.be.equal(projectBaseIndex(t1.baseBorrowIndex, borrowRate, timeElapsed));
-    expect(t2.trackingSupplyIndex).to.be.equal(t1.trackingSupplyIndex);
-    expect(t2.trackingBorrowIndex).to.be.equal(t1.trackingBorrowIndex);
-  });
+      let { trackingBorrowIndex } = await cometExtension.totalsBasic();
 
-  it("accrues correctly with time elapsed and more than min rewards", async () => {
-    await ethers.provider.send("hardhat_reset", []); // ensure clean start...
+      // skip 1000 seconds to accrue tracking borrow index
+      const skipTime = 1000;
+      await fastForward(skipTime);
+      await comet.accrueAccount(alice.address);
 
-    const start = (await getBlock()).timestamp + 100;
-    const params = {
-      baseMinForRewards: exp(12000, 6),
-      trackingIndexScale: exp(1, 15),
-      start,
-    };
-    const { comet } = await makeProtocol(params);
-    await setTotalsBasic(comet, { lastAccrualTime: start });
+      ({ trackingBorrowIndex } = await cometExtension.totalsBasic());
 
-    const t0 = await comet.totalsBasic();
-    const t1 = await setTotalsBasic(comet, {
-      totalSupplyBase: exp(14000, 6),
-      totalBorrowBase: exp(13000, 6),
+      // calculate expected tracking borrow index
+      const expectedTrackingBorrowIndex = await divBaseWei(BASE_TRACKING_BORROW_SPEED * skipTime, totalBorrowBase, comet);
+
+      expect(trackingBorrowIndex).to.eq(expectedTrackingBorrowIndex);
     });
 
-    const utilization = await comet.getUtilization();
-    const supplyRate = await comet.getSupplyRate(utilization);
-    const borrowRate = await comet.getBorrowRate(utilization);
+    it("should not increase trackingSupplyIndex if total supply base < baseMinForRewards", async function () {
+      // Supply base tokens to achieve assertion condition
+      const { baseMinForRewards } = await cometExtension.getConfiguration();
 
-    await ethers.provider.send("evm_setAutomine", [false]);
-    const _a1 = await comet.accrue();
-    await ethers.provider.send("evm_mine", [start + 1000]);
-    await ethers.provider.send("evm_setAutomine", [true]);
+      await baseToken.allocateTo(alice.address, baseMinForRewards.sub(1));
+      await comet.connect(alice).supply(baseToken.address, baseMinForRewards.sub(1));
 
-    const t2 = await comet.totalsBasic();
+      const { totalSupplyBase } = await cometExtension.totalsBasic();
+      expect(totalSupplyBase).to.be.lessThan(Number(baseMinForRewards));
 
-    const supplySpeed = await comet.baseTrackingSupplySpeed();
-    expect(supplySpeed).to.be.equal(params.trackingIndexScale);
+      let { trackingSupplyIndex } = await cometExtension.totalsBasic();
 
-    const borrowSpeed = await comet.baseTrackingBorrowSpeed();
-    expect(borrowSpeed).to.be.equal(params.trackingIndexScale);
+      // skip 1000 seconds to accrue tracking supply index
+      await fastForward(1000);
+      await comet.accrueAccount(alice.address);
 
-    const timeElapsed = t2.lastAccrualTime - t0.lastAccrualTime;
-    expect(timeElapsed).to.be.equal(1000);
+      ({ trackingSupplyIndex } = await cometExtension.totalsBasic());
 
-    expect(t2.baseSupplyIndex).to.be.equal(projectBaseIndex(t1.baseSupplyIndex, supplyRate, timeElapsed));
-    expect(t2.baseBorrowIndex).to.be.equal(projectBaseIndex(t1.baseBorrowIndex, borrowRate, timeElapsed));
-    expect(t2.trackingSupplyIndex).to.be.equal(projectTrackingIndex(t1.trackingSupplyIndex, supplySpeed, timeElapsed, t1.totalSupplyBase));
-    expect(t2.trackingBorrowIndex).to.be.equal(projectTrackingIndex(t1.trackingBorrowIndex, borrowSpeed, timeElapsed, t1.totalBorrowBase));
+      // tracking supply index should not change
+      expect(trackingSupplyIndex).to.eq(0);
+    });
+
+    it("should not increase trackingBorrowIndex if total borrow base < baseMinForRewards", async function () {
+      // Supply base tokens to achieve assertion condition
+      const { baseMinForRewards } = await cometExtension.getConfiguration();
+
+      await baseToken.allocateTo(alice.address, baseMinForRewards.add(exp(10, 6)));
+      await comet.connect(alice).supply(baseToken.address, baseMinForRewards.add(exp(10, 6)));
+
+      // Borrow base tokens to achieve assertion condition
+      await collateral.allocateTo(bob.address, exp(1000, 18));
+      await comet.connect(bob).supply(collateral.address, exp(1000, 18));
+      await comet.connect(bob).withdraw(baseToken.address, baseMinForRewards.sub(1));
+
+      const { totalBorrowBase } = await cometExtension.totalsBasic();
+      expect(totalBorrowBase).to.be.lessThan(Number(baseMinForRewards));
+
+      let { trackingBorrowIndex } = await cometExtension.totalsBasic();
+
+      // skip 1000 seconds to accrue tracking borrow index
+      await fastForward(1000);
+      await comet.accrueAccount(alice.address);
+
+      ({ trackingBorrowIndex } = await cometExtension.totalsBasic());
+
+      // tracking borrow index should not change
+      expect(trackingBorrowIndex).to.eq(0);
+    });
   });
 
-  it("overflows if baseMinRewards is set too low and accrues no interest", async () => {
-    const params = {
-      baseMinForRewards: 12000,
-      trackingIndexScale: exp(1, 15),
-    };
-    const { comet } = await makeProtocol(params);
+  describe("update user tracking indexes", function () {
+    describe("principal >= 0 (supplying)", function () {
+      it("when totalSupplyBase < baseMinForRewards, user's trackingAccrued should not increased", async () => {
+        // Supply base tokens to achieve assertion condition
+        const { baseMinForRewards } = await cometExtension.getConfiguration();
 
-    const t0 = await comet.totalsBasic();
-    const t1 = Object.assign({}, t0, {
-      totalSupplyBase: 14000,
-      totalBorrowBase: 13000,
+        await baseToken.allocateTo(alice.address, baseMinForRewards.sub(1));
+        await comet.connect(alice).supply(baseToken.address, baseMinForRewards.sub(1));
+
+        const { baseTrackingAccrued } = await comet.userBasic(alice.address);
+
+        expect(baseTrackingAccrued).to.eq(0);
+
+        // Skip 1000 seconds
+        await fastForward(1000);
+
+        const { baseTrackingAccrued: baseTrackingAccruedAfter } = await comet.userBasic(alice.address);
+
+        expect(baseTrackingAccruedAfter).to.eq(0);
+      });
+
+      it("when totalSupplyBase >= baseMinForRewards, user's baseTrackingAccrued should increased", async () => {
+        // Supply base tokens to achieve assertion condition
+        const { baseMinForRewards } = await cometExtension.getConfiguration();
+
+        await baseToken.allocateTo(alice.address, baseMinForRewards.add(exp(10, 6)));
+        await comet.connect(alice).supply(baseToken.address, baseMinForRewards.add(exp(10, 6)));
+
+        const { baseTrackingAccrued } = await comet.userBasic(alice.address);
+        const { totalSupplyBase } = await cometExtension.totalsBasic();
+
+        expect(baseTrackingAccrued).to.eq(0);
+
+        // Skip 1000 seconds
+        const skipTime = 1000;
+        await fastForward(skipTime);
+        await comet.accrueAccount(alice.address);
+
+        const { baseTrackingAccrued: baseTrackingAccruedAfter, principal } = await comet.userBasic(alice.address);
+
+        const expectedBaseTrackingSupplyIndex = await divBaseWei(BASE_TRACKING_SUPPLY_SPEED * skipTime, totalSupplyBase, comet);
+        const delta = expectedBaseTrackingSupplyIndex;
+        const baseScale = await comet.baseScale();
+        const accrualDescaleFactor = baseScale.div(exp(1, 6));
+        const expectedBaseTrackingAccrued = principal
+          .mul(delta)
+          .div(await comet.trackingIndexScale())
+          .div(accrualDescaleFactor);
+
+        expect(baseTrackingAccruedAfter).to.eq(expectedBaseTrackingAccrued);
+      });
+
+      it("users baseTrackingIndex becomes current baseTrackingSupplyIndex", async () => {
+        // Supply base tokens to achieve assertion condition
+        const { baseMinForRewards } = await cometExtension.getConfiguration();
+
+        await baseToken.allocateTo(alice.address, baseMinForRewards.add(exp(10, 6)));
+        await comet.connect(alice).supply(baseToken.address, baseMinForRewards.add(exp(10, 6)));
+
+        const { baseTrackingAccrued } = await comet.userBasic(alice.address);
+        const { totalSupplyBase } = await cometExtension.totalsBasic();
+
+        expect(baseTrackingAccrued).to.eq(0);
+
+        // Skip 1000 seconds
+        const skipTime = 1000;
+        await fastForward(skipTime);
+        await comet.accrueAccount(alice.address);
+
+        const { baseTrackingIndex } = await comet.userBasic(alice.address);
+
+        const expectedBaseTrackingSupplyIndex = await divBaseWei(BASE_TRACKING_SUPPLY_SPEED * skipTime, totalSupplyBase, comet);
+
+        expect(baseTrackingIndex).to.eq(expectedBaseTrackingSupplyIndex);
+      });
     });
-    await fastForward(998);
-    const _s0 = await wait(comet.setTotalsBasic(t1));
-    await fastForward(2);
-    await expect(wait(comet.accrue())).to.be.revertedWith("custom error 'InvalidUInt64()'");
-    const t2 = await comet.totalsBasic();
 
-    const utilization = await comet.getUtilization();
-    const supplyRate = await comet.getSupplyRate(utilization);
-    const borrowRate = await comet.getBorrowRate(utilization);
-    const timeElapsed = t2.lastAccrualTime - t0.lastAccrualTime;
-    expect(timeElapsed).to.be.equal(0);
+    describe("principal < 0 (borrowing)", function () {
+      it("when rewards disabled baseTrackingAccrued should not increased", async () => {
+        // Supply base tokens to achieve assertion condition
+        const { baseMinForRewards } = await cometExtension.getConfiguration();
 
-    expect(t2.baseSupplyIndex).to.be.equal(projectBaseIndex(t1.baseSupplyIndex, supplyRate, timeElapsed));
-    expect(t2.baseBorrowIndex).to.be.equal(projectBaseIndex(t1.baseBorrowIndex, borrowRate, timeElapsed));
-    expect(t2.trackingSupplyIndex).to.be.equal(t1.trackingSupplyIndex);
-    expect(t2.trackingBorrowIndex).to.be.equal(t1.trackingBorrowIndex);
+        await baseToken.allocateTo(alice.address, baseMinForRewards.add(exp(10, 6)));
+        await comet.connect(alice).supply(baseToken.address, baseMinForRewards.add(exp(10, 6)));
+
+        // Borrow base tokens to achieve assertion condition
+        await collateral.allocateTo(bob.address, exp(1000, 18));
+        await comet.connect(bob).supply(collateral.address, exp(1000, 18));
+        await comet.connect(bob).withdraw(baseToken.address, baseMinForRewards.sub(1));
+
+        const { baseTrackingAccrued } = await comet.userBasic(alice.address);
+
+        expect(baseTrackingAccrued).to.eq(0);
+
+        // Skip 1000 seconds
+        await fastForward(1000);
+
+        const { baseTrackingAccrued: baseTrackingAccruedAfter } = await comet.userBasic(alice.address);
+
+        expect(baseTrackingAccruedAfter).to.eq(0);
+      });
+
+      it("when rewards enabled baseTrackingAccrued should increased", async () => {
+        // Supply base tokens to achieve assertion condition
+        const { baseMinForRewards } = await cometExtension.getConfiguration();
+
+        await baseToken.allocateTo(alice.address, baseMinForRewards.add(exp(10, 6)));
+        await comet.connect(alice).supply(baseToken.address, baseMinForRewards.add(exp(10, 6)));
+
+        // Borrow base tokens to achieve assertion condition
+        await collateral.allocateTo(bob.address, exp(1000, 18));
+        await comet.connect(bob).supply(collateral.address, exp(1000, 18));
+        await comet.connect(bob).withdraw(baseToken.address, baseMinForRewards.add(exp(10, 6)));
+
+        const { baseTrackingAccrued } = await comet.userBasic(bob.address);
+        const { totalBorrowBase } = await cometExtension.totalsBasic();
+
+        expect(baseTrackingAccrued).to.eq(0);
+
+        // Skip 1000 seconds
+        const skipTime = 1000;
+        await fastForward(skipTime);
+        await comet.accrueAccount(bob.address);
+
+        const { baseTrackingAccrued: baseTrackingAccruedAfter, principal } = await comet.userBasic(bob.address);
+
+        const expectedBaseTrackingSupplyIndex = await divBaseWei(BASE_TRACKING_BORROW_SPEED * skipTime, totalBorrowBase, comet);
+        const delta = expectedBaseTrackingSupplyIndex;
+        const baseScale = await comet.baseScale();
+        const accrualDescaleFactor = baseScale.div(exp(1, 6));
+        const expectedBaseTrackingAccrued = -principal
+          .mul(delta)
+          .div(await comet.trackingIndexScale())
+          .div(accrualDescaleFactor);
+
+        expect(baseTrackingAccruedAfter).to.eq(expectedBaseTrackingAccrued);
+      });
+
+      it("users baseTrackingIndex becomes current baseTrackingBorrowIndex", async () => {
+        // Supply base tokens to achieve assertion condition
+        const { baseMinForRewards } = await cometExtension.getConfiguration();
+
+        await baseToken.allocateTo(alice.address, baseMinForRewards.add(exp(10, 6)));
+        await comet.connect(alice).supply(baseToken.address, baseMinForRewards.add(exp(10, 6)));
+
+        // Borrow base tokens to achieve assertion condition
+        await collateral.allocateTo(bob.address, exp(1000, 18));
+        await comet.connect(bob).supply(collateral.address, exp(1000, 18));
+        await comet.connect(bob).withdraw(baseToken.address, baseMinForRewards.add(exp(10, 6)));
+
+        const { baseTrackingAccrued } = await comet.userBasic(bob.address);
+        const { totalBorrowBase } = await cometExtension.totalsBasic();
+
+        expect(baseTrackingAccrued).to.eq(0);
+
+        // Skip 1000 seconds
+        const skipTime = 1000;
+        await fastForward(skipTime);
+        await comet.accrueAccount(bob.address);
+
+        const { baseTrackingIndex } = await comet.userBasic(bob.address);
+
+        const expectedBaseTrackingBorrowIndex = await divBaseWei(BASE_TRACKING_BORROW_SPEED * skipTime, totalBorrowBase, comet);
+
+        expect(baseTrackingIndex).to.eq(expectedBaseTrackingBorrowIndex);
+      });
+    });
   });
 
   it("reverts on overflows", async () => {
     const t0 = await comet.totalsBasic();
+
     const t1 = Object.assign({}, t0, {
       baseSupplyIndex: 2n ** 64n - 1n,
       totalSupplyBase: 14000,
       totalBorrowBase: 13000, // needs to have positive utilization for supply rate to be > 0
     });
+
     await fastForward(998);
-    const _s0 = await wait(comet.setTotalsBasic(t1));
+
+    await comet.setTotalsBasic(t1);
     await fastForward(2);
-    await expect(wait(comet.accrue())).to.be.revertedWith(
+
+    await expect(comet.accrue()).to.be.revertedWith(
       "code 0x11 (Arithmetic operation underflowed or overflowed outside of an unchecked block)"
     );
 
@@ -225,20 +355,19 @@ describe.skip("22. accrue", function () {
       baseBorrowIndex: 2n ** 64n - 1n,
     });
     await fastForward(998);
-    const _s1 = await wait(comet.setTotalsBasic(t2));
+    const _s1 = await comet.setTotalsBasic(t2);
     await fastForward(2);
-    await expect(wait(comet.accrue())).to.be.revertedWith(
+    await expect(comet.accrue()).to.be.revertedWith(
       "code 0x11 (Arithmetic operation underflowed or overflowed outside of an unchecked block)"
     );
   });
 
   it("supports up to the maximum timestamp then breaks", async () => {
     await fastForward(100);
-    const _a0 = await wait(comet.accrue());
+    await comet.accrue();
 
     await fastForward(2 ** 40);
-    await expect(wait(comet.accrue())).to.be.revertedWith("custom error 'TimestampTooLarge()'");
-    await ethers.provider.send("hardhat_reset", []); // dont break downstream tests...
+    await expect(comet.accrue()).to.be.revertedWith("custom error 'TimestampTooLarge()'");
   });
 
   it("has no effect when called on an address with no protocol activity", async () => {
