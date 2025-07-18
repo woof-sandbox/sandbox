@@ -84,5 +84,9 @@ abstract contract ISandboxComet is CometCore {
 
     function getUtilization() public view virtual returns (uint);
 
+    function getAssetInfo(uint8 i) public view virtual returns (CollateralAsset memory);
+
+    function getAssetInfoByAddress(address asset) public view virtual returns (CollateralAsset memory, uint8 index);
+
     function targetReserves() external view virtual returns (uint);
 }

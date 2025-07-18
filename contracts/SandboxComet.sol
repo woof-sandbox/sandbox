@@ -190,7 +190,7 @@ contract SandboxComet is ISandboxComet {
      * @param i The index of the asset info to get
      * @return The asset info object
      */
-    function getAssetInfo(uint8 i) public view returns (CollateralAsset memory) {
+    function getAssetInfo(uint8 i) public view override returns (CollateralAsset memory) {
         if (i >= numAssets) revert BadAsset();
         return collateralAssets[i];
     }
@@ -198,7 +198,7 @@ contract SandboxComet is ISandboxComet {
     /**
      * @dev Determine index of asset that matches given address
      */
-    function getAssetInfoByAddress(address asset) public view returns (CollateralAsset memory, uint8 index) {
+    function getAssetInfoByAddress(address asset) public view override returns (CollateralAsset memory, uint8 index) {
         index = collateralAssetIndex[asset];
         if (index == 0 && asset != collateralAssets[0].collateralToken) {
             revert BadAsset();
