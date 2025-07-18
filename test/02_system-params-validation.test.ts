@@ -463,7 +463,8 @@ describe("2. System Params Validation", function () {
       });
 
       it("should set disabled rewards during initialization", async function () {
-        expect(await comet.baseMinForRewards()).to.eq(ethers.constants.MaxUint256);
+        const MAX_UINT104 = 20282409603651670423947251286015n;
+        expect(await comet.baseMinForRewards()).to.eq(MAX_UINT104);
         expect(await comet.trackingIndexScale()).to.eq(1);
         expect(await comet.baseTrackingSupplySpeed()).to.eq(0);
         expect(await comet.baseTrackingBorrowSpeed()).to.eq(0);
