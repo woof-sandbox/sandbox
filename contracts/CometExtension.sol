@@ -121,11 +121,11 @@ contract CometExtension is ICometExtension {
 
     /**
      * @notice Approve a spender to transfer multiple amounts of assets on behalf of the sender
-     * note This function assumes that the first asset is the baseToken and the rest are collateral assets
      * @param spender The address of the account which may transfer tokens
-     * @param amounts The amounts of each asset that the spender is allowed to manage
-     * @dev Note: The first amount corresponds to the baseToken, followed by each collateral asset in order
-     * @dev The length of the amounts array must match the number of assets (baseToken + collateralAssets)
+     * @param baseTokenAmount The amount of the base token that the spender is allowed to manage
+     * @param amounts The amounts of each collateral asset that the spender is allowed to manage
+     * @dev The length of `amounts` must match the number of collateral assets
+     * @dev Collateral assets are ordered by their index in the `collateralAssets` array
      */
     function approveAll(address spender, uint256 baseTokenAmount, uint256[] calldata amounts) external override {
         uint256 len = collateralAssets.length;

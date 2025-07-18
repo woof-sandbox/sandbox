@@ -12,6 +12,7 @@ import { SandboxComet } from "contracts/SandboxComet.sol";
 import { ManagedFaucetToken } from "contracts/test/ManagedFaucetToken.sol";
 import { ManagedSimplePriceFeed } from "contracts/test/ManagedSimplePriceFeed.sol";
 import { HelperConfig } from "script/helpers/HelperConfig.s.sol";
+import { IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 
 contract DeployProtocol is Script {
     address curator;
@@ -20,6 +21,7 @@ contract DeployProtocol is Script {
     uint256 userPrivateKey;
 
     uint64 internal constant SECONDS_PER_YEAR = 31_536_000;
+    uint256 internal constant MILLION = 1_000_000;
 
     function run() external {
         HelperConfig helperConfig = new HelperConfig();
@@ -70,9 +72,19 @@ contract DeployProtocol is Script {
         address[] memory collateralPriceFeeds1 = new address[](2);
         collateralPriceFeeds1[0] = config.wethPriceFeed;
         collateralPriceFeeds1[1] = config.wbtcPriceFeed;
+        uint128[] memory supplyCaps1 = new uint128[](2);
+        supplyCaps1[0] = 402207198880612340000; // 1 million $
+        supplyCaps1[1] = 965454719; // 1 million $
 
         // Create Comet instances
-        address comet1 = createComet(configController1, config.usdc, config.usdcPriceFeed, collateralTokens1, collateralPriceFeeds1);
+        address comet1 = createComet(
+            configController1,
+            config.usdc,
+            config.usdcPriceFeed,
+            collateralTokens1,
+            collateralPriceFeeds1,
+            supplyCaps1
+        );
 
         address[] memory collateralTokens2 = new address[](4);
         collateralTokens2[0] = config.weth;
@@ -86,9 +98,27 @@ contract DeployProtocol is Script {
         collateralPriceFeeds2[2] = config.compPriceFeed;
         collateralPriceFeeds2[3] = config.linkPriceFeed;
 
-        address comet2 = createComet(configController2, config.usdc, config.usdcPriceFeed, collateralTokens2, collateralPriceFeeds2);
+        uint128[] memory supplyCaps2 = new uint128[](4);
+        supplyCaps2[0] = 402207198880612340000; // 1 million $
+        supplyCaps2[1] = 965454719; // 1 million $
+        supplyCaps2[2] = 20343454485595485000000; // 1 million $
+        supplyCaps2[3] = 75841461009904890000000; // 1 million $
+
+        address comet2 = createComet(
+            configController2,
+            config.usdc,
+            config.usdcPriceFeed,
+            collateralTokens2,
+            collateralPriceFeeds2,
+            supplyCaps2
+        );
 
         // Stop broadcasting
+        vm.stopBroadcast();
+
+        vm.startBroadcast(userPrivateKey);
+        ConfigController(configController1).acceptCuratorRole();
+        ConfigController(configController2).acceptCuratorRole();
         vm.stopBroadcast();
 
         // setPrices();
@@ -288,7 +318,8 @@ contract DeployProtocol is Script {
         address baseToken,
         address basePriceFeed,
         address[] memory collateralTokens,
-        address[] memory collateralPriceFeeds
+        address[] memory collateralPriceFeeds,
+        uint128[] memory supplyCaps
     ) internal returns (address) {
         IConfigController configController = IConfigController(configControllerAddr);
 
@@ -298,9 +329,11 @@ contract DeployProtocol is Script {
         );
 
         for (uint i = 0; i < collateralTokens.length; i++) {
+            // (, int256 price, , , ) = ManagedSimplePriceFeed(collateralPriceFeeds[i]).latestRoundData();
+
             collateralConfigs[i] = IConfigController.CollateralTokenConfig({
                 collateralToken: collateralTokens[i],
-                supplyCap: 1e24, // 1,000,000 tokens
+                supplyCap: supplyCaps[i], // 1 million tokens
                 borrowCollateralFactor: 8.1e17, // 80%
                 liquidateCollateralFactor: 8.5e17, // 85%
                 liquidationFactor: 9e17 // 90%

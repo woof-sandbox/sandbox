@@ -19,7 +19,7 @@ interface IConfigController {
 
     struct CometConfig {
         address baseToken;
-        uint8 baseTokenCurveId;
+        uint256 baseTokenCurveId;
         CollateralTokenConfig[] collateralTokens;
         string name;
     }

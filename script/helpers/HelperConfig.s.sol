@@ -66,17 +66,17 @@ contract HelperConfig is Script {
                 wstETH: 0x1044EE6eCA0b6a44057BfB46EF488fA8471875d4,
                 stETH: 0xB14a20F994E578f600834aEdA91cE18529ad2520,
                 usdc: 0x306134121e8B55dfA9faBA05De590E639a1F7D6B,
-                weth: 0x10698D5AEB71ea245Bde7094bCE4edF4A2aB762F,
+                weth: 0x7C96E7d262659Ed6ED79910c2590666d8da87e66,
                 wbtc: 0xb01f67f936b018edf565311A0ab55F3e1A05dBaf,
                 comp: 0x2001c123a7d08d355b323d21E2c24b4bcB35C2FE,
                 link: 0x75B3598A06aBF790A25FF4B956799945c38D0bf5,
                 usdcPriceFeed: 0xA512C74c637108FD1Cae88163176480452B1Fb8E,
-                wethPriceFeed: 0xF71BA22FdD2Aaf3dc1EDE5a234004eaa46904E7E,
+                wethPriceFeed: 0x0Be7E6eEB5ba8f9f75DBc5c9237F1bC00F1520A2,
                 wbtcPriceFeed: 0x651D96AfbeE282C1D58ECFce0D2dd8515255e020,
                 compPriceFeed: 0x9d82DcF7Fe854EBCE8AF6D0B2206E2Cfb62a8EcE,
                 linkPriceFeed: 0x62E979Ddfc74A6d4E23624cF1EdF0612E501c7a5,
-                comet1: 0xf11456686371F64Da3Cb5659EA3925D40fe48E53,
-                comet2: 0x1C75628833fB1EaE31A1BB5F1a05E70f41EEF39d
+                comet1: 0x95e4aAc15FEE4230F843573a8c964a84D048993C,
+                comet2: 0x4aF65880b66F9615D2A5f873a091A7a2F0e63812
             });
     }
 

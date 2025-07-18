@@ -2,7 +2,7 @@
 pragma solidity 0.8.28;
 
 interface IConfigControllerEvents {
-    event CometCreated(address comet, address baseToken, address priceFeed, uint256 cometId, uint8 baseTokenCurveId);
+    event CometCreated(address comet, address baseToken, address priceFeed, uint256 cometId, uint256 baseTokenCurveId);
     event CuratorProposed(address indexed currentCurator, address indexed proposedCurator, uint64 expiry);
     event CuratorAccepted(address indexed oldCurator, address indexed newCurator);
     event CuratorCanceled(address indexed oldCurator);

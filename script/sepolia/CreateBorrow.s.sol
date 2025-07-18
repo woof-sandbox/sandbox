@@ -9,41 +9,28 @@ import { WETH9 } from "contracts/test/WETH9.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract DeployProtocol is Script {
-    address owner;
-    address user;
-    address baseToken;
-    uint256 ownerPrivateKey;
-    uint256 userPrivateKey;
-
     HelperConfig.NetworkConfig config;
+
+    uint256 lenderPrivateKey;
+    uint256 baseLenderPrivateKey;
+    uint256 borrowerPrivateKey;
 
     function run() external {
         HelperConfig helperConfig = new HelperConfig();
         config = helperConfig.getConfig();
 
         // Get owner's private key from .env
-        ownerPrivateKey = vm.envUint("OWNER_PRIVATE_KEY");
-        owner = vm.addr(ownerPrivateKey);
-        userPrivateKey = vm.envUint("USER_PRIVATE_KEY");
-        user = vm.addr(userPrivateKey);
+        lenderPrivateKey = vm.envUint("LENDER_PRIVATE_KEY");
+        baseLenderPrivateKey = vm.envUint("BASE_LENDER_PRIVATE_KEY");
+        borrowerPrivateKey = vm.envUint("BORROWER_PRIVATE_KEY");
 
-        // buy 0.2 WETH for owner
-        WETH9 weth = WETH9(payable(config.weth));
-        vm.startBroadcast(ownerPrivateKey);
-        weth.deposit{ value: 0.2 ether }();
-        IERC20(config.usdc).transfer(user, 20_000e6);
-        vm.stopBroadcast();
+        address lender = vm.addr(lenderPrivateKey);
+        address baseLender = vm.addr(baseLenderPrivateKey);
+        address borrower = vm.addr(borrowerPrivateKey);
 
-        vm.startBroadcast(user);
-        IERC20(config.usdc).approve(config.comet1, 10_000e6);
-        IERC20(config.usdc).approve(config.comet2, 10_000e6);
-        ISandboxComet(config.comet1).supply(config.usdc, 10_000e6);
-        ISandboxComet(config.comet2).supply(config.usdc, 10_000e6);
-        vm.stopBroadcast();
+        uint256 borrowAmount = 150e6;
 
         // Initialize arrays with correct sizes
-        baseToken = config.usdc;
-        uint256 borrowAmount = 100e6; // 100 USDC
 
         address[] memory collateralTokens = new address[](4);
         collateralTokens[0] = config.weth;
@@ -52,14 +39,58 @@ contract DeployProtocol is Script {
         collateralAmounts[0] = 0.01 ether; // 0.01 WETH
         collateralAmounts[1] = 0.00001e18; // 0.00001 WBTC
 
-        setupBorrowing(config.comet1, baseToken, collateralTokens, collateralAmounts, borrowAmount, owner);
+        lendCollaterals(config.comet1, collateralTokens, collateralAmounts, lender);
+        lendBaseToken(config.comet1, config.usdc, 500e6, baseLender);
+        setupBorrowing(config.comet1, config.usdc, collateralTokens, collateralAmounts, borrowAmount, borrower);
 
         collateralTokens[2] = config.link;
         collateralTokens[3] = config.comp;
-        collateralAmounts[2] = 100e18; // 100 LINK
-        collateralAmounts[3] = 10e18; // 10 COMP
+        collateralAmounts[2] = 4e18; // 4 LINK
+        collateralAmounts[3] = 3e18; // 3 COMP
 
-        setupBorrowing(config.comet2, baseToken, collateralTokens, collateralAmounts, borrowAmount, owner);
+        lendCollaterals(config.comet2, collateralTokens, collateralAmounts, lender);
+        lendBaseToken(config.comet2, config.usdc, 500e6, baseLender);
+        setupBorrowing(config.comet2, config.usdc, collateralTokens, collateralAmounts, borrowAmount, borrower);
+    }
+
+    function lendCollaterals(
+        address cometAddr,
+        address[] memory collateralTokens,
+        uint256[] memory collateralAmounts,
+        address user
+    ) internal {
+        ISandboxComet comet = ISandboxComet(cometAddr);
+
+        vm.startBroadcast(lenderPrivateKey);
+        // Supply collateral tokens
+        for (uint i = 0; i < collateralTokens.length; i++) {
+            address collateralToken = collateralTokens[i];
+            IERC20 token = IERC20(collateralToken);
+            WETH9 weth = WETH9(payable(collateralToken));
+
+            if (collateralToken == address(0)) continue; // Skip if collateral token is zero address
+
+            if (collateralToken == config.weth) {
+                weth.approve(cometAddr, collateralAmounts[i]);
+                comet.supply(collateralToken, collateralAmounts[i]);
+            } else {
+                token.approve(cometAddr, collateralAmounts[i]);
+                comet.supply(collateralToken, collateralAmounts[i]);
+            }
+        }
+        vm.stopBroadcast();
+    }
+
+    function lendBaseToken(address cometAddr, address baseToken, uint256 lendAmount, address user) internal {
+        ISandboxComet comet = ISandboxComet(cometAddr);
+
+        vm.startBroadcast(baseLenderPrivateKey);
+        // Supply base token
+        IERC20(baseToken).approve(cometAddr, lendAmount);
+        comet.supply(baseToken, lendAmount);
+        vm.stopBroadcast();
+
+        console.log("Lent base token:", baseToken, "amount:", lendAmount);
     }
 
     function setupBorrowing(
@@ -72,7 +103,7 @@ contract DeployProtocol is Script {
     ) internal {
         ISandboxComet comet = ISandboxComet(cometAddr);
 
-        vm.startBroadcast(user);
+        vm.startBroadcast(borrowerPrivateKey);
         // Supply collateral tokens
         for (uint i = 0; i < collateralTokens.length; i++) {
             address collateralToken = collateralTokens[i];
