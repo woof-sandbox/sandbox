@@ -175,18 +175,17 @@ function approveAll(address spender, uint256 baseTokenAmount, uint256[] amounts)
 ```
 
 Approve a spender to transfer multiple amounts of assets on behalf of the sender
-note This function assumes that the first asset is the baseToken and the rest are collateral assets
 
-_Note: The first amount corresponds to the baseToken, followed by each collateral asset in order
-The length of the amounts array must match the number of assets (baseToken + collateralAssets)_
+_The length of `amounts` must match the number of collateral assets
+Collateral assets are ordered by their index in the `collateralAssets` array_
 
 #### Parameters
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
 | spender | address | The address of the account which may transfer tokens |
-| baseTokenAmount | uint256 |  |
-| amounts | uint256[] | The amounts of each asset that the spender is allowed to manage |
+| baseTokenAmount | uint256 | The amount of the base token that the spender is allowed to manage |
+| amounts | uint256[] | The amounts of each collateral asset that the spender is allowed to manage |
 
 ### allowBySig
 
