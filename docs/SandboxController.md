@@ -271,7 +271,7 @@ function getCommissions(uint256 _currentReserves, uint256 _seedReserves, uint256
 
 Returns profit fee distribution based on the reserves
 
-_THe function expects same denomination units for all 3 reserves parameters_
+_The function expects same denomination units for all 3 reserves parameters_
 
 #### Parameters
 
@@ -359,79 +359,6 @@ Returns the length of the collateralAssetTokens array.
 | ---- | ---- | ----------- |
 | [0] | uint256 | The length of the collateralAssetTokens array. |
 
-### setConfiguration
-
-```solidity
-function setConfiguration(struct ISandboxController.SandboxControllerConfiguration _config) external
-```
-
-_Emitted when a base asset is whitelisted._
-
-#### Parameters
-
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| _config | struct ISandboxController.SandboxControllerConfiguration | Configuration of the sandbox controller. |
-
-### addBaseAssetCurve
-
-```solidity
-function addBaseAssetCurve(address token, struct ISandboxController.BaseAssetCurve baseAssetCurve) external
-```
-
-Adds a new interest rate curve for an existing base asset.
-
-#### Parameters
-
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| token | address | The address of the base asset. |
-| baseAssetCurve | struct ISandboxController.BaseAssetCurve | The new interest rate curve configuration. |
-
-### changeBaseAssetCurve
-
-```solidity
-function changeBaseAssetCurve(address token, uint256 curveIndex, struct ISandboxController.BaseAssetCurve newCurve) external
-```
-
-Updates an existing interest rate curve for a base asset.
-
-#### Parameters
-
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| token | address | The address of the base asset. |
-| curveIndex | uint256 | The index of the curve to update. |
-| newCurve | struct ISandboxController.BaseAssetCurve | The updated interest rate curve. |
-
-### transferOwner
-
-```solidity
-function transferOwner(address newOwner) external
-```
-
-Transfers the owner privileges to a new address.
-
-#### Parameters
-
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| newOwner | address | The address of the new owner. |
-
-### transferDao
-
-```solidity
-function transferDao(address newDao) external
-```
-
-Transfers the DAO privileges to a new address.
-
-#### Parameters
-
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| newDao | address | The address of the new DAO. |
-
 ### isBaseTokenWhitelisted
 
 ```solidity
@@ -472,6 +399,37 @@ Checks if a token is whitelisted as a collateral asset.
 | ---- | ---- | ----------- |
 | [0] | bool | True if the token is whitelisted, otherwise false. |
 
+### addBaseAssetCurve
+
+```solidity
+function addBaseAssetCurve(address token, struct ISandboxController.BaseAssetCurve baseAssetCurve) external
+```
+
+Adds a new interest rate curve for an existing base asset.
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| token | address | The address of the base asset. |
+| baseAssetCurve | struct ISandboxController.BaseAssetCurve | The new interest rate curve configuration. |
+
+### changeBaseAssetCurve
+
+```solidity
+function changeBaseAssetCurve(address token, uint256 curveIndex, struct ISandboxController.BaseAssetCurve newCurve) external
+```
+
+Updates an existing interest rate curve for a base asset.
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| token | address | The address of the base asset. |
+| curveIndex | uint256 | The index of the curve to update. |
+| newCurve | struct ISandboxController.BaseAssetCurve | The updated interest rate curve. |
+
 ### isCurveConfigurationValid
 
 ```solidity
@@ -491,6 +449,48 @@ Validates an interest rate curve configuration.
 | Name | Type | Description |
 | ---- | ---- | ----------- |
 | [0] | bool | True if valid, false otherwise. |
+
+### setConfiguration
+
+```solidity
+function setConfiguration(struct ISandboxController.SandboxControllerConfiguration _config) external
+```
+
+_Emitted when a base asset is whitelisted._
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| _config | struct ISandboxController.SandboxControllerConfiguration | Configuration of the sandbox controller. |
+
+### transferOwner
+
+```solidity
+function transferOwner(address newOwner) external
+```
+
+Transfers the owner privileges to a new address.
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| newOwner | address | The address of the new owner. |
+
+### transferDao
+
+```solidity
+function transferDao(address newDao) external
+```
+
+Transfers the DAO privileges to a new address.
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| newDao | address | The address of the new DAO. |
 
 ### baseAssets
 
