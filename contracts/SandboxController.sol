@@ -220,6 +220,8 @@ contract SandboxController is ISandboxController {
      */
     function setTreasury(address _treasury) external override onlyOwner {
         if (_treasury == address(0)) revert ZeroAddress();
+        if (_treasury == treasury) revert IncorrectSetting();
+
         /// Emit event before updating the `treasury` address to save gas. Cheaper than creating a memory variable.
         emit TreasuryChanged(treasury, _treasury);
         treasury = _treasury;
@@ -237,7 +239,7 @@ contract SandboxController is ISandboxController {
 
     /**
      * @notice Returns profit fee distribution based on the reserves
-     * @dev THe function expects same denomination units for all 3 reserves parameters
+     * @dev The function expects same denomination units for all 3 reserves parameters
      * @param _currentReserves Current Comet reserves
      * @param _seedReserves Amount of reserves transferred to the Comet during the initialization
      * @param _targetReserves Expected target for the Comet
@@ -309,15 +311,7 @@ contract SandboxController is ISandboxController {
 
         baseAssetTokens.push(token);
 
-        emit BaseAssetWhitelisted(
-            token,
-            priceFeed,
-            decimals,
-            baseAssetCurve,
-            minBorrow,
-            baseAssetTokens.length - 1,
-            _baseAssets[token].baseAssetCurves.length - 1
-        );
+        emit BaseAssetWhitelisted(token, priceFeed, decimals, baseAssetTokens.length - 1);
     }
 
     /**
@@ -423,23 +417,26 @@ contract SandboxController is ISandboxController {
     }
 
     /**
-     * @dev Emitted when a base asset is whitelisted.
-     * @param _config Configuration of the sandbox controller.
+     * @notice Checks if a token is whitelisted as a base asset.
+     * @param token The address of the token.
+     * @return True if the token is whitelisted, otherwise false.
      */
-    function setConfiguration(SandboxControllerConfiguration memory _config) external override onlyOwner {
-        if (
-            _config.storeFrontPriceFactor > PARAMETERS_SCALE ||
-            _config.minUpdateTime == 0 ||
-            _config.maxUpdateTime < _config.minUpdateTime ||
-            _config.suggestedAmountOfSeedReserves == 0 ||
-            _config.suggestedLockTimeOfSeedReserves == 0 ||
-            _config.targetPercent > MAX_TARGET_PERCENT
-        ) revert InvalidFactors();
-
-        emit ConfigurationChanged(_controllerConfiguration, _config);
-
-        _controllerConfiguration = _config;
+    function isBaseTokenWhitelisted(address token) public view override returns (bool) {
+        return _baseAssets[token].priceFeed != address(0);
     }
+
+    /**
+     * @notice Checks if a token is whitelisted as a collateral asset.
+     * @param token The address of the token.
+     * @return True if the token is whitelisted, otherwise false.
+     */
+    function isCollateralTokenWhitelisted(address token) public view override returns (bool) {
+        return _collateralAssets[token].priceFeed != address(0);
+    }
+
+    ///
+    /// INITEREST CURVES SEGMENT
+    ///
 
     /**
      * @notice Adds a new interest rate curve for an existing base asset.
@@ -473,44 +470,6 @@ contract SandboxController is ISandboxController {
     }
 
     /**
-     * @notice Transfers the owner privileges to a new address.
-     * @param newOwner The address of the new owner.
-     */
-    function transferOwner(address newOwner) external override onlyOwner {
-        if (newOwner == address(0)) revert ZeroAddress();
-        emit OwnerTransferred(owner, newOwner);
-        owner = newOwner;
-    }
-
-    /**
-     * @notice Transfers the DAO privileges to a new address.
-     * @param newDao The address of the new DAO.
-     */
-    function transferDao(address newDao) external override onlyDao {
-        if (newDao == address(0)) revert ZeroAddress();
-        emit DaoTransferred(dao, newDao);
-        dao = newDao;
-    }
-
-    /**
-     * @notice Checks if a token is whitelisted as a base asset.
-     * @param token The address of the token.
-     * @return True if the token is whitelisted, otherwise false.
-     */
-    function isBaseTokenWhitelisted(address token) public view override returns (bool) {
-        return _baseAssets[token].priceFeed != address(0);
-    }
-
-    /**
-     * @notice Checks if a token is whitelisted as a collateral asset.
-     * @param token The address of the token.
-     * @return True if the token is whitelisted, otherwise false.
-     */
-    function isCollateralTokenWhitelisted(address token) public view override returns (bool) {
-        return _collateralAssets[token].priceFeed != address(0);
-    }
-
-    /**
      * @notice Validates an interest rate curve configuration.
      * @param curve The interest rate curve configuration to validate.
      * @return True if valid, false otherwise.
@@ -529,6 +488,57 @@ contract SandboxController is ISandboxController {
 
         return true;
     }
+
+    ///
+    /// ADMIN SEGMENT
+    ///
+
+    /**
+     * @dev Emitted when a base asset is whitelisted.
+     * @param _config Configuration of the sandbox controller.
+     */
+    function setConfiguration(SandboxControllerConfiguration memory _config) external override onlyOwner {
+        if (
+            _config.storeFrontPriceFactor > PARAMETERS_SCALE ||
+            _config.minUpdateTime == 0 ||
+            _config.maxUpdateTime < _config.minUpdateTime ||
+            _config.suggestedAmountOfSeedReserves == 0 ||
+            _config.suggestedLockTimeOfSeedReserves == 0 ||
+            _config.targetPercent > MAX_TARGET_PERCENT
+        ) revert InvalidFactors();
+
+        emit ConfigurationChanged(_controllerConfiguration, _config);
+
+        _controllerConfiguration = _config;
+    }
+
+    /**
+     * @notice Transfers the owner privileges to a new address.
+     * @param newOwner The address of the new owner.
+     */
+    function transferOwner(address newOwner) external override onlyOwner {
+        if (newOwner == address(0)) revert ZeroAddress();
+        if (newOwner == owner) revert IncorrectSetting();
+
+        emit OwnerTransferred(owner, newOwner);
+        owner = newOwner;
+    }
+
+    /**
+     * @notice Transfers the DAO privileges to a new address.
+     * @param newDao The address of the new DAO.
+     */
+    function transferDao(address newDao) external override onlyDao {
+        if (newDao == address(0)) revert ZeroAddress();
+        if (newDao == dao) revert IncorrectSetting();
+
+        emit DaoTransferred(dao, newDao);
+        dao = newDao;
+    }
+
+    ///
+    /// GETTERS SEGMENT
+    ///
 
     /**
      * @notice Returns base asset configuration for a given token.

@@ -22,9 +22,10 @@ import {
   SandboxComet,
   ISandboxComet,
 } from "../../build/types";
+
 import { SandboxCometFactory } from "../../build/types/SandboxCometFactory";
 import { SandboxCometFactory__factory } from "../../build/types/factories/SandboxCometFactory__factory";
-import { SandboxController } from "../../build/types/SandboxController";
+import { SandboxController, BaseAssetCurveStruct } from "../../build/types/SandboxController";
 import { SandboxController__factory } from "../../build/types/factories/SandboxController__factory";
 import { BigNumber, Contract, ContractReceipt, ContractTransaction } from "ethers";
 import { TransactionReceipt, TransactionResponse } from "@ethersproject/abstract-provider";
@@ -584,6 +585,19 @@ export async function makeMockERC20({ name, symbol }: MockERC20Params): Promise<
   return token;
 }
 
+export function makeValidCurve(): BaseAssetCurveStruct {
+  return {
+    supplyKink: ethers.utils.parseEther("0.5").toString(),
+    supplyPerYearInterestRateSlopeLow: ethers.BigNumber.from("500"),
+    supplyPerYearInterestRateSlopeHigh: ethers.BigNumber.from("1000"),
+    supplyPerYearInterestRateBase: ethers.BigNumber.from("100"),
+    borrowKink: ethers.utils.parseEther("0.5").toString(),
+    borrowPerYearInterestRateSlopeLow: ethers.BigNumber.from("1000"),
+    borrowPerYearInterestRateSlopeHigh: ethers.BigNumber.from("2000"),
+    borrowPerYearInterestRateBase: ethers.BigNumber.from("1"),
+  };
+}
+
 /// TODO: add opts when testing curves
 export async function sandboxListBaseAsset(sandboxController: SandboxController, baseAsset: FaucetToken, priceFeed: string) {
   // --- Parameters ---
@@ -661,7 +675,7 @@ export function defaultSandboxControllerOpts(partial?: Partial<SandboxController
   return {
     admin: partial?.admin,
     dao: partial?.dao,
-    treasury: partial?.treasury ?? ethers.Wallet.createRandom().address,
+    treasury: partial?.treasury,
     feeEnabled: partial?.feeEnabled ?? false,
     targetPercent: partial?.targetPercent ?? ethers.utils.parseEther("0.5").toString(),
     storeFrontPriceFactor: partial?.storeFrontPriceFactor ?? ethers.utils.parseEther("0.6").toString(),
@@ -704,7 +718,8 @@ export async function makeOnlyConfigController(
 export async function makeSandboxController(opts: SandboxControllerOpts, factory?): Promise<SandboxControllerInfo> {
   const signers = await ethers.getSigners();
   const admin = opts.admin || signers[0];
-  const dao = opts.dao || signers[3];
+  const dao = opts.dao || signers[1];
+  const treasury = opts.treasury || signers[2];
 
   let SandboxControllerFactory;
   if (factory) {
@@ -716,7 +731,7 @@ export async function makeSandboxController(opts: SandboxControllerOpts, factory
   const sandboxController = await SandboxControllerFactory.deploy(
     admin.address || admin,
     dao.address || dao,
-    opts.treasury,
+    treasury.address || treasury,
     opts.feeEnabled,
     opts.targetPercent,
     opts.storeFrontPriceFactor,

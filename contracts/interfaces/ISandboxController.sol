@@ -65,15 +65,8 @@ interface ISandboxController is ISandboxErrors {
         uint256 suggestedAmountOfSeedReserves; // 32 bytes
     }
 
-    event BaseAssetWhitelisted(
-        address indexed token,
-        address indexed priceFeed,
-        uint8 decimals,
-        BaseAssetCurve baseAssetCurve,
-        uint256 minBorrow,
-        uint256 baseAssetCount,
-        uint256 curveIndex
-    );
+    event BaseAssetWhitelisted(address indexed token, address indexed priceFeed, uint8 decimals, uint256 baseAssetCount);
+
     event BaseAssetCurveAdded(address indexed token, BaseAssetCurve baseAssetCurve, uint256 curveIndex);
     event BaseAssetCurveChanged(address indexed token, BaseAssetCurve oldCurve, BaseAssetCurve newCurve, uint256 curveIndex);
     event CollateralAssetWhitelisted(

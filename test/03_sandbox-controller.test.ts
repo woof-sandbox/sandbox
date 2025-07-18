@@ -8,21 +8,16 @@ import {
   exp,
   MIN_UPDATE_TIME,
   DEFAULT_UPDATE_TIME,
+  makeValidCurve,
+  SnapshotRestorer,
+  takeSnapshot,
 } from "./helper/helpers";
-import { parseEther } from "ethers/lib/utils";
 
-function makeValidCurve() {
-  return {
-    supplyKink: parseEther("0.5").toString(),
-    supplyPerYearInterestRateSlopeLow: ethers.BigNumber.from("500"),
-    supplyPerYearInterestRateSlopeHigh: ethers.BigNumber.from("1000"),
-    supplyPerYearInterestRateBase: ethers.BigNumber.from("100"),
-    borrowKink: parseEther("0.5").toString(),
-    borrowPerYearInterestRateSlopeLow: ethers.BigNumber.from("1000"),
-    borrowPerYearInterestRateSlopeHigh: ethers.BigNumber.from("2000"),
-    borrowPerYearInterestRateBase: ethers.BigNumber.from("1"),
-  };
-}
+import { SandboxController } from "../build/types";
+
+import { BaseAssetCurveStruct } from "../build/types/SandboxController";
+
+import { parseEther } from "ethers/lib/utils";
 
 function makeInvalidCurveZeroBase() {
   return {
@@ -55,26 +50,29 @@ describe("3. SandboxController", function () {
   let dao: any;
   let attacker: any;
   let other: any;
+  let treasury: any;
+  let opts: any;
+  let sandboxController: SandboxController;
 
   before(async function () {
-    [owner, dao, attacker, other] = await ethers.getSigners();
+    [owner, dao, treasury, attacker, other] = await ethers.getSigners();
+
+    opts = defaultSandboxControllerOpts({
+      admin: owner,
+      dao: dao,
+      treasury: treasury,
+      suggestedAmountOfSeedReserves: "1000",
+      suggestedLockTimeOfSeedReserves: 3600,
+    });
+
+    sandboxController = (await makeSandboxController(opts)).sandboxController;
   });
 
   describe("deployment with typical valid parameters", function () {
     it("verifies initial values after construction", async function () {
-      const opts = defaultSandboxControllerOpts({
-        admin: owner,
-        dao: dao,
-        feeEnabled: false,
-        storeFrontPriceFactor: parseEther("0.1").toString(),
-        minUpdateTime: MIN_UPDATE_TIME,
-        suggestedAmountOfSeedReserves: "1000",
-        suggestedLockTimeOfSeedReserves: 3600,
-        targetPercent: ethers.utils.parseEther("0.5").toString(),
-      });
-      const { sandboxController } = await makeSandboxController(opts);
       expect(await sandboxController.owner()).to.equal(owner.address);
       expect(await sandboxController.dao()).to.equal(dao.address);
+      expect(await sandboxController.treasury()).to.equal(treasury.address);
       expect(await sandboxController.feeEnabled()).to.equal(false);
       /// Protocol Commissions
       expect(await sandboxController.protocolCommission(0)).to.equal(exp(0.01, 18));
@@ -84,88 +82,101 @@ describe("3. SandboxController", function () {
       expect(await sandboxController.reserveCommission(0)).to.equal(exp(0.01, 18));
       expect(await sandboxController.reserveCommission(1)).to.equal(exp(0.02, 18));
       expect(await sandboxController.reserveCommission(2)).to.equal(exp(0.03, 18));
+    });
 
-      expect(await sandboxController.getBaseAssetLength()).to.equal(0);
-      expect(await sandboxController.getCollateralAssetLength()).to.equal(0);
-      expect((await sandboxController.config()).storeFrontPriceFactor).to.equal(parseEther("0.1").toString());
+    it("verifies config after construction", async function () {
+      expect((await sandboxController.config()).storeFrontPriceFactor).to.equal(opts.storeFrontPriceFactor);
       expect((await sandboxController.config()).minUpdateTime).to.equal(MIN_UPDATE_TIME);
       expect((await sandboxController.config()).maxUpdateTime).to.equal(DEFAULT_UPDATE_TIME);
-      expect((await sandboxController.config()).suggestedAmountOfSeedReserves).to.equal("1000");
-      expect((await sandboxController.config()).suggestedLockTimeOfSeedReserves).to.equal(3600);
+      expect((await sandboxController.config()).suggestedAmountOfSeedReserves).to.equal(opts.suggestedAmountOfSeedReserves);
+      expect((await sandboxController.config()).suggestedLockTimeOfSeedReserves).to.equal(opts.suggestedLockTimeOfSeedReserves);
+    });
+
+    it("should be no assets by default", async function () {
+      expect(await sandboxController.getBaseAssetLength()).to.equal(0);
+      expect(await sandboxController.getCollateralAssetLength()).to.equal(0);
     });
   });
 
-  describe("whitelistBaseAsset", function () {
-    let sandboxController: any;
+  describe("whitelistBaseAsset - reverts", function () {
+    let tokenTest;
+    let priceFeedTest;
+    let curve: BaseAssetCurveStruct;
 
-    beforeEach(async function () {
-      const opts = defaultSandboxControllerOpts({
-        admin: owner,
-        dao: dao,
-        feeEnabled: false,
-        storeFrontPriceFactor: parseEther("0.5").toString(),
-        minUpdateTime: 500,
-        suggestedAmountOfSeedReserves: "1000",
-        suggestedLockTimeOfSeedReserves: 1000,
-        targetPercent: ethers.utils.parseEther("0.5").toString(),
-      });
-      const c = await makeSandboxController(opts);
-      sandboxController = c.sandboxController;
+    before(async function () {
+      tokenTest = await makeMockERC20({ name: "TestToken", symbol: "TT" });
+      priceFeedTest = await makePriceFeed(tokenTest.address);
+      curve = makeValidCurve();
+    });
+
+    after(async function () {
+      // no assets registered in this testset
+      expect(await sandboxController.getBaseAssetLength()).to.equal(0);
+      expect(await sandboxController.getCollateralAssetLength()).to.equal(0);
+    });
+
+    it("should show that token is not whitelised", async function () {
+      expect(await sandboxController.isBaseTokenWhitelisted(tokenTest.address)).to.be.false;
+    });
+
+    it("should show no curves for base asset", async function () {
+      const assetCurves = await sandboxController.curves(tokenTest.address);
+
+      expect(assetCurves.length).to.equal(0);
     });
 
     it("reverts if caller is not owner or dao", async function () {
-      const token = await makeMockERC20({ name: "TestToken", symbol: "TT" });
-      const priceFeed = await makePriceFeed(token.address);
       await expect(
-        sandboxController.connect(attacker).whitelistBaseAsset(token.address, priceFeed.address, makeValidCurve(), 10)
+        sandboxController.connect(attacker).whitelistBaseAsset(tokenTest.address, priceFeedTest.address, curve, 10)
       ).to.be.revertedWithCustomError(sandboxController, "Unauthorized");
     });
 
     it("reverts if token = 0", async function () {
-      const token = await makeMockERC20({ name: "TestToken", symbol: "TT" });
-      const priceFeed = await makePriceFeed(token.address);
       await expect(
-        sandboxController.whitelistBaseAsset(ethers.constants.AddressZero, priceFeed.address, makeValidCurve(), 100)
+        sandboxController.whitelistBaseAsset(ethers.constants.AddressZero, priceFeedTest.address, curve, 100)
       ).to.be.revertedWithCustomError(sandboxController, "ZeroAddress");
     });
 
     it("reverts if priceFeed = 0", async function () {
-      const token = await makeMockERC20({ name: "TokenZeroFeed", symbol: "TZF" });
       await expect(
-        sandboxController.whitelistBaseAsset(token.address, ethers.constants.AddressZero, makeValidCurve(), 100)
+        sandboxController.whitelistBaseAsset(tokenTest.address, ethers.constants.AddressZero, curve, 100)
       ).to.be.revertedWithCustomError(sandboxController, "ZeroAddress");
     });
 
-    it("reverts if token already whitelisted", async function () {
-      const token = await makeMockERC20({ name: "T1", symbol: "T1" });
-      const priceFeed = await makePriceFeed(token.address);
-      const curve = makeValidCurve();
-      await sandboxController.whitelistBaseAsset(token.address, priceFeed.address, curve, 100);
-      const token2Feed = await makePriceFeed(token.address);
-      await expect(sandboxController.whitelistBaseAsset(token.address, token2Feed.address, curve, 200)).to.be.revertedWithCustomError(
+    it("reverts if base token already whitelisted", async function () {
+      const snapshot: SnapshotRestorer = await takeSnapshot();
+
+      const token1 = await makeMockERC20({ name: "T1", symbol: "T1" });
+      const priceFeed1 = await makePriceFeed(token1.address);
+      await sandboxController.whitelistBaseAsset(token1.address, priceFeed1.address, curve, 100);
+
+      const priceFeed2 = await makePriceFeed(token1.address);
+      await expect(sandboxController.whitelistBaseAsset(token1.address, priceFeed2.address, curve, 200)).to.be.revertedWithCustomError(
         sandboxController,
         "BaseTokenAlreadyWhitelisted"
       );
+
+      await snapshot.restore();
     });
 
     it("reverts if token is not associated with price feed", async function () {
       const token1 = await makeMockERC20({ name: "T2", symbol: "T2" });
-      const token2 = await makeMockERC20({ name: "T3", symbol: "T3" });
-      const priceFeed = await makePriceFeed(token1.address);
-      const curve = makeValidCurve();
-      await expect(sandboxController.whitelistBaseAsset(token2.address, priceFeed.address, curve, 50)).to.be.revertedWithCustomError(
+      const priceFeed1 = await makePriceFeed(token1.address);
+      await expect(sandboxController.whitelistBaseAsset(tokenTest.address, priceFeed1.address, curve, 50)).to.be.revertedWithCustomError(
         sandboxController,
         "WrongPriceFeedUnderlying"
       );
     });
 
     it("reverts if different price feed already used for token", async function () {
-      const token = await makeMockERC20({ name: "C5", symbol: "C5" });
-      const priceFeedChainlink = await makePriceFeed(token.address);
-      const priceFeedRedStone = await makePriceFeed(token.address);
+      const snapshot: SnapshotRestorer = await takeSnapshot();
+
+      const token1 = await makeMockERC20({ name: "C1", symbol: "C1" });
+      const priceFeedChainlink = await makePriceFeed(token1.address);
+      const priceFeedRedStone = await makePriceFeed(token1.address);
       /// Whitelist token with one price feed vender(for example RedStone)
       await sandboxController.whitelistCollateralAsset(
-        token.address,
+        token1.address,
         priceFeedRedStone.address,
         exp(1.1, 17),
         exp(1.2, 17),
@@ -176,88 +187,153 @@ describe("3. SandboxController", function () {
       );
       /// Try to whitelist token with different price feed vender(for example Chainlink)
       await expect(
-        sandboxController.whitelistBaseAsset(token.address, priceFeedChainlink.address, makeValidCurve(), 100)
+        sandboxController.whitelistBaseAsset(token1.address, priceFeedChainlink.address, curve, 100)
       ).to.be.revertedWithCustomError(sandboxController, "DifferentPriceFeedAlreadyUsedForToken");
-    });
 
-    it("reverts if curve is invalid", async function () {
-      const token = await makeMockERC20({ name: "T4", symbol: "T4" });
-      const priceFeed = await makePriceFeed(token.address);
-      await expect(
-        sandboxController.whitelistBaseAsset(token.address, priceFeed.address, makeInvalidCurveZeroBase(), 10)
-      ).to.be.revertedWithCustomError(sandboxController, "InvalidCurveConfiguration");
-      await expect(
-        sandboxController.whitelistBaseAsset(token.address, priceFeed.address, makeInvalidCurveKinkTooHigh(), 10)
-      ).to.be.revertedWithCustomError(sandboxController, "InvalidCurveConfiguration");
+      await snapshot.restore();
     });
 
     it("reverts if feed not a valid aggregator", async function () {
-      const token = await makeMockERC20({ name: "T5", symbol: "T5" });
+      const token = await makeMockERC20({ name: "T3", symbol: "T3" });
       const badFeed = await makeMockERC20({ name: "BadFeed", symbol: "BF" });
-      await expect(sandboxController.whitelistBaseAsset(token.address, badFeed.address, makeValidCurve(), 10)).to.be.reverted;
+      await expect(sandboxController.whitelistBaseAsset(token.address, badFeed.address, curve, 10)).to.be.reverted;
     });
 
     it("reverts if invalid price feed", async function () {
-      const token = await makeMockERC20({ name: "T6", symbol: "T6" });
+      const token = await makeMockERC20({ name: "T4", symbol: "T4" });
       const priceFeed = await makePriceFeed(token.address, "0");
       await expect(
         sandboxController.whitelistBaseAsset(token.address, priceFeed.address, makeValidCurve(), 100)
       ).to.be.revertedWithCustomError(sandboxController, "InvalidPriceFeed");
     });
 
-    it("whitelists token for base asset with correct state changes", async function () {
-      const token = await makeMockERC20({ name: "T6", symbol: "T6" });
-      const priceFeed = await makePriceFeed(token.address);
-      const curve = makeValidCurve();
-      await sandboxController.whitelistBaseAsset(token.address, priceFeed.address, curve, 777);
-      const data = await sandboxController.baseAssets(token.address);
-      expect(data.priceFeed).to.equal(priceFeed.address);
-      expect(data.decimals).to.equal(18);
-      expect(data.minBorrow).to.equal(777);
-      const count = await sandboxController.getBaseAssetLength();
-      expect(count).to.equal(1);
-      expect(await sandboxController.baseAssetTokens(0)).to.equal(token.address);
-      expect(await sandboxController.tokenToPriceFeed(token.address)).to.equal(priceFeed.address);
+    describe("reverts on invalid curves", function () {
+      beforeEach(async function () {
+        curve = makeValidCurve();
+      });
+
+      it("reverts for zero supply kink", async function () {
+        curve.supplyKink = 0;
+
+        expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.false;
+        await expect(
+          sandboxController.whitelistBaseAsset(tokenTest.address, priceFeedTest.address, curve, 10)
+        ).to.be.revertedWithCustomError(sandboxController, "InvalidCurveConfiguration");
+      });
+
+      it("reverts for zero borrow kink", async function () {
+        curve.borrowKink = 0;
+
+        expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.false;
+        await expect(
+          sandboxController.whitelistBaseAsset(tokenTest.address, priceFeedTest.address, makeInvalidCurveKinkTooHigh(), 10)
+        ).to.be.revertedWithCustomError(sandboxController, "InvalidCurveConfiguration");
+      });
+
+      it("reverts for supply kink > 1e18", async function () {
+        curve.supplyKink = parseEther("1").add(1).toString();
+
+        expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.false;
+        await expect(
+          sandboxController.whitelistBaseAsset(tokenTest.address, priceFeedTest.address, makeInvalidCurveKinkTooHigh(), 10)
+        ).to.be.revertedWithCustomError(sandboxController, "InvalidCurveConfiguration");
+      });
+
+      it("reverts for borrow kink > 1e18", async function () {
+        curve.borrowKink = parseEther("1").add(1).toString();
+
+        expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.false;
+        await expect(
+          sandboxController.whitelistBaseAsset(tokenTest.address, priceFeedTest.address, makeInvalidCurveKinkTooHigh(), 10)
+        ).to.be.revertedWithCustomError(sandboxController, "InvalidCurveConfiguration");
+      });
+
+      it("reverts for supply slope high = 0", async function () {
+        curve.supplyPerYearInterestRateSlopeHigh = 0;
+
+        expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.false;
+        await expect(
+          sandboxController.whitelistBaseAsset(tokenTest.address, priceFeedTest.address, makeInvalidCurveKinkTooHigh(), 10)
+        ).to.be.revertedWithCustomError(sandboxController, "InvalidCurveConfiguration");
+      });
+
+      it("reverts for supply slope low = 0", async function () {
+        curve.supplyPerYearInterestRateSlopeLow = 0;
+
+        expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.false;
+        await expect(
+          sandboxController.whitelistBaseAsset(tokenTest.address, priceFeedTest.address, makeInvalidCurveKinkTooHigh(), 10)
+        ).to.be.revertedWithCustomError(sandboxController, "InvalidCurveConfiguration");
+      });
+
+      it("reverts for borrow slope high = 0", async function () {
+        curve.borrowPerYearInterestRateSlopeHigh = 0;
+
+        expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.false;
+        await expect(
+          sandboxController.whitelistBaseAsset(tokenTest.address, priceFeedTest.address, makeInvalidCurveKinkTooHigh(), 10)
+        ).to.be.revertedWithCustomError(sandboxController, "InvalidCurveConfiguration");
+      });
+
+      it("reverts for borrow slope low = 0", async function () {
+        curve.borrowPerYearInterestRateSlopeLow = 0;
+
+        expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.false;
+        await expect(
+          sandboxController.whitelistBaseAsset(tokenTest.address, priceFeedTest.address, makeInvalidCurveKinkTooHigh(), 10)
+        ).to.be.revertedWithCustomError(sandboxController, "InvalidCurveConfiguration");
+      });
+    });
+  });
+
+  describe("whitelistBaseAsset - happy cases", function () {
+    let tokenTest;
+    let priceFeedTest;
+    const curve: BaseAssetCurveStruct = makeValidCurve();
+    const minBorrow = 777;
+
+    before(async function () {
+      tokenTest = await makeMockERC20({ name: "TestToken2", symbol: "TT2" });
+      priceFeedTest = await makePriceFeed(tokenTest.address);
+
+      await sandboxController.whitelistBaseAsset(tokenTest.address, priceFeedTest.address, curve, minBorrow);
     });
 
-    it("whitelists token for collateral asset and whitelists token for base asset with the same price feed", async function () {
-      const token = await makeMockERC20({ name: "T6", symbol: "T6" });
-      const priceFeed = await makePriceFeed(token.address);
-      const curve = makeValidCurve();
-      await sandboxController.whitelistBaseAsset(token.address, priceFeed.address, curve, 777);
-      await sandboxController.whitelistCollateralAsset(
-        token.address,
-        priceFeed.address,
-        exp(1.1, 17),
-        exp(1.2, 17),
-        exp(1.3, 17),
-        exp(1.4, 17),
-        exp(1.5, 17),
-        exp(1.6, 17)
-      );
-      expect(await sandboxController.tokenToPriceFeed(token.address)).to.equal(priceFeed.address);
+    after(async function () {
+      // no collateral assets registered in this testset
+      expect(await sandboxController.getCollateralAssetLength()).to.equal(0);
     });
 
-    it("whitelists token for base asset with correct state changes and emits BaseAssetWhitelisted", async function () {
-      const token = await makeMockERC20({ name: "T6", symbol: "T6" });
-      const priceFeed = await makePriceFeed(token.address);
-      const curve = makeValidCurve();
-      const tx = await sandboxController.whitelistBaseAsset(token.address, priceFeed.address, curve, 777);
-      const rcpt = await tx.wait();
-      const ev = rcpt.events?.find((e: any) => e.event === "BaseAssetWhitelisted");
-      expect(ev, "Expected BaseAssetWhitelisted event").to.exist;
-      expect(ev.args.curveIndex).to.equal(0);
-      expect(ev.args.token).to.equal(token.address);
-      expect(ev.args.priceFeed).to.equal(priceFeed.address);
-      expect(ev.args.decimals).to.equal(18);
-      expect(ev.args.baseAssetCurve.supplyKink).to.equal(curve.supplyKink);
-      expect(ev.args.minBorrow).to.equal(777);
+    it("asset is added to the base assets array", async function () {
+      expect(await sandboxController.getBaseAssetLength()).to.equal(1);
+      expect(await sandboxController.baseAssetTokens(0)).to.equal(tokenTest.address);
+    });
 
-      const data = await sandboxController.baseAssets(token.address);
-      expect(data.priceFeed).to.equal(priceFeed.address);
+    it("should show that token is whitelised", async function () {
+      expect(await sandboxController.isBaseTokenWhitelisted(tokenTest.address)).to.be.true;
+    });
+
+    it("whitelists token for base asset with correct token details", async function () {
+      const data = await sandboxController.baseAssets(tokenTest.address);
+
+      expect(data.priceFeed).to.equal(priceFeedTest.address);
       expect(data.decimals).to.equal(18);
-      expect(data.minBorrow).to.equal(777);
-      const [firstCurve] = await sandboxController.curves(token.address);
+      expect(data.minBorrow).to.equal(minBorrow);
+    });
+
+    it("should add data feed for the base asset", async function () {
+      expect(await sandboxController.tokenToPriceFeed(tokenTest.address)).to.equal(priceFeedTest.address);
+    });
+
+    it("should store curve for base asset", async function () {
+      const assetCurves = await sandboxController.curves(tokenTest.address);
+
+      expect(assetCurves.length).to.equal(1);
+    });
+
+    it("should store correct curve parameters for base asset", async function () {
+      const firstCurve = (await sandboxController.curves(tokenTest.address))[0];
+
       expect(firstCurve.supplyKink).to.equal(curve.supplyKink);
       expect(firstCurve.supplyPerYearInterestRateSlopeLow).to.equal(curve.supplyPerYearInterestRateSlopeLow);
       expect(firstCurve.supplyPerYearInterestRateSlopeHigh).to.equal(curve.supplyPerYearInterestRateSlopeHigh);
@@ -268,14 +344,73 @@ describe("3. SandboxController", function () {
       expect(firstCurve.borrowPerYearInterestRateBase).to.equal(curve.borrowPerYearInterestRateBase);
     });
 
+    it("whitelists token for collateral asset if base asset already registered", async function () {
+      const snapshot: SnapshotRestorer = await takeSnapshot();
+
+      expect(
+        await sandboxController.whitelistCollateralAsset(
+          tokenTest.address,
+          priceFeedTest.address,
+          exp(1.1, 17),
+          exp(1.2, 17),
+          exp(1.3, 17),
+          exp(1.4, 17),
+          exp(1.5, 17),
+          exp(1.6, 17)
+        )
+      ).to.not.be.reverted;
+
+      expect(await sandboxController.tokenToPriceFeed(tokenTest.address)).to.equal(priceFeedTest.address);
+
+      await snapshot.restore();
+    });
+
+    it("whitelists same base asset if collateral asset is already registered", async function () {
+      const snapshot: SnapshotRestorer = await takeSnapshot();
+
+      const token = await makeMockERC20({ name: "C1", symbol: "C1" });
+      const priceFeed = await makePriceFeed(token.address);
+
+      await sandboxController.whitelistCollateralAsset(
+        token.address,
+        priceFeed.address,
+        exp(1.1, 17),
+        exp(1.2, 17),
+        exp(1.3, 17),
+        exp(1.4, 17),
+        exp(1.5, 17),
+        exp(1.6, 17)
+      );
+
+      expect(await sandboxController.whitelistBaseAsset(token.address, priceFeed.address, curve, minBorrow)).to.not.be.reverted;
+      expect(await sandboxController.tokenToPriceFeed(token.address)).to.equal(priceFeed.address);
+
+      await snapshot.restore();
+    });
+
+    it("should emit BaseAssetWhitelisted", async function () {
+      const token = await makeMockERC20({ name: "T6", symbol: "T6" });
+      const priceFeed = await makePriceFeed(token.address);
+
+      const assetsCount = await sandboxController.getBaseAssetLength();
+
+      expect(await sandboxController.whitelistBaseAsset(token.address, priceFeed.address, curve, minBorrow))
+        .to.emit(sandboxController, "BaseAssetWhitelisted")
+        .withArgs(token.address, priceFeed.address, 18, assetsCount);
+    });
+
     it("owner can do it, dao can do it", async function () {
+      const baseAssetsBefore = await sandboxController.getBaseAssetLength();
       const token1 = await makeMockERC20({ name: "T7", symbol: "T7" });
       const feed1 = await makePriceFeed(token1.address);
-      await sandboxController.connect(owner).whitelistBaseAsset(token1.address, feed1.address, makeValidCurve(), 100);
+      await sandboxController.connect(owner).whitelistBaseAsset(token1.address, feed1.address, curve, 100);
+
       const token2 = await makeMockERC20({ name: "T8", symbol: "T8" });
       const feed2 = await makePriceFeed(token2.address);
-      await sandboxController.connect(dao).whitelistBaseAsset(token2.address, feed2.address, makeValidCurve(), 200);
-      expect(await sandboxController.getBaseAssetLength()).to.equal(2);
+      await sandboxController.connect(dao).whitelistBaseAsset(token2.address, feed2.address, curve, 200);
+
+      const baseAssetsAfter = await sandboxController.getBaseAssetLength();
+      expect(baseAssetsAfter.sub(baseAssetsBefore)).to.equal(2);
     });
   });
 
@@ -1348,29 +1483,6 @@ describe("3. SandboxController", function () {
   });
 
   describe("setTreasury", function () {
-    let sandboxController: any;
-    let owner: any, dao: any, attacker: any;
-    const ZERO_ADDRESS = ethers.constants.AddressZero;
-
-    before(async function () {
-      [owner, dao, attacker] = await ethers.getSigners();
-    });
-
-    beforeEach(async function () {
-      const opts = defaultSandboxControllerOpts({
-        admin: owner,
-        dao: dao,
-        feeEnabled: false,
-        storeFrontPriceFactor: parseEther("0.3").toString(),
-        minUpdateTime: 400,
-        suggestedAmountOfSeedReserves: "1000",
-        suggestedLockTimeOfSeedReserves: 1000,
-        targetPercent: ethers.utils.parseEther("0.5").toString(),
-      });
-      const c = await makeSandboxController(opts);
-      sandboxController = c.sandboxController;
-    });
-
     it("reverts if caller is not owner", async function () {
       await expect(sandboxController.connect(dao).setTreasury(attacker.address)).to.be.revertedWithCustomError(
         sandboxController,
@@ -1383,21 +1495,23 @@ describe("3. SandboxController", function () {
     });
 
     it("reverts if _treasury is the zero address", async function () {
-      await expect(sandboxController.connect(owner).setTreasury(ZERO_ADDRESS)).to.be.revertedWithCustomError(
+      await expect(sandboxController.setTreasury(ethers.constants.AddressZero)).to.be.revertedWithCustomError(
         sandboxController,
         "ZeroAddress"
       );
     });
 
+    it("reverts if same treasury is set", async function () {
+      await expect(sandboxController.setTreasury(treasury.address)).to.be.revertedWithCustomError(sandboxController, "IncorrectSetting");
+    });
+
     it("sets treasury and emits TreasuryChanged event", async function () {
-      const newTreasury = attacker.address;
+      const newTreasury = other.address;
       const oldTreasury = await sandboxController.treasury();
-      const tx = await sandboxController.connect(owner).setTreasury(newTreasury);
-      const rcpt = await tx.wait();
-      const ev = rcpt.events?.find((e: any) => e.event === "TreasuryChanged");
-      expect(ev, "Expected TreasuryChanged event").to.exist;
-      expect(ev.args.oldTreasury).to.equal(oldTreasury);
-      expect(ev.args.newTreasury).to.equal(newTreasury);
+
+      expect(await sandboxController.setTreasury(newTreasury))
+        .to.emit(sandboxController, "TreasuryChanged")
+        .withArgs(oldTreasury, newTreasury);
       expect(await sandboxController.treasury()).to.equal(newTreasury);
     });
   });
