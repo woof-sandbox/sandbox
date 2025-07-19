@@ -19,32 +19,6 @@ import { BaseAssetCurveStruct } from "../build/types/SandboxController";
 
 import { parseEther } from "ethers/lib/utils";
 
-function makeInvalidCurveZeroBase() {
-  return {
-    supplyKink: parseEther("0.5").toString(),
-    supplyPerYearInterestRateSlopeLow: ethers.BigNumber.from("500"),
-    supplyPerYearInterestRateSlopeHigh: ethers.BigNumber.from("1000"),
-    supplyPerYearInterestRateBase: ethers.BigNumber.from("100"),
-    borrowKink: parseEther("0.5").toString(),
-    borrowPerYearInterestRateSlopeLow: ethers.BigNumber.from("1000"),
-    borrowPerYearInterestRateSlopeHigh: ethers.BigNumber.from("0"),
-    borrowPerYearInterestRateBase: ethers.BigNumber.from("0"),
-  };
-}
-
-function makeInvalidCurveKinkTooHigh() {
-  return {
-    supplyKink: parseEther("1").toString(),
-    supplyPerYearInterestRateSlopeLow: ethers.BigNumber.from("500"),
-    supplyPerYearInterestRateSlopeHigh: ethers.BigNumber.from("1000"),
-    supplyPerYearInterestRateBase: ethers.BigNumber.from("100"),
-    borrowKink: parseEther("1").toString(),
-    borrowPerYearInterestRateSlopeLow: ethers.BigNumber.from("1000"),
-    borrowPerYearInterestRateSlopeHigh: ethers.BigNumber.from("2000"),
-    borrowPerYearInterestRateBase: ethers.BigNumber.from("1"),
-  };
-}
-
 describe("3. SandboxController", function () {
   let owner: any;
   let dao: any;
@@ -90,6 +64,16 @@ describe("3. SandboxController", function () {
       expect((await sandboxController.config()).maxUpdateTime).to.equal(DEFAULT_UPDATE_TIME);
       expect((await sandboxController.config()).suggestedAmountOfSeedReserves).to.equal(opts.suggestedAmountOfSeedReserves);
       expect((await sandboxController.config()).suggestedLockTimeOfSeedReserves).to.equal(opts.suggestedLockTimeOfSeedReserves);
+    });
+
+    it("sets update time boundaries", async function () {
+      const configTest = await sandboxController.config();
+
+      expect((await sandboxController.proposalBoundaries())[0]).to.equal(MIN_UPDATE_TIME);
+      expect((await sandboxController.proposalBoundaries())[1]).to.equal(DEFAULT_UPDATE_TIME);
+
+      expect((await sandboxController.proposalBoundaries())[0]).to.equal(configTest.minUpdateTime);
+      expect((await sandboxController.proposalBoundaries())[1]).to.equal(configTest.maxUpdateTime);
     });
 
     it("should be no assets by default", async function () {
@@ -226,7 +210,7 @@ describe("3. SandboxController", function () {
 
         expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.false;
         await expect(
-          sandboxController.whitelistBaseAsset(tokenTest.address, priceFeedTest.address, makeInvalidCurveKinkTooHigh(), 10)
+          sandboxController.whitelistBaseAsset(tokenTest.address, priceFeedTest.address, curve, 10)
         ).to.be.revertedWithCustomError(sandboxController, "InvalidCurveConfiguration");
       });
 
@@ -235,7 +219,7 @@ describe("3. SandboxController", function () {
 
         expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.false;
         await expect(
-          sandboxController.whitelistBaseAsset(tokenTest.address, priceFeedTest.address, makeInvalidCurveKinkTooHigh(), 10)
+          sandboxController.whitelistBaseAsset(tokenTest.address, priceFeedTest.address, curve, 10)
         ).to.be.revertedWithCustomError(sandboxController, "InvalidCurveConfiguration");
       });
 
@@ -244,7 +228,7 @@ describe("3. SandboxController", function () {
 
         expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.false;
         await expect(
-          sandboxController.whitelistBaseAsset(tokenTest.address, priceFeedTest.address, makeInvalidCurveKinkTooHigh(), 10)
+          sandboxController.whitelistBaseAsset(tokenTest.address, priceFeedTest.address, curve, 10)
         ).to.be.revertedWithCustomError(sandboxController, "InvalidCurveConfiguration");
       });
 
@@ -253,7 +237,7 @@ describe("3. SandboxController", function () {
 
         expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.false;
         await expect(
-          sandboxController.whitelistBaseAsset(tokenTest.address, priceFeedTest.address, makeInvalidCurveKinkTooHigh(), 10)
+          sandboxController.whitelistBaseAsset(tokenTest.address, priceFeedTest.address, curve, 10)
         ).to.be.revertedWithCustomError(sandboxController, "InvalidCurveConfiguration");
       });
 
@@ -262,7 +246,7 @@ describe("3. SandboxController", function () {
 
         expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.false;
         await expect(
-          sandboxController.whitelistBaseAsset(tokenTest.address, priceFeedTest.address, makeInvalidCurveKinkTooHigh(), 10)
+          sandboxController.whitelistBaseAsset(tokenTest.address, priceFeedTest.address, curve, 10)
         ).to.be.revertedWithCustomError(sandboxController, "InvalidCurveConfiguration");
       });
 
@@ -271,7 +255,7 @@ describe("3. SandboxController", function () {
 
         expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.false;
         await expect(
-          sandboxController.whitelistBaseAsset(tokenTest.address, priceFeedTest.address, makeInvalidCurveKinkTooHigh(), 10)
+          sandboxController.whitelistBaseAsset(tokenTest.address, priceFeedTest.address, curve, 10)
         ).to.be.revertedWithCustomError(sandboxController, "InvalidCurveConfiguration");
       });
 
@@ -280,7 +264,25 @@ describe("3. SandboxController", function () {
 
         expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.false;
         await expect(
-          sandboxController.whitelistBaseAsset(tokenTest.address, priceFeedTest.address, makeInvalidCurveKinkTooHigh(), 10)
+          sandboxController.whitelistBaseAsset(tokenTest.address, priceFeedTest.address, curve, 10)
+        ).to.be.revertedWithCustomError(sandboxController, "InvalidCurveConfiguration");
+      });
+
+      it("reverts for borrow base = 0", async function () {
+        curve.borrowPerYearInterestRateBase = 0;
+
+        expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.false;
+        await expect(
+          sandboxController.whitelistBaseAsset(tokenTest.address, priceFeedTest.address, curve, 10)
+        ).to.be.revertedWithCustomError(sandboxController, "InvalidCurveConfiguration");
+      });
+
+      it("reverts for supply base = 0", async function () {
+        curve.supplyPerYearInterestRateBase = 0;
+
+        expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.false;
+        await expect(
+          sandboxController.whitelistBaseAsset(tokenTest.address, priceFeedTest.address, curve, 10)
         ).to.be.revertedWithCustomError(sandboxController, "InvalidCurveConfiguration");
       });
     });
@@ -319,6 +321,13 @@ describe("3. SandboxController", function () {
       expect(data.priceFeed).to.equal(priceFeedTest.address);
       expect(data.decimals).to.equal(18);
       expect(data.minBorrow).to.equal(minBorrow);
+    });
+
+    it("minBorrow getter works", async function () {
+      const data = await sandboxController.baseAssets(tokenTest.address);
+
+      expect(await sandboxController.borrowMin(tokenTest.address)).to.equal(minBorrow);
+      expect(await sandboxController.borrowMin(tokenTest.address)).to.equal(data.minBorrow);
     });
 
     it("should add data feed for the base asset", async function () {
@@ -403,116 +412,156 @@ describe("3. SandboxController", function () {
       const baseAssetsBefore = await sandboxController.getBaseAssetLength();
       const token1 = await makeMockERC20({ name: "T7", symbol: "T7" });
       const feed1 = await makePriceFeed(token1.address);
-      await sandboxController.connect(owner).whitelistBaseAsset(token1.address, feed1.address, curve, 100);
+      expect(await sandboxController.connect(owner).whitelistBaseAsset(token1.address, feed1.address, curve, 100)).to.not.be.reverted;
 
       const token2 = await makeMockERC20({ name: "T8", symbol: "T8" });
       const feed2 = await makePriceFeed(token2.address);
-      await sandboxController.connect(dao).whitelistBaseAsset(token2.address, feed2.address, curve, 200);
+      expect(await sandboxController.connect(dao).whitelistBaseAsset(token2.address, feed2.address, curve, 200)).to.not.be.reverted;
 
       const baseAssetsAfter = await sandboxController.getBaseAssetLength();
       expect(baseAssetsAfter.sub(baseAssetsBefore)).to.equal(2);
     });
   });
 
-  describe("whitelistCollateralAsset", function () {
-    let sandboxController;
+  describe("whitelistCollateralAsset - reverts", function () {
+    let tokenCollateralTest;
+    let priceFeedCollateralTest;
 
-    beforeEach(async function () {
-      const opts = defaultSandboxControllerOpts({
-        admin: owner,
-        dao: dao,
-        feeEnabled: false,
-        storeFrontPriceFactor: parseEther("0.4").toString(),
-        minUpdateTime: 500,
-        suggestedAmountOfSeedReserves: "1000",
-        suggestedLockTimeOfSeedReserves: 1000,
-        targetPercent: ethers.utils.parseEther("0.5").toString(),
-      });
-      const c = await makeSandboxController(opts);
-      sandboxController = c.sandboxController;
+    let collateralConfig = {
+      minBorrowColF: ethers.utils.parseEther("0.5").toString(),
+      maxBorrowColF: ethers.utils.parseEther("0.8").toString(),
+      minLiqColF: ethers.utils.parseEther("0.6").toString(),
+      maxLiqColF: ethers.utils.parseEther("0.9").toString(),
+      minLiqF: ethers.utils.parseEther("0.7").toString(),
+      maxLiqF: ethers.utils.parseEther("0.95").toString(),
+    };
+
+    before(async function () {
+      tokenCollateralTest = await makeMockERC20({ name: "CollateralToken", symbol: "CT" });
+      priceFeedCollateralTest = await makePriceFeed(tokenCollateralTest.address);
+    });
+
+    after(async function () {
+      // no collateral assets registered in this testset
+      expect(await sandboxController.getCollateralAssetLength()).to.equal(0);
     });
 
     it("reverts if caller is not authorized", async function () {
-      const token = await makeMockERC20({ name: "C1", symbol: "C1" });
-      const priceFeed = await makePriceFeed(token.address);
       await expect(
-        sandboxController.connect(attacker).whitelistCollateralAsset(token.address, priceFeed.address, 8000, 5000, 6000, 9000, 7000, 9500)
+        sandboxController
+          .connect(attacker)
+          .whitelistCollateralAsset(
+            tokenCollateralTest.address,
+            priceFeedCollateralTest.address,
+            collateralConfig.minBorrowColF,
+            collateralConfig.maxBorrowColF,
+            collateralConfig.minLiqColF,
+            collateralConfig.maxLiqColF,
+            collateralConfig.minLiqF,
+            collateralConfig.maxLiqF
+          )
       ).to.be.revertedWithCustomError(sandboxController, "Unauthorized");
     });
 
     it("reverts if token = 0", async function () {
-      const priceFeed = await makePriceFeed(ethers.constants.AddressZero);
       await expect(
-        sandboxController.whitelistCollateralAsset(ethers.constants.AddressZero, priceFeed.address, 8000, 5000, 6000, 9000, 7000, 9500)
+        sandboxController.whitelistCollateralAsset(
+          ethers.constants.AddressZero,
+          priceFeedCollateralTest.address,
+          collateralConfig.minBorrowColF,
+          collateralConfig.maxBorrowColF,
+          collateralConfig.minLiqColF,
+          collateralConfig.maxLiqColF,
+          collateralConfig.minLiqF,
+          collateralConfig.maxLiqF
+        )
       ).to.be.revertedWithCustomError(sandboxController, "ZeroAddress");
     });
 
     it("reverts if feed = 0", async function () {
-      const token = await makeMockERC20({ name: "C2", symbol: "C2" });
       await expect(
-        sandboxController.whitelistCollateralAsset(token.address, ethers.constants.AddressZero, 8000, 5000, 6000, 9000, 7000, 9500)
+        sandboxController.whitelistCollateralAsset(
+          tokenCollateralTest.address,
+          ethers.constants.AddressZero,
+          collateralConfig.minBorrowColF,
+          collateralConfig.maxBorrowColF,
+          collateralConfig.minLiqColF,
+          collateralConfig.maxLiqColF,
+          collateralConfig.minLiqF,
+          collateralConfig.maxLiqF
+        )
       ).to.be.revertedWithCustomError(sandboxController, "ZeroAddress");
     });
 
     it("reverts if token already whitelisted as collateral", async function () {
-      const token = await makeMockERC20({ name: "C3", symbol: "C3" });
-      const priceFeed = await makePriceFeed(token.address);
+      const snapshot: SnapshotRestorer = await takeSnapshot();
+
       await sandboxController.whitelistCollateralAsset(
-        token.address,
-        priceFeed.address,
-        exp(1.1, 17),
-        exp(1.2, 17),
-        exp(1.3, 17),
-        exp(1.4, 17),
-        exp(1.5, 17),
-        exp(1.6, 17)
+        tokenCollateralTest.address,
+        priceFeedCollateralTest.address,
+        collateralConfig.minBorrowColF,
+        collateralConfig.maxBorrowColF,
+        collateralConfig.minLiqColF,
+        collateralConfig.maxLiqColF,
+        collateralConfig.minLiqF,
+        collateralConfig.maxLiqF
       );
-      const newFeed = await makePriceFeed(token.address);
+
       await expect(
         sandboxController.whitelistCollateralAsset(
-          token.address,
-          newFeed.address,
-          exp(1.1, 17),
-          exp(1.2, 17),
-          exp(1.3, 17),
-          exp(1.4, 17),
-          exp(1.5, 17),
-          exp(1.6, 17)
+          tokenCollateralTest.address,
+          priceFeedCollateralTest.address,
+          collateralConfig.minBorrowColF,
+          collateralConfig.maxBorrowColF,
+          collateralConfig.minLiqColF,
+          collateralConfig.maxLiqColF,
+          collateralConfig.minLiqF,
+          collateralConfig.maxLiqF
         )
       ).to.be.revertedWithCustomError(sandboxController, "CollateralTokenAlreadyWhitelisted");
+
+      await snapshot.restore();
     });
 
-    it("reverts if feed is used by another token", async function () {
-      const tokenA = await makeMockERC20({ name: "C4A", symbol: "C4A" });
-      const tokenB = await makeMockERC20({ name: "C4B", symbol: "C4B" });
-      const priceFeed = await makePriceFeed(tokenA.address);
-
-      await sandboxController.whitelistCollateralAsset(
-        tokenA.address,
-        priceFeed.address,
-        exp(1.1, 17),
-        exp(1.2, 17),
-        exp(1.3, 17),
-        exp(1.4, 17),
-        exp(1.5, 17),
-        exp(1.6, 17)
-      );
+    it("reverts if pricefeed does not match the token", async function () {
+      const tokenA = await makeMockERC20({ name: "C1", symbol: "C1" });
+      const priceFeedA = await makePriceFeed(tokenA.address);
 
       await expect(
-        sandboxController.whitelistCollateralAsset(tokenB.address, priceFeed.address, 5000, 8000, 6000, 9000, 7000, 9500)
+        sandboxController.whitelistCollateralAsset(
+          tokenCollateralTest.address,
+          priceFeedA.address,
+          collateralConfig.minBorrowColF,
+          collateralConfig.maxBorrowColF,
+          collateralConfig.minLiqColF,
+          collateralConfig.maxLiqColF,
+          collateralConfig.minLiqF,
+          collateralConfig.maxLiqF
+        )
       ).to.be.revertedWithCustomError(sandboxController, "WrongPriceFeedUnderlying");
     });
 
     it("reverts if different price feed already used for token", async function () {
-      const token = await makeMockERC20({ name: "C5", symbol: "C5" });
-      const priceFeedChainlink = await makePriceFeed(token.address);
-      const priceFeedRedStone = await makePriceFeed(token.address);
-      /// Whitelist token with one price feed vender(for example Chainlink)
-      await sandboxController.whitelistBaseAsset(token.address, priceFeedChainlink.address, makeValidCurve(), 100);
-      /// Try to whitelist token with different price feed vender(for example RedStone)
+      const snapshot: SnapshotRestorer = await takeSnapshot();
+
+      await sandboxController.whitelistBaseAsset(tokenCollateralTest.address, priceFeedCollateralTest.address, makeValidCurve(), 100);
+
+      const priceFeedA = await makePriceFeed(tokenCollateralTest.address);
+
       await expect(
-        sandboxController.whitelistCollateralAsset(token.address, priceFeedRedStone.address, 5000, 8000, 6000, 9000, 7000, 9500)
+        sandboxController.whitelistCollateralAsset(
+          tokenCollateralTest.address,
+          priceFeedA.address,
+          collateralConfig.minBorrowColF,
+          collateralConfig.maxBorrowColF,
+          collateralConfig.minLiqColF,
+          collateralConfig.maxLiqColF,
+          collateralConfig.minLiqF,
+          collateralConfig.maxLiqF
+        )
       ).to.be.revertedWithCustomError(sandboxController, "DifferentPriceFeedAlreadyUsedForToken");
+
+      await snapshot.restore();
     });
 
     it("reverts if feed not a valid aggregator (mock example)", async function () {
@@ -530,267 +579,393 @@ describe("3. SandboxController", function () {
       ).to.be.revertedWithCustomError(sandboxController, "InvalidPriceFeed");
     });
 
-    it("reverts if minBorrowCollateralFactor < 10%", async function () {
-      const token = await makeMockERC20({ name: "TKN", symbol: "TKN" });
-      const feed = await makePriceFeed(token.address);
-      await expect(
-        sandboxController.whitelistCollateralAsset(
-          token.address,
-          feed.address,
-          exp(0.9, 17),
-          exp(1.2, 17),
-          exp(1.3, 17),
-          exp(1.4, 17),
-          exp(1.5, 17),
-          exp(1.6, 17)
-        )
-      ).to.be.revertedWithCustomError(sandboxController, "InvalidFactors");
+    describe("reverts on invalid borrow factors", function () {
+      beforeEach(async function () {
+        collateralConfig = {
+          minBorrowColF: ethers.utils.parseEther("0.5").toString(),
+          maxBorrowColF: ethers.utils.parseEther("0.8").toString(),
+          minLiqColF: ethers.utils.parseEther("0.6").toString(),
+          maxLiqColF: ethers.utils.parseEther("0.9").toString(),
+          minLiqF: ethers.utils.parseEther("0.7").toString(),
+          maxLiqF: ethers.utils.parseEther("0.95").toString(),
+        };
+      });
+
+      after(async function () {
+        collateralConfig = {
+          minBorrowColF: ethers.utils.parseEther("0.5").toString(),
+          maxBorrowColF: ethers.utils.parseEther("0.8").toString(),
+          minLiqColF: ethers.utils.parseEther("0.6").toString(),
+          maxLiqColF: ethers.utils.parseEther("0.9").toString(),
+          minLiqF: ethers.utils.parseEther("0.7").toString(),
+          maxLiqF: ethers.utils.parseEther("0.95").toString(),
+        };
+        // no collateral assets registered in this testset
+        expect(await sandboxController.getCollateralAssetLength()).to.equal(0);
+      });
+
+      it("reverts if minBorrowCollateralFactor < 10%", async function () {
+        collateralConfig.minBorrowColF = ethers.utils.parseEther("0.1").sub(1).toString();
+
+        await expect(
+          sandboxController.whitelistCollateralAsset(
+            tokenCollateralTest.address,
+            priceFeedCollateralTest.address,
+            collateralConfig.minBorrowColF,
+            collateralConfig.maxBorrowColF,
+            collateralConfig.minLiqColF,
+            collateralConfig.maxLiqColF,
+            collateralConfig.minLiqF,
+            collateralConfig.maxLiqF
+          )
+        ).to.be.revertedWithCustomError(sandboxController, "InvalidFactors");
+      });
+
+      it("reverts if minBorrowCollateralFactor > minLiquidateCollateralFactor", async function () {
+        collateralConfig.minBorrowColF = ethers.utils.parseEther("0.65").toString();
+
+        await expect(
+          sandboxController.whitelistCollateralAsset(
+            tokenCollateralTest.address,
+            priceFeedCollateralTest.address,
+            collateralConfig.minBorrowColF,
+            collateralConfig.maxBorrowColF,
+            collateralConfig.minLiqColF,
+            collateralConfig.maxLiqColF,
+            collateralConfig.minLiqF,
+            collateralConfig.maxLiqF
+          )
+        ).to.be.revertedWithCustomError(sandboxController, "InvalidFactors");
+      });
+
+      it("reverts if minLiquidateCollateralFactor > minLiquidationFactor", async function () {
+        collateralConfig.minLiqColF = ethers.utils.parseEther("0.75").toString();
+
+        await expect(
+          sandboxController.whitelistCollateralAsset(
+            tokenCollateralTest.address,
+            priceFeedCollateralTest.address,
+            collateralConfig.minBorrowColF,
+            collateralConfig.maxBorrowColF,
+            collateralConfig.minLiqColF,
+            collateralConfig.maxLiqColF,
+            collateralConfig.minLiqF,
+            collateralConfig.maxLiqF
+          )
+        ).to.be.revertedWithCustomError(sandboxController, "InvalidFactors");
+      });
+
+      it("reverts if maxBorrowCollateralFactor > maxLiquidateCollateralFactor", async function () {
+        collateralConfig.maxBorrowColF = ethers.utils.parseEther("0.92").toString();
+
+        await expect(
+          sandboxController.whitelistCollateralAsset(
+            tokenCollateralTest.address,
+            priceFeedCollateralTest.address,
+            collateralConfig.minBorrowColF,
+            collateralConfig.maxBorrowColF,
+            collateralConfig.minLiqColF,
+            collateralConfig.maxLiqColF,
+            collateralConfig.minLiqF,
+            collateralConfig.maxLiqF
+          )
+        ).to.be.revertedWithCustomError(sandboxController, "InvalidFactors");
+      });
+
+      it("reverts if maxLiquidateCollateralFactor > maxLiquidationFactor", async function () {
+        collateralConfig.maxLiqColF = ethers.utils.parseEther("0.96").toString();
+
+        await expect(
+          sandboxController.whitelistCollateralAsset(
+            tokenCollateralTest.address,
+            priceFeedCollateralTest.address,
+            collateralConfig.minBorrowColF,
+            collateralConfig.maxBorrowColF,
+            collateralConfig.minLiqColF,
+            collateralConfig.maxLiqColF,
+            collateralConfig.minLiqF,
+            collateralConfig.maxLiqF
+          )
+        ).to.be.revertedWithCustomError(sandboxController, "InvalidFactors");
+      });
+
+      it("reverts if maxLiquidationFactor > 100%", async function () {
+        collateralConfig.maxLiqF = ethers.utils.parseEther("1").add(1).toString();
+
+        await expect(
+          sandboxController.whitelistCollateralAsset(
+            tokenCollateralTest.address,
+            priceFeedCollateralTest.address,
+            collateralConfig.minBorrowColF,
+            collateralConfig.maxBorrowColF,
+            collateralConfig.minLiqColF,
+            collateralConfig.maxLiqColF,
+            collateralConfig.minLiqF,
+            collateralConfig.maxLiqF
+          )
+        ).to.be.revertedWithCustomError(sandboxController, "InvalidFactors");
+      });
+
+      it("reverts if minBorrowCollateralFactor > maxBorrowCollateralFactor", async function () {
+        collateralConfig.minBorrowColF = ethers.utils.parseEther("0.6").toString();
+        collateralConfig.maxBorrowColF = ethers.utils.parseEther("0.5").toString();
+
+        await expect(
+          sandboxController.whitelistCollateralAsset(
+            tokenCollateralTest.address,
+            priceFeedCollateralTest.address,
+            collateralConfig.minBorrowColF,
+            collateralConfig.maxBorrowColF,
+            collateralConfig.minLiqColF,
+            collateralConfig.maxLiqColF,
+            collateralConfig.minLiqF,
+            collateralConfig.maxLiqF
+          )
+        ).to.be.revertedWithCustomError(sandboxController, "InvalidFactors");
+      });
+
+      it("reverts if minLiquidateCollateralFactor > maxLiquidateCollateralFactor", async function () {
+        collateralConfig.minLiqColF = ethers.utils.parseEther("0.7").toString();
+        collateralConfig.maxLiqColF = ethers.utils.parseEther("0.65").toString();
+
+        await expect(
+          sandboxController.whitelistCollateralAsset(
+            tokenCollateralTest.address,
+            priceFeedCollateralTest.address,
+            collateralConfig.minBorrowColF,
+            collateralConfig.maxBorrowColF,
+            collateralConfig.minLiqColF,
+            collateralConfig.maxLiqColF,
+            collateralConfig.minLiqF,
+            collateralConfig.maxLiqF
+          )
+        ).to.be.revertedWithCustomError(sandboxController, "InvalidFactors");
+      });
+
+      it("reverts if minLiquidationFactor > maxLiquidationFactor", async function () {
+        collateralConfig.minLiqF = ethers.utils.parseEther("0.9").toString();
+        collateralConfig.maxLiqF = ethers.utils.parseEther("0.85").toString();
+
+        await expect(
+          sandboxController.whitelistCollateralAsset(
+            tokenCollateralTest.address,
+            priceFeedCollateralTest.address,
+            collateralConfig.minBorrowColF,
+            collateralConfig.maxBorrowColF,
+            collateralConfig.minLiqColF,
+            collateralConfig.maxLiqColF,
+            collateralConfig.minLiqF,
+            collateralConfig.maxLiqF
+          )
+        ).to.be.revertedWithCustomError(sandboxController, "InvalidFactors");
+      });
+    });
+  });
+
+  describe("whitelistCollateralAsset - happy cases", function () {
+    let tokenCollateralTest;
+    let priceFeedCollateralTest;
+
+    const collateralConfig = {
+      minBorrowColF: ethers.utils.parseEther("0.5").toString(),
+      maxBorrowColF: ethers.utils.parseEther("0.8").toString(),
+      minLiqColF: ethers.utils.parseEther("0.6").toString(),
+      maxLiqColF: ethers.utils.parseEther("0.9").toString(),
+      minLiqF: ethers.utils.parseEther("0.7").toString(),
+      maxLiqF: ethers.utils.parseEther("0.95").toString(),
+    };
+
+    before(async function () {
+      tokenCollateralTest = await makeMockERC20({ name: "CollateralToken", symbol: "CT" });
+      priceFeedCollateralTest = await makePriceFeed(tokenCollateralTest.address);
+
+      await sandboxController.whitelistCollateralAsset(
+        tokenCollateralTest.address,
+        priceFeedCollateralTest.address,
+        collateralConfig.minBorrowColF,
+        collateralConfig.maxBorrowColF,
+        collateralConfig.minLiqColF,
+        collateralConfig.maxLiqColF,
+        collateralConfig.minLiqF,
+        collateralConfig.maxLiqF
+      );
     });
 
-    it("reverts if minBorrowCollateralFactor > minLiquidateCollateralFactor", async function () {
-      const token = await makeMockERC20({ name: "TKN", symbol: "TKN" });
-      const feed = await makePriceFeed(token.address);
-      await expect(
-        sandboxController.whitelistCollateralAsset(
-          token.address,
-          feed.address,
-          exp(1.1, 17),
-          exp(1.2, 17),
-          exp(1, 17),
-          exp(1.4, 17),
-          exp(1.5, 17),
-          exp(1.6, 17)
-        )
-      ).to.be.revertedWithCustomError(sandboxController, "InvalidFactors");
+    it("should update state for collateral token", async function () {
+      const data = await sandboxController.collateralAssets(tokenCollateralTest.address);
+      expect(data.collateralToken).to.equal(tokenCollateralTest.address);
+      expect(data.priceFeed).to.equal(priceFeedCollateralTest.address);
+      expect(data.decimals).to.equal(18);
     });
 
-    it("reverts if minLiquidateCollateralFactor > minLiquidationFactor", async function () {
-      const token = await makeMockERC20({ name: "TKN", symbol: "TKN" });
-      const feed = await makePriceFeed(token.address);
-      await expect(
-        sandboxController.whitelistCollateralAsset(
-          token.address,
-          feed.address,
-          exp(1.1, 17),
-          exp(1.2, 17),
-          exp(1.3, 17),
-          exp(1.4, 17),
-          exp(1.2, 17),
-          exp(1.6, 17)
-        )
-      ).to.be.revertedWithCustomError(sandboxController, "InvalidFactors");
+    it("should record collateral token factors", async function () {
+      const data = await sandboxController.collateralAssets(tokenCollateralTest.address);
+
+      expect(data.minBorrowCollateralFactor).to.equal(collateralConfig.minBorrowColF);
+      expect(data.maxBorrowCollateralFactor).to.equal(collateralConfig.maxBorrowColF);
+      expect(data.minLiquidateCollateralFactor).to.equal(collateralConfig.minLiqColF);
+      expect(data.maxLiquidateCollateralFactor).to.equal(collateralConfig.maxLiqColF);
+      expect(data.minLiquidationFactor).to.equal(collateralConfig.minLiqF);
+      expect(data.maxLiquidationFactor).to.equal(collateralConfig.maxLiqF);
     });
 
-    it("reverts if maxBorrowCollateralFactor > maxLiquidateCollateralFactor", async function () {
-      const token = await makeMockERC20({ name: "TKN", symbol: "TKN" });
-      const feed = await makePriceFeed(token.address);
-      await expect(
-        sandboxController.whitelistCollateralAsset(
-          token.address,
-          feed.address,
-          exp(1.1, 17),
-          exp(1.2, 17),
-          exp(1.3, 17),
-          exp(1.1, 17),
-          exp(1.5, 17),
-          exp(1.6, 17)
-        )
-      ).to.be.revertedWithCustomError(sandboxController, "InvalidFactors");
+    it("should record collateral token price feed", async function () {
+      expect(await sandboxController.tokenToPriceFeed(tokenCollateralTest.address)).to.equal(priceFeedCollateralTest.address);
     });
 
-    it("reverts if maxLiquidateCollateralFactor > maxLiquidationFactor", async function () {
-      const token = await makeMockERC20({ name: "TKN", symbol: "TKN" });
-      const feed = await makePriceFeed(token.address);
-      await expect(
-        sandboxController.whitelistCollateralAsset(
-          token.address,
-          feed.address,
-          exp(1.1, 17),
-          exp(1.2, 17),
-          exp(1.3, 17),
-          exp(1.4, 17),
-          exp(1.5, 17),
-          exp(1.3, 17)
-        )
-      ).to.be.revertedWithCustomError(sandboxController, "InvalidFactors");
-    });
-
-    it("reverts if maxLiquidationFactor > 100%", async function () {
-      const token = await makeMockERC20({ name: "TKN", symbol: "TKN" });
-      const feed = await makePriceFeed(token.address);
-      await expect(
-        sandboxController.whitelistCollateralAsset(
-          token.address,
-          feed.address,
-          exp(1.1, 17),
-          exp(1.2, 17),
-          exp(1.3, 17),
-          exp(1.4, 17),
-          exp(1.5, 17),
-          exp(1.1, 18)
-        )
-      ).to.be.revertedWithCustomError(sandboxController, "InvalidFactors");
-    });
-
-    it("reverts if minBorrowCollateralFactor > maxBorrowCollateralFactor", async function () {
-      const token = await makeMockERC20({ name: "CInv", symbol: "CInv" });
-      const feed = await makePriceFeed(token.address);
-      await expect(
-        sandboxController.whitelistCollateralAsset(
-          token.address,
-          feed.address,
-          exp(1.2, 17),
-          exp(1.1, 17),
-          exp(1.3, 17),
-          exp(1.4, 17),
-          exp(1.5, 17),
-          exp(1.6, 17)
-        )
-      ).to.be.revertedWithCustomError(sandboxController, "InvalidFactors");
-    });
-
-    it("reverts if minLiquidateCollateralFactor > maxLiquidateCollateralFactor", async function () {
-      const token = await makeMockERC20({ name: "CInv2", symbol: "CInv2" });
-      const feed = await makePriceFeed(token.address);
-      await expect(
-        sandboxController.whitelistCollateralAsset(
-          token.address,
-          feed.address,
-          exp(1.1, 17),
-          exp(1.2, 17),
-          exp(1.4, 17),
-          exp(1.3, 17),
-          exp(1.5, 17),
-          exp(1.6, 17)
-        )
-      ).to.be.revertedWithCustomError(sandboxController, "InvalidFactors");
-    });
-
-    it("reverts if minLiquidationFactor > maxLiquidationFactor", async function () {
-      const token = await makeMockERC20({ name: "CInv3", symbol: "CInv3" });
-      const feed = await makePriceFeed(token.address);
-      await expect(
-        sandboxController.whitelistCollateralAsset(
-          token.address,
-          feed.address,
-          exp(1.1, 17),
-          exp(1.2, 17),
-          exp(1.3, 17),
-          exp(1.4, 17),
-          exp(1.6, 17),
-          exp(1.5, 17)
-        )
-      ).to.be.revertedWithCustomError(sandboxController, "InvalidFactors");
-    });
-
-    it("whitelists valid collateral and updates state", async function () {
-      const token = await makeMockERC20({ name: "C6", symbol: "C6" });
+    it("should update collaterals array", async function () {
+      const token = await makeMockERC20({ name: "C1", symbol: "C1" });
       const priceFeed = await makePriceFeed(token.address);
 
-      const minBorrowCollateralFactor = exp(1.1, 17);
-      const maxBorrowCollateralFactor = exp(1.2, 17);
-      const minLiquidateCollateralFactor = exp(1.3, 17);
-      const maxLiquidateCollateralFactor = exp(1.4, 17);
-      const minLiquidationFactor = exp(1.5, 17);
-      const maxLiquidationFactor = exp(1.6, 17);
+      const collateralsNumberBefore = await sandboxController.getCollateralAssetLength();
+      const dataBefore = await sandboxController.collateralAssets(token.address);
+
+      expect(dataBefore.collateralToken).to.equal(ethers.constants.AddressZero);
 
       await sandboxController.whitelistCollateralAsset(
         token.address,
         priceFeed.address,
-        minBorrowCollateralFactor,
-        maxBorrowCollateralFactor,
-        minLiquidateCollateralFactor,
-        maxLiquidateCollateralFactor,
-        minLiquidationFactor,
-        maxLiquidationFactor
+        collateralConfig.minBorrowColF,
+        collateralConfig.maxBorrowColF,
+        collateralConfig.minLiqColF,
+        collateralConfig.maxLiqColF,
+        collateralConfig.minLiqF,
+        collateralConfig.maxLiqF
       );
 
-      const data = await sandboxController.collateralAssets(token.address);
-      expect(data.collateralToken).to.equal(token.address);
-      expect(data.priceFeed).to.equal(priceFeed.address);
-      expect(data.decimals).to.equal(18);
-      expect(data.maxBorrowCollateralFactor).to.equal(maxBorrowCollateralFactor);
-      expect(data.minBorrowCollateralFactor).to.equal(minBorrowCollateralFactor);
-      expect(data.minLiquidateCollateralFactor).to.equal(minLiquidateCollateralFactor);
-      expect(data.maxLiquidateCollateralFactor).to.equal(maxLiquidateCollateralFactor);
-      expect(data.minLiquidationFactor).to.equal(minLiquidationFactor);
-      expect(data.maxLiquidationFactor).to.equal(maxLiquidationFactor);
+      const collateralsNumberAfter = await sandboxController.getCollateralAssetLength();
+      const dataAfter = await sandboxController.collateralAssets(token.address);
 
-      expect(await sandboxController.getCollateralAssetLength()).to.equal(1);
-
-      expect(await sandboxController.collateralAssetTokens(0)).to.equal(token.address);
-
-      expect(await sandboxController.tokenToPriceFeed(token.address)).to.equal(priceFeed.address);
+      expect(dataAfter.collateralToken).to.equal(token.address);
+      expect(collateralsNumberAfter.sub(collateralsNumberBefore)).to.equal(1);
+      expect(await sandboxController.collateralAssetTokens(collateralsNumberAfter.sub(1))).to.equal(token.address);
     });
 
-    it("emits CollateralAssetWhitelisted event with correct args", async function () {
-      const token = await makeMockERC20({ name: "C6", symbol: "C6" });
+    it("should emit CollateralAssetWhitelisted event with correct args", async function () {
+      const token = await makeMockERC20({ name: "C2", symbol: "C2" });
       const priceFeed = await makePriceFeed(token.address);
 
-      const minBorrowCollateralFactor = exp(1.1, 17);
-      const maxBorrowCollateralFactor = exp(1.2, 17);
-      const minLiquidateCollateralFactor = exp(1.3, 17);
-      const maxLiquidateCollateralFactor = exp(1.4, 17);
-      const minLiquidationFactor = exp(1.5, 17);
-      const maxLiquidationFactor = exp(1.6, 17);
-
-      const tx = await sandboxController.whitelistCollateralAsset(
-        token.address,
-        priceFeed.address,
-        minBorrowCollateralFactor,
-        maxBorrowCollateralFactor,
-        minLiquidateCollateralFactor,
-        maxLiquidateCollateralFactor,
-        minLiquidationFactor,
-        maxLiquidationFactor
-      );
-      const rcpt = await tx.wait();
-
-      const ev = rcpt.events?.find(e => e.event === "CollateralAssetWhitelisted");
-      expect(ev, "Expected CollateralAssetWhitelisted event").to.exist;
-      expect(ev.args.token).to.equal(token.address);
-      expect(ev.args.priceFeed).to.equal(priceFeed.address);
-      expect(ev.args.decimals).to.equal(18);
-      expect(ev.args.minBorrowCollateralFactor).to.equal(minBorrowCollateralFactor);
-      expect(ev.args.minLiquidateCollateralFactor).to.equal(minLiquidateCollateralFactor);
-      expect(ev.args.maxLiquidateCollateralFactor).to.equal(maxLiquidateCollateralFactor);
-      expect(ev.args.minLiquidationFactor).to.equal(minLiquidationFactor);
-      expect(ev.args.maxLiquidationFactor).to.equal(maxLiquidationFactor);
-      expect(ev.args.maxBorrowCollateralFactor).to.equal(maxBorrowCollateralFactor);
+      expect(
+        await sandboxController.whitelistCollateralAsset(
+          token.address,
+          priceFeed.address,
+          collateralConfig.minBorrowColF,
+          collateralConfig.maxBorrowColF,
+          collateralConfig.minLiqColF,
+          collateralConfig.maxLiqColF,
+          collateralConfig.minLiqF,
+          collateralConfig.maxLiqF
+        )
+      )
+        .to.emit(sandboxController, "CollateralAssetWhitelisted")
+        .withArgs(token.address, priceFeed.address, 18);
     });
 
     it("owner can do it, dao can do it", async function () {
-      const token1 = await makeMockERC20({ name: "C7", symbol: "C7" });
+      const token1 = await makeMockERC20({ name: "C3", symbol: "C4" });
       const feed1 = await makePriceFeed(token1.address);
-      await sandboxController
-        .connect(owner)
-        .whitelistCollateralAsset(
-          token1.address,
-          feed1.address,
-          exp(1.1, 17),
-          exp(1.2, 17),
-          exp(1.3, 17),
-          exp(1.4, 17),
-          exp(1.5, 17),
-          exp(1.6, 17)
-        );
+
+      expect(
+        await sandboxController
+          .connect(owner)
+          .whitelistCollateralAsset(
+            token1.address,
+            feed1.address,
+            collateralConfig.minBorrowColF,
+            collateralConfig.maxBorrowColF,
+            collateralConfig.minLiqColF,
+            collateralConfig.maxLiqColF,
+            collateralConfig.minLiqF,
+            collateralConfig.maxLiqF
+          )
+      ).to.not.be.reverted;
+
+      const token2 = await makeMockERC20({ name: "C4", symbol: "C4" });
+      const feed2 = await makePriceFeed(token2.address);
+      expect(
+        await sandboxController
+          .connect(dao)
+          .whitelistCollateralAsset(
+            token2.address,
+            feed2.address,
+            collateralConfig.minBorrowColF,
+            collateralConfig.maxBorrowColF,
+            collateralConfig.minLiqColF,
+            collateralConfig.maxLiqColF,
+            collateralConfig.minLiqF,
+            collateralConfig.maxLiqF
+          )
+      ).to.not.be.reverted;
+    });
+
+    it("should list collateral with min borrow factor = 10%", async function () {
+      const token = await makeMockERC20({ name: "C5", symbol: "C5" });
+      const priceFeed = await makePriceFeed(token.address);
+
+      expect(
+        await sandboxController.whitelistCollateralAsset(
+          token.address,
+          priceFeed.address,
+          ethers.utils.parseEther("0.1"),
+          collateralConfig.maxBorrowColF,
+          collateralConfig.minLiqColF,
+          collateralConfig.maxLiqColF,
+          collateralConfig.minLiqF,
+          collateralConfig.maxLiqF
+        )
+      ).to.not.be.reverted;
+    });
+
+    it("should list collateral with max liq factor = 100%", async function () {
+      const token = await makeMockERC20({ name: "C6", symbol: "C6" });
+      const priceFeed = await makePriceFeed(token.address);
+
+      expect(
+        await sandboxController.whitelistCollateralAsset(
+          token.address,
+          priceFeed.address,
+          collateralConfig.minBorrowColF,
+          collateralConfig.maxBorrowColF,
+          collateralConfig.minLiqColF,
+          collateralConfig.maxLiqColF,
+          collateralConfig.minLiqF,
+          ethers.utils.parseEther("1")
+        )
+      ).to.not.be.reverted;
+    });
+
+    it("should list collateral with extreem factors", async function () {
+      const token = await makeMockERC20({ name: "C7", symbol: "C7" });
+      const priceFeed = await makePriceFeed(token.address);
+
+      expect(
+        await sandboxController.whitelistCollateralAsset(
+          token.address,
+          priceFeed.address,
+          ethers.utils.parseEther("1"),
+          ethers.utils.parseEther("1"),
+          ethers.utils.parseEther("1"),
+          ethers.utils.parseEther("1"),
+          ethers.utils.parseEther("1"),
+          ethers.utils.parseEther("1")
+        )
+      ).to.not.be.reverted;
 
       const token2 = await makeMockERC20({ name: "C8", symbol: "C8" });
-      const feed2 = await makePriceFeed(token2.address);
-      await sandboxController
-        .connect(dao)
-        .whitelistCollateralAsset(
-          token2.address,
-          feed2.address,
-          exp(1.1, 17),
-          exp(1.2, 17),
-          exp(1.3, 17),
-          exp(1.4, 17),
-          exp(1.5, 17),
-          exp(1.6, 17)
-        );
+      const priceFeed2 = await makePriceFeed(token2.address);
 
-      expect(await sandboxController.getCollateralAssetLength()).to.equal(2);
+      expect(
+        await sandboxController.whitelistCollateralAsset(
+          token2.address,
+          priceFeed2.address,
+          ethers.utils.parseEther("0.1"),
+          ethers.utils.parseEther("0.1"),
+          ethers.utils.parseEther("0.1"),
+          ethers.utils.parseEther("0.1"),
+          ethers.utils.parseEther("0.1"),
+          ethers.utils.parseEther("0.1")
+        )
+      ).to.not.be.reverted;
     });
   });
 
@@ -959,11 +1134,16 @@ describe("3. SandboxController", function () {
     });
 
     it("reverts if curve invalid", async function () {
-      await expect(sandboxController.addBaseAssetCurve(token.address, makeInvalidCurveZeroBase())).to.be.revertedWithCustomError(
+      let curve1 = makeValidCurve();
+      curve1.borrowPerYearInterestRateBase = 0;
+      await expect(sandboxController.addBaseAssetCurve(token.address, curve1)).to.be.revertedWithCustomError(
         sandboxController,
         "InvalidCurveConfiguration"
       );
-      await expect(sandboxController.addBaseAssetCurve(token.address, makeInvalidCurveKinkTooHigh())).to.be.revertedWithCustomError(
+
+      let curve2 = makeValidCurve();
+      curve2.borrowKink = ethers.utils.parseEther("1").add(1);
+      await expect(sandboxController.addBaseAssetCurve(token.address, curve2)).to.be.revertedWithCustomError(
         sandboxController,
         "InvalidCurveConfiguration"
       );
@@ -1077,12 +1257,19 @@ describe("3. SandboxController", function () {
     });
 
     it("reverts if curve invalid", async function () {
-      await expect(
-        sandboxController.connect(dao).changeBaseAssetCurve(token.address, 0, makeInvalidCurveZeroBase())
-      ).to.be.revertedWithCustomError(sandboxController, "InvalidCurveConfiguration");
-      await expect(
-        sandboxController.connect(dao).changeBaseAssetCurve(token.address, 0, makeInvalidCurveKinkTooHigh())
-      ).to.be.revertedWithCustomError(sandboxController, "InvalidCurveConfiguration");
+      let curve1 = makeValidCurve();
+      curve1.borrowKink = 0;
+      await expect(sandboxController.connect(dao).changeBaseAssetCurve(token.address, 0, curve1)).to.be.revertedWithCustomError(
+        sandboxController,
+        "InvalidCurveConfiguration"
+      );
+
+      let curve2 = makeValidCurve();
+      curve2.borrowKink = ethers.utils.parseEther("1").add(1);
+      await expect(sandboxController.connect(dao).changeBaseAssetCurve(token.address, 0, curve2)).to.be.revertedWithCustomError(
+        sandboxController,
+        "InvalidCurveConfiguration"
+      );
     });
 
     it("reverts if caller is not dao", async function () {

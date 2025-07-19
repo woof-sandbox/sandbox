@@ -69,17 +69,7 @@ interface ISandboxController is ISandboxErrors {
 
     event BaseAssetCurveAdded(address indexed token, BaseAssetCurve baseAssetCurve, uint256 curveIndex);
     event BaseAssetCurveChanged(address indexed token, BaseAssetCurve oldCurve, BaseAssetCurve newCurve, uint256 curveIndex);
-    event CollateralAssetWhitelisted(
-        address indexed token,
-        address indexed priceFeed,
-        uint256 decimals,
-        uint64 maxBorrowCollateralFactor,
-        uint64 minBorrowCollateralFactor,
-        uint64 minLiquidateCollateralFactor,
-        uint64 maxLiquidateCollateralFactor,
-        uint64 minLiquidationFactor,
-        uint64 maxLiquidationFactor
-    );
+    event CollateralAssetWhitelisted(address indexed token, address indexed priceFeed, uint256 decimals);
 
     event ReserveCommissionChanged(MarketState state, uint64 oldValue, uint64 newValue);
     event ProtocolCommissionChanged(MarketState state, uint64 oldValue, uint64 newValue);

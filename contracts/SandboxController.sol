@@ -395,17 +395,7 @@ contract SandboxController is ISandboxController {
 
         collateralAssetTokens.push(token);
 
-        emit CollateralAssetWhitelisted(
-            token,
-            priceFeed,
-            decimals,
-            maxBorrowCollateralFactor,
-            minBorrowCollateralFactor,
-            minLiquidateCollateralFactor,
-            maxLiquidateCollateralFactor,
-            minLiquidationFactor,
-            maxLiquidationFactor
-        );
+        emit CollateralAssetWhitelisted(token, priceFeed, decimals);
     }
 
     /**
@@ -483,7 +473,8 @@ contract SandboxController is ISandboxController {
             curve.supplyPerYearInterestRateSlopeHigh == 0 ||
             curve.supplyPerYearInterestRateBase == 0 ||
             curve.borrowPerYearInterestRateSlopeLow == 0 ||
-            curve.borrowPerYearInterestRateSlopeHigh == 0
+            curve.borrowPerYearInterestRateSlopeHigh == 0 ||
+            curve.borrowPerYearInterestRateBase == 0
         ) return false;
 
         return true;
