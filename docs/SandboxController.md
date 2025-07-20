@@ -179,7 +179,7 @@ _Both owner and dao are considered "authorized."
 ### constructor
 
 ```solidity
-constructor(address _owner, address _dao, address _treasury, bool _feeEnabled, uint64 _targetPercent, uint64 _storeFrontPriceFactor, uint40 _minUpdateTime, uint40 _maxUpdateTime, uint256 _suggestedAmountOfSeedReserves, uint40 _suggestedLockTimeOfSeedReserves, uint64[3] _reserveCommissions, uint64[3] _protocolCommissions) public
+constructor(address _owner, address _dao, address _treasury, bool _feeEnabled, struct ISandboxController.SandboxControllerConfiguration _config, uint64[3] _reserveCommissions, uint64[3] _protocolCommissions) public
 ```
 
 _Set all global parameters (including owner and DAO) at deployment.
@@ -195,12 +195,7 @@ The length of the `_reserveCommissions` and `_protocolCommissions` arrays must b
 | _dao | address | The address of the DAO (governance). |
 | _treasury | address | The address of the treasury. |
 | _feeEnabled | bool | Global fee flag for the entire protocol. |
-| _targetPercent | uint64 | < 0.5 (50%) |
-| _storeFrontPriceFactor | uint64 | < 1e18 |
-| _minUpdateTime | uint40 | > 0 |
-| _maxUpdateTime | uint40 | reasonable time for the proposal duration |
-| _suggestedAmountOfSeedReserves | uint256 | The suggested amount of seed reserves in $. Decimals are 6. |
-| _suggestedLockTimeOfSeedReserves | uint40 | The suggested lock time of seed reserves in seconds. |
+| _config | struct ISandboxController.SandboxControllerConfiguration | SanboxController config: _targetPercent, < 0.5 (50%) _storeFrontPriceFactor, < 1e18 _minUpdateTime, > 0 _maxUpdateTime, reasonable time for the proposal duration _suggestedAmountOfSeedReserves The suggested amount of seed reserves in $. Decimals are 6. _suggestedLockTimeOfSeedReserves The suggested lock time of seed reserves in seconds. |
 | _reserveCommissions | uint64[3] | The reserve commission factors for each market state. |
 | _protocolCommissions | uint64[3] | The protocol commission factors for each market state. |
 
@@ -457,6 +452,20 @@ function setConfiguration(struct ISandboxController.SandboxControllerConfigurati
 ```
 
 _Emitted when a base asset is whitelisted._
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| _config | struct ISandboxController.SandboxControllerConfiguration | Configuration of the sandbox controller. |
+
+### _validateConfig
+
+```solidity
+function _validateConfig(struct ISandboxController.SandboxControllerConfiguration _config) internal
+```
+
+_Validates global config and reverts on incorrect values_
 
 #### Parameters
 
