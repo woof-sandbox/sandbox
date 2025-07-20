@@ -92,12 +92,13 @@ contract SandboxController is ISandboxController {
      * @param _dao    The address of the DAO (governance).
      * @param _treasury The address of the treasury.
      * @param _feeEnabled Global fee flag for the entire protocol.
-     * @param _targetPercent            < 0.5 (50%)
-     * @param _storeFrontPriceFactor     < 1e18
-     * @param _minUpdateTime             > 0
-     * @param _maxUpdateTime            reasonable time for the proposal duration
-     * @param _suggestedAmountOfSeedReserves The suggested amount of seed reserves in $. Decimals are 6.
-     * @param _suggestedLockTimeOfSeedReserves The suggested lock time of seed reserves in seconds.
+     * @param _config SanboxController config:
+     * _targetPercent, < 0.5 (50%)
+     * _storeFrontPriceFactor, < 1e18
+     * _minUpdateTime, > 0
+     * _maxUpdateTime, reasonable time for the proposal duration
+     * _suggestedAmountOfSeedReserves The suggested amount of seed reserves in $. Decimals are 6.
+     * _suggestedLockTimeOfSeedReserves The suggested lock time of seed reserves in seconds.
      * @dev The `_suggestedAmountOfSeedReserves` and `_suggestedLockTimeOfSeedReserves` must be greater than 0.
      * @param _reserveCommissions The reserve commission factors for each market state.
      * @param _protocolCommissions The protocol commission factors for each market state.
@@ -108,56 +109,35 @@ contract SandboxController is ISandboxController {
         address _dao,
         address _treasury,
         bool _feeEnabled,
-        uint64 _targetPercent,
-        uint64 _storeFrontPriceFactor,
-        uint40 _minUpdateTime,
-        uint40 _maxUpdateTime,
-        uint256 _suggestedAmountOfSeedReserves,
-        uint40 _suggestedLockTimeOfSeedReserves,
+        SandboxControllerConfiguration memory _config,
         uint64[MARKET_STATES] memory _reserveCommissions,
         uint64[MARKET_STATES] memory _protocolCommissions
     ) {
         if (_owner == address(0) || _dao == address(0) || _treasury == address(0)) revert ZeroAddress();
         if (_owner == _dao) revert IncorrectSetting();
 
-        if (
-            _targetPercent > MAX_TARGET_PERCENT || /// not bigger than 50%.
-            _storeFrontPriceFactor > PARAMETERS_SCALE /// not bigger than 100%.
-        ) revert InvalidFactors();
+        /// Function will revert on incorrect setting
+        _validateConfig(_config);
 
-        if (
-            _minUpdateTime == 0 ||
-            _maxUpdateTime < _minUpdateTime ||
-            _suggestedAmountOfSeedReserves == 0 ||
-            _suggestedLockTimeOfSeedReserves == 0
-        ) revert IncorrectSetting();
-
+        // aderyn-fp-next-line(require-revert-in-loop)
         for (uint8 i; i < MARKET_STATES; ) {
             /// Validate that the reserveCommissions and protocolCommissions are not bigger than 80%. 100% = 1e18.
             /// This needed to leave something for the ConfigController owner and curator.
             if (_reserveCommissions[i] + _protocolCommissions[i] > MAX_COMMISSIONS) revert InvalidCommissions();
 
-            reserveCommission[i] = _reserveCommissions[i];
-            protocolCommission[i] = _protocolCommissions[i];
-
             unchecked {
                 ++i;
             }
         }
+        reserveCommission = _reserveCommissions;
+        protocolCommission = _protocolCommissions;
 
         owner = _owner;
         dao = _dao;
         feeEnabled = _feeEnabled;
         treasury = _treasury;
 
-        _controllerConfiguration = SandboxControllerConfiguration(
-            _targetPercent,
-            _storeFrontPriceFactor,
-            _minUpdateTime,
-            _maxUpdateTime,
-            _suggestedLockTimeOfSeedReserves,
-            _suggestedAmountOfSeedReserves
-        );
+        _controllerConfiguration = _config;
     }
 
     ///
@@ -488,19 +468,29 @@ contract SandboxController is ISandboxController {
      * @dev Emitted when a base asset is whitelisted.
      * @param _config Configuration of the sandbox controller.
      */
-    function setConfiguration(SandboxControllerConfiguration memory _config) external override onlyOwner {
+    function setConfiguration(SandboxControllerConfiguration calldata _config) external override onlyOwner {
+        _validateConfig(_config);
+
+        emit ConfigurationChanged(_controllerConfiguration, _config);
+        _controllerConfiguration = _config;
+    }
+
+    /**
+     * @dev Validates global config and reverts on incorrect values
+     * @param _config Configuration of the sandbox controller.
+     */
+    function _validateConfig(SandboxControllerConfiguration memory _config) internal {
         if (
-            _config.storeFrontPriceFactor > PARAMETERS_SCALE ||
+            _config.targetPercent > MAX_TARGET_PERCENT || /// not bigger than 50%.
+            _config.storeFrontPriceFactor > PARAMETERS_SCALE /// not bigger than 100%.
+        ) revert InvalidFactors();
+
+        if (
             _config.minUpdateTime == 0 ||
             _config.maxUpdateTime < _config.minUpdateTime ||
             _config.suggestedAmountOfSeedReserves == 0 ||
-            _config.suggestedLockTimeOfSeedReserves == 0 ||
-            _config.targetPercent > MAX_TARGET_PERCENT
-        ) revert InvalidFactors();
-
-        emit ConfigurationChanged(_controllerConfiguration, _config);
-
-        _controllerConfiguration = _config;
+            _config.suggestedLockTimeOfSeedReserves == 0
+        ) revert IncorrectSetting();
     }
 
     /**

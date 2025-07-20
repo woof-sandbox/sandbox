@@ -15,9 +15,10 @@ import {
 
 import { SandboxController } from "../build/types";
 
-import { BaseAssetCurveStruct } from "../build/types/SandboxController";
+import { BaseAssetCurveStruct, SandboxControllerConfigurationStruct } from "../build/types/SandboxController";
 
 import { parseEther } from "ethers/lib/utils";
+import { BigNumberish } from "ethers";
 
 describe("3. SandboxController", function () {
   let owner: any;
@@ -35,8 +36,6 @@ describe("3. SandboxController", function () {
       admin: owner,
       dao: dao,
       treasury: treasury,
-      suggestedAmountOfSeedReserves: "1000",
-      suggestedLockTimeOfSeedReserves: 3600,
     });
 
     sandboxController = (await makeSandboxController(opts)).sandboxController;
@@ -59,11 +58,11 @@ describe("3. SandboxController", function () {
     });
 
     it("verifies config after construction", async function () {
-      expect((await sandboxController.config()).storeFrontPriceFactor).to.equal(opts.storeFrontPriceFactor);
+      expect((await sandboxController.config()).storeFrontPriceFactor).to.equal(opts.config.storeFrontPriceFactor);
       expect((await sandboxController.config()).minUpdateTime).to.equal(MIN_UPDATE_TIME);
       expect((await sandboxController.config()).maxUpdateTime).to.equal(DEFAULT_UPDATE_TIME);
-      expect((await sandboxController.config()).suggestedAmountOfSeedReserves).to.equal(opts.suggestedAmountOfSeedReserves);
-      expect((await sandboxController.config()).suggestedLockTimeOfSeedReserves).to.equal(opts.suggestedLockTimeOfSeedReserves);
+      expect((await sandboxController.config()).suggestedAmountOfSeedReserves).to.equal(opts.config.suggestedAmountOfSeedReserves);
+      expect((await sandboxController.config()).suggestedLockTimeOfSeedReserves).to.equal(opts.config.suggestedLockTimeOfSeedReserves);
     });
 
     it("sets update time boundaries", async function () {
@@ -85,12 +84,11 @@ describe("3. SandboxController", function () {
   describe("whitelistBaseAsset - reverts", function () {
     let tokenTest;
     let priceFeedTest;
-    let curve: BaseAssetCurveStruct;
+    let curve: BaseAssetCurveStruct = makeValidCurve();
 
     before(async function () {
       tokenTest = await makeMockERC20({ name: "TestToken", symbol: "TT" });
       priceFeedTest = await makePriceFeed(tokenTest.address);
-      curve = makeValidCurve();
     });
 
     after(async function () {
@@ -297,13 +295,16 @@ describe("3. SandboxController", function () {
     before(async function () {
       tokenTest = await makeMockERC20({ name: "TestToken2", symbol: "TT2" });
       priceFeedTest = await makePriceFeed(tokenTest.address);
-
-      await sandboxController.whitelistBaseAsset(tokenTest.address, priceFeedTest.address, curve, minBorrow);
     });
 
     after(async function () {
       // no collateral assets registered in this testset
       expect(await sandboxController.getCollateralAssetLength()).to.equal(0);
+    });
+
+    it("whitelists asset", async function () {
+      expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.true;
+      await expect(sandboxController.whitelistBaseAsset(tokenTest.address, priceFeedTest.address, curve, minBorrow)).to.not.be.reverted;
     });
 
     it("asset is added to the base assets array", async function () {
@@ -356,8 +357,8 @@ describe("3. SandboxController", function () {
     it("whitelists token for collateral asset if base asset already registered", async function () {
       const snapshot: SnapshotRestorer = await takeSnapshot();
 
-      expect(
-        await sandboxController.whitelistCollateralAsset(
+      await expect(
+        sandboxController.whitelistCollateralAsset(
           tokenTest.address,
           priceFeedTest.address,
           exp(1.1, 17),
@@ -391,7 +392,7 @@ describe("3. SandboxController", function () {
         exp(1.6, 17)
       );
 
-      expect(await sandboxController.whitelistBaseAsset(token.address, priceFeed.address, curve, minBorrow)).to.not.be.reverted;
+      await expect(sandboxController.whitelistBaseAsset(token.address, priceFeed.address, curve, minBorrow)).to.not.be.reverted;
       expect(await sandboxController.tokenToPriceFeed(token.address)).to.equal(priceFeed.address);
 
       await snapshot.restore();
@@ -412,11 +413,11 @@ describe("3. SandboxController", function () {
       const baseAssetsBefore = await sandboxController.getBaseAssetLength();
       const token1 = await makeMockERC20({ name: "T7", symbol: "T7" });
       const feed1 = await makePriceFeed(token1.address);
-      expect(await sandboxController.connect(owner).whitelistBaseAsset(token1.address, feed1.address, curve, 100)).to.not.be.reverted;
+      await expect(sandboxController.connect(owner).whitelistBaseAsset(token1.address, feed1.address, curve, 100)).to.not.be.reverted;
 
       const token2 = await makeMockERC20({ name: "T8", symbol: "T8" });
       const feed2 = await makePriceFeed(token2.address);
-      expect(await sandboxController.connect(dao).whitelistBaseAsset(token2.address, feed2.address, curve, 200)).to.not.be.reverted;
+      await expect(sandboxController.connect(dao).whitelistBaseAsset(token2.address, feed2.address, curve, 200)).to.not.be.reverted;
 
       const baseAssetsAfter = await sandboxController.getBaseAssetLength();
       expect(baseAssetsAfter.sub(baseAssetsBefore)).to.equal(2);
@@ -444,6 +445,10 @@ describe("3. SandboxController", function () {
     after(async function () {
       // no collateral assets registered in this testset
       expect(await sandboxController.getCollateralAssetLength()).to.equal(0);
+    });
+
+    it("should not recognize random token as whitelisted", async function () {
+      expect(await sandboxController.isCollateralTokenWhitelisted(tokenCollateralTest.address)).to.be.false;
     });
 
     it("reverts if caller is not authorized", async function () {
@@ -791,6 +796,15 @@ describe("3. SandboxController", function () {
       );
     });
 
+    it("asset is added to the base assets array", async function () {
+      expect(await sandboxController.getCollateralAssetLength()).to.equal(1);
+      expect(await sandboxController.collateralAssetTokens(0)).to.equal(tokenCollateralTest.address);
+    });
+
+    it("should show that token is whitelised", async function () {
+      expect(await sandboxController.isCollateralTokenWhitelisted(tokenCollateralTest.address)).to.be.true;
+    });
+
     it("should update state for collateral token", async function () {
       const data = await sandboxController.collateralAssets(tokenCollateralTest.address);
       expect(data.collateralToken).to.equal(tokenCollateralTest.address);
@@ -865,8 +879,8 @@ describe("3. SandboxController", function () {
       const token1 = await makeMockERC20({ name: "C3", symbol: "C4" });
       const feed1 = await makePriceFeed(token1.address);
 
-      expect(
-        await sandboxController
+      await expect(
+        sandboxController
           .connect(owner)
           .whitelistCollateralAsset(
             token1.address,
@@ -882,8 +896,8 @@ describe("3. SandboxController", function () {
 
       const token2 = await makeMockERC20({ name: "C4", symbol: "C4" });
       const feed2 = await makePriceFeed(token2.address);
-      expect(
-        await sandboxController
+      await expect(
+        sandboxController
           .connect(dao)
           .whitelistCollateralAsset(
             token2.address,
@@ -902,8 +916,8 @@ describe("3. SandboxController", function () {
       const token = await makeMockERC20({ name: "C5", symbol: "C5" });
       const priceFeed = await makePriceFeed(token.address);
 
-      expect(
-        await sandboxController.whitelistCollateralAsset(
+      await expect(
+        sandboxController.whitelistCollateralAsset(
           token.address,
           priceFeed.address,
           ethers.utils.parseEther("0.1"),
@@ -920,8 +934,8 @@ describe("3. SandboxController", function () {
       const token = await makeMockERC20({ name: "C6", symbol: "C6" });
       const priceFeed = await makePriceFeed(token.address);
 
-      expect(
-        await sandboxController.whitelistCollateralAsset(
+      await expect(
+        sandboxController.whitelistCollateralAsset(
           token.address,
           priceFeed.address,
           collateralConfig.minBorrowColF,
@@ -938,8 +952,8 @@ describe("3. SandboxController", function () {
       const token = await makeMockERC20({ name: "C7", symbol: "C7" });
       const priceFeed = await makePriceFeed(token.address);
 
-      expect(
-        await sandboxController.whitelistCollateralAsset(
+      await expect(
+        sandboxController.whitelistCollateralAsset(
           token.address,
           priceFeed.address,
           ethers.utils.parseEther("1"),
@@ -954,8 +968,8 @@ describe("3. SandboxController", function () {
       const token2 = await makeMockERC20({ name: "C8", symbol: "C8" });
       const priceFeed2 = await makePriceFeed(token2.address);
 
-      expect(
-        await sandboxController.whitelistCollateralAsset(
+      await expect(
+        sandboxController.whitelistCollateralAsset(
           token2.address,
           priceFeed2.address,
           ethers.utils.parseEther("0.1"),
@@ -970,149 +984,144 @@ describe("3. SandboxController", function () {
   });
 
   describe("setConfiguration", function () {
-    let sandboxController: any;
-    type Config = {
-      targetPercent: string;
-      storeFrontPriceFactor: string;
-      minUpdateTime: number;
-      maxUpdateTime: number;
-      suggestedAmountOfSeedReserves: string;
-      suggestedLockTimeOfSeedReserves: number;
-    };
-    let config: Config;
+    let newConfig: SandboxControllerConfigurationStruct;
 
     beforeEach(async function () {
-      const opts = defaultSandboxControllerOpts({ admin: owner, dao: dao });
-      const c = await makeSandboxController(opts);
-      sandboxController = c.sandboxController;
-      config = {
-        targetPercent: ethers.utils.parseEther("0.5").toString(),
-        storeFrontPriceFactor: parseEther("0.3").toString(),
-        minUpdateTime: 400,
-        maxUpdateTime: 604800,
-        suggestedAmountOfSeedReserves: "1000",
-        suggestedLockTimeOfSeedReserves: 1000,
+      newConfig = {
+        targetPercent: ethers.utils.parseEther("0.45").toString(),
+        storeFrontPriceFactor: ethers.utils.parseEther("0.65").toString(),
+        minUpdateTime: 1000,
+        maxUpdateTime: 24 * 60 * 60,
+        suggestedAmountOfSeedReserves: ethers.utils.parseEther("1").toString(),
+        suggestedLockTimeOfSeedReserves: 1500,
       };
     });
 
     it("reverts if caller is not owner", async function () {
-      await expect(sandboxController.connect(dao).setConfiguration(config)).to.be.revertedWithCustomError(sandboxController, "NotOwner");
-      await expect(sandboxController.connect(attacker).setConfiguration(config)).to.be.revertedWithCustomError(
+      await expect(sandboxController.connect(attacker).setConfiguration(newConfig)).to.be.revertedWithCustomError(
         sandboxController,
         "NotOwner"
       );
     });
 
-    it("reverts if storeFrontPriceFactor > 1e18", async function () {
-      config.storeFrontPriceFactor = parseEther("1").toString();
-      await sandboxController.setConfiguration(config);
-      expect((await sandboxController.config()).storeFrontPriceFactor).to.equal(parseEther("1").toString());
+    it("reverts for dao (if caller is not owner)", async function () {
+      await expect(sandboxController.connect(dao).setConfiguration(newConfig)).to.be.revertedWithCustomError(sandboxController, "NotOwner");
+    });
 
-      config.storeFrontPriceFactor = parseEther("1.001").toString();
-      await expect(sandboxController.setConfiguration(config)).to.be.revertedWithCustomError(sandboxController, "InvalidFactors");
+    it("reverts if storeFrontPriceFactor > 1e18", async function () {
+      newConfig.storeFrontPriceFactor = ethers.utils.parseEther("1").add(1).toString();
+
+      await expect(sandboxController.setConfiguration(newConfig)).to.be.revertedWithCustomError(sandboxController, "InvalidFactors");
+    });
+
+    it("reverts if targetPercent > 50%", async function () {
+      newConfig.targetPercent = ethers.utils.parseEther("0.5").add(1).toString();
+
+      await expect(sandboxController.setConfiguration(newConfig)).to.be.revertedWithCustomError(sandboxController, "InvalidFactors");
     });
 
     it("reverts if minUpdateTime = 0", async function () {
-      config.minUpdateTime = 0;
-      await expect(sandboxController.setConfiguration(config)).to.be.revertedWithCustomError(sandboxController, "InvalidFactors");
+      newConfig.minUpdateTime = 0;
+      await expect(sandboxController.setConfiguration(newConfig)).to.be.revertedWithCustomError(sandboxController, "IncorrectSetting");
+    });
+
+    it("reverts if minUpdateTime > maxUpdateTime", async function () {
+      newConfig.minUpdateTime = 24 * 60 * 60 + 1;
+      await expect(sandboxController.setConfiguration(newConfig)).to.be.revertedWithCustomError(sandboxController, "IncorrectSetting");
     });
 
     it("reverts if suggestedAmountOfSeedReserves = 0", async function () {
-      config.suggestedAmountOfSeedReserves = "0";
-      await expect(sandboxController.setConfiguration(config)).to.be.revertedWithCustomError(sandboxController, "InvalidFactors");
+      newConfig.suggestedAmountOfSeedReserves = 0;
+      await expect(sandboxController.setConfiguration(newConfig)).to.be.revertedWithCustomError(sandboxController, "IncorrectSetting");
     });
 
     it("reverts if suggestedLockTimeOfSeedReserves = 0", async function () {
-      config.suggestedLockTimeOfSeedReserves = 0;
-      await expect(sandboxController.setConfiguration(config)).to.be.revertedWithCustomError(sandboxController, "InvalidFactors");
+      newConfig.suggestedLockTimeOfSeedReserves = 0;
+      await expect(sandboxController.setConfiguration(newConfig)).to.be.revertedWithCustomError(sandboxController, "IncorrectSetting");
     });
 
-    it("updates configuration with valid values and emits event", async function () {
-      expect((await sandboxController.config()).storeFrontPriceFactor).to.equal(parseEther("0.6").toString());
-      expect((await sandboxController.config()).minUpdateTime).to.equal(MIN_UPDATE_TIME);
-      expect((await sandboxController.config()).maxUpdateTime).to.equal(DEFAULT_UPDATE_TIME);
-      expect((await sandboxController.config()).suggestedAmountOfSeedReserves).to.equal(ethers.utils.parseEther("500").toString());
-      expect((await sandboxController.config()).suggestedLockTimeOfSeedReserves).to.equal(86400);
-      expect((await sandboxController.config()).targetPercent).to.equal(ethers.utils.parseEther("0.5").toString());
+    it("updates configuration with valid values", async function () {
+      const snapshot: SnapshotRestorer = await takeSnapshot();
+      await sandboxController.setConfiguration(newConfig);
 
-      const tx = await sandboxController.setConfiguration({
-        storeFrontPriceFactor: parseEther("0.4").toString(),
-        minUpdateTime: 400,
-        maxUpdateTime: 500,
-        suggestedAmountOfSeedReserves: 10,
-        suggestedLockTimeOfSeedReserves: 1000,
-        targetPercent: ethers.utils.parseEther("0.4").toString(),
-      });
+      const data = await sandboxController.config();
+
+      expect(data.targetPercent).to.equal(ethers.utils.parseEther("0.45").toString());
+      expect(data.storeFrontPriceFactor).to.equal(ethers.utils.parseEther("0.65").toString());
+      expect(data.minUpdateTime).to.equal(1000);
+      expect(data.maxUpdateTime).to.equal(24 * 60 * 60);
+      expect(data.suggestedAmountOfSeedReserves).to.equal(ethers.utils.parseEther("1").toString());
+      expect(data.suggestedLockTimeOfSeedReserves).to.equal(1500);
+
+      await snapshot.restore();
+    });
+
+    it("emits event", async function () {
+      const tx = await sandboxController.setConfiguration(newConfig);
+
       const rcpt = await tx.wait();
       const ev = rcpt.events?.find((e: any) => e.event === "ConfigurationChanged");
+
       /// old config
+      expect(ev.args.oldConfig.targetPercent).to.equal(ethers.utils.parseEther("0.5").toString());
       expect(ev.args.oldConfig.storeFrontPriceFactor).to.equal(parseEther("0.6").toString());
       expect(ev.args.oldConfig.minUpdateTime).to.equal(MIN_UPDATE_TIME);
       expect(ev.args.oldConfig.maxUpdateTime).to.equal(DEFAULT_UPDATE_TIME);
       expect(ev.args.oldConfig.suggestedAmountOfSeedReserves).to.equal(ethers.utils.parseEther("500").toString());
       expect(ev.args.oldConfig.suggestedLockTimeOfSeedReserves).to.equal(86400);
-      expect(ev.args.oldConfig.targetPercent).to.equal(ethers.utils.parseEther("0.5").toString());
       /// new config
-      expect(ev.args.newConfig.storeFrontPriceFactor).to.equal(parseEther("0.4").toString());
-      expect(ev.args.newConfig.minUpdateTime).to.equal(400);
-      expect(ev.args.newConfig.maxUpdateTime).to.equal(500);
-      expect(ev.args.newConfig.suggestedAmountOfSeedReserves).to.equal(10);
-      expect(ev.args.newConfig.suggestedLockTimeOfSeedReserves).to.equal(1000);
-      expect(ev.args.newConfig.targetPercent).to.equal(ethers.utils.parseEther("0.4").toString());
+      expect(ev.args.newConfig.targetPercent).to.equal(ethers.utils.parseEther("0.45").toString());
+      expect(ev.args.newConfig.storeFrontPriceFactor).to.equal(parseEther("0.65").toString());
+      expect(ev.args.newConfig.minUpdateTime).to.equal(1000);
+      expect(ev.args.newConfig.maxUpdateTime).to.equal(24 * 60 * 60);
+      expect(ev.args.newConfig.suggestedAmountOfSeedReserves).to.equal(ethers.utils.parseEther("1").toString());
+      expect(ev.args.newConfig.suggestedLockTimeOfSeedReserves).to.equal(1500);
     });
   });
 
   describe("setFeeEnabled", function () {
-    let sandboxController: any;
-
-    beforeEach(async function () {
-      const opts = defaultSandboxControllerOpts({
-        admin: owner,
-        dao: dao,
-        feeEnabled: false,
-        storeFrontPriceFactor: parseEther("0.3").toString(),
-        minUpdateTime: 400,
-        suggestedAmountOfSeedReserves: "1000",
-        suggestedLockTimeOfSeedReserves: 1000,
-        targetPercent: ethers.utils.parseEther("0.5").toString(),
-      });
-      const c = await makeSandboxController(opts);
-      sandboxController = c.sandboxController;
-    });
-
-    it("reverts if caller is not owner", async function () {
-      await expect(sandboxController.connect(owner).setFeeEnabled(true)).to.be.revertedWithCustomError(sandboxController, "NotDao");
+    it("reverts if caller is not dao", async function () {
       await expect(sandboxController.connect(attacker).setFeeEnabled(true)).to.be.revertedWithCustomError(sandboxController, "NotDao");
     });
 
-    it("sets feeEnabled and emits event", async function () {
-      expect(await sandboxController.feeEnabled()).to.equal(false);
-      const tx = await sandboxController.connect(dao).setFeeEnabled(true);
-      const rcpt = await tx.wait();
-      const ev = rcpt.events?.find((e: any) => e.event === "FeeEnabledSet");
-      expect(ev.args[0]).to.equal(true);
-      expect(await sandboxController.feeEnabled()).to.equal(true);
+    it("reverts for owner (if caller is not dao)", async function () {
+      await expect(sandboxController.connect(owner).setFeeEnabled(true)).to.be.revertedWithCustomError(sandboxController, "NotDao");
+    });
+
+    it("sets feeEnabled", async function () {
+      expect(await sandboxController.feeEnabled()).to.be.false;
+
+      await expect(sandboxController.connect(dao).setFeeEnabled(true)).to.not.be.reverted;
+      expect(await sandboxController.feeEnabled()).to.be.true;
+    });
+
+    it("emits event", async function () {
+      expect(await sandboxController.feeEnabled()).to.be.true;
+
+      expect(await sandboxController.connect(dao).setFeeEnabled(false))
+        .to.emit(sandboxController, "FeeEnabledSet")
+        .withArgs(false);
+    });
+
+    it("reverts for the same setting", async function () {
+      expect(await sandboxController.feeEnabled()).to.be.false;
+      await expect(sandboxController.connect(dao).setFeeEnabled(false)).to.be.revertedWithCustomError(
+        sandboxController,
+        "IncorrectSetting"
+      );
+
+      await sandboxController.connect(dao).setFeeEnabled(true);
+
+      await expect(sandboxController.connect(dao).setFeeEnabled(true)).to.be.revertedWithCustomError(sandboxController, "IncorrectSetting");
+      await sandboxController.connect(dao).setFeeEnabled(false);
     });
   });
 
   describe("addBaseAssetCurve", function () {
-    let sandboxController: any;
     let token: any;
     let priceFeed: any;
 
-    beforeEach(async function () {
-      const opts = defaultSandboxControllerOpts({
-        admin: owner,
-        dao: dao,
-        feeEnabled: false,
-        storeFrontPriceFactor: parseEther("0.3").toString(),
-        minUpdateTime: 400,
-        suggestedAmountOfSeedReserves: "1000",
-        suggestedLockTimeOfSeedReserves: 1000,
-        targetPercent: ethers.utils.parseEther("0.5").toString(),
-      });
-      const c = await makeSandboxController(opts);
-      sandboxController = c.sandboxController;
+    before(async function () {
       token = await makeMockERC20({ name: "T9", symbol: "T9" });
       priceFeed = await makePriceFeed(token.address);
       await sandboxController.connect(owner).whitelistBaseAsset(token.address, priceFeed.address, makeValidCurve(), 10);
@@ -1213,23 +1222,10 @@ describe("3. SandboxController", function () {
   });
 
   describe("changeBaseAssetCurve", function () {
-    let sandboxController: any;
     let token: any;
     let priceFeed: any;
 
-    beforeEach(async function () {
-      const opts = defaultSandboxControllerOpts({
-        admin: owner,
-        dao: dao,
-        feeEnabled: false,
-        storeFrontPriceFactor: parseEther("0.3").toString(),
-        minUpdateTime: 400,
-        suggestedAmountOfSeedReserves: "1000",
-        suggestedLockTimeOfSeedReserves: 1000,
-        targetPercent: ethers.utils.parseEther("0.5").toString(),
-      });
-      const c = await makeSandboxController(opts);
-      sandboxController = c.sandboxController;
+    before(async function () {
       token = await makeMockERC20({ name: "T11", symbol: "T11" });
       priceFeed = await makePriceFeed(token.address);
       await sandboxController.connect(owner).whitelistBaseAsset(token.address, priceFeed.address, makeValidCurve(), 10);
@@ -1337,29 +1333,15 @@ describe("3. SandboxController", function () {
   });
 
   describe("transferOwner", function () {
-    let sandboxController: any;
-
-    beforeEach(async function () {
-      const opts = defaultSandboxControllerOpts({
-        admin: owner,
-        dao: dao,
-        feeEnabled: false,
-        storeFrontPriceFactor: parseEther("0.3").toString(),
-        minUpdateTime: 400,
-        suggestedAmountOfSeedReserves: "1000",
-        suggestedLockTimeOfSeedReserves: 1000,
-        targetPercent: ethers.utils.parseEther("0.5").toString(),
-      });
-      const c = await makeSandboxController(opts);
-      sandboxController = c.sandboxController;
-    });
-
     it("reverts if caller not owner", async function () {
-      await expect(sandboxController.connect(dao).transferOwner(dao.address)).to.be.revertedWithCustomError(sandboxController, "NotOwner");
       await expect(sandboxController.connect(attacker).transferOwner(attacker.address)).to.be.revertedWithCustomError(
         sandboxController,
         "NotOwner"
       );
+    });
+
+    it("reverts for dao (if caller not owner)", async function () {
+      await expect(sandboxController.connect(dao).transferOwner(dao.address)).to.be.revertedWithCustomError(sandboxController, "NotOwner");
     });
 
     it("reverts if newOwner = 0", async function () {
@@ -1370,40 +1352,39 @@ describe("3. SandboxController", function () {
     });
 
     it("transfers owner to new address", async function () {
+      const snapshot: SnapshotRestorer = await takeSnapshot();
+
       expect(await sandboxController.owner()).to.equal(owner.address);
-      const tx = await sandboxController.connect(owner).transferOwner(other.address);
-      const rcpt = await tx.wait();
-      const ev = rcpt.events?.find((e: any) => e.event === "OwnerTransferred");
-      expect(ev.args.oldOwner).to.equal(owner.address);
-      expect(ev.args.newOwner).to.equal(other.address);
+
+      await expect(sandboxController.connect(owner).transferOwner(other.address)).to.not.be.reverted;
       expect(await sandboxController.owner()).to.equal(other.address);
+
+      await snapshot.restore();
+    });
+
+    it("emits event", async function () {
+      const snapshot: SnapshotRestorer = await takeSnapshot();
+
+      expect(await sandboxController.owner()).to.equal(owner.address);
+      expect(await sandboxController.connect(owner).transferOwner(other.address))
+        .to.emit(sandboxController, "OwnerTransferred")
+        .withArgs(owner.address, other.address);
+      expect(await sandboxController.owner()).to.equal(other.address);
+
+      await snapshot.restore();
     });
   });
 
   describe("transferDao", function () {
-    let sandboxController: any;
-
-    beforeEach(async function () {
-      const opts = defaultSandboxControllerOpts({
-        admin: owner,
-        dao: dao,
-        feeEnabled: false,
-        storeFrontPriceFactor: parseEther("0.3").toString(),
-        minUpdateTime: 400,
-        suggestedAmountOfSeedReserves: "1000",
-        suggestedLockTimeOfSeedReserves: 1000,
-        targetPercent: ethers.utils.parseEther("0.5").toString(),
-      });
-      const c = await makeSandboxController(opts);
-      sandboxController = c.sandboxController;
-    });
-
-    it("reverts if caller not owner", async function () {
-      await expect(sandboxController.connect(owner).transferDao(other.address)).to.be.revertedWithCustomError(sandboxController, "NotDao");
+    it("reverts if caller not dao", async function () {
       await expect(sandboxController.connect(attacker).transferDao(attacker.address)).to.be.revertedWithCustomError(
         sandboxController,
         "NotDao"
       );
+    });
+
+    it("reverts for owner (if caller not dao)", async function () {
+      await expect(sandboxController.connect(owner).transferDao(other.address)).to.be.revertedWithCustomError(sandboxController, "NotDao");
     });
 
     it("reverts if newDao = 0", async function () {
@@ -1414,179 +1395,37 @@ describe("3. SandboxController", function () {
     });
 
     it("transfers dao to new address", async function () {
+      const snapshot: SnapshotRestorer = await takeSnapshot();
+
       expect(await sandboxController.dao()).to.equal(dao.address);
-      const tx = await sandboxController.connect(dao).transferDao(other.address);
-      const rcpt = await tx.wait();
-      const ev = rcpt.events?.find((e: any) => e.event === "DaoTransferred");
-      expect(ev.args.oldDao).to.equal(dao.address);
-      expect(ev.args.newDao).to.equal(other.address);
+
+      await expect(sandboxController.connect(dao).transferDao(other.address)).to.not.be.reverted;
       expect(await sandboxController.dao()).to.equal(other.address);
-    });
-  });
 
-  describe("isBaseTokenWhitelisted", function () {
-    let sandboxController: any;
-
-    beforeEach(async function () {
-      const opts = defaultSandboxControllerOpts({
-        admin: owner,
-        dao: dao,
-        feeEnabled: false,
-        storeFrontPriceFactor: parseEther("0.3").toString(),
-        minUpdateTime: 400,
-        suggestedAmountOfSeedReserves: "1000",
-        suggestedLockTimeOfSeedReserves: 1000,
-        targetPercent: ethers.utils.parseEther("0.5").toString(),
-      });
-      const c = await makeSandboxController(opts);
-      sandboxController = c.sandboxController;
+      await snapshot.restore();
     });
 
-    it("returns false if token not whitelisted", async function () {
-      const token = await makeMockERC20({ name: "T13", symbol: "T13" });
-      expect(await sandboxController.isBaseTokenWhitelisted(token.address)).to.equal(false);
-    });
+    it("emits event", async function () {
+      const snapshot: SnapshotRestorer = await takeSnapshot();
 
-    it("returns true if base asset whitelisted", async function () {
-      const token = await makeMockERC20({ name: "T14", symbol: "T14" });
-      const priceFeed = await makePriceFeed(token.address);
-      await sandboxController.whitelistBaseAsset(token.address, priceFeed.address, makeValidCurve(), 50);
-      expect(await sandboxController.isBaseTokenWhitelisted(token.address)).to.equal(true);
-    });
-  });
+      expect(await sandboxController.dao()).to.equal(dao.address);
+      expect(await sandboxController.connect(dao).transferDao(other.address))
+        .to.emit(sandboxController, "DaoTransferred")
+        .withArgs(dao.address, other.address);
+      expect(await sandboxController.dao()).to.equal(other.address);
 
-  describe("isCollateralTokenWhitelisted", function () {
-    let sandboxController: any;
-
-    beforeEach(async function () {
-      const opts = defaultSandboxControllerOpts({
-        admin: owner,
-        dao: dao,
-        feeEnabled: false,
-        storeFrontPriceFactor: parseEther("0.3").toString(),
-        minUpdateTime: 400,
-        suggestedAmountOfSeedReserves: "1000",
-        suggestedLockTimeOfSeedReserves: 1000,
-        targetPercent: ethers.utils.parseEther("0.5").toString(),
-      });
-      const c = await makeSandboxController(opts);
-      sandboxController = c.sandboxController;
-    });
-
-    it("returns false if token not whitelisted", async function () {
-      const token = await makeMockERC20({ name: "C15", symbol: "C15" });
-      expect(await sandboxController.isCollateralTokenWhitelisted(token.address)).to.equal(false);
-    });
-
-    it("returns true if collateral asset whitelisted", async function () {
-      const token = await makeMockERC20({ name: "C16", symbol: "C16" });
-      const priceFeed = await makePriceFeed(token.address);
-      await sandboxController.whitelistCollateralAsset(
-        token.address,
-        priceFeed.address,
-        exp(1.1, 17),
-        exp(1.2, 17),
-        exp(1.3, 17),
-        exp(1.4, 17),
-        exp(1.5, 17),
-        exp(1.6, 17)
-      );
-      expect(await sandboxController.isCollateralTokenWhitelisted(token.address)).to.equal(true);
-    });
-  });
-
-  describe("isCurveConfigurationValid", function () {
-    let sandboxController: any;
-
-    beforeEach(async function () {
-      const opts = defaultSandboxControllerOpts({
-        admin: owner,
-        dao: dao,
-        feeEnabled: false,
-        storeFrontPriceFactor: parseEther("0.3").toString(),
-        minUpdateTime: 400,
-        suggestedAmountOfSeedReserves: "1000",
-        suggestedLockTimeOfSeedReserves: 1000,
-        targetPercent: ethers.utils.parseEther("0.5").toString(),
-      });
-      const c = await makeSandboxController(opts);
-      sandboxController = c.sandboxController;
-    });
-
-    it("returns true for valid curve", async function () {
-      const c = makeValidCurve();
-      const ok = await sandboxController.isCurveConfigurationValid({
-        supplyKink: c.supplyKink,
-        supplyPerYearInterestRateSlopeLow: c.supplyPerYearInterestRateSlopeLow,
-        supplyPerYearInterestRateSlopeHigh: c.supplyPerYearInterestRateSlopeHigh,
-        supplyPerYearInterestRateBase: c.supplyPerYearInterestRateBase,
-        borrowKink: c.borrowKink,
-        borrowPerYearInterestRateSlopeLow: c.borrowPerYearInterestRateSlopeLow,
-        borrowPerYearInterestRateSlopeHigh: c.borrowPerYearInterestRateSlopeHigh,
-        borrowPerYearInterestRateBase: c.borrowPerYearInterestRateBase,
-      });
-      expect(ok).to.equal(true);
-    });
-
-    it("returns false if supplyKink >= 1e18", async function () {
-      const c = makeValidCurve();
-      c.supplyKink = parseEther("1").toString();
-      const ok = await sandboxController.isCurveConfigurationValid({
-        supplyKink: c.supplyKink,
-        supplyPerYearInterestRateSlopeLow: c.supplyPerYearInterestRateSlopeLow,
-        supplyPerYearInterestRateSlopeHigh: c.supplyPerYearInterestRateSlopeHigh,
-        supplyPerYearInterestRateBase: c.supplyPerYearInterestRateBase,
-        borrowKink: c.borrowKink,
-        borrowPerYearInterestRateSlopeLow: c.borrowPerYearInterestRateSlopeLow,
-        borrowPerYearInterestRateSlopeHigh: c.borrowPerYearInterestRateSlopeHigh,
-        borrowPerYearInterestRateBase: c.borrowPerYearInterestRateBase,
-      });
-      expect(ok).to.equal(false);
-    });
-
-    it("returns false if borrowKink >= 1e18", async function () {
-      const c = makeValidCurve();
-      c.borrowKink = parseEther("1").toString();
-      const ok = await sandboxController.isCurveConfigurationValid({
-        supplyKink: c.supplyKink,
-        supplyPerYearInterestRateSlopeLow: c.supplyPerYearInterestRateSlopeLow,
-        supplyPerYearInterestRateSlopeHigh: c.supplyPerYearInterestRateSlopeHigh,
-        supplyPerYearInterestRateBase: c.supplyPerYearInterestRateBase,
-        borrowKink: c.borrowKink,
-        borrowPerYearInterestRateSlopeLow: c.borrowPerYearInterestRateSlopeLow,
-        borrowPerYearInterestRateSlopeHigh: c.borrowPerYearInterestRateSlopeHigh,
-        borrowPerYearInterestRateBase: c.borrowPerYearInterestRateBase,
-      });
-      expect(ok).to.equal(false);
+      await snapshot.restore();
     });
   });
 
   describe("Reserve Commission and Thresholds", function () {
-    let sandboxController: any;
-    let owner: any, dao: any, attacker: any;
-
-    before(async function () {
-      [owner, dao, attacker] = await ethers.getSigners();
-    });
-
-    beforeEach(async function () {
-      const opts = defaultSandboxControllerOpts({
-        admin: owner,
-        dao: dao,
-        feeEnabled: false,
-        storeFrontPriceFactor: parseEther("0.3").toString(),
-        minUpdateTime: 400,
-        suggestedAmountOfSeedReserves: "1000",
-        suggestedLockTimeOfSeedReserves: 1000,
-        targetPercent: ethers.utils.parseEther("0.5").toString(),
-      });
-      const c = await makeSandboxController(opts);
-      sandboxController = c.sandboxController;
-    });
-
     describe("setReserveCommissions", function () {
       it("reverts if caller is not owner", async function () {
-        const newReserveCommissions = [parseEther("0.5").toString(), parseEther("0.3").toString(), parseEther("0.2").toString()];
+        const newReserveCommissions: [BigNumberish, BigNumberish, BigNumberish] = [
+          parseEther("0.5").toString(),
+          parseEther("0.3").toString(),
+          parseEther("0.2").toString(),
+        ];
         await expect(sandboxController.connect(dao).setReserveCommissions(newReserveCommissions)).to.be.revertedWithCustomError(
           sandboxController,
           "NotOwner"
@@ -1598,7 +1437,7 @@ describe("3. SandboxController", function () {
       });
 
       it("reverts if any new reserve commission causes sum with protocol commission to exceed 80%", async function () {
-        const newReserveCommissions = [
+        const newReserveCommissions: [BigNumberish, BigNumberish, BigNumberish] = [
           parseEther("0.800000000000000001").toString(),
           parseEther("0.3").toString(),
           parseEther("0.2").toString(),
@@ -1610,7 +1449,11 @@ describe("3. SandboxController", function () {
       });
 
       it("updates reserve commissions and emits events", async function () {
-        const newReserveCommissions = [parseEther("0.5").toString(), parseEther("0.3").toString(), parseEther("0.2").toString()];
+        const newReserveCommissions: [BigNumberish, BigNumberish, BigNumberish] = [
+          parseEther("0.5").toString(),
+          parseEther("0.3").toString(),
+          parseEther("0.2").toString(),
+        ];
         const tx = await sandboxController.connect(owner).setReserveCommissions(newReserveCommissions);
         const rcpt = await tx.wait();
         const events = rcpt.events.filter((e: any) => e.event === "ReserveCommissionChanged");
@@ -1628,7 +1471,11 @@ describe("3. SandboxController", function () {
 
     describe("setProtocolCommissions", function () {
       it("reverts if caller is not owner", async function () {
-        const protocolCommissions = [parseEther("0.4").toString(), parseEther("0.2").toString(), parseEther("0.1").toString()];
+        const protocolCommissions: [BigNumberish, BigNumberish, BigNumberish] = [
+          parseEther("0.4").toString(),
+          parseEther("0.2").toString(),
+          parseEther("0.1").toString(),
+        ];
         await expect(sandboxController.connect(dao).setProtocolCommissions(protocolCommissions)).to.be.revertedWithCustomError(
           sandboxController,
           "NotOwner"
@@ -1644,7 +1491,11 @@ describe("3. SandboxController", function () {
           .connect(owner)
           .setReserveCommissions([parseEther("0.1").toString(), parseEther("0.3").toString(), parseEther("0.1").toString()]);
 
-        const protocolCommissions = [parseEther("0.1").toString(), parseEther("0.600000000000000001"), parseEther("0.1").toString()];
+        const protocolCommissions: [BigNumberish, BigNumberish, BigNumberish] = [
+          parseEther("0.1").toString(),
+          parseEther("0.600000000000000001"),
+          parseEther("0.1").toString(),
+        ];
         await expect(sandboxController.connect(owner).setProtocolCommissions(protocolCommissions)).to.be.revertedWithCustomError(
           sandboxController,
           "InvalidCommissions"
@@ -1652,7 +1503,11 @@ describe("3. SandboxController", function () {
       });
 
       it("updates protocol commissions and emits events", async function () {
-        const newProtocolCommissions = [parseEther("0.4").toString(), parseEther("0.2").toString(), parseEther("0.1").toString()];
+        const newProtocolCommissions: [BigNumberish, BigNumberish, BigNumberish] = [
+          parseEther("0.4").toString(),
+          parseEther("0.2").toString(),
+          parseEther("0.1").toString(),
+        ];
         const tx = await sandboxController.connect(owner).setProtocolCommissions(newProtocolCommissions);
         const rcpt = await tx.wait();
         const events = rcpt.events.filter((e: any) => e.event === "ProtocolCommissionChanged");
@@ -1671,11 +1526,14 @@ describe("3. SandboxController", function () {
 
   describe("setTreasury", function () {
     it("reverts if caller is not owner", async function () {
-      await expect(sandboxController.connect(dao).setTreasury(attacker.address)).to.be.revertedWithCustomError(
+      await expect(sandboxController.connect(attacker).setTreasury(attacker.address)).to.be.revertedWithCustomError(
         sandboxController,
         "NotOwner"
       );
-      await expect(sandboxController.connect(attacker).setTreasury(attacker.address)).to.be.revertedWithCustomError(
+    });
+
+    it("reverts for dao (if caller is not owner)", async function () {
+      await expect(sandboxController.connect(dao).setTreasury(attacker.address)).to.be.revertedWithCustomError(
         sandboxController,
         "NotOwner"
       );

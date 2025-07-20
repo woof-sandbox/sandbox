@@ -169,8 +169,7 @@ describe("1. System Initialization", function () {
     let configControllersCount = 0;
 
     before(async function () {
-      sandboxController = (await makeSandboxController(defaultSandboxControllerOpts({ minUpdateTime: DEFAULT_UPDATE_TIME })))
-        .sandboxController;
+      sandboxController = (await makeSandboxController(defaultSandboxControllerOpts())).sandboxController;
       configControllerFactory = await _ConfigControllerFactory.deploy(sandboxController.address, configControllerImpl.address);
       sandboxCometFactory = await _SandboxCometFactory.deploy(sandboxCometImpl.address, configControllerFactory.address);
     });
@@ -540,8 +539,7 @@ describe("1. System Initialization", function () {
     let marketConfig: CometConfigStruct;
 
     before(async function () {
-      sandboxController = (await makeSandboxController(defaultSandboxControllerOpts({ minUpdateTime: DEFAULT_UPDATE_TIME })))
-        .sandboxController;
+      sandboxController = (await makeSandboxController(defaultSandboxControllerOpts())).sandboxController;
 
       const configControllerFactory = await _ConfigControllerFactory.deploy(sandboxController.address, configControllerImpl.address);
       sandboxCometFactory = await _SandboxCometFactory.deploy(sandboxCometImpl.address, configControllerFactory.address);
@@ -742,7 +740,7 @@ describe("1. System Initialization", function () {
     });
 
     it("reverts if targetPercent > 5e17", async function () {
-      opts.targetPercent = ethers.utils.parseEther("0.5").add(1).toString();
+      opts.config.targetPercent = ethers.utils.parseEther("0.5").add(1).toString();
       await expect(_SandboxControllerFactory.deploy(...(Object.values(opts) as DeployParams))).to.be.revertedWithCustomError(
         _SandboxControllerFactory,
         "InvalidFactors"
@@ -750,15 +748,15 @@ describe("1. System Initialization", function () {
     });
 
     it("should not revert if storeFrontPriceFactor = 1e18", async function () {
-      opts.storeFrontPriceFactor = ethers.utils.parseEther("1").toString();
+      opts.config.storeFrontPriceFactor = ethers.utils.parseEther("1").toString();
       const sandboxControllerTest = await _SandboxControllerFactory.deploy(...(Object.values(opts) as DeployParams));
       await sandboxControllerTest.deployed();
 
-      expect((await sandboxControllerTest._controllerConfiguration()).storeFrontPriceFactor).to.equal(opts.storeFrontPriceFactor);
+      expect((await sandboxControllerTest._controllerConfiguration()).storeFrontPriceFactor).to.equal(opts.config.storeFrontPriceFactor);
     });
 
     it("reverts if storeFrontPriceFactor > 1e18", async function () {
-      opts.storeFrontPriceFactor = ethers.utils.parseEther("1").add(1).toString();
+      opts.config.storeFrontPriceFactor = ethers.utils.parseEther("1").add(1).toString();
       await expect(_SandboxControllerFactory.deploy(...(Object.values(opts) as DeployParams))).to.be.revertedWithCustomError(
         _SandboxControllerFactory,
         "InvalidFactors"
@@ -799,7 +797,7 @@ describe("1. System Initialization", function () {
     });
 
     it("reverts if minUpdateTime = 0", async function () {
-      opts.minUpdateTime = 0;
+      opts.config.minUpdateTime = 0;
       await expect(_SandboxControllerFactory.deploy(...(Object.values(opts) as DeployParams))).to.be.revertedWithCustomError(
         _SandboxControllerFactory,
         "IncorrectSetting"
@@ -807,7 +805,7 @@ describe("1. System Initialization", function () {
     });
 
     it("reverts if minUpdateTime > maxUpdateTime", async function () {
-      opts.minUpdateTime = DEFAULT_UPDATE_TIME + 1;
+      opts.config.minUpdateTime = DEFAULT_UPDATE_TIME + 1;
       await expect(_SandboxControllerFactory.deploy(...(Object.values(opts) as DeployParams))).to.be.revertedWithCustomError(
         _SandboxControllerFactory,
         "IncorrectSetting"
@@ -815,7 +813,7 @@ describe("1. System Initialization", function () {
     });
 
     it("reverts if suggestedAmountOfSeedReserves = 0", async function () {
-      opts.suggestedAmountOfSeedReserves = "0";
+      opts.config.suggestedAmountOfSeedReserves = "0";
       await expect(_SandboxControllerFactory.deploy(...(Object.values(opts) as DeployParams))).to.be.revertedWithCustomError(
         _SandboxControllerFactory,
         "IncorrectSetting"
@@ -823,7 +821,7 @@ describe("1. System Initialization", function () {
     });
 
     it("reverts if suggestedLockTimeOfSeedReserves = 0", async function () {
-      opts.suggestedLockTimeOfSeedReserves = 0;
+      opts.config.suggestedLockTimeOfSeedReserves = 0;
       await expect(_SandboxControllerFactory.deploy(...(Object.values(opts) as DeployParams))).to.be.revertedWithCustomError(
         _SandboxControllerFactory,
         "IncorrectSetting"

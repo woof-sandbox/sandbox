@@ -71,9 +71,7 @@ describe("2. System Params Validation", function () {
     const SandboxControllerFactoryTest = (await ethers.getContractFactory(
       "SandboxControllerNoCurvesTest"
     )) as SandboxControllerNoCurvesTest__factory;
-    sandboxController = (
-      await makeSandboxController(defaultSandboxControllerOpts({ minUpdateTime: DEFAULT_UPDATE_TIME }), SandboxControllerFactoryTest)
-    ).sandboxController;
+    sandboxController = (await makeSandboxController(defaultSandboxControllerOpts(), SandboxControllerFactoryTest)).sandboxController;
 
     const configControllerFactory = await _ConfigControllerFactory.deploy(sandboxController.address, configControllerImpl.address);
     sandboxCometFactory = await _SandboxCometFactory.deploy(sandboxCometImpl.address, configControllerFactory.address);

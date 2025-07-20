@@ -25,7 +25,7 @@ import {
 
 import { SandboxCometFactory } from "../../build/types/SandboxCometFactory";
 import { SandboxCometFactory__factory } from "../../build/types/factories/SandboxCometFactory__factory";
-import { SandboxController, BaseAssetCurveStruct } from "../../build/types/SandboxController";
+import { SandboxController, BaseAssetCurveStruct, SandboxControllerConfigurationStruct } from "../../build/types/SandboxController";
 import { SandboxController__factory } from "../../build/types/factories/SandboxController__factory";
 import { BigNumber, Contract, ContractReceipt, ContractTransaction } from "ethers";
 import { TransactionReceipt, TransactionResponse } from "@ethersproject/abstract-provider";
@@ -157,12 +157,7 @@ export interface SandboxControllerOpts {
   dao?: any;
   treasury?: any;
   feeEnabled?: boolean;
-  targetPercent?: string;
-  storeFrontPriceFactor?: string;
-  minUpdateTime?: number;
-  maxUpdateTime?: number;
-  suggestedAmountOfSeedReserves?: string;
-  suggestedLockTimeOfSeedReserves?: number;
+  config?: SandboxControllerConfigurationStruct;
   reserveCommissions?: [bigint, bigint, bigint];
   protocolCommissions?: [bigint, bigint, bigint];
 }
@@ -363,20 +358,22 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Par
     admin: owner,
     dao: dao,
     feeEnabled: false,
-    storeFrontPriceFactor: (opts.storeFrontPriceFactor ?? exp(0.1, 18)).toString(),
-    minUpdateTime: MIN_UPDATE_TIME,
-    maxUpdateTime: DEFAULT_UPDATE_TIME,
-    suggestedAmountOfSeedReserves: suggestedAmountOfSeedReserves,
-    suggestedLockTimeOfSeedReserves: 3600,
-    targetPercent: opts.targetPercent
-      ? ethers.utils.parseEther(opts.targetPercent.toString()).toString()
-      : ethers.utils.parseEther("0.4").toString(),
+    config: {
+      storeFrontPriceFactor: (opts.storeFrontPriceFactor ?? exp(0.1, 18)).toString(),
+      minUpdateTime: MIN_UPDATE_TIME,
+      maxUpdateTime: DEFAULT_UPDATE_TIME,
+      suggestedAmountOfSeedReserves: suggestedAmountOfSeedReserves,
+      suggestedLockTimeOfSeedReserves: 3600,
+      targetPercent: opts.targetPercent
+        ? ethers.utils.parseEther(opts.targetPercent.toString()).toString()
+        : ethers.utils.parseEther("0.4").toString(),
+    },
     reserveCommissions: opts.reserveCommissions ?? [exp(0.01, 18), exp(0.02, 18), exp(0.03, 18)],
     protocolCommissions: opts.protocolCommissions ?? [exp(0.01, 18), exp(0.02, 18), exp(0.03, 18)],
   });
 
   const sandboxController = (await makeSandboxController(sandboxControllerOpts)).sandboxController;
-  await baseToken.allocateTo(owner.address, sandboxControllerOpts.suggestedAmountOfSeedReserves);
+  await baseToken.allocateTo(owner.address, sandboxControllerOpts.config.suggestedAmountOfSeedReserves);
   // --- Whitelist the base token ---
   await sandboxController.whitelistBaseAsset(
     tokens[base].address,
@@ -469,7 +466,7 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Par
     guardian,
     dao,
     curve,
-    seedReserves: sandboxControllerOpts.suggestedAmountOfSeedReserves,
+    seedReserves: sandboxControllerOpts.config.suggestedAmountOfSeedReserves.toString(),
   };
 }
 
@@ -600,33 +597,10 @@ export function makeValidCurve(): BaseAssetCurveStruct {
 
 /// TODO: add opts when testing curves
 export async function sandboxListBaseAsset(sandboxController: SandboxController, baseAsset: FaucetToken, priceFeed: string) {
-  // --- Parameters ---
-  const supplyKink = exp(0.8, 18);
-  const supplyPerYearInterestRateBase = exp(0.001, 18);
-  const supplyPerYearInterestRateSlopeLow = exp(0.05, 18);
-  const supplyPerYearInterestRateSlopeHigh = exp(2, 18);
-  const borrowKink = exp(0.8, 18);
-  const borrowPerYearInterestRateBase = exp(0.005, 18);
-  const borrowPerYearInterestRateSlopeLow = exp(0.1, 18);
-  const borrowPerYearInterestRateSlopeHigh = exp(3, 18);
   const baseBorrowMin = exp(1, await baseAsset.decimals());
 
   // --- Whitelist the base token ---
-  await sandboxController.whitelistBaseAsset(
-    baseAsset.address,
-    priceFeed,
-    {
-      supplyKink,
-      supplyPerYearInterestRateBase,
-      supplyPerYearInterestRateSlopeLow,
-      supplyPerYearInterestRateSlopeHigh,
-      borrowKink,
-      borrowPerYearInterestRateBase,
-      borrowPerYearInterestRateSlopeLow,
-      borrowPerYearInterestRateSlopeHigh,
-    },
-    baseBorrowMin
-  );
+  await sandboxController.whitelistBaseAsset(baseAsset.address, priceFeed, makeValidCurve(), baseBorrowMin);
 }
 
 /// TODO: add opts when testing curves
@@ -677,12 +651,14 @@ export function defaultSandboxControllerOpts(partial?: Partial<SandboxController
     dao: partial?.dao,
     treasury: partial?.treasury,
     feeEnabled: partial?.feeEnabled ?? false,
-    targetPercent: partial?.targetPercent ?? ethers.utils.parseEther("0.5").toString(),
-    storeFrontPriceFactor: partial?.storeFrontPriceFactor ?? ethers.utils.parseEther("0.6").toString(),
-    minUpdateTime: partial?.minUpdateTime ?? MIN_UPDATE_TIME,
-    maxUpdateTime: partial?.maxUpdateTime ?? DEFAULT_UPDATE_TIME,
-    suggestedAmountOfSeedReserves: partial?.suggestedAmountOfSeedReserves ?? ethers.utils.parseEther("500").toString(),
-    suggestedLockTimeOfSeedReserves: partial?.suggestedLockTimeOfSeedReserves ?? 86400,
+    config: {
+      targetPercent: partial?.config?.targetPercent ?? ethers.utils.parseEther("0.5").toString(),
+      storeFrontPriceFactor: partial?.config?.storeFrontPriceFactor ?? ethers.utils.parseEther("0.6").toString(),
+      minUpdateTime: partial?.config?.minUpdateTime ?? MIN_UPDATE_TIME,
+      maxUpdateTime: partial?.config?.maxUpdateTime ?? DEFAULT_UPDATE_TIME,
+      suggestedAmountOfSeedReserves: partial?.config?.suggestedAmountOfSeedReserves ?? ethers.utils.parseEther("500").toString(),
+      suggestedLockTimeOfSeedReserves: partial?.config?.suggestedLockTimeOfSeedReserves ?? 86400,
+    },
     reserveCommissions: partial?.reserveCommissions ?? [exp(0.01, 18), exp(0.02, 18), exp(0.03, 18)],
     protocolCommissions: partial?.protocolCommissions ?? [exp(0.01, 18), exp(0.02, 18), exp(0.03, 18)],
   };
@@ -733,12 +709,7 @@ export async function makeSandboxController(opts: SandboxControllerOpts, factory
     dao.address || dao,
     treasury.address || treasury,
     opts.feeEnabled,
-    opts.targetPercent,
-    opts.storeFrontPriceFactor,
-    opts.minUpdateTime,
-    opts.maxUpdateTime,
-    opts.suggestedAmountOfSeedReserves,
-    opts.suggestedLockTimeOfSeedReserves,
+    opts.config,
     opts.reserveCommissions,
     opts.protocolCommissions
   );
