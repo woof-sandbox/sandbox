@@ -195,6 +195,10 @@ contract CometStorage {
     /// @notice user => spender => asset (base or collateral) => amount
     mapping(address => mapping(address => mapping(address => uint))) public allowance;
 
+    /// @notice user => spender => true or false (for baseAsset only)
+    /// @notice allowance for all is expected to be atomic - for ...All() operations only
+    mapping(address => mapping(address => bool)) public allowanceAll;
+
     /// @notice The next expected nonce for an address, for validating authorizations via signature
     mapping(address => uint) public userNonce;
 

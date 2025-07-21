@@ -20,6 +20,18 @@ abstract contract CometCore is CometStorage, CometMath, ICometErrors, ICometEven
     }
 
     /**
+     * @notice Determine if the manager has permission to act on behalf of the owner for the whole balance
+     * @notice The function gives an atomic one-spend permission, which will be discarded
+     * @param owner The owner account
+     * @param manager The manager account
+     * @notice works for the base asset only
+     * @return Whether or not the manager has permission
+     */
+    function hasPermissionAll(address owner, address manager) public view returns (bool) {
+        return owner == manager || allowanceAll[owner][manager];
+    }
+
+    /**
      * @notice Spend the allowance of an asset for a spender on behalf of an owner
      * @param owner The owner account
      * @param manager The spender account
@@ -34,6 +46,18 @@ abstract contract CometCore is CometStorage, CometMath, ICometErrors, ICometEven
     }
 
     /**
+     * @notice Spend the allowance of an asset for a spender on behalf of an owner
+     * @param owner The owner account
+     * @param manager The spender account
+     * @notice works for the base asset only
+     */
+    function spendAllowanceAll(address owner, address manager) internal {
+        if (owner == manager) return;
+
+        allowAllInternal(owner, manager, false);
+    }
+
+    /**
      * @dev Allows a manager to spend an owner's allowance on a specific asset
      * @param owner The owner of the assets
      * @param manager The manager account
@@ -44,10 +68,28 @@ abstract contract CometCore is CometStorage, CometMath, ICometErrors, ICometEven
         uint8 index = collateralAssetIndex[asset];
         if (owner == address(0) || manager == address(0) || asset == address(0)) revert ZeroAddress();
         if (asset != baseToken && (collateralAssets[index].collateralToken != asset)) revert WrongToken(asset);
+        if (amount == type(uint256).max) revert MaxAllowanceRestricted();
 
         allowance[owner][manager][asset] = amount;
 
         emit Approval(owner, manager, asset, amount);
+    }
+
+    /**
+     * @dev Allows a manager to spend an owner's allowance on a specific asset
+     * @param owner The owner of the assets
+     * @param manager The manager account
+     * @param approved Flag to set
+     * @notice works for the base asset only
+     */
+    function allowAllInternal(address owner, address manager, bool approved) internal {
+        if (owner == address(0) || manager == address(0)) revert ZeroAddress();
+
+        if (allowanceAll[owner][manager] == approved) revert IncorrectApproval();
+
+        allowanceAll[owner][manager] = approved;
+
+        emit ApprovalAll(owner, manager, baseToken, approved);
     }
 
     /**

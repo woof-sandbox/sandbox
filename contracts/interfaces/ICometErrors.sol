@@ -115,4 +115,8 @@ interface ICometErrors {
      * @param token Detected token
      */
     error WrongToken(address token);
+
+    error MaxAllowanceRestricted();
+
+    error IncorrectApproval();
 }

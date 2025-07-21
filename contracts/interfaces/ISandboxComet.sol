@@ -17,11 +17,13 @@ abstract contract ISandboxComet is CometCore {
 
     function supplyFrom(address from, address dst, address asset, uint256 amount) external virtual;
 
+    function repayAllFrom(address from, address dst) external virtual;
+
     function transfer(address dst, uint256 amount) external virtual returns (bool);
 
     function transferFrom(address src, address dst, uint256 amount) external virtual returns (bool);
 
-    function transferAsset(address dst, address asset, uint256 amount) external virtual;
+    function transferAllFrom(address src, address dst) external virtual;
 
     function transferAssetFrom(address src, address dst, address asset, uint256 amount) external virtual;
 
@@ -30,6 +32,8 @@ abstract contract ISandboxComet is CometCore {
     function withdrawTo(address to, address asset, uint256 amount) external virtual;
 
     function withdrawFrom(address src, address to, address asset, uint256 amount) external virtual;
+
+    function withdrawAllFrom(address src, address to) external virtual;
 
     function factoryInit(address, address) external virtual;
 
