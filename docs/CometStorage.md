@@ -476,6 +476,15 @@ mapping(address => mapping(address => mapping(address => uint256))) allowance
 Mapping of users to accounts which may be permitted to manage the user account
 user => spender => asset (base or collateral) => amount
 
+### allowanceAll
+
+```solidity
+mapping(address => mapping(address => bool)) allowanceAll
+```
+
+user => spender => true or false (for baseAsset only)
+allowance for all is expected to be atomic - for ...All() operations only
+
 ### userNonce
 
 ```solidity

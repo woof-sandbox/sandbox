@@ -492,10 +492,25 @@ Supply an amount of asset from `from` to dst, if allowed
 | asset | address | The asset to supply |
 | amount | uint256 | The quantity to supply |
 
+### repayAllFrom
+
+```solidity
+function repayAllFrom(address from, address dst) external
+```
+
+Repay the whole debt in base asset to the protocol from `from` to dst, if allowed
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| from | address | The supplier address |
+| dst | address | The address which will hold the balance (can be the same from address) |
+
 ### supplyInternal
 
 ```solidity
-function supplyInternal(address operator, address from, address dst, address asset, uint256 amount) internal
+function supplyInternal(address operator, address from, address dst, address asset, uint256 amount, bool isAll) internal
 ```
 
 _Supply either collateral or base asset, depending on the asset, if operator is allowed
@@ -560,21 +575,20 @@ ERC20 transfer an amount of base token from src to dst, if allowed
 | ---- | ---- | ----------- |
 | [0] | bool | true |
 
-### transferAsset
+### transferAllFrom
 
 ```solidity
-function transferAsset(address dst, address asset, uint256 amount) external
+function transferAllFrom(address src, address dst) external
 ```
 
-Transfer an amount of asset to dst
+ERC20 transfer the whole base token balance from src to dst, if allowed
 
 #### Parameters
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
+| src | address | The sender address |
 | dst | address | The recipient address |
-| asset | address | The asset to transfer |
-| amount | uint256 | The quantity to transfer |
 
 ### transferAssetFrom
 
@@ -596,7 +610,7 @@ Transfer an amount of asset from src to dst, if allowed
 ### transferInternal
 
 ```solidity
-function transferInternal(address operator, address src, address dst, address asset, uint256 amount) internal
+function transferInternal(address operator, address src, address dst, address asset, uint256 amount, bool isAll) internal
 ```
 
 _Transfer either collateral or base asset, depending on the asset, if operator is allowed
@@ -666,10 +680,25 @@ Withdraw an amount of asset from src to `to`, if allowed
 | asset | address | The asset to withdraw |
 | amount | uint256 | The quantity to withdraw |
 
+### withdrawAllFrom
+
+```solidity
+function withdrawAllFrom(address src, address to) external
+```
+
+Withdraw the whole asset balance from src to `to`, if allowed
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| src | address | The sender address (can be msg.sender) |
+| to | address | The recepient address (can be msg.sender) |
+
 ### withdrawInternal
 
 ```solidity
-function withdrawInternal(address operator, address src, address to, address asset, uint256 amount) internal
+function withdrawInternal(address operator, address src, address to, address asset, uint256 amount, bool isAll) internal
 ```
 
 _Withdraw either collateral or base asset, depending on the asset, if operator is allowed
@@ -690,6 +719,12 @@ function withdrawCollateral(address src, address to, address asset, uint256 amou
 ```
 
 _Withdraw an amount of collateral asset from src to `to`_
+
+### spendAllowanceInternal
+
+```solidity
+function spendAllowanceInternal(address src, address operator, address asset, uint256 amount, bool isAll) internal
+```
 
 ### absorb
 
