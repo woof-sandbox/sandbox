@@ -145,51 +145,31 @@ contract SandboxController is ISandboxController {
     ///
 
     /**
-     * @notice Sets the reserve commission factors for each market state.
-     * @param _reserveCommissions The new reserve commission factors, scaled by 1e18 (100%).
+     * @notice Sets commission factors for the chosen market state.
+     * @param _index Market state index
+     * @param _reserveCommission The new reserve commission factor, scaled by 1e18 (100%).
+     * @param _protocolCommission The new protocol commission factor, scaled by 1e18 (100%).
      */
-    function setReserveCommissions(uint64[MARKET_STATES] calldata _reserveCommissions) external override onlyOwner {
-        // aderyn-fp-next-line(require-revert-in-loop)
-        for (uint8 i; i < MARKET_STATES; ) {
-            /// Check if the sum of the `reserveCommission` and the `protocolCommission` is less than 80%
-            /// This needed to leave something for the ConfigController owner and curator.
-            /// Config controller will receive non less than 20% of profit fee (upon reserves and dao fee)
-            if (_reserveCommissions[i] + protocolCommission[i] > MAX_COMMISSIONS) {
-                revert InvalidCommissions();
-            }
+    function setMarketStateCommissions(uint8 _index, uint64 _reserveCommission, uint64 _protocolCommission) external override onlyOwner {
+        if (_index > MARKET_STATES) revert IncorrectIndex();
 
-            /// Emit event before updating the `reserveCommission` to save gas. Cheaper than creating a memory variable.
-            emit ReserveCommissionChanged(MarketState(i), reserveCommission[i], _reserveCommissions[i]);
-            reserveCommission[i] = _reserveCommissions[i];
-
-            unchecked {
-                ++i;
-            }
+        /// Check if the sum of the `reserveCommission` and the `protocolCommission` is less than 80%
+        /// This needed to leave something for the ConfigController owner and curator.
+        /// Config controller will receive non less than 20% of profit fee (upon reserves and dao fee)
+        if (_reserveCommission + _protocolCommission > MAX_COMMISSIONS) {
+            revert InvalidCommissions();
         }
-    }
 
-    /**
-     * @notice Sets the protocol commission factors for each market state.
-     * @param _protocolCommissions The new protocol commission factors, scaled by 1e18 (100%).
-     */
-    function setProtocolCommissions(uint64[MARKET_STATES] calldata _protocolCommissions) external override onlyOwner {
-        // aderyn-fp-next-line(require-revert-in-loop)
-        for (uint8 i; i < MARKET_STATES; ) {
-            /// Check if the sum of the `protocolCommission` and the `reserveCommission` is less than 80%
-            /// This needed to leave something for the ConfigController owner and curator.
-            /// Config controller will receive non less than 20% of profit fee (upon reserves and dao fee)
-            if (_protocolCommissions[i] + reserveCommission[i] > MAX_COMMISSIONS) {
-                revert InvalidCommissions();
-            }
-
-            /// Emit event before updating the `protocolCommission` to save gas. Cheaper than creating a memory variable.
-            emit ProtocolCommissionChanged(MarketState(i), protocolCommission[i], _protocolCommissions[i]);
-            protocolCommission[i] = _protocolCommissions[i];
-
-            unchecked {
-                ++i;
-            }
-        }
+        /// Emit event before updating the `reserveCommission` to save gas. Cheaper than creating a memory variable.
+        emit CommissionChanged(
+            MarketState(_index),
+            reserveCommission[_index],
+            _reserveCommission,
+            protocolCommission[_index],
+            _protocolCommission
+        );
+        reserveCommission[_index] = _reserveCommission;
+        protocolCommission[_index] = _protocolCommission;
     }
 
     /**

@@ -71,8 +71,7 @@ interface ISandboxController is ISandboxErrors {
     event BaseAssetCurveChanged(address indexed token, BaseAssetCurve oldCurve, BaseAssetCurve newCurve, uint256 curveIndex);
     event CollateralAssetWhitelisted(address indexed token, address indexed priceFeed, uint256 decimals);
 
-    event ReserveCommissionChanged(MarketState state, uint64 oldValue, uint64 newValue);
-    event ProtocolCommissionChanged(MarketState state, uint64 oldValue, uint64 newValue);
+    event CommissionChanged(MarketState state, uint64 oldReserve, uint64 newReserve, uint64 oldProtocol, uint64 newProtocol);
     event TreasuryChanged(address oldTreasury, address newTreasury);
     event ConfigurationChanged(SandboxControllerConfiguration oldConfig, SandboxControllerConfiguration newConfig);
     event FeeEnabledSet(bool feeEnabled);
@@ -122,11 +121,7 @@ interface ISandboxController is ISandboxErrors {
 
     function changeBaseAssetCurve(address token, uint256 curveIndex, BaseAssetCurve memory newCurve) external;
 
-    // aderyn-fp-next-line(literal-instead-of-constant)
-    function setReserveCommissions(uint64[3] calldata reserveCommissions) external;
-
-    // aderyn-fp-next-line(literal-instead-of-constant)
-    function setProtocolCommissions(uint64[3] calldata protocolCommissions) external;
+    function setMarketStateCommissions(uint8 _index, uint64 _reserveCommission, uint64 _protocolCommission) external;
 
     function setTreasury(address _treasury) external;
 

@@ -876,7 +876,7 @@ describe("3. SandboxController", function () {
     });
 
     it("owner can do it, dao can do it", async function () {
-      const token1 = await makeMockERC20({ name: "C3", symbol: "C4" });
+      const token1 = await makeMockERC20({ name: "C3", symbol: "C3" });
       const feed1 = await makePriceFeed(token1.address);
 
       await expect(
