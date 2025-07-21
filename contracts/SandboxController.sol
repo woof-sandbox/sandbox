@@ -275,6 +275,7 @@ contract SandboxController is ISandboxController {
         if (tokenToPriceFeed[token] != address(0) && tokenToPriceFeed[token] != priceFeed) revert DifferentPriceFeedAlreadyUsedForToken();
 
         /// @dev the price feed is dead
+        /// TODO: change the verification of live price feed, latestRoundData is not enough
         (, int256 answer, , , ) = IPriceFeed(priceFeed).latestRoundData(); // aderyn-fp(reentrancy-state-change)
         if (answer <= 0) revert InvalidPriceFeed();
 
@@ -340,6 +341,7 @@ contract SandboxController is ISandboxController {
         if (tokenToPriceFeed[token] != address(0) && tokenToPriceFeed[token] != priceFeed) revert DifferentPriceFeedAlreadyUsedForToken();
 
         /// @dev the price feed is dead
+        /// TODO: change the verification of live price feed, latestRoundData is not enough
         (, int256 answer, , , ) = IPriceFeed(priceFeed).latestRoundData(); // aderyn-fp(reentrancy-state-change)
         if (answer <= 0) revert InvalidPriceFeed();
 
@@ -445,6 +447,7 @@ contract SandboxController is ISandboxController {
      * @return True if valid, false otherwise.
      */
     function isCurveConfigurationValid(BaseAssetCurve memory curve) public pure override returns (bool) {
+        /// TODO: update validations to have borrow curve higher than supply curve
         if (curve.supplyKink == 0 || curve.borrowKink == 0 || curve.supplyKink >= PARAMETERS_SCALE || curve.borrowKink >= PARAMETERS_SCALE)
             return false;
 
@@ -485,10 +488,12 @@ contract SandboxController is ISandboxController {
             _config.storeFrontPriceFactor > PARAMETERS_SCALE /// not bigger than 100%.
         ) revert InvalidFactors();
 
+        /// TODO: min and max update time will be moved to config controller
         if (
             _config.minUpdateTime == 0 ||
             _config.maxUpdateTime < _config.minUpdateTime ||
             _config.suggestedAmountOfSeedReserves == 0 ||
+            /// TODO: add validation from above in PR with changes to it
             _config.suggestedLockTimeOfSeedReserves == 0
         ) revert IncorrectSetting();
     }
