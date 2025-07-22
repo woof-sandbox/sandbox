@@ -101,11 +101,15 @@ interface IConfigController {
     /// @param baseMinForRewards The new base minimum for rewards
     /// @param baseTrackingSupplySpeed The new base tracking supply speed
     /// @param baseTrackingBorrowSpeed The new base tracking borrow speed
+    /// @param minSupplyForReward The minimum amount of user principal represented in present value for rewards to accrue
+    /// @param minBorrowForReward The minimum amount of user principal represented in present value for rewards to accrue
     function setIncentiveConfigOnMarket(
         address comet,
         uint64 trackingIndexScale,
         uint104 baseMinForRewards,
         uint64 baseTrackingSupplySpeed,
-        uint64 baseTrackingBorrowSpeed
+        uint64 baseTrackingBorrowSpeed,
+        uint104 minSupplyForReward,
+        uint104 minBorrowForReward
     ) external;
 }

@@ -44,7 +44,9 @@ abstract contract ISandboxComet is CometCore {
         uint64 trackingIndexScale,
         uint104 baseMinForRewards,
         uint64 baseTrackingSupplySpeed,
-        uint64 baseTrackingBorrowSpeed
+        uint64 baseTrackingBorrowSpeed,
+        uint104 minSupplyForReward,
+        uint104 minBorrowForReward
     );
 
     event DaoIncentiveConfigChanged(
@@ -115,7 +117,9 @@ abstract contract ISandboxComet is CometCore {
         uint64 trackingIndexScale_,
         uint104 baseMinForRewards_,
         uint64 baseTrackingSupplySpeed_,
-        uint64 baseTrackingBorrowSpeed_
+        uint64 baseTrackingBorrowSpeed_,
+        uint104 minSupplyForReward_,
+        uint104 minBorrowForReward_
     ) external virtual;
 
     function setDaoIncentiveConfig(

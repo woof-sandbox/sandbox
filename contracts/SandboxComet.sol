@@ -138,6 +138,8 @@ contract SandboxComet is ISandboxComet {
         /// Rewards are disabled by default
         baseMinForRewards = type(uint104).max;
         daoBaseMinForRewards = type(uint104).max;
+        minSupplyForReward = type(uint104).max;
+        minBorrowForReward = type(uint104).max;
         trackingIndexScale = 1;
         daoTrackingIndexScale = 1;
 
@@ -217,12 +219,16 @@ contract SandboxComet is ISandboxComet {
      * @param baseMinForRewards_ The new base minimum for rewards
      * @param baseTrackingSupplySpeed_ The new base tracking supply speed
      * @param baseTrackingBorrowSpeed_ The new base tracking borrow speed
+     * @param minSupplyForReward_ The minimum amount of user principal represented in present value for rewards to accrue
+     * @param minBorrowForReward_ The minimum amount of user principal represented in present value for rewards to accrue
      */
     function setIncentiveConfig(
         uint64 trackingIndexScale_,
         uint104 baseMinForRewards_,
         uint64 baseTrackingSupplySpeed_,
-        uint64 baseTrackingBorrowSpeed_
+        uint64 baseTrackingBorrowSpeed_,
+        uint104 minSupplyForReward_,
+        uint104 minBorrowForReward_
     ) external override {
         if (msg.sender != configController) revert Unauthorized();
 
@@ -232,8 +238,17 @@ contract SandboxComet is ISandboxComet {
         baseTrackingBorrowSpeed = baseTrackingBorrowSpeed_;
         trackingIndexScale = trackingIndexScale_;
         baseMinForRewards = baseMinForRewards_;
+        minSupplyForReward = minSupplyForReward_;
+        minBorrowForReward = minBorrowForReward_;
 
-        emit IncentiveConfigChanged(trackingIndexScale, baseMinForRewards, baseTrackingSupplySpeed, baseTrackingBorrowSpeed);
+        emit IncentiveConfigChanged(
+            trackingIndexScale,
+            baseMinForRewards,
+            baseTrackingSupplySpeed,
+            baseTrackingBorrowSpeed,
+            minSupplyForReward,
+            minBorrowForReward
+        );
     }
 
     /**
@@ -640,12 +655,16 @@ contract SandboxComet is ISandboxComet {
         uint daoIndexDelta;
 
         if (principal >= 0) {
-            indexDelta = uint256(trackingSupplyIndex - basic.baseTrackingIndex);
+            indexDelta = unsigned256(presentValue(principal)) >= minSupplyForReward
+                ? uint256(trackingSupplyIndex - basic.baseTrackingIndex)
+                : 0;
             daoIndexDelta = uint256(daoTrackingSupplyIndex - basic.daoBaseTrackingIndex);
         } else {
-            indexDelta = uint256(trackingBorrowIndex - basic.baseTrackingIndex);
-            daoIndexDelta = uint256(daoTrackingBorrowIndex - basic.daoBaseTrackingIndex);
             principal = -principal;
+            indexDelta = unsigned256(presentValue(principal)) >= minBorrowForReward
+                ? uint256(trackingBorrowIndex - basic.baseTrackingIndex)
+                : 0;
+            daoIndexDelta = uint256(daoTrackingBorrowIndex - basic.daoBaseTrackingIndex);
         }
 
         // 0 delta means the same block or disabled rewards
