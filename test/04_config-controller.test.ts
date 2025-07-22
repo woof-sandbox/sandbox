@@ -234,12 +234,22 @@ describe("4. ConfigController", () => {
     const baseMinForRewards = 1000000n;
     const baseTrackingSupplySpeed = 500;
     const baseTrackingBorrowSpeed = 300;
+    const minSupplyForReward = 1000n;
+    const minBorrowForReward = 500n;
 
     it("should allow to set incentive config on market", async () => {
       // Set incentive config
       await configController
         .connect(owner)
-        .setIncentiveConfigOnMarket(comet.address, trackingIndexScale, baseMinForRewards, baseTrackingSupplySpeed, baseTrackingBorrowSpeed);
+        .setIncentiveConfigOnMarket(
+          comet.address,
+          trackingIndexScale,
+          baseMinForRewards,
+          baseTrackingSupplySpeed,
+          baseTrackingBorrowSpeed,
+          minSupplyForReward,
+          minBorrowForReward
+        );
 
       // Check that the config was set correctly
       const cometExtension = await ethers.getContractAt("CometExtension", comet.address);
@@ -248,6 +258,8 @@ describe("4. ConfigController", () => {
       expect(config.baseMinForRewards).to.equal(baseMinForRewards);
       expect(config.baseTrackingSupplySpeed).to.equal(baseTrackingSupplySpeed);
       expect(config.baseTrackingBorrowSpeed).to.equal(baseTrackingBorrowSpeed);
+      expect(config.minSupplyForReward).to.equal(minSupplyForReward);
+      expect(config.minBorrowForReward).to.equal(minBorrowForReward);
     });
 
     it("should revert if called by non-owner", async () => {
@@ -259,7 +271,9 @@ describe("4. ConfigController", () => {
             trackingIndexScale,
             baseMinForRewards,
             baseTrackingSupplySpeed,
-            baseTrackingBorrowSpeed
+            baseTrackingBorrowSpeed,
+            minSupplyForReward,
+            minBorrowForReward
           )
       ).to.be.revertedWithCustomError(configController, "Unauthorized");
     });
@@ -271,7 +285,9 @@ describe("4. ConfigController", () => {
           trackingIndexScale,
           baseMinForRewards,
           baseTrackingSupplySpeed,
-          baseTrackingBorrowSpeed
+          baseTrackingBorrowSpeed,
+          minSupplyForReward,
+          minBorrowForReward
         )
       ).to.be.revertedWithCustomError(configController, "ZeroAddress");
     });
@@ -285,7 +301,9 @@ describe("4. ConfigController", () => {
             trackingIndexScale,
             baseMinForRewards,
             baseTrackingSupplySpeed,
-            baseTrackingBorrowSpeed
+            baseTrackingBorrowSpeed,
+            minSupplyForReward,
+            minBorrowForReward
           )
       ).to.be.revertedWithCustomError(configController, "UnknownComet");
     });

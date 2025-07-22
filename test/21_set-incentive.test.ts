@@ -17,6 +17,8 @@ describe("21. Set incentive", () => {
   const newBaseMinForRewards = exp(1000, 6);
   const newBaseTrackingSupplySpeed = exp(1, 6);
   const newBaseTrackingBorrowSpeed = exp(1, 6);
+  const newMinSupplyForReward = exp(1300, 6);
+  const newMinBorrowForReward = exp(1300, 6);
 
   before(async () => {
     ({ configController, users, owner, comet, dao } = await makeProtocol());
@@ -84,18 +86,28 @@ describe("21. Set incentive", () => {
           newTrackingIndexScale,
           newBaseMinForRewards,
           newBaseTrackingSupplySpeed,
-          newBaseTrackingBorrowSpeed
+          newBaseTrackingBorrowSpeed,
+          newMinSupplyForReward,
+          newMinBorrowForReward
         );
 
       // Get updated base tracking speed
-      const { baseTrackingSupplySpeed, baseTrackingBorrowSpeed, trackingIndexScale, baseMinForRewards } =
-        await cometExtension.getConfiguration();
+      const {
+        baseTrackingSupplySpeed,
+        baseTrackingBorrowSpeed,
+        trackingIndexScale,
+        baseMinForRewards,
+        minSupplyForReward,
+        minBorrowForReward,
+      } = await cometExtension.getConfiguration();
 
       // check that new speeds are set
       expect(baseTrackingSupplySpeed).to.equal(newBaseTrackingSupplySpeed);
       expect(baseTrackingBorrowSpeed).to.equal(newBaseTrackingBorrowSpeed);
       expect(trackingIndexScale).to.equal(newTrackingIndexScale);
       expect(baseMinForRewards).to.equal(newBaseMinForRewards);
+      expect(minSupplyForReward).to.equal(newMinSupplyForReward);
+      expect(minBorrowForReward).to.equal(newMinBorrowForReward);
     });
 
     it("should emit an event when incentive config is set", async () => {
@@ -107,28 +119,43 @@ describe("21. Set incentive", () => {
             newTrackingIndexScale,
             newBaseMinForRewards,
             newBaseTrackingSupplySpeed,
-            newBaseTrackingBorrowSpeed
+            newBaseTrackingBorrowSpeed,
+            newMinSupplyForReward,
+            newMinBorrowForReward
           )
       )
         .to.emit(comet, "IncentiveConfigChanged")
-        .withArgs(newTrackingIndexScale, newBaseMinForRewards, newBaseTrackingSupplySpeed, newBaseTrackingBorrowSpeed);
+        .withArgs(
+          newTrackingIndexScale,
+          newBaseMinForRewards,
+          newBaseTrackingSupplySpeed,
+          newBaseTrackingBorrowSpeed,
+          newMinSupplyForReward,
+          newMinBorrowForReward
+        );
     });
 
     it("should revert if called by non-owner", async () => {
       await expect(
         comet
           .connect(users[4])
-          .setIncentiveConfig(newTrackingIndexScale, newBaseMinForRewards, newBaseTrackingSupplySpeed, newBaseTrackingBorrowSpeed)
+          .setIncentiveConfig(
+            newTrackingIndexScale,
+            newBaseMinForRewards,
+            newBaseTrackingSupplySpeed,
+            newBaseTrackingBorrowSpeed,
+            newMinSupplyForReward,
+            newMinBorrowForReward
+          )
       ).to.be.revertedWithCustomError(comet, "Unauthorized");
     });
 
     it("should revert if trackingIndexScale is less than 1", async () => {
       const value = exp(1, 6);
 
-      await expect(configController.setIncentiveConfigOnMarket(comet.address, 0, value, value, value)).to.be.revertedWithCustomError(
-        comet,
-        "BadTrackingIndexScale"
-      );
+      await expect(
+        configController.setIncentiveConfigOnMarket(comet.address, 0, value, value, value, value, value)
+      ).to.be.revertedWithCustomError(comet, "BadTrackingIndexScale");
     });
   });
 });

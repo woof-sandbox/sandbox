@@ -20,6 +20,8 @@ describe("22. accrue", function () {
   const BASE_TRACKING_SUPPLY_SPEED = 10_000;
   const BASE_TRACKING_BORROW_SPEED = 10_000;
   const DAO_TRACKING_INDEX_SCALE = 1;
+  const MIN_SUPPLY_FOR_REWARD = exp(500, 6);
+  const MIN_BORROW_FOR_REWARD = exp(1500, 6);
 
   before(async () => {
     ({
@@ -50,7 +52,9 @@ describe("22. accrue", function () {
         DAO_TRACKING_INDEX_SCALE,
         BASE_MIN_FOR_REWARDS,
         BASE_TRACKING_SUPPLY_SPEED,
-        BASE_TRACKING_BORROW_SPEED
+        BASE_TRACKING_BORROW_SPEED,
+        MIN_SUPPLY_FOR_REWARD,
+        MIN_BORROW_FOR_REWARD
       );
 
     snapshot = await takeSnapshot();
@@ -166,6 +170,62 @@ describe("22. accrue", function () {
 
   describe("update user tracking indexes", function () {
     describe("principal >= 0 (supplying)", function () {
+      it("when user principal >= minSupplyForReward, user's baseTrackingAccrued should increased", async () => {
+        // Supply base tokens to achieve assertion condition
+        const { baseMinForRewards, minSupplyForReward } = await cometExtension.getConfiguration();
+
+        await baseToken.allocateTo(bob.address, baseMinForRewards.add(exp(10, 6)));
+        await comet.connect(bob).supply(baseToken.address, baseMinForRewards.add(exp(10, 6)));
+
+        await baseToken.allocateTo(alice.address, minSupplyForReward.add(exp(10, 6)));
+        await comet.connect(alice).supply(baseToken.address, minSupplyForReward.add(exp(10, 6)));
+
+        const { baseTrackingAccrued } = await comet.userBasic(alice.address);
+        const { totalSupplyBase } = await cometExtension.totalsBasic();
+
+        expect(baseTrackingAccrued).to.eq(0);
+
+        // Skip 1000 seconds
+        const skipTime = 1000;
+        await fastForward(skipTime);
+        await comet.accrueAccount(alice.address);
+
+        const { baseTrackingAccrued: baseTrackingAccruedAfter, principal } = await comet.userBasic(alice.address);
+
+        const expectedBaseTrackingSupplyIndex = await divBaseWei(BASE_TRACKING_SUPPLY_SPEED * skipTime, totalSupplyBase, comet);
+        const delta = expectedBaseTrackingSupplyIndex;
+        const baseScale = await comet.baseScale();
+        const accrualDescaleFactor = baseScale.div(exp(1, 6));
+        const expectedBaseTrackingAccrued = principal
+          .mul(delta)
+          .div(await comet.trackingIndexScale())
+          .div(accrualDescaleFactor);
+
+        expect(baseTrackingAccruedAfter).to.eq(expectedBaseTrackingAccrued);
+      });
+
+      it("when user principal < minSupplyForReward, user's baseTrackingAccrued should not increased", async () => {
+        // Supply base tokens to achieve assertion condition
+        const { baseMinForRewards, minSupplyForReward } = await cometExtension.getConfiguration();
+
+        await baseToken.allocateTo(bob.address, baseMinForRewards.add(exp(10, 6)));
+        await comet.connect(bob).supply(baseToken.address, baseMinForRewards.add(exp(10, 6)));
+
+        await baseToken.allocateTo(alice.address, minSupplyForReward.sub(1));
+        await comet.connect(alice).supply(baseToken.address, minSupplyForReward.sub(1));
+
+        const { baseTrackingAccrued } = await comet.userBasic(alice.address);
+
+        expect(baseTrackingAccrued).to.eq(0);
+
+        // Skip 1000 seconds
+        await fastForward(1000);
+
+        const { baseTrackingAccrued: baseTrackingAccruedAfter } = await comet.userBasic(alice.address);
+
+        expect(baseTrackingAccruedAfter).to.eq(0);
+      });
+
       it("when totalSupplyBase < baseMinForRewards, user's trackingAccrued should not increased", async () => {
         // Supply base tokens to achieve assertion condition
         const { baseMinForRewards } = await cometExtension.getConfiguration();
@@ -268,15 +328,15 @@ describe("22. accrue", function () {
 
       it("when rewards enabled baseTrackingAccrued should increased", async () => {
         // Supply base tokens to achieve assertion condition
-        const { baseMinForRewards } = await cometExtension.getConfiguration();
+        const { baseMinForRewards, minBorrowForReward } = await cometExtension.getConfiguration();
 
-        await baseToken.allocateTo(alice.address, baseMinForRewards.add(exp(10, 6)));
-        await comet.connect(alice).supply(baseToken.address, baseMinForRewards.add(exp(10, 6)));
+        await baseToken.allocateTo(alice.address, baseMinForRewards.mul(2));
+        await comet.connect(alice).supply(baseToken.address, baseMinForRewards.mul(2));
 
         // Borrow base tokens to achieve assertion condition
         await collateral.allocateTo(bob.address, exp(1000, 18));
         await comet.connect(bob).supply(collateral.address, exp(1000, 18));
-        await comet.connect(bob).withdraw(baseToken.address, baseMinForRewards.add(exp(10, 6)));
+        await comet.connect(bob).withdraw(baseToken.address, minBorrowForReward);
 
         const { baseTrackingAccrued } = await comet.userBasic(bob.address);
         const { totalBorrowBase } = await cometExtension.totalsBasic();
@@ -329,6 +389,68 @@ describe("22. accrue", function () {
         const expectedBaseTrackingBorrowIndex = await divBaseWei(BASE_TRACKING_BORROW_SPEED * skipTime, totalBorrowBase, comet);
 
         expect(baseTrackingIndex).to.eq(expectedBaseTrackingBorrowIndex);
+      });
+
+      it("when user principal >= minBorrowForReward, user's baseTrackingAccrued should increased", async () => {
+        // Supply base tokens to achieve assertion condition
+        const { baseMinForRewards, minBorrowForReward } = await cometExtension.getConfiguration();
+
+        await baseToken.allocateTo(alice.address, baseMinForRewards.mul(2));
+        await comet.connect(alice).supply(baseToken.address, baseMinForRewards.mul(2));
+
+        // Borrow base tokens to achieve assertion condition
+        await collateral.allocateTo(bob.address, exp(1000, 18));
+        await comet.connect(bob).supply(collateral.address, exp(1000, 18));
+        await comet.connect(bob).withdraw(baseToken.address, minBorrowForReward);
+
+        const { baseTrackingAccrued } = await comet.userBasic(bob.address);
+        const { totalBorrowBase } = await cometExtension.totalsBasic();
+
+        expect(baseTrackingAccrued).to.eq(0);
+
+        // Skip 1000 seconds
+        const skipTime = 1000;
+        await fastForward(skipTime);
+        await comet.accrueAccount(bob.address);
+
+        const { baseTrackingAccrued: baseTrackingAccruedAfter, principal } = await comet.userBasic(bob.address);
+
+        const expectedBaseTrackingSupplyIndex = await divBaseWei(BASE_TRACKING_BORROW_SPEED * skipTime, totalBorrowBase, comet);
+        const delta = expectedBaseTrackingSupplyIndex;
+        const baseScale = await comet.baseScale();
+        const accrualDescaleFactor = baseScale.div(exp(1, 6));
+        const expectedBaseTrackingAccrued = -principal
+          .mul(delta)
+          .div(await comet.trackingIndexScale())
+          .div(accrualDescaleFactor);
+
+        expect(baseTrackingAccruedAfter).to.eq(expectedBaseTrackingAccrued);
+      });
+
+      it("when user principal < minBorrowForReward, user's baseTrackingAccrued should increased", async () => {
+        // Supply base tokens to achieve assertion condition
+        const { baseMinForRewards } = await cometExtension.getConfiguration();
+
+        await baseToken.allocateTo(alice.address, baseMinForRewards.mul(2));
+        await comet.connect(alice).supply(baseToken.address, baseMinForRewards.mul(2));
+
+        // Borrow base tokens to achieve assertion condition
+        await collateral.allocateTo(bob.address, exp(1000, 18));
+        await comet.connect(bob).supply(collateral.address, exp(1000, 18));
+        await comet.connect(bob).withdraw(baseToken.address, baseMinForRewards.sub(1));
+
+        const { baseTrackingAccrued } = await comet.userBasic(bob.address);
+
+        expect(baseTrackingAccrued).to.eq(0);
+
+        // Skip 1000 seconds
+        const skipTime = 1000;
+        await fastForward(skipTime);
+        await comet.accrueAccount(bob.address);
+
+        const { baseTrackingAccrued: baseTrackingAccruedAfter } = await comet.userBasic(bob.address);
+
+        expect(baseTrackingAccruedAfter).to.eq(0);
       });
     });
   });

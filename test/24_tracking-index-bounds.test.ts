@@ -29,6 +29,8 @@ describe("24. total tracking index bounds", function () {
     baseTrackingSupplySpeed: exp(0.001, 15),
     baseTrackingBorrowSpeed: exp(0.001, 15),
     baseMinForRewards: exp(10_000, 6),
+    minSupplyForReward: 1,
+    minBorrowForReward: 1,
   };
 
   const paramsScale18 = {
@@ -37,6 +39,8 @@ describe("24. total tracking index bounds", function () {
     baseTrackingSupplySpeed: exp(0.001, 15), // 86.4 units/day
     baseTrackingBorrowSpeed: exp(0.001, 15),
     baseMinForRewards: exp(100, 18),
+    minSupplyForReward: 1,
+    minBorrowForReward: 1,
   };
 
   before(async () => {
@@ -64,7 +68,9 @@ describe("24. total tracking index bounds", function () {
         paramsScale6.trackingIndexScale,
         paramsScale6.baseMinForRewards,
         paramsScale6.baseTrackingSupplySpeed,
-        paramsScale6.baseTrackingBorrowSpeed
+        paramsScale6.baseTrackingBorrowSpeed,
+        paramsScale6.minSupplyForReward,
+        paramsScale6.minBorrowForReward
       );
 
     await configControllerScale18
@@ -74,7 +80,9 @@ describe("24. total tracking index bounds", function () {
         paramsScale18.trackingIndexScale,
         paramsScale18.baseMinForRewards,
         paramsScale18.baseTrackingSupplySpeed,
-        paramsScale18.baseTrackingBorrowSpeed
+        paramsScale18.baseTrackingBorrowSpeed,
+        paramsScale18.minSupplyForReward,
+        paramsScale18.minBorrowForReward
       );
 
     snapshot = await takeSnapshot();

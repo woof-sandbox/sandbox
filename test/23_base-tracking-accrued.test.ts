@@ -16,7 +16,7 @@ describe("23. baseTrackingAccrued", function () {
 
     // Set config for rewards accrual
     // supplySpeed=1 Comp/s
-    await configController.connect(owner).setIncentiveConfigOnMarket(comet.address, 1e15, 1, 1e15, 1e15);
+    await configController.connect(owner).setIncentiveConfigOnMarket(comet.address, 1e15, 1, 1e15, 1e15, 1, 1);
 
     // allocate and approve transfers
     await USDC.allocateTo(alice.address, 2e6);
@@ -57,7 +57,7 @@ describe("23. baseTrackingAccrued", function () {
     });
 
     // Set config for rewards accrual
-    await configController.connect(owner).setIncentiveConfigOnMarket(comet.address, 1e15, 1, 1e10, 1e10);
+    await configController.connect(owner).setIncentiveConfigOnMarket(comet.address, 1e15, 1, 1e10, 1e10, 1, 1);
 
     // allocate and approve transfers
     await USDC.allocateTo(alice.address, 2e6);
@@ -94,7 +94,7 @@ describe("23. baseTrackingAccrued", function () {
 
     // Set config for rewards accrual
     // supplySpeed=0.0000001 (1e-7) Comp/s
-    await configController.connect(owner).setIncentiveConfigOnMarket(comet.address, 1e15, 1, 1e7, 1e7);
+    await configController.connect(owner).setIncentiveConfigOnMarket(comet.address, 1e15, 1, 1e7, 1e7, 1, 1);
 
     // allocate and approve transfers
     await USDC.allocateTo(alice.address, 2e6);
@@ -128,7 +128,7 @@ describe("23. baseTrackingAccrued", function () {
 
     // Set config for rewards accrual
     // supplySpeed=0.0000001 (1e-7) Comp/s
-    await configController.connect(owner).setIncentiveConfigOnMarket(comet.address, 1e15, 1, 1e7, 1e7);
+    await configController.connect(owner).setIncentiveConfigOnMarket(comet.address, 1e15, 1, 1e7, 1e7, 1, 1);
 
     // allocate and approve transfers
     await USDC.allocateTo(alice.address, 2e6);
@@ -165,7 +165,7 @@ describe("23. baseTrackingAccrued", function () {
 
     // Set config for rewards accrual
     // supplySpeed=1 COMP/s
-    await configController.connect(owner).setIncentiveConfigOnMarket(comet.address, 1e15, 1, 1e15, 1e15);
+    await configController.connect(owner).setIncentiveConfigOnMarket(comet.address, 1e15, 1, 1e15, 1e15, 1, 1);
 
     // allocate and approve transfers
     await WETH.allocateTo(alice.address, exp(2, 18));
@@ -201,7 +201,7 @@ describe("23. baseTrackingAccrued", function () {
 
     // Set config for rewards accrual
     // borrowSpeed=1 Comp/s per unit of borrowed base
-    await configController.connect(owner).setIncentiveConfigOnMarket(comet.address, 1e15, exp(0.5, 6), 1e15, 1e15);
+    await configController.connect(owner).setIncentiveConfigOnMarket(comet.address, 1e15, exp(0.5, 6), 1e15, 1e15, 1, 1);
 
     // allocate and approve transfers
     await WETH.allocateTo(alice.address, exp(1, 18));
