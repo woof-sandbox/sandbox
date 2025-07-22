@@ -33,4 +33,13 @@ interface ICometEvents {
     event PauseAction(bool supplyPaused, bool transferPaused, bool withdrawPaused, bool absorbPaused, bool buyPaused);
 
     event ControllerFeeDisabled(bool disabled);
+
+    /// @notice Event emitted when the market is closed
+    event MarketClosed();
+
+    /// @notice Event emitted when the DAO withdraws surplus reserves (seed reserves)
+    event SurplusReservesWithdrawn(address indexed to, uint256 amount);
+
+    /// @notice Event emitted when free reserves (seed reserves) are withdrawn
+    event FreeReservesWithdrawn(address indexed to, uint256 amount);
 }

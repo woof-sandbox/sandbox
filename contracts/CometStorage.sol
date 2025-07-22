@@ -167,6 +167,9 @@ contract CometStorage {
     /// @notice Unlock timestamp
     uint64 public unlockTimestamp;
 
+    /// @notice Whether the market is closed
+    bool public isClosed;
+
     /// @notice Factor to divide by when accruing rewards in order to preserve 6 decimals (i.e. baseScale / 1e6)
     uint internal accrualDescaleFactor;
 

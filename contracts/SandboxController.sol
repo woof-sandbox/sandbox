@@ -236,18 +236,16 @@ contract SandboxController is ISandboxController {
      * @notice Returns profit fee distribution based on the reserves
      * @dev THe function expects same denomination units for all 3 reserves parameters
      * @param _currentReserves Current Comet reserves
-     * @param _seedReserves Amount of reserves transferred to the Comet during the initialization
      * @param _targetReserves Expected target for the Comet
      * @return _reserveCommission Part of profit to be left in reserves
      * @return _protocolCommission Part of profit for the DAO
      */
     function getCommissions(
         uint256 _currentReserves,
-        uint256 _seedReserves,
         uint256 _targetReserves
     ) external view override returns (uint64 _reserveCommission, uint64 _protocolCommission) {
         MarketState state;
-        if (_currentReserves < _seedReserves) {
+        if (_currentReserves < _controllerConfiguration.suggestedAmountOfSeedReserves) {
             state = MarketState.High;
         } else if (_currentReserves < _targetReserves) {
             state = MarketState.Medium;

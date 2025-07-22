@@ -103,6 +103,7 @@ export type ProtocolOpts = {
   suggestedLockTimeOfSeedReserves?: number;
   reserveCommissions?: [bigint, bigint, bigint];
   protocolCommissions?: [bigint, bigint, bigint];
+  amountOfSeedReserves?: string;
 };
 
 export type Protocol = {
@@ -356,6 +357,7 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Par
   const baseToken: FaucetToken = tokens[base];
   const suggestedAmountOfSeedReserves = dfn(opts.suggestedAmountOfSeedReserves, "100000000");
 
+
   const sandboxControllerOpts = defaultSandboxControllerOpts({
     admin: owner,
     dao: dao,
@@ -498,6 +500,7 @@ async function createComet2(
     collateralTokens: collateralTokens,
     baseTokenCurveId: 0n,
     name: opts.name || "Comet",
+    amountOfSeedReserves: dfn(opts.amountOfSeedReserves, "100000000")
   };
 
   await configController.createComet(marketConfig);
@@ -508,13 +511,15 @@ async function createComet2(
 export async function createComet(
   configController: ConfigController,
   tokens: Record<string, FaucetToken | NonStandardFaucetFeeToken>,
-  baseToken: FaucetToken | NonStandardFaucetFeeToken
+  baseToken: FaucetToken | NonStandardFaucetFeeToken,
+  amountOfSeedReserves = "100000000"
 ): Promise<string> {
   let marketConfig: CometConfigStruct = {
     baseToken: baseToken.address,
     collateralTokens: [],
     baseTokenCurveId: 0n,
     name: "Comet",
+    amountOfSeedReserves: amountOfSeedReserves,
   };
 
   for (let token in tokens) {

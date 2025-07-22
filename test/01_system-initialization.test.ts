@@ -45,6 +45,8 @@ describe("1. System Initialization", function () {
 
   const _minUpdateTime = 7 * 24 * 60 * 60;
 
+  const amountOfSeedReserves = exp(500, 18).toString(); // 500 tokens with 18 decimals
+
   const configControllerOpts = {
     _curatorFee: 1000,
     _name: "ConfigController",
@@ -553,6 +555,7 @@ describe("1. System Initialization", function () {
         collateralTokens: collateralTokens.map(obj => ({ ...obj })),
         baseTokenCurveId: 0n,
         name: "Comet",
+        amountOfSeedReserves: amountOfSeedReserves,
       };
 
       cometAddress = await configController.callStatic.createComet(marketConfig);

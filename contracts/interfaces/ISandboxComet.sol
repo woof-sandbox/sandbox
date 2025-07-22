@@ -83,4 +83,10 @@ abstract contract ISandboxComet is CometCore {
     function getUtilization() public view virtual returns (uint);
 
     function targetReserves() external view virtual returns (uint);
+
+    function close() external virtual;
+
+    function withdrawSurplusReserves() external virtual;
+
+    function withdrawFreeReserves() external virtual;
 }
