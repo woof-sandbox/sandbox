@@ -1117,217 +1117,395 @@ describe("3. SandboxController", function () {
   });
 
   describe("addBaseAssetCurve", function () {
-    let token: any;
-    let priceFeed: any;
+    let tokenTest: any;
+    let priceFeedTest: any;
+    let curve: BaseAssetCurveStruct = makeValidCurve();
 
     before(async function () {
-      token = await makeMockERC20({ name: "T9", symbol: "T9" });
-      priceFeed = await makePriceFeed(token.address);
-      await sandboxController.connect(owner).whitelistBaseAsset(token.address, priceFeed.address, makeValidCurve(), 10);
+      tokenTest = await makeMockERC20({ name: "T9", symbol: "T9" });
+      priceFeedTest = await makePriceFeed(tokenTest.address);
+      await sandboxController.connect(owner).whitelistBaseAsset(tokenTest.address, priceFeedTest.address, curve, 10);
     });
 
-    it("reverts if token = 0", async function () {
-      await expect(sandboxController.addBaseAssetCurve(ethers.constants.AddressZero, makeValidCurve())).to.be.revertedWithCustomError(
-        sandboxController,
-        "ZeroAddress"
-      );
+    describe("reverts on general checks", function () {
+      it("reverts if token = 0", async function () {
+        await expect(sandboxController.addBaseAssetCurve(ethers.constants.AddressZero, curve)).to.be.revertedWithCustomError(
+          sandboxController,
+          "ZeroAddress"
+        );
+      });
+
+      it("reverts if token not whitelisted", async function () {
+        const token2 = await makeMockERC20({ name: "T10", symbol: "T10" });
+        await expect(sandboxController.addBaseAssetCurve(token2.address, curve)).to.be.revertedWithCustomError(
+          sandboxController,
+          "BaseTokenNotWhitelisted"
+        );
+      });
+
+      it("reverts if caller not authorized", async function () {
+        await expect(sandboxController.connect(attacker).addBaseAssetCurve(tokenTest.address, curve)).to.be.revertedWithCustomError(
+          sandboxController,
+          "Unauthorized"
+        );
+      });
     });
 
-    it("reverts if token not whitelisted", async function () {
-      const token2 = await makeMockERC20({ name: "T10", symbol: "T10" });
-      await expect(sandboxController.addBaseAssetCurve(token2.address, makeValidCurve())).to.be.revertedWithCustomError(
-        sandboxController,
-        "BaseTokenNotWhitelisted"
-      );
+    describe("reverts on invalid curves", function () {
+      afterEach(async function () {
+        curve = makeValidCurve();
+      });
+
+      it("reverts for zero supply kink", async function () {
+        curve.supplyKink = 0;
+
+        expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.false;
+        await expect(sandboxController.addBaseAssetCurve(tokenTest.address, curve)).to.be.revertedWithCustomError(
+          sandboxController,
+          "InvalidCurveConfiguration"
+        );
+      });
+
+      it("reverts for zero borrow kink", async function () {
+        curve.borrowKink = 0;
+
+        expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.false;
+        await expect(sandboxController.addBaseAssetCurve(tokenTest.address, curve)).to.be.revertedWithCustomError(
+          sandboxController,
+          "InvalidCurveConfiguration"
+        );
+      });
+
+      it("reverts for supply kink > 1e18", async function () {
+        curve.supplyKink = parseEther("1").add(1).toString();
+
+        expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.false;
+        await expect(sandboxController.addBaseAssetCurve(tokenTest.address, curve)).to.be.revertedWithCustomError(
+          sandboxController,
+          "InvalidCurveConfiguration"
+        );
+      });
+
+      it("reverts for borrow kink > 1e18", async function () {
+        curve.borrowKink = parseEther("1").add(1).toString();
+
+        expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.false;
+        await expect(sandboxController.addBaseAssetCurve(tokenTest.address, curve)).to.be.revertedWithCustomError(
+          sandboxController,
+          "InvalidCurveConfiguration"
+        );
+      });
+
+      it("reverts for supply slope high = 0", async function () {
+        curve.supplyPerYearInterestRateSlopeHigh = 0;
+
+        expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.false;
+        await expect(sandboxController.addBaseAssetCurve(tokenTest.address, curve)).to.be.revertedWithCustomError(
+          sandboxController,
+          "InvalidCurveConfiguration"
+        );
+      });
+
+      it("reverts for supply slope low = 0", async function () {
+        curve.supplyPerYearInterestRateSlopeLow = 0;
+
+        expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.false;
+        await expect(sandboxController.addBaseAssetCurve(tokenTest.address, curve)).to.be.revertedWithCustomError(
+          sandboxController,
+          "InvalidCurveConfiguration"
+        );
+      });
+
+      it("reverts for borrow slope high = 0", async function () {
+        curve.borrowPerYearInterestRateSlopeHigh = 0;
+
+        expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.false;
+        await expect(sandboxController.addBaseAssetCurve(tokenTest.address, curve)).to.be.revertedWithCustomError(
+          sandboxController,
+          "InvalidCurveConfiguration"
+        );
+      });
+
+      it("reverts for borrow slope low = 0", async function () {
+        curve.borrowPerYearInterestRateSlopeLow = 0;
+
+        expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.false;
+        await expect(sandboxController.addBaseAssetCurve(tokenTest.address, curve)).to.be.revertedWithCustomError(
+          sandboxController,
+          "InvalidCurveConfiguration"
+        );
+      });
+
+      it("reverts for borrow base = 0", async function () {
+        curve.borrowPerYearInterestRateBase = 0;
+
+        expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.false;
+        await expect(sandboxController.addBaseAssetCurve(tokenTest.address, curve)).to.be.revertedWithCustomError(
+          sandboxController,
+          "InvalidCurveConfiguration"
+        );
+      });
+
+      it("reverts for supply base = 0", async function () {
+        curve.supplyPerYearInterestRateBase = 0;
+
+        expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.false;
+        await expect(sandboxController.addBaseAssetCurve(tokenTest.address, curve)).to.be.revertedWithCustomError(
+          sandboxController,
+          "InvalidCurveConfiguration"
+        );
+      });
     });
 
-    it("reverts if curve invalid", async function () {
-      let curve1 = makeValidCurve();
-      curve1.borrowPerYearInterestRateBase = 0;
-      await expect(sandboxController.addBaseAssetCurve(token.address, curve1)).to.be.revertedWithCustomError(
-        sandboxController,
-        "InvalidCurveConfiguration"
-      );
+    describe("happy cases", function () {
+      it("should work for owner", async function () {
+        await expect(sandboxController.connect(owner).addBaseAssetCurve(tokenTest.address, curve)).to.not.be.reverted;
+      });
 
-      let curve2 = makeValidCurve();
-      curve2.borrowKink = ethers.utils.parseEther("1").add(1);
-      await expect(sandboxController.addBaseAssetCurve(token.address, curve2)).to.be.revertedWithCustomError(
-        sandboxController,
-        "InvalidCurveConfiguration"
-      );
-    });
+      it("should work for dao", async function () {
+        await expect(sandboxController.connect(dao).addBaseAssetCurve(tokenTest.address, curve)).to.not.be.reverted;
+      });
 
-    it("reverts if caller not authorized", async function () {
-      await expect(sandboxController.connect(attacker).addBaseAssetCurve(token.address, makeValidCurve())).to.be.revertedWithCustomError(
-        sandboxController,
-        "Unauthorized"
-      );
-    });
+      it("should append the curve and set storage", async function () {
+        let curveTest: BaseAssetCurveStruct = {
+          supplyKink: ethers.utils.parseEther("0.3").toString(),
+          supplyPerYearInterestRateSlopeLow: ethers.BigNumber.from("100"),
+          supplyPerYearInterestRateSlopeHigh: ethers.BigNumber.from("2000"),
+          supplyPerYearInterestRateBase: ethers.BigNumber.from("200"),
+          borrowKink: ethers.utils.parseEther("0.6").toString(),
+          borrowPerYearInterestRateSlopeLow: ethers.BigNumber.from("2000"),
+          borrowPerYearInterestRateSlopeHigh: ethers.BigNumber.from("3000"),
+          borrowPerYearInterestRateBase: ethers.BigNumber.from("20"),
+        };
+        let curvesNumBefore = (await sandboxController.curves(tokenTest.address)).length;
+        await sandboxController.connect(owner).addBaseAssetCurve(tokenTest.address, curveTest);
 
-    it("works if called by owner or dao, checks that a new curve is appended, checks BaseAssetCurveAdded event", async function () {
-      const newCurve = makeValidCurve();
-      let tx = await sandboxController.connect(owner).addBaseAssetCurve(token.address, newCurve);
-      let rcpt = await tx.wait();
-      let ev = rcpt.events?.find((e: any) => e.event === "BaseAssetCurveAdded");
-      expect(ev).to.exist;
-      expect(ev.args.token).to.equal(token.address);
-      expect(ev.args.curveIndex).to.equal(1);
-      expect(ev.args.baseAssetCurve.supplyKink).to.equal(newCurve.supplyKink);
-      expect(ev.args.baseAssetCurve.supplyPerYearInterestRateSlopeLow).to.equal(newCurve.supplyPerYearInterestRateSlopeLow);
-      expect(ev.args.baseAssetCurve.supplyPerYearInterestRateSlopeHigh).to.equal(newCurve.supplyPerYearInterestRateSlopeHigh);
-      expect(ev.args.baseAssetCurve.supplyPerYearInterestRateBase).to.equal(newCurve.supplyPerYearInterestRateBase);
-      expect(ev.args.baseAssetCurve.borrowKink).to.equal(newCurve.borrowKink);
-      expect(ev.args.baseAssetCurve.borrowPerYearInterestRateSlopeLow).to.equal(newCurve.borrowPerYearInterestRateSlopeLow);
-      expect(ev.args.baseAssetCurve.borrowPerYearInterestRateSlopeHigh).to.equal(newCurve.borrowPerYearInterestRateSlopeHigh);
-      expect(ev.args.baseAssetCurve.borrowPerYearInterestRateBase).to.equal(newCurve.borrowPerYearInterestRateBase);
+        let curvesNumAfter = (await sandboxController.curves(tokenTest.address)).length;
+        expect(curvesNumAfter - curvesNumBefore).to.equal(1);
 
-      let curves = await sandboxController.curves(token.address);
-      expect(curves.length).to.equal(2);
-      expect(curves[1].supplyKink).to.equal(newCurve.supplyKink);
-      expect(curves[1].supplyPerYearInterestRateSlopeLow).to.equal(newCurve.supplyPerYearInterestRateSlopeLow);
-      expect(curves[1].supplyPerYearInterestRateSlopeHigh).to.equal(newCurve.supplyPerYearInterestRateSlopeHigh);
-      expect(curves[1].supplyPerYearInterestRateBase).to.equal(newCurve.supplyPerYearInterestRateBase);
-      expect(curves[1].borrowKink).to.equal(newCurve.borrowKink);
-      expect(curves[1].borrowPerYearInterestRateSlopeLow).to.equal(newCurve.borrowPerYearInterestRateSlopeLow);
-      expect(curves[1].borrowPerYearInterestRateSlopeHigh).to.equal(newCurve.borrowPerYearInterestRateSlopeHigh);
-      expect(curves[1].borrowPerYearInterestRateBase).to.equal(newCurve.borrowPerYearInterestRateBase);
+        let newCurveAfter: BaseAssetCurveStruct = (await sandboxController.curves(tokenTest.address))[curvesNumAfter - 1];
 
-      const anotherCurve = makeValidCurve();
-      tx = await sandboxController.connect(dao).addBaseAssetCurve(token.address, anotherCurve);
-      rcpt = await tx.wait();
-      ev = rcpt.events?.find((e: any) => e.event === "BaseAssetCurveAdded");
-      expect(ev).to.exist;
-      expect(ev.args.token).to.equal(token.address);
-      expect(ev.args.baseAssetCurve.supplyKink).to.equal(anotherCurve.supplyKink);
-      expect(ev.args.baseAssetCurve.supplyPerYearInterestRateSlopeLow).to.equal(anotherCurve.supplyPerYearInterestRateSlopeLow);
-      expect(ev.args.baseAssetCurve.supplyPerYearInterestRateSlopeHigh).to.equal(anotherCurve.supplyPerYearInterestRateSlopeHigh);
-      expect(ev.args.baseAssetCurve.supplyPerYearInterestRateBase).to.equal(anotherCurve.supplyPerYearInterestRateBase);
-      expect(ev.args.baseAssetCurve.borrowKink).to.equal(anotherCurve.borrowKink);
-      expect(ev.args.baseAssetCurve.borrowPerYearInterestRateSlopeLow).to.equal(anotherCurve.borrowPerYearInterestRateSlopeLow);
-      expect(ev.args.baseAssetCurve.borrowPerYearInterestRateSlopeHigh).to.equal(anotherCurve.borrowPerYearInterestRateSlopeHigh);
-      expect(ev.args.baseAssetCurve.borrowPerYearInterestRateBase).to.equal(anotherCurve.borrowPerYearInterestRateBase);
+        expect(newCurveAfter.borrowKink).to.be.equal(curveTest.borrowKink);
+        expect(newCurveAfter.borrowPerYearInterestRateSlopeLow).to.be.equal(curveTest.borrowPerYearInterestRateSlopeLow);
+        expect(newCurveAfter.borrowPerYearInterestRateSlopeHigh).to.be.equal(curveTest.borrowPerYearInterestRateSlopeHigh);
+        expect(newCurveAfter.borrowPerYearInterestRateBase).to.be.equal(curveTest.borrowPerYearInterestRateBase);
+        expect(newCurveAfter.supplyKink).to.be.equal(curveTest.supplyKink);
+        expect(newCurveAfter.supplyPerYearInterestRateSlopeLow).to.be.equal(curveTest.supplyPerYearInterestRateSlopeLow);
+        expect(newCurveAfter.supplyPerYearInterestRateSlopeHigh).to.be.equal(curveTest.supplyPerYearInterestRateSlopeHigh);
+        expect(newCurveAfter.supplyPerYearInterestRateBase).to.be.equal(curveTest.supplyPerYearInterestRateBase);
+      });
 
-      curves = await sandboxController.curves(token.address);
-      expect(curves.length).to.equal(3);
-      expect(curves[2].supplyKink).to.equal(anotherCurve.supplyKink);
-      expect(curves[2].supplyPerYearInterestRateSlopeLow).to.equal(anotherCurve.supplyPerYearInterestRateSlopeLow);
-      expect(curves[2].supplyPerYearInterestRateSlopeHigh).to.equal(anotherCurve.supplyPerYearInterestRateSlopeHigh);
-      expect(curves[2].supplyPerYearInterestRateBase).to.equal(anotherCurve.supplyPerYearInterestRateBase);
-      expect(curves[2].borrowKink).to.equal(anotherCurve.borrowKink);
-      expect(curves[2].borrowPerYearInterestRateSlopeLow).to.equal(anotherCurve.borrowPerYearInterestRateSlopeLow);
-      expect(curves[2].borrowPerYearInterestRateSlopeHigh).to.equal(anotherCurve.borrowPerYearInterestRateSlopeHigh);
-      expect(curves[2].borrowPerYearInterestRateBase).to.equal(anotherCurve.borrowPerYearInterestRateBase);
+      it("should emit event", async function () {
+        let curveExpectedIndex = (await sandboxController.curves(tokenTest.address)).length;
+        expect(await sandboxController.connect(owner).addBaseAssetCurve(tokenTest.address, curve))
+          .to.emit(sandboxController, "BaseAssetCurveAdded")
+          .withArgs(tokenTest.address, curve, curveExpectedIndex);
+      });
     });
   });
 
   describe("changeBaseAssetCurve", function () {
-    let token: any;
-    let priceFeed: any;
+    let tokenTest: any;
+    let priceFeedTest: any;
+    let curve: BaseAssetCurveStruct = makeValidCurve();
+    let curveTest: BaseAssetCurveStruct = {
+      supplyKink: ethers.utils.parseEther("0.3").toString(),
+      supplyPerYearInterestRateSlopeLow: ethers.BigNumber.from("100"),
+      supplyPerYearInterestRateSlopeHigh: ethers.BigNumber.from("2000"),
+      supplyPerYearInterestRateBase: ethers.BigNumber.from("200"),
+      borrowKink: ethers.utils.parseEther("0.6").toString(),
+      borrowPerYearInterestRateSlopeLow: ethers.BigNumber.from("2000"),
+      borrowPerYearInterestRateSlopeHigh: ethers.BigNumber.from("3000"),
+      borrowPerYearInterestRateBase: ethers.BigNumber.from("20"),
+    };
+    let curveIndex;
 
     before(async function () {
-      token = await makeMockERC20({ name: "T11", symbol: "T11" });
-      priceFeed = await makePriceFeed(token.address);
-      await sandboxController.connect(owner).whitelistBaseAsset(token.address, priceFeed.address, makeValidCurve(), 10);
+      tokenTest = await makeMockERC20({ name: "T11", symbol: "T11" });
+      priceFeedTest = await makePriceFeed(tokenTest.address);
+
+      await sandboxController.connect(owner).whitelistBaseAsset(tokenTest.address, priceFeedTest.address, curve, 10);
+      await sandboxController.connect(owner).addBaseAssetCurve(tokenTest.address, curveTest);
+
+      curveIndex = (await sandboxController.curves(tokenTest.address)).length - 1;
     });
 
-    it("reverts if token = 0", async function () {
-      await expect(
-        sandboxController.connect(dao).changeBaseAssetCurve(ethers.constants.AddressZero, 0, makeValidCurve())
-      ).to.be.revertedWithCustomError(sandboxController, "ZeroAddress");
+    describe("reverts on general checks", function () {
+      it("reverts if token = 0", async function () {
+        await expect(
+          sandboxController.connect(dao).changeBaseAssetCurve(ethers.constants.AddressZero, curveIndex, curve)
+        ).to.be.revertedWithCustomError(sandboxController, "ZeroAddress");
+      });
+
+      it("reverts if token not whitelisted", async function () {
+        const token2 = await makeMockERC20({ name: "T12", symbol: "T12" });
+        await expect(sandboxController.connect(dao).changeBaseAssetCurve(token2.address, curveIndex, curve)).to.be.revertedWithCustomError(
+          sandboxController,
+          "BaseTokenNotWhitelisted"
+        );
+      });
+
+      it("reverts if caller not authorized", async function () {
+        await expect(
+          sandboxController.connect(attacker).changeBaseAssetCurve(tokenTest.address, curveIndex, curve)
+        ).to.be.revertedWithCustomError(sandboxController, "NotDao");
+      });
+
+      it("reverts for owner (if caller not authorized)", async function () {
+        await expect(
+          sandboxController.connect(owner).changeBaseAssetCurve(tokenTest.address, curveIndex, curve)
+        ).to.be.revertedWithCustomError(sandboxController, "NotDao");
+      });
+
+      it("reverts if curve index is to high", async function () {
+        let curvesNum = (await sandboxController.curves(tokenTest.address)).length;
+        await expect(
+          sandboxController.connect(dao).changeBaseAssetCurve(tokenTest.address, curvesNum + 1, curve)
+        ).to.be.revertedWithCustomError(sandboxController, "InvalidCurveConfiguration");
+      });
     });
 
-    it("reverts if token not whitelisted", async function () {
-      const token2 = await makeMockERC20({ name: "T12", symbol: "T12" });
-      await expect(sandboxController.connect(dao).changeBaseAssetCurve(token2.address, 0, makeValidCurve())).to.be.revertedWithCustomError(
-        sandboxController,
-        "BaseTokenNotWhitelisted"
-      );
+    describe("reverts on invalid curves", function () {
+      afterEach(async function () {
+        curve = makeValidCurve();
+      });
+
+      it("reverts for zero supply kink", async function () {
+        curve.supplyKink = 0;
+
+        expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.false;
+        await expect(
+          sandboxController.connect(dao).changeBaseAssetCurve(tokenTest.address, curveIndex, curve)
+        ).to.be.revertedWithCustomError(sandboxController, "InvalidCurveConfiguration");
+      });
+
+      it("reverts for zero borrow kink", async function () {
+        curve.borrowKink = 0;
+
+        expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.false;
+        await expect(
+          sandboxController.connect(dao).changeBaseAssetCurve(tokenTest.address, curveIndex, curve)
+        ).to.be.revertedWithCustomError(sandboxController, "InvalidCurveConfiguration");
+      });
+
+      it("reverts for supply kink > 1e18", async function () {
+        curve.supplyKink = parseEther("1").add(1).toString();
+
+        expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.false;
+        await expect(
+          sandboxController.connect(dao).changeBaseAssetCurve(tokenTest.address, curveIndex, curve)
+        ).to.be.revertedWithCustomError(sandboxController, "InvalidCurveConfiguration");
+      });
+
+      it("reverts for borrow kink > 1e18", async function () {
+        curve.borrowKink = parseEther("1").add(1).toString();
+
+        expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.false;
+        await expect(
+          sandboxController.connect(dao).changeBaseAssetCurve(tokenTest.address, curveIndex, curve)
+        ).to.be.revertedWithCustomError(sandboxController, "InvalidCurveConfiguration");
+      });
+
+      it("reverts for supply slope high = 0", async function () {
+        curve.supplyPerYearInterestRateSlopeHigh = 0;
+
+        expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.false;
+        await expect(
+          sandboxController.connect(dao).changeBaseAssetCurve(tokenTest.address, curveIndex, curve)
+        ).to.be.revertedWithCustomError(sandboxController, "InvalidCurveConfiguration");
+      });
+
+      it("reverts for supply slope low = 0", async function () {
+        curve.supplyPerYearInterestRateSlopeLow = 0;
+
+        expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.false;
+        await expect(
+          sandboxController.connect(dao).changeBaseAssetCurve(tokenTest.address, curveIndex, curve)
+        ).to.be.revertedWithCustomError(sandboxController, "InvalidCurveConfiguration");
+      });
+
+      it("reverts for borrow slope high = 0", async function () {
+        curve.borrowPerYearInterestRateSlopeHigh = 0;
+
+        expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.false;
+        await expect(
+          sandboxController.connect(dao).changeBaseAssetCurve(tokenTest.address, curveIndex, curve)
+        ).to.be.revertedWithCustomError(sandboxController, "InvalidCurveConfiguration");
+      });
+
+      it("reverts for borrow slope low = 0", async function () {
+        curve.borrowPerYearInterestRateSlopeLow = 0;
+
+        expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.false;
+        await expect(
+          sandboxController.connect(dao).changeBaseAssetCurve(tokenTest.address, curveIndex, curve)
+        ).to.be.revertedWithCustomError(sandboxController, "InvalidCurveConfiguration");
+      });
+
+      it("reverts for borrow base = 0", async function () {
+        curve.borrowPerYearInterestRateBase = 0;
+
+        expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.false;
+        await expect(
+          sandboxController.connect(dao).changeBaseAssetCurve(tokenTest.address, curveIndex, curve)
+        ).to.be.revertedWithCustomError(sandboxController, "InvalidCurveConfiguration");
+      });
+
+      it("reverts for supply base = 0", async function () {
+        curve.supplyPerYearInterestRateBase = 0;
+
+        expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.false;
+        await expect(
+          sandboxController.connect(dao).changeBaseAssetCurve(tokenTest.address, curveIndex, curve)
+        ).to.be.revertedWithCustomError(sandboxController, "InvalidCurveConfiguration");
+      });
     });
+    describe("happy cases", function () {
+      it("should work for dao", async function () {
+        const snapshot: SnapshotRestorer = await takeSnapshot();
+        await expect(sandboxController.connect(dao).changeBaseAssetCurve(tokenTest.address, curveIndex, curve)).to.not.be.reverted;
+        await snapshot.restore();
+      });
 
-    it("reverts if curve index out of range", async function () {
-      await expect(sandboxController.connect(dao).changeBaseAssetCurve(token.address, 99, makeValidCurve())).to.be.revertedWithCustomError(
-        sandboxController,
-        "InvalidCurveConfiguration"
-      );
-    });
+      it("should append the curve and set storage", async function () {
+        const snapshot: SnapshotRestorer = await takeSnapshot();
 
-    it("reverts if curve invalid", async function () {
-      let curve1 = makeValidCurve();
-      curve1.borrowKink = 0;
-      await expect(sandboxController.connect(dao).changeBaseAssetCurve(token.address, 0, curve1)).to.be.revertedWithCustomError(
-        sandboxController,
-        "InvalidCurveConfiguration"
-      );
+        let newCurveBefore: BaseAssetCurveStruct = (await sandboxController.curves(tokenTest.address))[curveIndex];
 
-      let curve2 = makeValidCurve();
-      curve2.borrowKink = ethers.utils.parseEther("1").add(1);
-      await expect(sandboxController.connect(dao).changeBaseAssetCurve(token.address, 0, curve2)).to.be.revertedWithCustomError(
-        sandboxController,
-        "InvalidCurveConfiguration"
-      );
-    });
+        expect(newCurveBefore.borrowKink).to.be.equal(curveTest.borrowKink);
+        expect(newCurveBefore.borrowPerYearInterestRateSlopeLow).to.be.equal(curveTest.borrowPerYearInterestRateSlopeLow);
+        expect(newCurveBefore.borrowPerYearInterestRateSlopeHigh).to.be.equal(curveTest.borrowPerYearInterestRateSlopeHigh);
+        expect(newCurveBefore.borrowPerYearInterestRateBase).to.be.equal(curveTest.borrowPerYearInterestRateBase);
+        expect(newCurveBefore.supplyKink).to.be.equal(curveTest.supplyKink);
+        expect(newCurveBefore.supplyPerYearInterestRateSlopeLow).to.be.equal(curveTest.supplyPerYearInterestRateSlopeLow);
+        expect(newCurveBefore.supplyPerYearInterestRateSlopeHigh).to.be.equal(curveTest.supplyPerYearInterestRateSlopeHigh);
+        expect(newCurveBefore.supplyPerYearInterestRateBase).to.be.equal(curveTest.supplyPerYearInterestRateBase);
 
-    it("reverts if caller is not dao", async function () {
-      await expect(sandboxController.connect(owner).changeBaseAssetCurve(token.address, 0, makeValidCurve())).to.be.revertedWithCustomError(
-        sandboxController,
-        "NotDao"
-      );
-      await expect(
-        sandboxController.connect(attacker).changeBaseAssetCurve(token.address, 0, makeValidCurve())
-      ).to.be.revertedWithCustomError(sandboxController, "NotDao");
-    });
+        await sandboxController.connect(dao).changeBaseAssetCurve(tokenTest.address, curveIndex, curve);
 
-    it("works if dao calls it, checks old vs new curves and emits BaseAssetCurveChanged", async function () {
-      const secondCurve = makeValidCurve();
-      await sandboxController.connect(owner).addBaseAssetCurve(token.address, secondCurve);
-      let existingCurves = await sandboxController.curves(token.address);
-      const oldCurve = existingCurves[1];
+        let newCurveAfter = (await sandboxController.curves(tokenTest.address))[curveIndex];
 
-      const newCurve = {
-        supplyKink: 600,
-        supplyPerYearInterestRateSlopeLow: 700,
-        supplyPerYearInterestRateSlopeHigh: 1100,
-        supplyPerYearInterestRateBase: 150,
-        borrowKink: 600,
-        borrowPerYearInterestRateSlopeLow: 1100,
-        borrowPerYearInterestRateSlopeHigh: 2200,
-        borrowPerYearInterestRateBase: 2,
-      };
+        expect(newCurveAfter.borrowKink).to.be.equal(curve.borrowKink);
+        expect(newCurveAfter.borrowPerYearInterestRateSlopeLow).to.be.equal(curve.borrowPerYearInterestRateSlopeLow);
+        expect(newCurveAfter.borrowPerYearInterestRateSlopeHigh).to.be.equal(curve.borrowPerYearInterestRateSlopeHigh);
+        expect(newCurveAfter.borrowPerYearInterestRateBase).to.be.equal(curve.borrowPerYearInterestRateBase);
+        expect(newCurveAfter.supplyKink).to.be.equal(curve.supplyKink);
+        expect(newCurveAfter.supplyPerYearInterestRateSlopeLow).to.be.equal(curve.supplyPerYearInterestRateSlopeLow);
+        expect(newCurveAfter.supplyPerYearInterestRateSlopeHigh).to.be.equal(curve.supplyPerYearInterestRateSlopeHigh);
+        expect(newCurveAfter.supplyPerYearInterestRateBase).to.be.equal(curve.supplyPerYearInterestRateBase);
 
-      const tx = await sandboxController.connect(dao).changeBaseAssetCurve(token.address, 1, newCurve);
-      const rcpt = await tx.wait();
-      const ev = rcpt.events?.find((e: any) => e.event === "BaseAssetCurveChanged");
-      expect(ev).to.exist;
-      expect(ev.args.token).to.equal(token.address);
-      expect(ev.args.curveIndex).to.equal(1);
-      expect(ev.args.oldCurve.supplyKink).to.equal(oldCurve.supplyKink);
-      expect(ev.args.oldCurve.supplyPerYearInterestRateSlopeLow).to.equal(oldCurve.supplyPerYearInterestRateSlopeLow);
-      expect(ev.args.oldCurve.supplyPerYearInterestRateSlopeHigh).to.equal(oldCurve.supplyPerYearInterestRateSlopeHigh);
-      expect(ev.args.oldCurve.supplyPerYearInterestRateBase).to.equal(oldCurve.supplyPerYearInterestRateBase);
-      expect(ev.args.oldCurve.borrowKink).to.equal(oldCurve.borrowKink);
-      expect(ev.args.oldCurve.borrowPerYearInterestRateSlopeLow).to.equal(oldCurve.borrowPerYearInterestRateSlopeLow);
-      expect(ev.args.oldCurve.borrowPerYearInterestRateSlopeHigh).to.equal(oldCurve.borrowPerYearInterestRateSlopeHigh);
-      expect(ev.args.oldCurve.borrowPerYearInterestRateBase).to.equal(oldCurve.borrowPerYearInterestRateBase);
+        await snapshot.restore();
+      });
 
-      expect(ev.args.newCurve.supplyKink).to.equal(newCurve.supplyKink);
-      expect(ev.args.newCurve.supplyPerYearInterestRateSlopeLow).to.equal(newCurve.supplyPerYearInterestRateSlopeLow);
-      expect(ev.args.newCurve.supplyPerYearInterestRateSlopeHigh).to.equal(newCurve.supplyPerYearInterestRateSlopeHigh);
-      expect(ev.args.newCurve.supplyPerYearInterestRateBase).to.equal(newCurve.supplyPerYearInterestRateBase);
-      expect(ev.args.newCurve.borrowKink).to.equal(newCurve.borrowKink);
-      expect(ev.args.newCurve.borrowPerYearInterestRateSlopeLow).to.equal(newCurve.borrowPerYearInterestRateSlopeLow);
-      expect(ev.args.newCurve.borrowPerYearInterestRateSlopeHigh).to.equal(newCurve.borrowPerYearInterestRateSlopeHigh);
-      expect(ev.args.newCurve.borrowPerYearInterestRateBase).to.equal(newCurve.borrowPerYearInterestRateBase);
+      it("should emit event", async function () {
+        const snapshot: SnapshotRestorer = await takeSnapshot();
 
-      existingCurves = await sandboxController.curves(token.address);
-      const updatedCurve = existingCurves[1];
-      expect(updatedCurve.supplyKink).to.equal(newCurve.supplyKink);
-      expect(updatedCurve.supplyPerYearInterestRateSlopeLow).to.equal(newCurve.supplyPerYearInterestRateSlopeLow);
-      expect(updatedCurve.supplyPerYearInterestRateSlopeHigh).to.equal(newCurve.supplyPerYearInterestRateSlopeHigh);
-      expect(updatedCurve.supplyPerYearInterestRateBase).to.equal(newCurve.supplyPerYearInterestRateBase);
-      expect(updatedCurve.borrowKink).to.equal(newCurve.borrowKink);
-      expect(updatedCurve.borrowPerYearInterestRateSlopeLow).to.equal(newCurve.borrowPerYearInterestRateSlopeLow);
-      expect(updatedCurve.borrowPerYearInterestRateSlopeHigh).to.equal(newCurve.borrowPerYearInterestRateSlopeHigh);
-      expect(updatedCurve.borrowPerYearInterestRateBase).to.equal(newCurve.borrowPerYearInterestRateBase);
+        expect(await sandboxController.connect(dao).changeBaseAssetCurve(tokenTest.address, curveIndex, curve))
+          .to.emit(sandboxController, "BaseAssetCurveChanged")
+          .withArgs(tokenTest, curveTest, curve, curveIndex);
+
+        await snapshot.restore();
+      });
     });
   });
 
@@ -1502,6 +1680,90 @@ describe("3. SandboxController", function () {
         await expect(sandboxController.setMarketStateCommissions(0, 0, 0)).to.not.be.reverted;
         await expect(sandboxController.setMarketStateCommissions(1, 0, 0)).to.not.be.reverted;
         await expect(sandboxController.setMarketStateCommissions(2, 0, 0)).to.not.be.reverted;
+      });
+    });
+
+    describe("getCommissions", function () {
+      let curReserves, seedReserves, targetReserves: any;
+
+      before(async function () {
+        curReserves = ethers.utils.parseEther("300");
+        targetReserves = ethers.utils.parseEther("200");
+        seedReserves = ethers.utils.parseEther("100");
+
+        await sandboxController.setMarketStateCommissions(0, ethers.utils.parseEther("0.1"), ethers.utils.parseEther("0.2"));
+        await sandboxController.setMarketStateCommissions(1, ethers.utils.parseEther("0.2"), ethers.utils.parseEther("0.4"));
+        await sandboxController.setMarketStateCommissions(2, ethers.utils.parseEther("0.3"), ethers.utils.parseEther("0.5"));
+      });
+
+      it("should return commission for Low state", async function () {
+        const feeFlag = await sandboxController.feeEnabled();
+        if (!feeFlag) {
+          await sandboxController.connect(dao).setFeeEnabled(true);
+        }
+
+        let commissions = await sandboxController.getCommissions(curReserves, seedReserves, targetReserves);
+        expect(commissions[0]).to.equal(ethers.utils.parseEther("0.1"));
+        expect(commissions[1]).to.equal(ethers.utils.parseEther("0.2"));
+      });
+
+      it("should return commission for Low state if protocol fee disabled", async function () {
+        const feeFlag = await sandboxController.feeEnabled();
+        if (feeFlag) {
+          await sandboxController.connect(dao).setFeeEnabled(false);
+        }
+
+        let commissions = await sandboxController.getCommissions(curReserves, seedReserves, targetReserves);
+        expect(commissions[0]).to.equal(ethers.utils.parseEther("0.1"));
+        expect(commissions[1]).to.equal(0);
+      });
+
+      it("should return commission for Medium state", async function () {
+        curReserves = ethers.utils.parseEther("150");
+        const feeFlag = await sandboxController.feeEnabled();
+        if (!feeFlag) {
+          await sandboxController.connect(dao).setFeeEnabled(true);
+        }
+
+        let commissions = await sandboxController.getCommissions(curReserves, seedReserves, targetReserves);
+        expect(commissions[0]).to.equal(ethers.utils.parseEther("0.2"));
+        expect(commissions[1]).to.equal(ethers.utils.parseEther("0.4"));
+      });
+
+      it("should return commission for Medium state if protocol fee disabled", async function () {
+        curReserves = ethers.utils.parseEther("150");
+        const feeFlag = await sandboxController.feeEnabled();
+        if (feeFlag) {
+          await sandboxController.connect(dao).setFeeEnabled(false);
+        }
+
+        let commissions = await sandboxController.getCommissions(curReserves, seedReserves, targetReserves);
+        expect(commissions[0]).to.equal(ethers.utils.parseEther("0.2"));
+        expect(commissions[1]).to.equal(0);
+      });
+
+      it("should return commission for High state", async function () {
+        curReserves = ethers.utils.parseEther("50");
+        const feeFlag = await sandboxController.feeEnabled();
+        if (!feeFlag) {
+          await sandboxController.connect(dao).setFeeEnabled(true);
+        }
+
+        let commissions = await sandboxController.getCommissions(curReserves, seedReserves, targetReserves);
+        expect(commissions[0]).to.equal(ethers.utils.parseEther("0.3"));
+        expect(commissions[1]).to.equal(ethers.utils.parseEther("0.5"));
+      });
+
+      it("should return commission for High state if protocol fee disabled", async function () {
+        curReserves = ethers.utils.parseEther("50");
+        const feeFlag = await sandboxController.feeEnabled();
+        if (feeFlag) {
+          await sandboxController.connect(dao).setFeeEnabled(false);
+        }
+
+        let commissions = await sandboxController.getCommissions(curReserves, seedReserves, targetReserves);
+        expect(commissions[0]).to.equal(ethers.utils.parseEther("0.3"));
+        expect(commissions[1]).to.equal(0);
       });
     });
   });
