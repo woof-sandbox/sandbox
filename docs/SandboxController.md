@@ -199,33 +199,21 @@ The length of the `_reserveCommissions` and `_protocolCommissions` arrays must b
 | _reserveCommissions | uint64[3] | The reserve commission factors for each market state. |
 | _protocolCommissions | uint64[3] | The protocol commission factors for each market state. |
 
-### setReserveCommissions
+### setMarketStateCommissions
 
 ```solidity
-function setReserveCommissions(uint64[3] _reserveCommissions) external
+function setMarketStateCommissions(uint8 _index, uint64 _reserveCommission, uint64 _protocolCommission) external
 ```
 
-Sets the reserve commission factors for each market state.
+Sets commission factors for the chosen market state.
 
 #### Parameters
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-| _reserveCommissions | uint64[3] | The new reserve commission factors, scaled by 1e18 (100%). |
-
-### setProtocolCommissions
-
-```solidity
-function setProtocolCommissions(uint64[3] _protocolCommissions) external
-```
-
-Sets the protocol commission factors for each market state.
-
-#### Parameters
-
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| _protocolCommissions | uint64[3] | The new protocol commission factors, scaled by 1e18 (100%). |
+| _index | uint8 | Market state index |
+| _reserveCommission | uint64 | The new reserve commission factor, scaled by 1e18 (100%). |
+| _protocolCommission | uint64 | The new protocol commission factor, scaled by 1e18 (100%). |
 
 ### setTreasury
 
