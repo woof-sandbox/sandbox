@@ -147,7 +147,7 @@ contract SandboxController is ISandboxController {
      * @param _protocolCommission The new protocol commission factor, scaled by 1e18 (100%).
      */
     function setMarketStateCommissions(uint8 _index, uint64 _reserveCommission, uint64 _protocolCommission) external override onlyOwner {
-        if (_index > MARKET_STATES) revert IncorrectIndex();
+        if (_index >= MARKET_STATES) revert IncorrectIndex();
 
         /// Check if the sum of the `reserveCommission` and the `protocolCommission` is less than 80%
         /// This needed to leave something for the ConfigController owner and curator.

@@ -1586,7 +1586,7 @@ describe("3. SandboxController", function () {
       });
 
       it("reverts if index is greater than number of states", async function () {
-        await expect(sandboxController.setMarketStateCommissions(4, parseEther("0.5"), parseEther("0.3"))).to.be.revertedWithCustomError(
+        await expect(sandboxController.setMarketStateCommissions(3, parseEther("0.5"), parseEther("0.3"))).to.be.revertedWithCustomError(
           sandboxController,
           "IncorrectIndex"
         );
