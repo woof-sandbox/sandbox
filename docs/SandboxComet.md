@@ -103,7 +103,7 @@ function getNowInternal() internal view virtual returns (uint40)
 ### setIncentiveConfig
 
 ```solidity
-function setIncentiveConfig(uint64 trackingIndexScale_, uint104 baseMinForRewards_, uint64 baseTrackingSupplySpeed_, uint64 baseTrackingBorrowSpeed_) external
+function setIncentiveConfig(uint64 trackingIndexScale_, uint104 baseMinForRewards_, uint64 baseTrackingSupplySpeed_, uint64 baseTrackingBorrowSpeed_, uint104 minSupplyForReward_, uint104 minBorrowForReward_) external
 ```
 
 Set the base tracking supply and borrow speeds
@@ -116,6 +116,8 @@ Set the base tracking supply and borrow speeds
 | baseMinForRewards_ | uint104 | The new base minimum for rewards |
 | baseTrackingSupplySpeed_ | uint64 | The new base tracking supply speed |
 | baseTrackingBorrowSpeed_ | uint64 | The new base tracking borrow speed |
+| minSupplyForReward_ | uint104 | The minimum amount of user principal represented in present value for rewards to accrue |
+| minBorrowForReward_ | uint104 | The minimum amount of user principal represented in present value for rewards to accrue |
 
 ### setDaoIncentiveConfig
 

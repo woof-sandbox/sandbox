@@ -232,7 +232,7 @@ Disables/Enables the controller fee for a specific comet
 ### setIncentiveConfigOnMarket
 
 ```solidity
-function setIncentiveConfigOnMarket(address comet, uint64 trackingIndexScale, uint104 baseMinForRewards, uint64 baseTrackingSupplySpeed, uint64 baseTrackingBorrowSpeed) external
+function setIncentiveConfigOnMarket(address comet, uint64 trackingIndexScale, uint104 baseMinForRewards, uint64 baseTrackingSupplySpeed, uint64 baseTrackingBorrowSpeed, uint104 minSupplyForReward, uint104 minBorrowForReward) external
 ```
 
 Set speeds for a specific comet
@@ -248,6 +248,8 @@ _Only callable by the owner_
 | baseMinForRewards | uint104 | The new base minimum for rewards |
 | baseTrackingSupplySpeed | uint64 | The new base tracking supply speed |
 | baseTrackingBorrowSpeed | uint64 | The new base tracking borrow speed |
+| minSupplyForReward | uint104 | The minimum amount of user principal represented in present value for rewards to accrue |
+| minBorrowForReward | uint104 | The minimum amount of user principal represented in present value for rewards to accrue |
 
 ### extractFees
 

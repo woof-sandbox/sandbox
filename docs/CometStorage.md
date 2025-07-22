@@ -379,6 +379,28 @@ The minimum amount of base principal wei for dao rewards to accrue
 
 _This must be large enough so as to prevent division by base wei from overflowing the 64 bit indices_
 
+### minSupplyForReward
+
+```solidity
+uint104 minSupplyForReward
+```
+
+The minimum amoount of user principal represented in present value for rewards to accrue
+
+_This must be large enough so as to prevent division by base wei from overflowing the 64 bit indices
+This is used to prevent rewards from accruing on very small positions_
+
+### minBorrowForReward
+
+```solidity
+uint104 minBorrowForReward
+```
+
+The minimum amount of user principal represented in present value for dao rewards to accrue
+
+_This must be large enough so as to prevent division by base wei from overflowing the 64 bit indices
+This is used to prevent dao rewards from accruing on very small positions_
+
 ### baseBorrowMin
 
 ```solidity
