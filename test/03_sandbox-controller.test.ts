@@ -729,6 +729,7 @@ describe("3. SandboxController", function () {
       });
 
       it("reverts if minLiquidateCollateralFactor > maxLiquidateCollateralFactor", async function () {
+        collateralConfig.maxBorrowColF = ethers.utils.parseEther("0.65").toString();
         collateralConfig.minLiqColF = ethers.utils.parseEther("0.7").toString();
         collateralConfig.maxLiqColF = ethers.utils.parseEther("0.65").toString();
 
@@ -747,6 +748,7 @@ describe("3. SandboxController", function () {
       });
 
       it("reverts if minLiquidationFactor > maxLiquidationFactor", async function () {
+        collateralConfig.maxLiqColF = ethers.utils.parseEther("0.85").toString();
         collateralConfig.minLiqF = ethers.utils.parseEther("0.9").toString();
         collateralConfig.maxLiqF = ethers.utils.parseEther("0.85").toString();
 
@@ -1528,6 +1530,13 @@ describe("3. SandboxController", function () {
       );
     });
 
+    it("reverts if newOwner is the same address", async function () {
+      await expect(sandboxController.connect(owner).transferOwner(owner.address)).to.be.revertedWithCustomError(
+        sandboxController,
+        "IncorrectSetting"
+      );
+    });
+
     it("transfers owner to new address", async function () {
       const snapshot: SnapshotRestorer = await takeSnapshot();
 
@@ -1568,6 +1577,13 @@ describe("3. SandboxController", function () {
       await expect(sandboxController.connect(dao).transferDao(ethers.constants.AddressZero)).to.be.revertedWithCustomError(
         sandboxController,
         "ZeroAddress"
+      );
+    });
+
+    it("reverts if newDao is the same address", async function () {
+      await expect(sandboxController.connect(dao).transferDao(dao.address)).to.be.revertedWithCustomError(
+        sandboxController,
+        "IncorrectSetting"
       );
     });
 
