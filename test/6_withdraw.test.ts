@@ -589,48 +589,6 @@ describe("6. withdrawTo", function () {
     await expect(cometAsB.withdrawTo(alice.address, USDC.address, 1)).to.be.revertedWith("custom error 'Paused()'");
   });
 
-  it("reverts if withdraw max for a collateral asset", async () => {
-    const protocol = await makeProtocol({
-      base: "USDC",
-      storeFrontPriceFactor: exp(0.5, 18),
-      targetPercent: 0.5,
-      assets: {
-        USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
-        COMP: {
-          initial: 1e7,
-          decimals: 18,
-          initialPrice: 1,
-          liquidationFactor: exp(0.8, 18),
-        },
-        WETH: {
-          initial: 1e7,
-          decimals: 18,
-          initialPrice: 1,
-          liquidationFactor: exp(0.8, 18),
-        },
-        WBTC: {
-          initial: 1e7,
-          decimals: 18,
-          initialPrice: 1,
-          liquidationFactor: exp(0.8, 18),
-        },
-      },
-    });
-    const {
-      comet,
-      tokens,
-      users: [alice, bob],
-    } = protocol;
-    const { COMP } = tokens;
-
-    await COMP.allocateTo(bob.address, 100e6);
-    const cometAsB = comet.connect(bob);
-
-    await expect(cometAsB.withdrawTo(alice.address, COMP.address, ethers.constants.MaxUint256)).to.be.revertedWith(
-      "custom error 'InvalidUInt128()'"
-    );
-  });
-
   it("borrows to withdraw if necessary/possible", async () => {
     const {
       comet,

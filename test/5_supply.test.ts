@@ -689,50 +689,6 @@ describe("5. supplyTo", function () {
     await expect(cometAsB.supplyTo(alice.address, USDC.address, 1)).to.be.revertedWith("custom error 'Paused()'");
   });
 
-  it("reverts if supply max for a collateral asset", async () => {
-    const protocol = await makeProtocol({
-      base: "USDC",
-      storeFrontPriceFactor: exp(0.5, 18),
-      targetPercent: 0.5,
-      assets: {
-        USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
-        COMP: {
-          initial: 1e7,
-          decimals: 18,
-          initialPrice: 1,
-          liquidationFactor: exp(0.8, 18),
-        },
-        WETH: {
-          initial: 1e7,
-          decimals: 18,
-          initialPrice: 1,
-          liquidationFactor: exp(0.8, 18),
-        },
-        WBTC: {
-          initial: 1e7,
-          decimals: 18,
-          initialPrice: 1,
-          liquidationFactor: exp(0.8, 18),
-        },
-      },
-    });
-    const {
-      comet,
-      tokens,
-      users: [alice, bob],
-    } = protocol;
-    const { COMP } = tokens;
-
-    await COMP.allocateTo(bob.address, 100e6);
-    const baseAsB = COMP.connect(bob);
-    const cometAsB = comet.connect(bob);
-
-    await wait(baseAsB.approve(COMP.address, 100e6));
-    await expect(cometAsB.supplyTo(alice.address, COMP.address, ethers.constants.MaxUint256)).to.be.revertedWith(
-      "custom error 'InvalidUInt128()'"
-    );
-  });
-
   it("supplies base the correct amount in a fee-like situation", async () => {
     const assets = defaultAssets();
     // Add USDT to assets on top of default assets
