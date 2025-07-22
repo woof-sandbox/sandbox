@@ -85,29 +85,13 @@ maxUpdateTime,
 suggestedAmountOfSeedReserves,
 suggestedLockTimeOfSeedReserves.
 
-### baseAssetTokens
-
-```solidity
-address[] baseAssetTokens
-```
-
-32 bytes
-base asset tokens. Whitelisted base asset tokens.
-
-### collateralAssetTokens
-
-```solidity
-address[] collateralAssetTokens
-```
-
-collateral asset tokens. Whitelisted collateral asset tokens.
-
 ### tokenToPriceFeed
 
 ```solidity
 mapping(address => address) tokenToPriceFeed
 ```
 
+32 bytes
 token to price feed.
 
 ### reserveCommission
@@ -287,20 +271,6 @@ Whitelists a new base asset with its price feed and curve configuration.
 | priceFeed | address | The associated price feed contract address. |
 | baseAssetCurve | struct ISandboxController.BaseAssetCurve | The initial interest rate curve configuration. |
 | minBorrow | uint256 | The minimal borrow amount for this asset. |
-
-### getBaseAssetLength
-
-```solidity
-function getBaseAssetLength() external view returns (uint256)
-```
-
-Returns the length of the baseAssetTokens array.
-
-#### Return Values
-
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| [0] | uint256 | The length of the baseAssetTokens array. |
 
 ### whitelistCollateralAsset
 
