@@ -121,4 +121,30 @@ interface ICometErrors {
     error IncorrectApproval();
 
     error PrincipalDecreaseOnSupply();
+
+    /**
+     * @notice Error thrown when the market is closed
+     */
+    error MarketIsClosed();
+
+    /**
+     * @notice Error thrown when the operation requires free reserves but they are insufficient
+     */
+    error InsufficientFreeReserves();
+
+    /**
+     * @notice Error thrown when the operation requires surplus reserves but they are insufficient
+     */
+    error NoSurplusReserves();
+
+    /**
+     * @notice Error thrown when the operation requires free reserves but they are insufficient
+     */
+    error NoFreeReserves();
+
+    /**
+     * @notice Error thrown when the unlock timestamp has not been reached for to withdraw seed reserves
+     */
+    error UnlockNotReached();
+
 }

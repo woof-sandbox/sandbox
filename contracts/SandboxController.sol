@@ -208,11 +208,10 @@ contract SandboxController is ISandboxController {
      */
     function getCommissions(
         uint256 _currentReserves,
-        uint256 _targetReserves,
-        address _baseToken
+        uint256 _targetReserves
     ) external view override returns (uint64 _reserveCommission, uint64 _protocolCommission) {
         MarketState state;
-        if (_currentReserves < suggestedAmountOfSeedReserves[_baseToken]) {
+        if (_currentReserves < _controllerConfiguration.suggestedAmountOfSeedReserves) {
             state = MarketState.High;
         } else if (_currentReserves < _targetReserves) {
             state = MarketState.Medium;

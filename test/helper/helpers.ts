@@ -513,6 +513,7 @@ export async function createComet(
     collateralTokens: collateralTokens,
     baseTokenCurveId: 0n,
     name: name || "Comet",
+    amountOfSeedReserves: dfn(opts.amountOfSeedReserves, "100000000")
   };
 
   const amount = await sandboxController.suggestedAmountOfSeedReserves(baseToken.address);

@@ -35,4 +35,13 @@ interface ICometEvents {
 
     /// @notice Event emitted when the rewards contract is set
     event RewardsSet(address indexed rewards);
+
+    /// @notice Event emitted when the market is closed
+    event MarketClosed();
+
+    /// @notice Event emitted when the DAO withdraws surplus reserves (seed reserves)
+    event SurplusReservesWithdrawn(address indexed to, uint256 amount);
+
+    /// @notice Event emitted when free reserves (seed reserves) are withdrawn
+    event FreeReservesWithdrawn(address indexed to, uint256 amount);
 }

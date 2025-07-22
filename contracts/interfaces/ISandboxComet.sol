@@ -83,4 +83,10 @@ interface ISandboxComet {
     function getAssetInfo(uint8 i) external view returns (ICometStructures.CollateralAsset memory);
 
     function getAssetInfoByAddress(address asset) external view returns (ICometStructures.CollateralAsset memory, uint8 index);
+
+    function close() external virtual;
+
+    function withdrawSurplusReserves() external virtual;
+
+    function withdrawFreeReserves() external virtual;
 }

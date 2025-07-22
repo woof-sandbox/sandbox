@@ -22,6 +22,7 @@ interface IConfigController {
         uint256 baseTokenCurveId;
         CollateralTokenConfig[] collateralTokens;
         string name;
+        uint256 amountOfSeedReserves;
     }
 
     struct CometGlobalParamsConfig {
@@ -96,4 +97,21 @@ interface IConfigController {
     /// @notice Sets the address of rewards contract for a specific comet
     /// @dev Only callable by the owner
     function setRewards(address _comet, address _rewards) external;
+
+    function pauseMarket(
+        address comet,
+        bool supplyPaused,
+        bool transferPaused,
+        bool withdrawPaused,
+        bool absorbPaused,
+        bool buyPaused
+    ) external;
+
+    /// @notice Closes the specified market
+    /// @param comet The address of the comet to close
+    function closeMarket(address comet) external;
+
+    /// @notice Withdraws free reserves from the specified comet
+    /// @param comet The address of the comet to withdraw free reserves from
+    function withdrawFreeReservesFrom(address comet) external;
 }

@@ -194,10 +194,9 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
         address comet = ISandboxCometFactory(cometFactory).createComet(_cometConfig.name); // aderyn-fp(reentrancy-state-change)
         ICometForController(comet).initialize(_cometConfig, _globalConfig); // aderyn-fp(reentrancy-state-change)
 
-        // TODO: currently suggestedAmountOfSeedReserves is set in USD, token amount is expected in separate PR
-        uint256 suggestedAmountOfSeedReserves = ISandboxController(sandboxController).suggestedAmountOfSeedReserves(baseToken);
-        // TODO: optional amount of reserves (with validation on 0 reserves) is expected to be added in separate PR
-        IERC20(baseToken).safeTransferFrom(msg.sender, comet, suggestedAmountOfSeedReserves);
+        if (_cometConfig.amountOfSeedReserves > 0) {
+            IERC20(baseToken).safeTransferFrom(msg.sender, comet, _cometConfig.amountOfSeedReserves);
+        }
 
         uint256 cometsNum = comets.length;
         comets.push(comet);
@@ -392,5 +391,52 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
     function _isCometOwned(address comet) internal view returns (bool) {
         if (cometsLength() == 0) return false;
         return comets[cometId[comet]] == comet;
+    }
+
+    /// @notice Pauses specific operations in a comet market
+    /// @dev Only callable by the owner. The comet must be owned by this controller
+    /// @param comet The address of the comet to pause operations in
+    /// @param supplyPaused Boolean to pause/unpause supply actions
+    /// @param transferPaused Boolean to pause/unpause transfer actions
+    /// @param withdrawPaused Boolean to pause/unpause withdraw actions
+    /// @param absorbPaused Boolean to pause/unpause absorb actions
+    /// @param buyPaused Boolean to pause/unpause buy actions
+    function pauseMarket(
+        address comet,
+        bool supplyPaused,
+        bool transferPaused,
+        bool withdrawPaused,
+        bool absorbPaused,
+        bool buyPaused
+    ) external override onlyOwner {
+        if (comet == address(0)) revert ZeroAddress();
+        if (!_isCometOwned(comet)) revert UnknownComet();
+
+        ISandboxComet(comet).pause(supplyPaused, transferPaused, withdrawPaused, absorbPaused, buyPaused);
+        /// Note: Comet emits the respective event
+    }
+
+    /// @notice Closes a comet market permanently, preventing most future operations
+    /// @dev Only callable by the owner. The comet must be owned by this controller.
+    ///      Once closed, the market cannot be reopened and all pause flags are cleared
+    /// @param comet The address of the comet to close permanently
+    function closeMarket(address comet) external override onlyOwner {
+        if (comet == address(0)) revert ZeroAddress();
+        if (!_isCometOwned(comet)) revert UnknownComet();
+
+        ISandboxComet(comet).close();
+        /// Note: Comet emits the respective event
+    }
+
+    /// @notice Withdraws free reserves (seed reserves) from a comet market
+    /// @dev Only callable by the owner. The comet must be owned by this controller.
+    ///      Withdrawal is allowed only if the market is closed or unlock timestamp has been reached
+    /// @param comet The address of the comet to withdraw free reserves from
+    function withdrawFreeReservesFrom(address comet) external override onlyOwner {
+        if (comet == address(0)) revert ZeroAddress();
+        if (!_isCometOwned(comet)) revert UnknownComet();
+
+        ISandboxComet(comet).withdrawFreeReserves();
+        /// Note: Comet emits the respective event
     }
 }

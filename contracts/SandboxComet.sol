@@ -38,10 +38,13 @@ contract SandboxComet is CometCore, ISandboxComet {
     }
 
     /// @notice can be called only from Config Controller, as factoryInit prevents any other callers
-    /// @param comet Base token, interest rate curve, collaterals
-    /// @param config Global Comet reserve parameters
+    /// @param cometConfig Base token, interest rate curve, collaterals
+    /// @param globalConfig Global Comet reserve parameters
     // aderyn-fp-next-line(state-change-without-event)
-    function initialize(IConfigController.CometConfig calldata comet, IConfigController.CometGlobalParamsConfig calldata config) external {
+    function initialize(
+        IConfigController.CometConfig calldata cometConfig,
+        IConfigController.CometGlobalParamsConfig calldata globalConfig
+    ) external override {
         /// Relies on fact that factory provides correct controller and that it is set by the time of this call
         if (msg.sender != configController) revert IncorrectInitialization();
         // aderyn-fp-next-line(reentrancy-state-change)
@@ -52,16 +55,16 @@ contract SandboxComet is CometCore, ISandboxComet {
 
         /// Rely on base token as main characteristic of the market and that it was validated in Controller
         if (baseToken != address(0)) revert AlreadyInitialized();
-        baseToken = comet.baseToken; // aderyn-fp(state-no-address-check)
+        baseToken = cometConfig.baseToken; // aderyn-fp(state-no-address-check)
 
-        uint8 _decimals = IERC20Metadata(comet.baseToken).decimals(); // aderyn-fp(reentrancy-state-change)
+        uint8 _decimals = IERC20Metadata(cometConfig.baseToken).decimals(); // aderyn-fp(reentrancy-state-change)
         if (_decimals > MAX_BASE_DECIMALS) revert BadDecimals();
 
         baseScale = uint64(10 ** _decimals); // aderyn-fp(literal-instead-of-constant)
         if (baseScale < BASE_ACCRUAL_SCALE) revert BadDecimals();
 
         // aderyn-fp-next-line(reentrancy-state-change)
-        address _baseTokenPriceFeed = ISandboxController(sandboxController).tokenToPriceFeed(comet.baseToken);
+        address _baseTokenPriceFeed = ISandboxController(sandboxController).tokenToPriceFeed(cometConfig.baseToken);
         /// @dev price feed is already checked to be listed in config controller
         if (IPriceFeed(_baseTokenPriceFeed).decimals() != PRICE_FEED_DECIMALS) revert BadDecimals(); // aderyn-fp(reentrancy-state-change)
         baseTokenPriceFeed = _baseTokenPriceFeed;
@@ -70,7 +73,7 @@ contract SandboxComet is CometCore, ISandboxComet {
         ///
 
         /// Availability of collaterals is already checked in Config Controller
-        uint8 colTokensLength = uint8(comet.collateralTokens.length);
+        uint8 colTokensLength = uint8(cometConfig.collateralTokens.length);
         if (colTokensLength > MAX_ASSETS) revert TooManyAssets();
         numAssets = colTokensLength;
 
@@ -78,7 +81,7 @@ contract SandboxComet is CometCore, ISandboxComet {
         /// Collateral parameters are validated in ConfigController (including non-repeatability)
         /// Thus collaterals can be safely added directly into the storage
         for (uint8 i; i < colTokensLength; ++i) {
-            address collateralToken = comet.collateralTokens[i].collateralToken;
+            address collateralToken = cometConfig.collateralTokens[i].collateralToken;
             // aderyn-fp-next-line(reentrancy-state-change, literal-instead-of-constant)
             uint64 scale = uint64(10 ** IERC20Metadata(collateralToken).decimals());
             // aderyn-fp-next-line(reentrancy-state-change)
@@ -86,40 +89,36 @@ contract SandboxComet is CometCore, ISandboxComet {
 
             collateralAssets.push(
                 CollateralAsset(
-                    comet.collateralTokens[i].collateralToken,
+                    cometConfig.collateralTokens[i].collateralToken,
                     priceFeed,
-                    comet.collateralTokens[i].supplyCap,
-                    comet.collateralTokens[i].borrowCollateralFactor,
-                    comet.collateralTokens[i].liquidateCollateralFactor,
-                    comet.collateralTokens[i].liquidationFactor,
+                    cometConfig.collateralTokens[i].supplyCap,
+                    cometConfig.collateralTokens[i].borrowCollateralFactor,
+                    cometConfig.collateralTokens[i].liquidateCollateralFactor,
+                    cometConfig.collateralTokens[i].liquidationFactor,
                     scale
                 )
             );
-            collateralAssetIndex[comet.collateralTokens[i].collateralToken] = i;
+            collateralAssetIndex[cometConfig.collateralTokens[i].collateralToken] = i;
         }
 
         /// Reserves
         ///
 
         /// It can be safely assumed, that reserve parameters are validated in Sandbox Controller
-        targetPercent = config.targetPercent;
-        (uint256 amountOfSeedReserves, uint40 lockTimeOfSeedReserves) = ISandboxController(sandboxController)
-            .baseTokenSuggestedSeedReserves(comet.baseToken);
-
-        /// TODO: currently never used, behavior will be adjusted in close market PR
-        seedReserves = amountOfSeedReserves;
-        unlockTimestamp = safe64(block.timestamp + lockTimeOfSeedReserves);
+        targetPercent = globalConfig.targetPercent;
+        seedReserves = cometConfig.amountOfSeedReserves;
+        unlockTimestamp = safe64(block.timestamp + globalConfig.suggestedLockTimeOfSeedReserves);
 
         /// Interest rate curve
         ///
 
         // aderyn-fp-next-line(reentrancy-state-change)
-        ISandboxController.BaseAssetConfiguration memory bac = ISandboxController(sandboxController).baseAssets(comet.baseToken);
-        ISandboxController.BaseAssetCurve memory curve = bac.baseAssetCurves[comet.baseTokenCurveId];
+        ISandboxController.BaseAssetConfiguration memory bac = ISandboxController(sandboxController).baseAssets(cometConfig.baseToken);
+        ISandboxController.BaseAssetCurve memory curve = bac.baseAssetCurves[cometConfig.baseTokenCurveId];
 
         /// It can be safely assumed, that curve parameters are validated in Sandbox Controller
         baseBorrowMin = bac.minBorrow;
-        storeFrontPriceFactor = config.storeFrontPriceFactor;
+        storeFrontPriceFactor = globalConfig.storeFrontPriceFactor;
         unchecked {
             supplyKink = curve.supplyKink;
             supplyPerSecondInterestRateSlopeLow = curve.supplyPerYearInterestRateSlopeLow / SECONDS_PER_YEAR;
@@ -441,8 +440,11 @@ contract SandboxComet is CometCore, ISandboxComet {
      * @param buyPaused Boolean for pausing buy actions
      */
     function pause(bool supplyPaused, bool transferPaused, bool withdrawPaused, bool absorbPaused, bool buyPaused) external override {
+        address caller = msg.sender;
         address dao = ISandboxController(sandboxController).dao(); // aderyn-fp(reentrancy-state-change)
-        if (msg.sender != configController && msg.sender != dao) revert Unauthorized();
+        if (caller != configController && caller != dao) revert Unauthorized();
+        /// Note: Not allowed to reset pause flags if the market is closed
+        if (isClosed) revert MarketIsClosed();
 
         pauseFlags =
             uint8(0) |
@@ -658,6 +660,9 @@ contract SandboxComet is CometCore, ISandboxComet {
 
         UserBasic memory dstUser = userBasic[dst];
         int104 dstPrincipal = dstUser.principal;
+        /// Note: If the market is closed, allow deposits to be made only to close the debt.
+        if (isClosed && dstPrincipal > 0) revert MarketIsClosed();
+
         int256 dstBalance = presentValue(dstPrincipal) + signed256(amount);
         int104 dstPrincipalNew = principalValue(dstBalance);
 
@@ -684,6 +689,8 @@ contract SandboxComet is CometCore, ISandboxComet {
      * @dev Supply an amount of collateral asset from `from` to dst
      */
     function supplyCollateral(address from, address dst, address asset, uint256 amount) internal {
+        /// Note: If the market is closed, not allowed deposits the collaterals.
+        if (isClosed) revert MarketIsClosed();
         amount = doTransferIn(asset, from, amount);
         accrueInternal();
 
@@ -752,6 +759,8 @@ contract SandboxComet is CometCore, ISandboxComet {
      */
     function transferInternal(address operator, address src, address dst, address asset, uint256 amount, bool isAll) internal nonReentrant {
         if (amount == 0) revert ZeroAmount();
+        /// Note: If the market is closed, not allowed transfers the assets.
+        if (isClosed) revert MarketIsClosed();
         if (isTransferPaused()) revert Paused();
         if (src == dst) revert NoSelfTransfer();
 
@@ -898,6 +907,9 @@ contract SandboxComet is CometCore, ISandboxComet {
         int256 srcBalance = presentValue(srcPrincipal) - signed256(amount);
         int104 srcPrincipalNew = principalValue(srcBalance);
 
+        /// Note: If the market is closed, not allowed getting the debt
+        if (isClosed && srcPrincipalNew < 0) revert MarketIsClosed();
+
         (uint104 withdrawAmount, uint104 borrowAmount) = withdrawAndBorrowAmount(srcPrincipal, srcPrincipalNew);
 
         totalSupplyBase -= withdrawAmount;
@@ -958,6 +970,52 @@ contract SandboxComet is CometCore, ISandboxComet {
             if (!hasPermission(src, operator, asset, amount)) revert InsufficientAllowance(asset, src, operator);
             spendAllowance(src, operator, asset, amount);
         }
+    }
+
+    /**
+     * @notice Withdraw surplus reserves from the protocol above the seed reserves threshold
+     * @dev Only the DAO can withdraw surplus reserves. Surplus reserves are defined as total reserves
+     *      minus seed reserves. If total reserves are less than or equal to seed reserves, no surplus
+     *      exists and the transaction will revert.
+     */
+    function withdrawSurplusReserves() external override nonReentrant {
+        address dao = ISandboxController(sandboxController).dao(); // aderyn-fp(reentrancy-state-change)
+        if (msg.sender != dao) revert Unauthorized();
+
+        int total = getReserves();
+        if (total <= int(seedReserves)) revert NoSurplusReserves();
+
+        uint256 surplusReserves = uint256(total) - seedReserves;
+
+        IERC20(baseToken).safeTransfer(dao, surplusReserves);
+        emit SurplusReservesWithdrawn(dao, surplusReserves);
+    }
+
+    /**
+     * @notice Withdraw free reserves (seed reserves) from the protocol
+     * @dev Only the config controller can withdraw free reserves. Withdrawal is allowed only if the market
+     *      is closed or the unlock timestamp has been reached. The amount withdrawn is limited to the
+     *      current seed reserves or total reserves, whichever is smaller. If insufficient free reserves
+     *      are available, the available amount will be returned if it's non-zero. Remaining reserves can
+     *      be withdrawn over time as they accumulate. Reserves cannot be withdrawn from user balances.
+     */
+    function withdrawFreeReserves() external override nonReentrant {
+        address caller = msg.sender;
+        if (caller != configController) revert Unauthorized();
+        /// Note: Allowed to withdraw of seed reserves only if the market is closed
+        /// or the unlock timestamp has been reached
+        if (!isClosed && block.timestamp < unlockTimestamp) revert UnlockNotReached();
+
+        int total = getReserves();
+        if (total <= 0) revert NoFreeReserves();
+
+        uint256 currentSeedReserves = seedReserves;
+        uint256 freeReserves = uint256(total) > currentSeedReserves ? currentSeedReserves : uint256(total);
+
+        seedReserves = currentSeedReserves - freeReserves;
+
+        IERC20(baseToken).safeTransfer(caller, freeReserves);
+        emit FreeReservesWithdrawn(caller, freeReserves);
     }
 
     /**
@@ -1223,8 +1281,7 @@ contract SandboxComet is CometCore, ISandboxComet {
         uint256 reservesUsd = (reserves * basePrice) / baseScale;
         uint256 targetUsd = (targetReserves() * basePrice) / baseScale;
 
-        (uint64 reservePct, uint64 protocolPct) = ISandboxController(sandboxController).getCommissions(reservesUsd, targetUsd, baseToken);
-
+        (uint64 reservePct, uint64 protocolPct) = ISandboxController(sandboxController).getCommissions(reservesUsd, targetUsd);
         _reserveFee = mulFactor(profitAmount, uint256(reservePct));
         _daoFee = mulFactor(profitAmount, uint256(protocolPct));
         _controllerFee = IConfigController(configController).cometFeeEnabled(address(this)) ? profitAmount - _reserveFee - _daoFee : 0;
@@ -1232,6 +1289,24 @@ contract SandboxComet is CometCore, ISandboxComet {
         if (_controllerFee == 0) {
             _reserveFee = profitAmount - _daoFee;
         }
+    }
+
+    /**
+     * @notice Close the market permanently, preventing most future operations
+     * @dev Only the config controller can close the market. Once closed, the market cannot be reopened.
+     *      All pause flags are cleared when the market is closed.
+     *      When market is closed:
+     *      - Users cannot make transfers or supply new collateral assets
+     *      - Users can still supply base asset to close existing debt positions
+     *      - Users can withdraw base asset and collateral if they have no debt or have closed their debt position
+     */
+    function close() external override {
+        if (msg.sender != configController) revert Unauthorized();
+        if (isClosed) revert MarketIsClosed();
+        /// Note: Clear all pause flags
+        pauseFlags = 0;
+        isClosed = true;
+        emit MarketClosed();
     }
 
     /**
