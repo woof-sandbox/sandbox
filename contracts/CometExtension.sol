@@ -139,6 +139,11 @@ contract CometExtension is ICometExtension {
         }
     }
 
+    /**
+     * @notice Approve or revoke the ability for a spender to transfer all base tokens
+     * @param spender The address of the account which may transfer all base tokens
+     * @param approved Whether the spender is approved or revoked
+     */
     function approveAll(address spender, bool approved) external override {
         allowAllInternal(msg.sender, spender, approved);
     }

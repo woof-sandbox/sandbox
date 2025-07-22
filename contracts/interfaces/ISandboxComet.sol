@@ -3,7 +3,6 @@ pragma solidity 0.8.28;
 
 import "../CometCore.sol";
 import "./IConfigController.sol";
-import "./ISandboxController.sol";
 
 /**
  * @title Compound's Comet Main Interface (without Ext)
@@ -87,4 +86,8 @@ abstract contract ISandboxComet is CometCore {
     function getUtilization() public view virtual returns (uint);
 
     function targetReserves() external view virtual returns (uint);
+
+    function getAssetInfo(uint8 i) public view virtual returns (CollateralAsset memory);
+
+    function getAssetInfoByAddress(address asset) public view virtual returns (CollateralAsset memory, uint8 index);
 }

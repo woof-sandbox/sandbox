@@ -6,7 +6,7 @@ interface ICometEvents {
     event Transfer(address indexed from, address indexed to, uint256 amount);
     event Withdraw(address indexed src, address indexed to, uint256 amount);
     event Approval(address indexed owner, address indexed spender, address indexed asset, uint256 amount);
-    event ApprovalAll(address indexed owner, address indexed spender, address indexed asset, bool approval);
+    event ApprovalAll(address indexed owner, address indexed spender, address indexed baseAsset, bool approval);
 
     event SupplyCollateral(address indexed from, address indexed dst, address indexed asset, uint256 amount);
     event TransferCollateral(address indexed from, address indexed to, address indexed asset, uint256 amount);
