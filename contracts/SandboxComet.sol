@@ -666,7 +666,7 @@ contract SandboxComet is ISandboxComet {
         if (asset == baseToken) {
             return supplyBase(from, dst, amount);
         } else {
-            return supplyCollateral(from, dst, asset, safe128(amount));
+            return supplyCollateral(from, dst, asset, amount);
         }
     }
 
@@ -774,7 +774,7 @@ contract SandboxComet is ISandboxComet {
         if (asset == baseToken) {
             transferBase(src, dst, amount);
         } else {
-            transferCollateral(src, dst, asset, safe128(amount));
+            transferCollateral(src, dst, asset, amount);
         }
     }
 
@@ -892,7 +892,7 @@ contract SandboxComet is ISandboxComet {
         if (asset == baseToken) {
             return withdrawBase(src, to, amount);
         } else {
-            return withdrawCollateral(src, to, asset, safe128(amount));
+            return withdrawCollateral(src, to, asset, amount);
         }
     }
 
