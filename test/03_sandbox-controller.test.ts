@@ -73,11 +73,6 @@ describe("3. SandboxController", function () {
       expect((await sandboxController.proposalBoundaries())[0]).to.equal(configTest.minUpdateTime);
       expect((await sandboxController.proposalBoundaries())[1]).to.equal(configTest.maxUpdateTime);
     });
-
-    it("should be no assets by default", async function () {
-      expect(await sandboxController.getBaseAssetLength()).to.equal(0);
-      expect(await sandboxController.getCollateralAssetLength()).to.equal(0);
-    });
   });
 
   describe("whitelistBaseAsset - reverts", function () {
@@ -88,12 +83,6 @@ describe("3. SandboxController", function () {
     before(async function () {
       tokenTest = await makeMockERC20({ name: "TestToken", symbol: "TT" });
       priceFeedTest = await makePriceFeed(tokenTest.address);
-    });
-
-    after(async function () {
-      // no assets registered in this testset
-      expect(await sandboxController.getBaseAssetLength()).to.equal(0);
-      expect(await sandboxController.getCollateralAssetLength()).to.equal(0);
     });
 
     it("should show that token is not whitelised", async function () {
@@ -296,19 +285,9 @@ describe("3. SandboxController", function () {
       priceFeedTest = await makePriceFeed(tokenTest.address);
     });
 
-    after(async function () {
-      // no collateral assets registered in this testset
-      expect(await sandboxController.getCollateralAssetLength()).to.equal(0);
-    });
-
     it("whitelists asset", async function () {
       expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.true;
       await expect(sandboxController.whitelistBaseAsset(tokenTest.address, priceFeedTest.address, curve, minBorrow)).to.not.be.reverted;
-    });
-
-    it("asset is added to the base assets array", async function () {
-      expect(await sandboxController.getBaseAssetLength()).to.equal(1);
-      expect(await sandboxController.baseAssetTokens(0)).to.equal(tokenTest.address);
     });
 
     it("should show that token is whitelised", async function () {
@@ -401,15 +380,12 @@ describe("3. SandboxController", function () {
       const token = await makeMockERC20({ name: "T6", symbol: "T6" });
       const priceFeed = await makePriceFeed(token.address);
 
-      const assetsCount = await sandboxController.getBaseAssetLength();
-
       expect(await sandboxController.whitelistBaseAsset(token.address, priceFeed.address, curve, minBorrow))
         .to.emit(sandboxController, "BaseAssetWhitelisted")
-        .withArgs(token.address, priceFeed.address, 18, assetsCount);
+        .withArgs(token.address, priceFeed.address, 18);
     });
 
     it("owner can do it, dao can do it", async function () {
-      const baseAssetsBefore = await sandboxController.getBaseAssetLength();
       const token1 = await makeMockERC20({ name: "T7", symbol: "T7" });
       const feed1 = await makePriceFeed(token1.address);
       await expect(sandboxController.connect(owner).whitelistBaseAsset(token1.address, feed1.address, curve, 100)).to.not.be.reverted;
@@ -417,9 +393,6 @@ describe("3. SandboxController", function () {
       const token2 = await makeMockERC20({ name: "T8", symbol: "T8" });
       const feed2 = await makePriceFeed(token2.address);
       await expect(sandboxController.connect(dao).whitelistBaseAsset(token2.address, feed2.address, curve, 200)).to.not.be.reverted;
-
-      const baseAssetsAfter = await sandboxController.getBaseAssetLength();
-      expect(baseAssetsAfter.sub(baseAssetsBefore)).to.equal(2);
     });
   });
 
@@ -439,11 +412,6 @@ describe("3. SandboxController", function () {
     before(async function () {
       tokenCollateralTest = await makeMockERC20({ name: "CollateralToken", symbol: "CT" });
       priceFeedCollateralTest = await makePriceFeed(tokenCollateralTest.address);
-    });
-
-    after(async function () {
-      // no collateral assets registered in this testset
-      expect(await sandboxController.getCollateralAssetLength()).to.equal(0);
     });
 
     it("should not recognize random token as whitelisted", async function () {
@@ -604,8 +572,6 @@ describe("3. SandboxController", function () {
           minLiqF: ethers.utils.parseEther("0.7").toString(),
           maxLiqF: ethers.utils.parseEther("0.95").toString(),
         };
-        // no collateral assets registered in this testset
-        expect(await sandboxController.getCollateralAssetLength()).to.equal(0);
       });
 
       it("reverts if minBorrowCollateralFactor < 10%", async function () {
@@ -797,11 +763,6 @@ describe("3. SandboxController", function () {
       );
     });
 
-    it("asset is added to the base assets array", async function () {
-      expect(await sandboxController.getCollateralAssetLength()).to.equal(1);
-      expect(await sandboxController.collateralAssetTokens(0)).to.equal(tokenCollateralTest.address);
-    });
-
     it("should show that token is whitelised", async function () {
       expect(await sandboxController.isCollateralTokenWhitelisted(tokenCollateralTest.address)).to.be.true;
     });
@@ -826,34 +787,6 @@ describe("3. SandboxController", function () {
 
     it("should record collateral token price feed", async function () {
       expect(await sandboxController.tokenToPriceFeed(tokenCollateralTest.address)).to.equal(priceFeedCollateralTest.address);
-    });
-
-    it("should update collaterals array", async function () {
-      const token = await makeMockERC20({ name: "C1", symbol: "C1" });
-      const priceFeed = await makePriceFeed(token.address);
-
-      const collateralsNumberBefore = await sandboxController.getCollateralAssetLength();
-      const dataBefore = await sandboxController.collateralAssets(token.address);
-
-      expect(dataBefore.collateralToken).to.equal(ethers.constants.AddressZero);
-
-      await sandboxController.whitelistCollateralAsset(
-        token.address,
-        priceFeed.address,
-        collateralConfig.minBorrowColF,
-        collateralConfig.maxBorrowColF,
-        collateralConfig.minLiqColF,
-        collateralConfig.maxLiqColF,
-        collateralConfig.minLiqF,
-        collateralConfig.maxLiqF
-      );
-
-      const collateralsNumberAfter = await sandboxController.getCollateralAssetLength();
-      const dataAfter = await sandboxController.collateralAssets(token.address);
-
-      expect(dataAfter.collateralToken).to.equal(token.address);
-      expect(collateralsNumberAfter.sub(collateralsNumberBefore)).to.equal(1);
-      expect(await sandboxController.collateralAssetTokens(collateralsNumberAfter.sub(1))).to.equal(token.address);
     });
 
     it("should emit CollateralAssetWhitelisted event with correct args", async function () {

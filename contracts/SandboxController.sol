@@ -34,10 +34,6 @@ contract SandboxController is ISandboxController {
     /// suggestedAmountOfSeedReserves,
     /// suggestedLockTimeOfSeedReserves.
     SandboxControllerConfiguration public _controllerConfiguration; /// 32 bytes
-    /// @notice base asset tokens. Whitelisted base asset tokens.
-    address[] public override baseAssetTokens;
-    /// @notice collateral asset tokens. Whitelisted collateral asset tokens.
-    address[] public override collateralAssetTokens;
     /// @notice token to price feed.
     mapping(address => address) public override tokenToPriceFeed;
 
@@ -270,17 +266,7 @@ contract SandboxController is ISandboxController {
         _baseAssets[token].minBorrow = minBorrow;
         _baseAssets[token].baseAssetCurves.push(baseAssetCurve);
 
-        baseAssetTokens.push(token);
-
-        emit BaseAssetWhitelisted(token, priceFeed, decimals, baseAssetTokens.length - 1);
-    }
-
-    /**
-     * @notice Returns the length of the baseAssetTokens array.
-     * @return The length of the baseAssetTokens array.
-     */
-    function getBaseAssetLength() external view override returns (uint256) {
-        return baseAssetTokens.length;
+        emit BaseAssetWhitelisted(token, priceFeed, decimals);
     }
 
     /**
@@ -355,17 +341,7 @@ contract SandboxController is ISandboxController {
         _collateralAssets[token].minLiquidationFactor = minLiquidationFactor;
         _collateralAssets[token].maxLiquidationFactor = maxLiquidationFactor;
 
-        collateralAssetTokens.push(token);
-
         emit CollateralAssetWhitelisted(token, priceFeed, decimals);
-    }
-
-    /**
-     * @notice Returns the length of the collateralAssetTokens array.
-     * @return The length of the collateralAssetTokens array.
-     */
-    function getCollateralAssetLength() external view override returns (uint256) {
-        return collateralAssetTokens.length;
     }
 
     /**

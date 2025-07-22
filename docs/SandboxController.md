@@ -328,20 +328,6 @@ _Validates that all collateral factor parameters are within allowed ranges and m
 | minLiquidationFactor | uint64 | The minimum liquidation factor (scaled by 1e18). |
 | maxLiquidationFactor | uint64 | The maximum liquidation factor (scaled by 1e18). |
 
-### getCollateralAssetLength
-
-```solidity
-function getCollateralAssetLength() external view returns (uint256)
-```
-
-Returns the length of the collateralAssetTokens array.
-
-#### Return Values
-
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| [0] | uint256 | The length of the collateralAssetTokens array. |
-
 ### isBaseTokenWhitelisted
 
 ```solidity

@@ -65,7 +65,7 @@ interface ISandboxController is ISandboxErrors {
         uint256 suggestedAmountOfSeedReserves; // 32 bytes
     }
 
-    event BaseAssetWhitelisted(address indexed token, address indexed priceFeed, uint8 decimals, uint256 baseAssetCount);
+    event BaseAssetWhitelisted(address indexed token, address indexed priceFeed, uint8 decimals);
 
     event BaseAssetCurveAdded(address indexed token, BaseAssetCurve baseAssetCurve, uint256 curveIndex);
     event BaseAssetCurveChanged(address indexed token, BaseAssetCurve oldCurve, BaseAssetCurve newCurve, uint256 curveIndex);
@@ -78,10 +78,6 @@ interface ISandboxController is ISandboxErrors {
     event OwnerTransferred(address oldOwner, address newOwner);
     event DaoTransferred(address oldDao, address newDao);
 
-    function getBaseAssetLength() external view returns (uint256);
-
-    function getCollateralAssetLength() external view returns (uint256);
-
     function treasury() external view returns (address);
 
     function owner() external view returns (address);
@@ -91,10 +87,6 @@ interface ISandboxController is ISandboxErrors {
     function feeEnabled() external view returns (bool);
 
     function proposalBoundaries() external view returns (uint40, uint40);
-
-    function baseAssetTokens(uint256) external view returns (address);
-
-    function collateralAssetTokens(uint256) external view returns (address);
 
     function tokenToPriceFeed(address) external view returns (address);
 
