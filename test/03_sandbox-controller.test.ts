@@ -18,7 +18,6 @@ import { SandboxController } from "../build/types";
 import { BaseAssetCurveStruct, SandboxControllerConfigurationStruct } from "../build/types/SandboxController";
 
 import { parseEther } from "ethers/lib/utils";
-import { BigNumberish } from "ethers";
 
 describe("3. SandboxController", function () {
   let owner: any;
@@ -1419,107 +1418,90 @@ describe("3. SandboxController", function () {
   });
 
   describe("Reserve Commission and Thresholds", function () {
-    describe("setReserveCommissions", function () {
+    describe("setMarketStateCommissions", function () {
       it("reverts if caller is not owner", async function () {
-        const newReserveCommissions: [BigNumberish, BigNumberish, BigNumberish] = [
-          parseEther("0.5").toString(),
-          parseEther("0.3").toString(),
-          parseEther("0.2").toString(),
-        ];
-        await expect(sandboxController.connect(dao).setReserveCommissions(newReserveCommissions)).to.be.revertedWithCustomError(
+        await expect(
+          sandboxController.connect(attacker).setMarketStateCommissions(0, parseEther("0.5"), parseEther("0.2"))
+        ).to.be.revertedWithCustomError(sandboxController, "NotOwner");
+      });
+
+      it("reverts for dao (if caller is not owner)", async function () {
+        await expect(
+          sandboxController.connect(dao).setMarketStateCommissions(0, parseEther("0.5"), parseEther("0.2"))
+        ).to.be.revertedWithCustomError(sandboxController, "NotOwner");
+      });
+
+      it("reverts if sum of commissions exceed 80% (pair 1)", async function () {
+        await expect(
+          sandboxController.setMarketStateCommissions(0, parseEther("0.5").add(1), parseEther("0.3"))
+        ).to.be.revertedWithCustomError(sandboxController, "InvalidCommissions");
+        await expect(
+          sandboxController.setMarketStateCommissions(0, parseEther("0.5"), parseEther("0.3").add(1))
+        ).to.be.revertedWithCustomError(sandboxController, "InvalidCommissions");
+      });
+
+      it("reverts if sum of commissions exceed 80% (pair 2)", async function () {
+        await expect(
+          sandboxController.setMarketStateCommissions(1, parseEther("0.5").add(1), parseEther("0.3"))
+        ).to.be.revertedWithCustomError(sandboxController, "InvalidCommissions");
+        await expect(
+          sandboxController.setMarketStateCommissions(1, parseEther("0.5"), parseEther("0.3").add(1))
+        ).to.be.revertedWithCustomError(sandboxController, "InvalidCommissions");
+      });
+
+      it("reverts if sum of commissions exceed 80% (pair 3)", async function () {
+        await expect(
+          sandboxController.setMarketStateCommissions(2, parseEther("0.5").add(1), parseEther("0.3"))
+        ).to.be.revertedWithCustomError(sandboxController, "InvalidCommissions");
+        await expect(
+          sandboxController.setMarketStateCommissions(2, parseEther("0.5"), parseEther("0.3").add(1))
+        ).to.be.revertedWithCustomError(sandboxController, "InvalidCommissions");
+      });
+
+      it("reverts if index is greater than number of states", async function () {
+        await expect(sandboxController.setMarketStateCommissions(4, parseEther("0.5"), parseEther("0.3"))).to.be.revertedWithCustomError(
           sandboxController,
-          "NotOwner"
-        );
-        await expect(sandboxController.connect(attacker).setReserveCommissions(newReserveCommissions)).to.be.revertedWithCustomError(
-          sandboxController,
-          "NotOwner"
+          "IncorrectIndex"
         );
       });
 
-      it("reverts if any new reserve commission causes sum with protocol commission to exceed 80%", async function () {
-        const newReserveCommissions: [BigNumberish, BigNumberish, BigNumberish] = [
-          parseEther("0.800000000000000001").toString(),
-          parseEther("0.3").toString(),
-          parseEther("0.2").toString(),
-        ];
-        await expect(sandboxController.connect(owner).setReserveCommissions(newReserveCommissions)).to.be.revertedWithCustomError(
-          sandboxController,
-          "InvalidCommissions"
-        );
+      it("updates reserve commissions (pair 1) and emits events", async function () {
+        let commissionsBefore = [await sandboxController.reserveCommission(0), await sandboxController.protocolCommission(0)];
+        let commissionsToSet = [parseEther("0.5"), parseEther("0.3")];
+        expect(await sandboxController.setMarketStateCommissions(0, commissionsToSet[0], commissionsToSet[1]))
+          .to.emit(sandboxController, "CommissionChanged")
+          .withArgs(0, commissionsBefore[0], commissionsToSet[0], commissionsBefore[1], commissionsToSet[1]);
+
+        expect(await sandboxController.reserveCommission(0)).to.equal(commissionsToSet[0]);
+        expect(await sandboxController.protocolCommission(0)).to.equal(commissionsToSet[1]);
       });
 
-      it("updates reserve commissions and emits events", async function () {
-        const newReserveCommissions: [BigNumberish, BigNumberish, BigNumberish] = [
-          parseEther("0.5").toString(),
-          parseEther("0.3").toString(),
-          parseEther("0.2").toString(),
-        ];
-        const tx = await sandboxController.connect(owner).setReserveCommissions(newReserveCommissions);
-        const rcpt = await tx.wait();
-        const events = rcpt.events.filter((e: any) => e.event === "ReserveCommissionChanged");
-        expect(events.length).to.equal(3);
-        const oldValue = [exp(0.01, 18).toString(), exp(0.02, 18).toString(), exp(0.03, 18).toString()];
-        for (let i = 0; i < 3; i++) {
-          expect(events[i].args.state).to.equal(i);
-          expect(events[i].args.oldValue).to.equal(oldValue[i]);
-          expect(events[i].args.newValue).to.equal(newReserveCommissions[i]);
-          const value = await sandboxController.reserveCommission(i);
-          expect(value).to.equal(newReserveCommissions[i]);
-        }
-      });
-    });
+      it("updates reserve commissions (pair 2) and emits events", async function () {
+        let commissionsBefore = [await sandboxController.reserveCommission(1), await sandboxController.protocolCommission(1)];
+        let commissionsToSet = [parseEther("0.5"), parseEther("0.3")];
+        expect(await sandboxController.setMarketStateCommissions(1, commissionsToSet[0], commissionsToSet[1]))
+          .to.emit(sandboxController, "CommissionChanged")
+          .withArgs(0, commissionsBefore[0], commissionsToSet[0], commissionsBefore[1], commissionsToSet[1]);
 
-    describe("setProtocolCommissions", function () {
-      it("reverts if caller is not owner", async function () {
-        const protocolCommissions: [BigNumberish, BigNumberish, BigNumberish] = [
-          parseEther("0.4").toString(),
-          parseEther("0.2").toString(),
-          parseEther("0.1").toString(),
-        ];
-        await expect(sandboxController.connect(dao).setProtocolCommissions(protocolCommissions)).to.be.revertedWithCustomError(
-          sandboxController,
-          "NotOwner"
-        );
-        await expect(sandboxController.connect(attacker).setProtocolCommissions(protocolCommissions)).to.be.revertedWithCustomError(
-          sandboxController,
-          "NotOwner"
-        );
+        expect(await sandboxController.reserveCommission(1)).to.equal(commissionsToSet[0]);
+        expect(await sandboxController.protocolCommission(1)).to.equal(commissionsToSet[1]);
       });
 
-      it("reverts if any new protocol commission causes sum with reserve commission to exceed 80%", async function () {
-        await sandboxController
-          .connect(owner)
-          .setReserveCommissions([parseEther("0.1").toString(), parseEther("0.3").toString(), parseEther("0.1").toString()]);
+      it("updates reserve commissions (pair 3) and emits events", async function () {
+        let commissionsBefore = [await sandboxController.reserveCommission(2), await sandboxController.protocolCommission(2)];
+        let commissionsToSet = [parseEther("0.5"), parseEther("0.3")];
+        expect(await sandboxController.setMarketStateCommissions(2, commissionsToSet[0], commissionsToSet[1]))
+          .to.emit(sandboxController, "CommissionChanged")
+          .withArgs(0, commissionsBefore[0], commissionsToSet[0], commissionsBefore[1], commissionsToSet[1]);
 
-        const protocolCommissions: [BigNumberish, BigNumberish, BigNumberish] = [
-          parseEther("0.1").toString(),
-          parseEther("0.600000000000000001"),
-          parseEther("0.1").toString(),
-        ];
-        await expect(sandboxController.connect(owner).setProtocolCommissions(protocolCommissions)).to.be.revertedWithCustomError(
-          sandboxController,
-          "InvalidCommissions"
-        );
+        expect(await sandboxController.reserveCommission(2)).to.equal(commissionsToSet[0]);
+        expect(await sandboxController.protocolCommission(2)).to.equal(commissionsToSet[1]);
       });
 
-      it("updates protocol commissions and emits events", async function () {
-        const newProtocolCommissions: [BigNumberish, BigNumberish, BigNumberish] = [
-          parseEther("0.4").toString(),
-          parseEther("0.2").toString(),
-          parseEther("0.1").toString(),
-        ];
-        const tx = await sandboxController.connect(owner).setProtocolCommissions(newProtocolCommissions);
-        const rcpt = await tx.wait();
-        const events = rcpt.events.filter((e: any) => e.event === "ProtocolCommissionChanged");
-        expect(events.length).to.equal(3);
-        const oldValue = [exp(0.01, 18).toString(), exp(0.02, 18).toString(), exp(0.03, 18).toString()];
-        for (let i = 0; i < 3; i++) {
-          expect(events[i].args.state).to.equal(i);
-          expect(events[i].args.oldValue).to.equal(oldValue[i]);
-          expect(events[i].args.newValue).to.equal(newProtocolCommissions[i]);
-          const value = await sandboxController.protocolCommission(i);
-          expect(value).to.equal(newProtocolCommissions[i]);
-        }
+      it("allows to set 0 commissions", async function () {
+        await expect(sandboxController.setMarketStateCommissions(0, 0, 0)).to.not.be.reverted;
+        await expect(sandboxController.setMarketStateCommissions(1, 0, 0)).to.not.be.reverted;
+        await expect(sandboxController.setMarketStateCommissions(2, 0, 0)).to.not.be.reverted;
       });
     });
   });
