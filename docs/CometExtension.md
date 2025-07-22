@@ -194,14 +194,14 @@ The length of the amounts array must match the number of assets (baseToken + col
 function approveAll(address spender, bool approved) external
 ```
 
-Single time approve for the whole balance of the base asset
+Approve or revoke the ability for a spender to transfer all base tokens
 
 #### Parameters
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-| spender | address | The spender of the baseToken balance |
-| approved | bool | Flag to set |
+| spender | address | The address of the account which may transfer all base tokens |
+| approved | bool | Whether the spender is approved or revoked |
 
 ### allowBySig
 
