@@ -234,8 +234,9 @@ describe.skip("15. quoteCollateral", function () {
 
     const pctReserve = exp(0.05, 18);
     const pctProtocol = exp(0.03, 18);
-    await sandboxController.setReserveCommissions([pctReserve, pctReserve, pctReserve]);
-    await sandboxController.setProtocolCommissions([pctProtocol, pctProtocol, pctProtocol]);
+    await sandboxController.setMarketStateCommissions(0, pctReserve, pctProtocol);
+    await sandboxController.setMarketStateCommissions(1, pctReserve, pctProtocol);
+    await sandboxController.setMarketStateCommissions(2, pctReserve, pctProtocol);
 
     const baseAmount = exp(100_000_000, 6);
     const assetScale = exp(1, 18);

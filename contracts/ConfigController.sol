@@ -130,7 +130,7 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
             if (_curatorProposalDuration > maxUpdateTime || _proposalDuration > maxUpdateTime) revert ProposalDurationTooLong();
         }
 
-        /// Zero address is checked in Controller
+        /// Zero address is checked in Controller Factory
         owner = _owner; // aderyn-fp(state-no-address-check)
         guardian = _guardian; // aderyn-fp(state-no-address-check)
 
@@ -213,6 +213,7 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
         comets.push(comet);
         cometId[comet] = cometsNum;
 
+        /// TODO: seed reserves logic will be adjusted
         if (_sandboxConfig.suggestedAmountOfSeedReserves > 0) {
             IERC20(_cometConfig.baseToken).safeTransferFrom(msg.sender, comet, _sandboxConfig.suggestedAmountOfSeedReserves);
         }
@@ -390,7 +391,7 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
     /// @return True if the comet is owned by this controller
     function _isCometOwned(address comet) internal view returns (bool) {
         if (cometsLength() == 0) return false;
-        return comets[cometId[comet]] != comet;
+        return comets[cometId[comet]] == comet;
     }
 }
 // Test comment

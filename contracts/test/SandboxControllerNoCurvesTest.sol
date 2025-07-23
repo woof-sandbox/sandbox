@@ -12,30 +12,10 @@ contract SandboxControllerNoCurvesTest is SandboxController {
         address _dao,
         address _treasury,
         bool _feeEnabled,
-        uint64 _targetPercent,
-        uint64 _storeFrontPriceFactor,
-        uint40 _minUpdateTime,
-        uint40 _maxUpdateTime,
-        uint256 _suggestedAmountOfSeedReserves,
-        uint40 _suggestedLockTimeOfSeedReserves,
+        SandboxControllerConfiguration memory _config,
         uint64[3] memory _reserveCommissions,
         uint64[3] memory _protocolCommissions
-    )
-        SandboxController(
-            _owner,
-            _dao,
-            _treasury,
-            _feeEnabled,
-            _targetPercent,
-            _storeFrontPriceFactor,
-            _minUpdateTime,
-            _maxUpdateTime,
-            _suggestedAmountOfSeedReserves,
-            _suggestedLockTimeOfSeedReserves,
-            _reserveCommissions,
-            _protocolCommissions
-        )
-    {}
+    ) SandboxController(_owner, _dao, _treasury, _feeEnabled, _config, _reserveCommissions, _protocolCommissions) {}
 
     function whitelistBaseAssetWithNoCurve(address token, address priceFeed) external {
         /// @dev this token is already whitelisted
