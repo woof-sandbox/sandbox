@@ -75,8 +75,8 @@ contract HelperConfig is Script {
                 wbtcPriceFeed: 0x651D96AfbeE282C1D58ECFce0D2dd8515255e020,
                 compPriceFeed: 0x9d82DcF7Fe854EBCE8AF6D0B2206E2Cfb62a8EcE,
                 linkPriceFeed: 0x62E979Ddfc74A6d4E23624cF1EdF0612E501c7a5,
-                comet1: 0x95e4aAc15FEE4230F843573a8c964a84D048993C,
-                comet2: 0x4aF65880b66F9615D2A5f873a091A7a2F0e63812
+                comet1: 0x14Bc5e66FF4e49D18bFf96C11d72A894DF285e5f,
+                comet2: 0xCE56294c40E8f479F709F207870c41450070C611
             });
     }
 

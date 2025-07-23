@@ -28,7 +28,7 @@ contract DeployProtocol is Script {
         address baseLender = vm.addr(baseLenderPrivateKey);
         address borrower = vm.addr(borrowerPrivateKey);
 
-        uint256 borrowAmount = 150e6;
+        uint256 borrowAmount = 50e6;
 
         // Initialize arrays with correct sizes
 
@@ -36,8 +36,8 @@ contract DeployProtocol is Script {
         collateralTokens[0] = config.weth;
         collateralTokens[1] = config.wbtc;
         uint256[] memory collateralAmounts = new uint256[](4);
-        collateralAmounts[0] = 0.01 ether; // 0.01 WETH
-        collateralAmounts[1] = 0.00001e18; // 0.00001 WBTC
+        collateralAmounts[0] = 0.001 ether; // 0.001 WETH
+        collateralAmounts[1] = 0.001e8; // 0.001 WBTC
 
         lendCollaterals(config.comet1, collateralTokens, collateralAmounts, lender);
         lendBaseToken(config.comet1, config.usdc, 500e6, baseLender);
