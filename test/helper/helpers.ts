@@ -153,9 +153,8 @@ export type Protocol = {
 };
 
 export interface SandboxControllerOpts {
-  admin?: any;
-  dao?: any;
-  treasury?: any;
+  dao?: SignerWithAddress;
+  treasury?: string;
   feeEnabled?: boolean;
   config?: SandboxControllerConfigurationStruct;
   reserveCommissions?: [bigint, bigint, bigint];
@@ -355,7 +354,6 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Par
   const suggestedAmountOfSeedReserves = dfn(opts.suggestedAmountOfSeedReserves, "100000000");
 
   const sandboxControllerOpts = defaultSandboxControllerOpts({
-    admin: owner,
     dao: dao,
     feeEnabled: false,
     config: {
@@ -647,7 +645,6 @@ export async function makeToken(opts: TokenOpts = {}): Promise<FaucetToken> {
 
 export function defaultSandboxControllerOpts(partial?: Partial<SandboxControllerOpts>): SandboxControllerOpts {
   return {
-    admin: partial?.admin,
     dao: partial?.dao,
     treasury: partial?.treasury,
     feeEnabled: partial?.feeEnabled ?? false,
@@ -693,21 +690,18 @@ export async function makeOnlyConfigController(
 
 export async function makeSandboxController(opts: SandboxControllerOpts, factory?): Promise<SandboxControllerInfo> {
   const signers = await ethers.getSigners();
-  const admin = opts.admin || signers[0];
   const dao = opts.dao || signers[1];
-  const treasury = opts.treasury || signers[2];
+  const treasury = opts.treasury || signers[2].address;
 
-  let SandboxControllerFactory;
+  let SandboxControllerFactory: SandboxController__factory;
   if (factory) {
     SandboxControllerFactory = factory;
   } else {
-    SandboxControllerFactory = (await ethers.getContractFactory("SandboxController")) as SandboxController__factory;
+    SandboxControllerFactory = (await ethers.getContractFactory("SandboxController", dao)) as SandboxController__factory;
   }
 
   const sandboxController = await SandboxControllerFactory.deploy(
-    admin.address || admin,
-    dao.address || dao,
-    treasury.address || treasury,
+    treasury,
     opts.feeEnabled,
     opts.config,
     opts.reserveCommissions,
