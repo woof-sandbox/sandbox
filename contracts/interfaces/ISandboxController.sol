@@ -75,7 +75,6 @@ interface ISandboxController is ISandboxErrors {
     event TreasuryChanged(address oldTreasury, address newTreasury);
     event ConfigurationChanged(SandboxControllerConfiguration oldConfig, SandboxControllerConfiguration newConfig);
     event FeeEnabledSet(bool feeEnabled);
-    event OwnerTransferred(address oldOwner, address newOwner);
     event DaoTransferred(address oldDao, address newDao);
     event DaoProposed(address currentDao, address proposedDao);
     event ContractorGranted(address oldContractor, address newContractor);
