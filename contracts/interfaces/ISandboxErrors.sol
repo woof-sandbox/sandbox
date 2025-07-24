@@ -15,6 +15,7 @@ interface ISandboxErrors {
     error WrongPriceFeedUnderlying();
     error InvalidFactors();
     error InvalidCommissions();
+    error IncorrectIndex();
 
     error Unauthorized();
     error NotOwner(address caller);
