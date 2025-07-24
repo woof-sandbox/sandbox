@@ -2,6 +2,7 @@
 pragma solidity 0.8.28;
 
 import "./IConfigController.sol";
+import { ICometStructures } from "./ICometStructures.sol";
 
 /**
  * @title Compound's Comet Main Interface (without Ext)
@@ -83,7 +84,7 @@ interface ISandboxComet {
 
     function targetReserves() external view returns (uint);
 
-    function getAssetInfo(uint8 i) public view returns (CollateralAsset memory);
+    function getAssetInfo(uint8 i) external view returns (ICometStructures.CollateralAsset memory);
 
-    function getAssetInfoByAddress(address asset) public view returns (CollateralAsset memory, uint8 index);
+    function getAssetInfoByAddress(address asset) external view returns (ICometStructures.CollateralAsset memory, uint8 index);
 }
