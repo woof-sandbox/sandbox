@@ -92,7 +92,7 @@ function maxAssets() external pure returns (uint8)
 ### totalsBasic
 
 ```solidity
-function totalsBasic() public view returns (struct CometStorage.TotalsBasic)
+function totalsBasic() public view returns (struct ICometStructures.TotalsBasic)
 ```
 
 Aggregate variables tracked for the entire market
@@ -168,10 +168,10 @@ Approve a spender to transfer a specific amount of an asset on behalf of the sen
 | asset | address | The address of the asset being approved |
 | amount | uint256 | The amount of the asset that the spender is allowed to manage |
 
-### approveAll
+### approveAllTokens
 
 ```solidity
-function approveAll(address spender, uint256 baseTokenAmount, uint256[] amounts) external
+function approveAllTokens(address spender, uint256 baseTokenAmount, uint256[] amounts) external
 ```
 
 Approve a spender to transfer multiple amounts of assets on behalf of the sender
@@ -187,6 +187,21 @@ The length of the amounts array must match the number of assets (baseToken + col
 | spender | address | The address of the account which may transfer tokens |
 | baseTokenAmount | uint256 |  |
 | amounts | uint256[] | The amounts of each asset that the spender is allowed to manage |
+
+### approveAll
+
+```solidity
+function approveAll(address spender, bool approved) external
+```
+
+Approve or revoke the ability for a spender to transfer all base tokens
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| spender | address | The address of the account which may transfer all base tokens |
+| approved | bool | Whether the spender is approved or revoked |
 
 ### allowBySig
 

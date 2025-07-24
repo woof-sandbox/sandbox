@@ -2,6 +2,7 @@
 pragma solidity 0.8.28;
 
 import "./IConfigController.sol";
+import { ICometStructures } from "./ICometStructures.sol";
 
 /**
  * @title Compound's Comet Main Interface (without Ext)
@@ -15,11 +16,13 @@ interface ISandboxComet {
 
     function supplyFrom(address from, address dst, address asset, uint256 amount) external;
 
+    function repayAllFrom(address from, address dst) external;
+
     function transfer(address dst, uint256 amount) external returns (bool);
 
     function transferFrom(address src, address dst, uint256 amount) external returns (bool);
 
-    function transferAsset(address dst, address asset, uint256 amount) external;
+    function transferAllFrom(address src, address dst) external;
 
     function transferAssetFrom(address src, address dst, address asset, uint256 amount) external;
 
@@ -28,6 +31,8 @@ interface ISandboxComet {
     function withdrawTo(address to, address asset, uint256 amount) external;
 
     function withdrawFrom(address src, address to, address asset, uint256 amount) external;
+
+    function withdrawAllFrom(address src, address to) external;
 
     function factoryInit(address, address) external;
 
@@ -78,4 +83,8 @@ interface ISandboxComet {
     function getUtilization() external view returns (uint);
 
     function targetReserves() external view returns (uint);
+
+    function getAssetInfo(uint8 i) external view returns (ICometStructures.CollateralAsset memory);
+
+    function getAssetInfoByAddress(address asset) external view returns (ICometStructures.CollateralAsset memory, uint8 index);
 }
