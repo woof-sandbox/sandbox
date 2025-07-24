@@ -59,6 +59,7 @@ address contractor
 ```
 
 20 bytes
+contractor address. This is the address that will be able to call the functions that require the contractor role.
 
 ### proposedDao
 
@@ -67,6 +68,7 @@ address proposedDao
 ```
 
 20 bytes
+proposedDao address. This is the address that will be able to accept the dao role.
 
 ### feeEnabled
 
