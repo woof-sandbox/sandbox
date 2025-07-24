@@ -63,7 +63,7 @@ _Unsets the reentrancy flag_
 ### getAssetInfo
 
 ```solidity
-function getAssetInfo(uint8 i) public view returns (struct CometStorage.CollateralAsset)
+function getAssetInfo(uint8 i) public view returns (struct ICometStructures.CollateralAsset)
 ```
 
 Get the i-th asset info, according to the order they were passed in originally
@@ -78,12 +78,12 @@ Get the i-th asset info, according to the order they were passed in originally
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-| [0] | struct CometStorage.CollateralAsset | The asset info object |
+| [0] | struct ICometStructures.CollateralAsset | The asset info object |
 
 ### getAssetInfoByAddress
 
 ```solidity
-function getAssetInfoByAddress(address asset) public view returns (struct CometStorage.CollateralAsset, uint8 index)
+function getAssetInfoByAddress(address asset) public view returns (struct ICometStructures.CollateralAsset, uint8 index)
 ```
 
 _Determine index of asset that matches given address_
@@ -429,7 +429,7 @@ _Update assetsIn bit vector if user has entered or exited an asset_
 ### updateBasePrincipal
 
 ```solidity
-function updateBasePrincipal(address account, struct CometStorage.UserBasic basic, int104 principalNew) internal
+function updateBasePrincipal(address account, struct ICometStructures.UserBasic basic, int104 principalNew) internal
 ```
 
 _Write updated principal to store and tracking participation_

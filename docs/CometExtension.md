@@ -92,7 +92,7 @@ function maxAssets() external pure returns (uint8)
 ### totalsBasic
 
 ```solidity
-function totalsBasic() public view returns (struct CometStorage.TotalsBasic)
+function totalsBasic() public view returns (struct ICometStructures.TotalsBasic)
 ```
 
 Aggregate variables tracked for the entire market
