@@ -22,7 +22,7 @@ contract SandboxController is ISandboxController {
     /// @notice owner address. This is the address that will be able to call the functions that require the owner role.
     /// @notice dao address. This is the address that will be able to call the functions that require the dao role.
     address public override dao; /// 20 bytes
-    /// @notice contractor address. This is the address that will be able to call the functions that require the contractor role.
+    /// @notice The address of the contractor that will support role to change existing curve params on assets or adding new ones.
     address public override contractor; /// 20 bytes
     /// @notice proposedDao address. This is the address that will be able to accept the dao role.
     address public override proposedDao; /// 20 bytes
