@@ -22,7 +22,9 @@ contract SandboxController is ISandboxController {
     /// @notice owner address. This is the address that will be able to call the functions that require the owner role.
     /// @notice dao address. This is the address that will be able to call the functions that require the dao role.
     address public override dao; /// 20 bytes
+    /// @notice contractor address. This is the address that will be able to call the functions that require the contractor role.
     address public override contractor; /// 20 bytes
+    /// @notice proposedDao address. This is the address that will be able to accept the dao role.
     address public override proposedDao; /// 20 bytes
     /// @notice feeEnabled flag. This is the flag that will be used to enable/disable the fees for all markets.
     bool public override feeEnabled; /// 1 byte
