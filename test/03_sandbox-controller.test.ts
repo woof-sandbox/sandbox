@@ -21,7 +21,7 @@ import { BaseAssetCurveStruct, SandboxControllerConfigurationStruct } from "../b
 import { parseEther } from "ethers/lib/utils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
-describe.only("3. SandboxController", function () {
+describe("3. SandboxController", function () {
   let owner: SignerWithAddress;
   let dao: SignerWithAddress;
   let attacker: SignerWithAddress;
