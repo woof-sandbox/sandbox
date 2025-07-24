@@ -20,9 +20,10 @@ contract SandboxController is ISandboxController {
     /// @notice treasury address. This is the address that will receive the fees.
     address public treasury; /// 20 bytes
     /// @notice owner address. This is the address that will be able to call the functions that require the owner role.
-    address public override owner; /// 20 bytes
     /// @notice dao address. This is the address that will be able to call the functions that require the dao role.
     address public override dao; /// 20 bytes
+    address public override contractor; /// 20 bytes
+    address public override proposedDao; /// 20 bytes
     /// @notice feeEnabled flag. This is the flag that will be used to enable/disable the fees for all markets.
     bool public override feeEnabled; /// 1 byte
     /// @notice controller configuration.
@@ -56,14 +57,6 @@ contract SandboxController is ISandboxController {
     mapping(address => CollateralAssetConfiguration) internal _collateralAssets;
 
     /**
-     * @dev Modifier to check if the caller is the owner.
-     */
-    modifier onlyOwner() {
-        if (msg.sender != owner) revert NotOwner(msg.sender);
-        _;
-    }
-
-    /**
      * @dev Modifier to check if the caller is the DAO.
      */
     modifier onlyDao() {
@@ -72,20 +65,16 @@ contract SandboxController is ISandboxController {
     }
 
     /**
-     * @dev Both owner and dao are considered "authorized."
-     *      If you want them to have separate powers, use onlyOwner or onlyDao
-     *      in the relevant functions. For shared powers, use onlyAuthorized.
+     * @dev Both contractor and dao are considered "authorized."
      */
     modifier onlyAuthorized() {
-        if (msg.sender != owner && msg.sender != dao) revert Unauthorized();
+        if (msg.sender != contractor && msg.sender != dao) revert Unauthorized();
         _;
     }
 
     /**
      * @dev Set all global parameters (including owner and DAO) at deployment.
      *
-     * @param _owner  The address of the protocol owner.
-     * @param _dao    The address of the DAO (governance).
      * @param _treasury The address of the treasury.
      * @param _feeEnabled Global fee flag for the entire protocol.
      * @param _config SanboxController config:
@@ -99,18 +88,16 @@ contract SandboxController is ISandboxController {
      * @param _reserveCommissions The reserve commission factors for each market state.
      * @param _protocolCommissions The protocol commission factors for each market state.
      * @dev The length of the `_reserveCommissions` and `_protocolCommissions` arrays must be 3.
+     * @dev Deployer becomes the DAO.
      */
     constructor(
-        address _owner,
-        address _dao,
         address _treasury,
         bool _feeEnabled,
         SandboxControllerConfiguration memory _config,
         uint64[MARKET_STATES] memory _reserveCommissions,
         uint64[MARKET_STATES] memory _protocolCommissions
     ) {
-        if (_owner == address(0) || _dao == address(0) || _treasury == address(0)) revert ZeroAddress();
-        if (_owner == _dao) revert IncorrectSetting();
+        if (_treasury == address(0)) revert ZeroAddress();
 
         /// Function will revert on incorrect setting
         _validateConfig(_config);
@@ -128,8 +115,7 @@ contract SandboxController is ISandboxController {
         reserveCommission = _reserveCommissions;
         protocolCommission = _protocolCommissions;
 
-        owner = _owner;
-        dao = _dao;
+        dao = msg.sender;
         feeEnabled = _feeEnabled;
         treasury = _treasury;
 
@@ -146,7 +132,7 @@ contract SandboxController is ISandboxController {
      * @param _reserveCommission The new reserve commission factor, scaled by 1e18 (100%).
      * @param _protocolCommission The new protocol commission factor, scaled by 1e18 (100%).
      */
-    function setMarketStateCommissions(uint8 _index, uint64 _reserveCommission, uint64 _protocolCommission) external override onlyOwner {
+    function setMarketStateCommissions(uint8 _index, uint64 _reserveCommission, uint64 _protocolCommission) external override onlyDao {
         if (_index >= MARKET_STATES) revert IncorrectIndex();
 
         /// Check if the sum of the `reserveCommission` and the `protocolCommission` is less than 80%
@@ -174,7 +160,7 @@ contract SandboxController is ISandboxController {
      * @dev This function is only callable by the owner.
      * @dev The `treasury` address can`t be zero address.
      */
-    function setTreasury(address _treasury) external override onlyOwner {
+    function setTreasury(address _treasury) external override onlyDao {
         if (_treasury == address(0)) revert ZeroAddress();
         if (_treasury == treasury) revert IncorrectSetting();
 
@@ -236,7 +222,7 @@ contract SandboxController is ISandboxController {
         address priceFeed,
         BaseAssetCurve memory baseAssetCurve,
         uint256 minBorrow
-    ) external override onlyAuthorized {
+    ) external override onlyDao {
         /// @dev token and priceFeed are not zero address
         if (token == address(0) || priceFeed == address(0)) revert ZeroAddress();
 
@@ -293,7 +279,7 @@ contract SandboxController is ISandboxController {
         uint64 maxLiquidateCollateralFactor,
         uint64 minLiquidationFactor,
         uint64 maxLiquidationFactor
-    ) external override onlyAuthorized {
+    ) external override onlyDao {
         /// @dev token and priceFeed are not zero address
         if (token == address(0) || priceFeed == address(0)) revert ZeroAddress();
 
@@ -386,7 +372,7 @@ contract SandboxController is ISandboxController {
      * @param curveIndex The index of the curve to update.
      * @param newCurve The updated interest rate curve.
      */
-    function changeBaseAssetCurve(address token, uint256 curveIndex, BaseAssetCurve calldata newCurve) external override onlyDao {
+    function changeBaseAssetCurve(address token, uint256 curveIndex, BaseAssetCurve calldata newCurve) external override onlyAuthorized {
         if (token == address(0)) revert ZeroAddress();
         if (!isBaseTokenWhitelisted(token)) revert BaseTokenNotWhitelisted();
         if (curveIndex >= _baseAssets[token].baseAssetCurves.length || !isCurveConfigurationValid(newCurve))
@@ -427,7 +413,7 @@ contract SandboxController is ISandboxController {
      * @dev Emitted when a base asset is whitelisted.
      * @param _config Configuration of the sandbox controller.
      */
-    function setConfiguration(SandboxControllerConfiguration calldata _config) external override onlyOwner {
+    function setConfiguration(SandboxControllerConfiguration calldata _config) external override onlyDao {
         _validateConfig(_config);
 
         emit ConfigurationChanged(_controllerConfiguration, _config);
@@ -438,7 +424,7 @@ contract SandboxController is ISandboxController {
      * @dev Validates global config and reverts on incorrect values
      * @param _config Configuration of the sandbox controller.
      */
-    function _validateConfig(SandboxControllerConfiguration memory _config) internal {
+    function _validateConfig(SandboxControllerConfiguration memory _config) internal pure {
         if (
             _config.targetPercent > MAX_TARGET_PERCENT || /// not bigger than 50%.
             _config.storeFrontPriceFactor > PARAMETERS_SCALE /// not bigger than 100%.
@@ -455,27 +441,40 @@ contract SandboxController is ISandboxController {
     }
 
     /**
-     * @notice Transfers the owner privileges to a new address.
-     * @param newOwner The address of the new owner.
+     * @notice Proposes a new DAO address.
+     * @param _proposedDao The address of the proposed new DAO.
      */
-    function transferOwner(address newOwner) external override onlyOwner {
-        if (newOwner == address(0)) revert ZeroAddress();
-        if (newOwner == owner) revert IncorrectSetting();
+    function proposeDao(address _proposedDao) external onlyDao {
+        if (_proposedDao == address(0)) revert ZeroAddress();
+        if (_proposedDao == dao) revert IncorrectSetting();
 
-        emit OwnerTransferred(owner, newOwner);
-        owner = newOwner;
+        emit DaoProposed(dao, _proposedDao);
+        proposedDao = _proposedDao;
     }
 
     /**
-     * @notice Transfers the DAO privileges to a new address.
-     * @param newDao The address of the new DAO.
+     * @notice Accepts the DAO privileges by the proposed DAO address.
+     * @dev This function can only be called by the proposed DAO address.
      */
-    function transferDao(address newDao) external override onlyDao {
-        if (newDao == address(0)) revert ZeroAddress();
-        if (newDao == dao) revert IncorrectSetting();
+    function acceptDao() external {
+        if (msg.sender != proposedDao) revert NotProposedDao(msg.sender);
 
-        emit DaoTransferred(dao, newDao);
-        dao = newDao;
+        emit DaoTransferred(dao, proposedDao);
+
+        dao = proposedDao;
+        proposedDao = address(0);
+    }
+
+    /**
+     * @notice Grants the contractor role to a new address.
+     * @notice Contractor can be set to zero address.
+     * @param _newContractor The address of the new contractor.
+     * @dev This function can only be called by the DAO.
+     */
+    function grantContractorRole(address _newContractor) external onlyDao {
+        emit ContractorGranted(contractor, _newContractor);
+
+        contractor = _newContractor;
     }
 
     ///

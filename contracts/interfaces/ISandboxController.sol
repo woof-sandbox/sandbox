@@ -77,12 +77,16 @@ interface ISandboxController is ISandboxErrors {
     event FeeEnabledSet(bool feeEnabled);
     event OwnerTransferred(address oldOwner, address newOwner);
     event DaoTransferred(address oldDao, address newDao);
+    event DaoProposed(address currentDao, address proposedDao);
+    event ContractorGranted(address oldContractor, address newContractor);
 
     function treasury() external view returns (address);
 
-    function owner() external view returns (address);
-
     function dao() external view returns (address);
+
+    function contractor() external view returns (address);
+
+    function proposedDao() external view returns (address);
 
     function feeEnabled() external view returns (bool);
 
@@ -121,9 +125,9 @@ interface ISandboxController is ISandboxErrors {
 
     function setFeeEnabled(bool _feeEnabled) external;
 
-    function transferOwner(address newOwner) external;
+    function proposeDao(address _proposedDao) external;
 
-    function transferDao(address newDao) external;
+    function acceptDao() external;
 
     function isBaseTokenWhitelisted(address token) external view returns (bool);
 

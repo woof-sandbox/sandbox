@@ -8,14 +8,12 @@ import "../SandboxController.sol";
  */
 contract SandboxControllerNoCurvesTest is SandboxController {
     constructor(
-        address _owner,
-        address _dao,
         address _treasury,
         bool _feeEnabled,
         SandboxControllerConfiguration memory _config,
         uint64[3] memory _reserveCommissions,
         uint64[3] memory _protocolCommissions
-    ) SandboxController(_owner, _dao, _treasury, _feeEnabled, _config, _reserveCommissions, _protocolCommissions) {}
+    ) SandboxController(_treasury, _feeEnabled, _config, _reserveCommissions, _protocolCommissions) {}
 
     function whitelistBaseAssetWithNoCurve(address token, address priceFeed) external {
         /// @dev this token is already whitelisted
