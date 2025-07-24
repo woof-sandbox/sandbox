@@ -59,7 +59,7 @@ address contractor
 ```
 
 20 bytes
-contractor address. This is the address that will be able to call the functions that require the contractor role.
+The address of the contractor that will support role to change existing curve params on assets or adding new ones.
 
 ### proposedDao
 
