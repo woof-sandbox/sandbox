@@ -43,7 +43,7 @@ contract DeployProtocol is Script {
         address configControllerImplementation = deployConfigControllerImplementation();
 
         // Deploy SandboxController
-        address sandboxController = deploySandboxController(owner);
+        address sandboxController = deploySandboxController();
 
         // Deploy factories
         address configControllerFactory = deployConfigControllerFactory(sandboxController, configControllerImplementation);
@@ -178,19 +178,21 @@ contract DeployProtocol is Script {
         return address(configControllerFactory);
     }
 
-    function deploySandboxController(address owner) internal returns (address) {
+    function deploySandboxController() internal returns (address) {
+        // Create SandboxController configuration
+        ISandboxController.SandboxControllerConfiguration memory config = ISandboxController.SandboxControllerConfiguration({
+            targetPercent: 2e17, // 20%
+            storeFrontPriceFactor: 6e17, // 60%
+            minUpdateTime: 300, // 5 minutes
+            maxUpdateTime: 3600, // 1 hour
+            suggestedAmountOfSeedReserves: 250, // 250 tokens
+            suggestedLockTimeOfSeedReserves: 3600 // 1 hour
+        });
         // Deploy SandboxController with valid parameters
         SandboxController sandboxController = new SandboxController(
-            owner, // owner
-            address(1), // dao (different from owner)
             address(2), // treasury (for now random address)
             true, // feeEnabled
-            2e17, // targetPercent (20%)
-            6e17, // storeFrontPriceFactor (60%)
-            300, // minUpdateTime (5 minutes)
-            3600, // maxUpdateTime (1 hour)
-            250, // suggestedAmountOfSeedReserves
-            3600, // suggestedLockTimeOfSeedReserves (1 hour)
+            config,
             [uint64(4e16), uint64(3e16), uint64(2e16)], // reserveCommissions
             [uint64(4e16), uint64(3e16), uint64(2e16)] // protocolCommissions
         );
