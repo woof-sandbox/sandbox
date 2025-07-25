@@ -80,8 +80,9 @@ interface IConfigController is IConfigControllerStructs {
     /// @dev Only callable by the owner
     /// @param _calldata The calldata of the proposal
     /// @param _proposalType The type of the proposal
+    /// @param _comet The comet address
     /// @return The id of the newly created proposal
-    function createProposal(bytes memory _calldata, uint8 _proposalType) external returns (uint256);
+    function createProposal(bytes memory _calldata, address _comet, uint8 _proposalType) external returns (uint256);
 
     /// @notice Initializes the ConfigController contract
     /// @param _owner The address of the protocol owner

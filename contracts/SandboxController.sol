@@ -30,7 +30,7 @@ contract SandboxController is ISandboxController {
     /// minUpdateTime,
     /// maxUpdateTime,
     /// suggestedAmountOfSeedReserves,
-    /// suggestedLockTimeOfSeedReserves.
+    /// suggestedLockTimeOfSeedReserves
     SandboxControllerConfiguration public _controllerConfiguration; /// 32 bytes
     /// @notice base asset tokens. Whitelisted base asset tokens.
     address[] public override baseAssetTokens;
@@ -404,6 +404,77 @@ contract SandboxController is ISandboxController {
             minLiquidationFactor,
             maxLiquidationFactor
         );
+    }
+
+    /**
+     * @notice Changes the configuration of an existing collateral asset.
+     * @dev Validates that all collateral factor parameters are within allowed ranges and maintain logical relationships:
+     *      - 10% <= minBorrowCollateralFactor <= minLiquidateCollateralFactor <= minLiquidationFactor <= 100%
+     *      - maxBorrowCollateralFactor <= maxLiquidateCollateralFactor <= maxLiquidationFactor <= 100%
+     *      - min <= max for each factor
+     * @param token The address of the collateral asset to update.
+     * @param minBorrowCollateralFactor The minimum borrow collateral factor (scaled by 1e18, e.g., 10% = 1e17).
+     * @param maxBorrowCollateralFactor The maximum borrow collateral factor (scaled by 1e18).
+     * @param minLiquidateCollateralFactor The minimum liquidate collateral factor (scaled by 1e18).
+     * @param maxLiquidateCollateralFactor The maximum liquidate collateral factor (scaled by 1e18).
+     * @param minLiquidationFactor The minimum liquidation factor (scaled by 1e18).
+     * @param maxLiquidationFactor The maximum liquidation factor (scaled by 1e18).
+     */
+    function changeCollateralAssetConfiguration(
+        address token,
+        uint64 minBorrowCollateralFactor,
+        uint64 maxBorrowCollateralFactor,
+        uint64 minLiquidateCollateralFactor,
+        uint64 maxLiquidateCollateralFactor,
+        uint64 minLiquidationFactor,
+        uint64 maxLiquidationFactor
+    ) external override onlyAuthorized {
+        /// @dev token is not zero address
+        if (token == address(0)) revert ZeroAddress();
+
+        /// @dev this token must be whitelisted
+        if (!isCollateralTokenWhitelisted(token)) revert CollateralTokenNotWhitelisted();
+
+        /// @dev Validates that all collateral factor parameters are within allowed ranges and maintain logical relationships:
+        /// - 10% <= minBorrowCollateralFactor <= minLiquidateCollateralFactor <= minLiquidationFactor <= 100%
+        /// - maxBorrowCollateralFactor <= maxLiquidateCollateralFactor <= maxLiquidationFactor <= 100%
+        /// - min <= max for each factor
+        if (
+            minBorrowCollateralFactor < 1e17 ||
+            minBorrowCollateralFactor > minLiquidateCollateralFactor ||
+            minLiquidateCollateralFactor > minLiquidationFactor ||
+            maxBorrowCollateralFactor > maxLiquidateCollateralFactor ||
+            maxLiquidateCollateralFactor > maxLiquidationFactor ||
+            maxLiquidationFactor > 1e18 ||
+            minBorrowCollateralFactor > maxBorrowCollateralFactor ||
+            minLiquidateCollateralFactor > maxLiquidateCollateralFactor ||
+            minLiquidationFactor > maxLiquidationFactor
+        ) revert InvalidFactors();
+
+        /// @dev Emit event with old and new values
+        emit CollateralAssetConfigurationChanged(
+            token,
+            _collateralAssets[token].maxBorrowCollateralFactor,
+            maxBorrowCollateralFactor,
+            _collateralAssets[token].minBorrowCollateralFactor,
+            minBorrowCollateralFactor,
+            _collateralAssets[token].minLiquidateCollateralFactor,
+            minLiquidateCollateralFactor,
+            _collateralAssets[token].maxLiquidateCollateralFactor,
+            maxLiquidateCollateralFactor,
+            _collateralAssets[token].minLiquidationFactor,
+            minLiquidationFactor,
+            _collateralAssets[token].maxLiquidationFactor,
+            maxLiquidationFactor
+        );
+
+        /// @dev Update the configuration
+        _collateralAssets[token].maxBorrowCollateralFactor = maxBorrowCollateralFactor;
+        _collateralAssets[token].minBorrowCollateralFactor = minBorrowCollateralFactor;
+        _collateralAssets[token].minLiquidateCollateralFactor = minLiquidateCollateralFactor;
+        _collateralAssets[token].maxLiquidateCollateralFactor = maxLiquidateCollateralFactor;
+        _collateralAssets[token].minLiquidationFactor = minLiquidationFactor;
+        _collateralAssets[token].maxLiquidationFactor = maxLiquidationFactor;
     }
 
     /**

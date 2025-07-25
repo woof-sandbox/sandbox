@@ -93,6 +93,22 @@ interface ISandboxController is ISandboxErrors {
         uint64 maxLiquidationFactor
     );
 
+    event CollateralAssetConfigurationChanged(
+        address indexed token,
+        uint64 oldMaxBorrowCollateralFactor,
+        uint64 newMaxBorrowCollateralFactor,
+        uint64 oldMinBorrowCollateralFactor,
+        uint64 newMinBorrowCollateralFactor,
+        uint64 oldMinLiquidateCollateralFactor,
+        uint64 newMinLiquidateCollateralFactor,
+        uint64 oldMaxLiquidateCollateralFactor,
+        uint64 newMaxLiquidateCollateralFactor,
+        uint64 oldMinLiquidationFactor,
+        uint64 newMinLiquidationFactor,
+        uint64 oldMaxLiquidationFactor,
+        uint64 newMaxLiquidationFactor
+    );
+
     event ReserveCommissionChanged(MarketState state, uint64 oldValue, uint64 newValue);
     event ProtocolCommissionChanged(MarketState state, uint64 oldValue, uint64 newValue);
     event TreasuryChanged(address oldTreasury, address newTreasury);
@@ -132,6 +148,16 @@ interface ISandboxController is ISandboxErrors {
     function whitelistCollateralAsset(
         address token,
         address priceFeed,
+        uint64 minBorrowCollateralFactor,
+        uint64 maxBorrowCollateralFactor,
+        uint64 minLiquidateCollateralFactor,
+        uint64 maxLiquidateCollateralFactor,
+        uint64 minLiquidationFactor,
+        uint64 maxLiquidationFactor
+    ) external;
+
+    function changeCollateralAssetConfiguration(
+        address token,
         uint64 minBorrowCollateralFactor,
         uint64 maxBorrowCollateralFactor,
         uint64 minLiquidateCollateralFactor,

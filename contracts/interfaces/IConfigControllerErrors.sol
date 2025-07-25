@@ -31,4 +31,8 @@ interface IConfigControllerErrors {
     error ProposalAlreadyExists();
     error UnknownComet();
     error IncorrectValue();
+    error ProposalNotMatured();
+    error ProposalNotTimelocked();
+    error CometCallFailed();
+    error MaxCollateralTokensReached();
 }

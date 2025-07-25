@@ -542,7 +542,9 @@ export const makeProtocol = async (opts: ProtocolOpts = {}) => {
     guardian,
     owner,
     curator,
+    cometFactory,
     unsupportedToken,
+    configControllerFactory,
   } = await makeConfigController(opts);
 
   await baseToken.allocateTo(owner.address, seedReserves);
@@ -564,9 +566,11 @@ export const makeProtocol = async (opts: ProtocolOpts = {}) => {
     guardian,
     owner,
     curator,
+    cometFactory,
     unsupportedToken,
     seedReserves,
     sandboxController,
+    configControllerFactory,
   };
 };
 

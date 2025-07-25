@@ -651,6 +651,351 @@ describe("3. SandboxController", function () {
     });
   });
 
+  describe("changeCollateralAssetConfiguration", function () {
+    let sandboxController: any;
+    let token: any;
+    let priceFeed: any;
+
+    beforeEach(async function () {
+      const opts = defaultSandboxControllerOpts({
+        admin: owner,
+        dao: dao,
+        feeEnabled: false,
+        storeFrontPriceFactor: parseEther("0.4").toString(),
+        minUpdateTime: 500,
+        suggestedAmountOfSeedReserves: "1000",
+        suggestedLockTimeOfSeedReserves: 1000,
+        targetPercent: ethers.utils.parseEther("0.5").toString(),
+      });
+      const c = await makeSandboxController(opts);
+      sandboxController = c.sandboxController;
+      
+      // Create and whitelist a collateral token for testing
+      token = await makeMockERC20({ name: "TestCollateral", symbol: "TCOL" });
+      priceFeed = await makePriceFeed(token.address);
+      await sandboxController.whitelistCollateralAsset(
+        token.address,
+        priceFeed.address,
+        exp(1.1, 17), // minBorrowCF
+        exp(1.2, 17), // maxBorrowCF
+        exp(1.3, 17), // minLiquidateCF
+        exp(1.4, 17), // maxLiquidateCF
+        exp(1.5, 17), // minLiquidationFactor
+        exp(1.6, 17)  // maxLiquidationFactor
+      );
+    });
+
+    it("reverts if caller is not authorized", async function () {
+      await expect(
+        sandboxController.connect(attacker).changeCollateralAssetConfiguration(
+          token.address,
+          exp(1.0, 17),
+          exp(1.1, 17),
+          exp(1.2, 17),
+          exp(1.3, 17),
+          exp(1.4, 17),
+          exp(1.5, 17)
+        )
+      ).to.be.revertedWithCustomError(sandboxController, "Unauthorized");
+    });
+
+    it("reverts if token = 0", async function () {
+      await expect(
+        sandboxController.changeCollateralAssetConfiguration(
+          ethers.constants.AddressZero,
+          exp(1.0, 17),
+          exp(1.1, 17),
+          exp(1.2, 17),
+          exp(1.3, 17),
+          exp(1.4, 17),
+          exp(1.5, 17)
+        )
+      ).to.be.revertedWithCustomError(sandboxController, "ZeroAddress");
+    });
+
+    it("reverts if token is not whitelisted", async function () {
+      const unwhitelistedToken = await makeMockERC20({ name: "Unwhitelisted", symbol: "UWT" });
+      await expect(
+        sandboxController.changeCollateralAssetConfiguration(
+          unwhitelistedToken.address,
+          exp(1.0, 17),
+          exp(1.1, 17),
+          exp(1.2, 17),
+          exp(1.3, 17),
+          exp(1.4, 17),
+          exp(1.5, 17)
+        )
+      ).to.be.revertedWithCustomError(sandboxController, "CollateralTokenNotWhitelisted");
+    });
+
+    it("reverts if minBorrowCollateralFactor < 10%", async function () {
+      await expect(
+        sandboxController.changeCollateralAssetConfiguration(
+          token.address,
+          exp(0.9, 17), // Less than 10%
+          exp(1.1, 17),
+          exp(1.2, 17),
+          exp(1.3, 17),
+          exp(1.4, 17),
+          exp(1.5, 17)
+        )
+      ).to.be.revertedWithCustomError(sandboxController, "InvalidFactors");
+    });
+
+    it("reverts if minBorrowCollateralFactor > minLiquidateCollateralFactor", async function () {
+      await expect(
+        sandboxController.changeCollateralAssetConfiguration(
+          token.address,
+          exp(1.2, 17), // Greater than minLiquidateCF
+          exp(1.1, 17),
+          exp(1.1, 17), // minLiquidateCF
+          exp(1.3, 17),
+          exp(1.4, 17),
+          exp(1.5, 17)
+        )
+      ).to.be.revertedWithCustomError(sandboxController, "InvalidFactors");
+    });
+
+    it("reverts if minLiquidateCollateralFactor > minLiquidationFactor", async function () {
+      await expect(
+        sandboxController.changeCollateralAssetConfiguration(
+          token.address,
+          exp(1.0, 17),
+          exp(1.1, 17),
+          exp(1.3, 17), // minLiquidateCF
+          exp(1.2, 17),
+          exp(1.2, 17), // minLiquidationFactor (less than minLiquidateCF)
+          exp(1.4, 17)
+        )
+      ).to.be.revertedWithCustomError(sandboxController, "InvalidFactors");
+    });
+
+    it("reverts if maxBorrowCollateralFactor > maxLiquidateCollateralFactor", async function () {
+      await expect(
+        sandboxController.changeCollateralAssetConfiguration(
+          token.address,
+          exp(1.0, 17),
+          exp(1.2, 17), // maxBorrowCF
+          exp(1.1, 17),
+          exp(1.1, 17), // maxLiquidateCF (less than maxBorrowCF)
+          exp(1.3, 17),
+          exp(1.4, 17)
+        )
+      ).to.be.revertedWithCustomError(sandboxController, "InvalidFactors");
+    });
+
+    it("reverts if maxLiquidateCollateralFactor > maxLiquidationFactor", async function () {
+      await expect(
+        sandboxController.changeCollateralAssetConfiguration(
+          token.address,
+          exp(1.0, 17),
+          exp(1.1, 17),
+          exp(1.2, 17),
+          exp(1.3, 17), // maxLiquidateCF
+          exp(1.2, 17), // maxLiquidationFactor (less than maxLiquidateCF)
+          exp(1.2, 17)
+        )
+      ).to.be.revertedWithCustomError(sandboxController, "InvalidFactors");
+    });
+
+    it("reverts if maxLiquidationFactor > 100%", async function () {
+      await expect(
+        sandboxController.changeCollateralAssetConfiguration(
+          token.address,
+          exp(1.0, 17),
+          exp(1.1, 17),
+          exp(1.2, 17),
+          exp(1.3, 17),
+          exp(1.4, 17),
+          exp(1.1, 18) // Greater than 100%
+        )
+      ).to.be.revertedWithCustomError(sandboxController, "InvalidFactors");
+    });
+
+    it("reverts if minBorrowCollateralFactor > maxBorrowCollateralFactor", async function () {
+      await expect(
+        sandboxController.changeCollateralAssetConfiguration(
+          token.address,
+          exp(1.2, 17), // minBorrowCF
+          exp(1.1, 17), // maxBorrowCF (less than minBorrowCF)
+          exp(1.3, 17),
+          exp(1.4, 17),
+          exp(1.5, 17),
+          exp(1.6, 17)
+        )
+      ).to.be.revertedWithCustomError(sandboxController, "InvalidFactors");
+    });
+
+    it("reverts if minLiquidateCollateralFactor > maxLiquidateCollateralFactor", async function () {
+      await expect(
+        sandboxController.changeCollateralAssetConfiguration(
+          token.address,
+          exp(1.0, 17),
+          exp(1.1, 17),
+          exp(1.3, 17), // minLiquidateCF
+          exp(1.2, 17), // maxLiquidateCF (less than minLiquidateCF)
+          exp(1.4, 17),
+          exp(1.5, 17)
+        )
+      ).to.be.revertedWithCustomError(sandboxController, "InvalidFactors");
+    });
+
+    it("reverts if minLiquidationFactor > maxLiquidationFactor", async function () {
+      await expect(
+        sandboxController.changeCollateralAssetConfiguration(
+          token.address,
+          exp(1.0, 17),
+          exp(1.1, 17),
+          exp(1.2, 17),
+          exp(1.3, 17),
+          exp(1.5, 17), // minLiquidationFactor
+          exp(1.4, 17)  // maxLiquidationFactor (less than minLiquidationFactor)
+        )
+      ).to.be.revertedWithCustomError(sandboxController, "InvalidFactors");
+    });
+
+    it("successfully changes configuration and updates state", async function () {
+      const newMinBorrowCF = exp(1.0, 17);
+      const newMaxBorrowCF = exp(1.1, 17);
+      const newMinLiquidateCF = exp(1.2, 17);
+      const newMaxLiquidateCF = exp(1.3, 17);
+      const newMinLiquidationFactor = exp(1.4, 17);
+      const newMaxLiquidationFactor = exp(1.5, 17);
+
+      await sandboxController.changeCollateralAssetConfiguration(
+        token.address,
+        newMinBorrowCF,
+        newMaxBorrowCF,
+        newMinLiquidateCF,
+        newMaxLiquidateCF,
+        newMinLiquidationFactor,
+        newMaxLiquidationFactor
+      );
+
+      const data = await sandboxController.collateralAssets(token.address);
+      expect(data.maxBorrowCollateralFactor).to.equal(newMaxBorrowCF);
+      expect(data.minBorrowCollateralFactor).to.equal(newMinBorrowCF);
+      expect(data.minLiquidateCollateralFactor).to.equal(newMinLiquidateCF);
+      expect(data.maxLiquidateCollateralFactor).to.equal(newMaxLiquidateCF);
+      expect(data.minLiquidationFactor).to.equal(newMinLiquidationFactor);
+      expect(data.maxLiquidationFactor).to.equal(newMaxLiquidationFactor);
+    });
+
+    it("emits CollateralAssetConfigurationChanged event with correct args", async function () {
+      const oldConfig = await sandboxController.collateralAssets(token.address);
+      
+      const newMinBorrowCF = exp(1.0, 17);
+      const newMaxBorrowCF = exp(1.1, 17);
+      const newMinLiquidateCF = exp(1.2, 17);
+      const newMaxLiquidateCF = exp(1.3, 17);
+      const newMinLiquidationFactor = exp(1.4, 17);
+      const newMaxLiquidationFactor = exp(1.5, 17);
+
+      const tx = await sandboxController.changeCollateralAssetConfiguration(
+        token.address,
+        newMinBorrowCF,
+        newMaxBorrowCF,
+        newMinLiquidateCF,
+        newMaxLiquidateCF,
+        newMinLiquidationFactor,
+        newMaxLiquidationFactor
+      );
+      const rcpt = await tx.wait();
+
+      const ev = rcpt.events?.find(e => e.event === "CollateralAssetConfigurationChanged");
+      expect(ev, "Expected CollateralAssetConfigurationChanged event").to.exist;
+      expect(ev.args.token).to.equal(token.address);
+      
+      // Check old values
+      expect(ev.args.oldMaxBorrowCollateralFactor).to.equal(oldConfig.maxBorrowCollateralFactor);
+      expect(ev.args.oldMinBorrowCollateralFactor).to.equal(oldConfig.minBorrowCollateralFactor);
+      expect(ev.args.oldMinLiquidateCollateralFactor).to.equal(oldConfig.minLiquidateCollateralFactor);
+      expect(ev.args.oldMaxLiquidateCollateralFactor).to.equal(oldConfig.maxLiquidateCollateralFactor);
+      expect(ev.args.oldMinLiquidationFactor).to.equal(oldConfig.minLiquidationFactor);
+      expect(ev.args.oldMaxLiquidationFactor).to.equal(oldConfig.maxLiquidationFactor);
+      
+      // Check new values
+      expect(ev.args.newMaxBorrowCollateralFactor).to.equal(newMaxBorrowCF);
+      expect(ev.args.newMinBorrowCollateralFactor).to.equal(newMinBorrowCF);
+      expect(ev.args.newMinLiquidateCollateralFactor).to.equal(newMinLiquidateCF);
+      expect(ev.args.newMaxLiquidateCollateralFactor).to.equal(newMaxLiquidateCF);
+      expect(ev.args.newMinLiquidationFactor).to.equal(newMinLiquidationFactor);
+      expect(ev.args.newMaxLiquidationFactor).to.equal(newMaxLiquidationFactor);
+    });
+
+    it("owner can do it, dao can do it", async function () {
+      const newConfig = {
+        minBorrowCF: exp(1.0, 17),
+        maxBorrowCF: exp(1.1, 17),
+        minLiquidateCF: exp(1.2, 17),
+        maxLiquidateCF: exp(1.3, 17),
+        minLiquidationFactor: exp(1.4, 17),
+        maxLiquidationFactor: exp(1.5, 17)
+      };
+
+      // Owner can change configuration
+      await sandboxController.connect(owner).changeCollateralAssetConfiguration(
+        token.address,
+        newConfig.minBorrowCF,
+        newConfig.maxBorrowCF,
+        newConfig.minLiquidateCF,
+        newConfig.maxLiquidateCF,
+        newConfig.minLiquidationFactor,
+        newConfig.maxLiquidationFactor
+      );
+
+      // DAO can also change configuration
+      const daoConfig = {
+        minBorrowCF: exp(1.1, 17),
+        maxBorrowCF: exp(1.2, 17),
+        minLiquidateCF: exp(1.3, 17),
+        maxLiquidateCF: exp(1.4, 17),
+        minLiquidationFactor: exp(1.5, 17),
+        maxLiquidationFactor: exp(1.6, 17)
+      };
+
+      await sandboxController.connect(dao).changeCollateralAssetConfiguration(
+        token.address,
+        daoConfig.minBorrowCF,
+        daoConfig.maxBorrowCF,
+        daoConfig.minLiquidateCF,
+        daoConfig.maxLiquidateCF,
+        daoConfig.minLiquidationFactor,
+        daoConfig.maxLiquidationFactor
+      );
+
+      // Verify the final configuration is from DAO
+      const data = await sandboxController.collateralAssets(token.address);
+      expect(data.maxBorrowCollateralFactor).to.equal(daoConfig.maxBorrowCF);
+      expect(data.minBorrowCollateralFactor).to.equal(daoConfig.minBorrowCF);
+      expect(data.minLiquidateCollateralFactor).to.equal(daoConfig.minLiquidateCF);
+      expect(data.maxLiquidateCollateralFactor).to.equal(daoConfig.maxLiquidateCF);
+      expect(data.minLiquidationFactor).to.equal(daoConfig.minLiquidationFactor);
+      expect(data.maxLiquidationFactor).to.equal(daoConfig.maxLiquidationFactor);
+    });
+
+    it("preserves other collateral asset properties", async function () {
+      const originalConfig = await sandboxController.collateralAssets(token.address);
+      
+      await sandboxController.changeCollateralAssetConfiguration(
+        token.address,
+        exp(1.0, 17),
+        exp(1.1, 17),
+        exp(1.2, 17),
+        exp(1.3, 17),
+        exp(1.4, 17),
+        exp(1.5, 17)
+      );
+
+      const newConfig = await sandboxController.collateralAssets(token.address);
+      
+      // These properties should remain unchanged
+      expect(newConfig.collateralToken).to.equal(originalConfig.collateralToken);
+      expect(newConfig.priceFeed).to.equal(originalConfig.priceFeed);
+      expect(newConfig.decimals).to.equal(originalConfig.decimals);
+    });
+  });
+
   describe("setConfiguration", function () {
     let sandboxController: any;
     type Config = {

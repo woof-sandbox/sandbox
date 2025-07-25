@@ -18,6 +18,8 @@ abstract contract ISandboxComet is CometCore {
     error BadDecimals();
     error BadDiscount();
     error BadPrice();
+    error BaseToken();
+    error CollateralTokenAlreadyAdded();
     error BorrowTooSmall();
     error BorrowCFTooLarge();
     error IncorrectInitialization();
@@ -122,7 +124,8 @@ abstract contract ISandboxComet is CometCore {
     function quoteCollateral(address asset, uint baseAmount) public view virtual returns (uint, uint, uint, uint);
 
     function getCollateralReserves(address asset) public view virtual returns (uint);
-
+    
+    function getAssetInfoByAddress(address asset) public view virtual returns (CollateralAsset memory, uint8 index);
     function getReserves() public view virtual returns (int);
 
     function getPrice(address priceFeed) public view virtual returns (uint);

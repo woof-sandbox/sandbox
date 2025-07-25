@@ -168,7 +168,7 @@ contract SandboxComet is ISandboxComet {
     /**
      * @dev Determine index of asset that matches given address
      */
-    function getAssetInfoByAddress(address asset) public view returns (CollateralAsset memory, uint8 index) {
+    function getAssetInfoByAddress(address asset) public view override returns (CollateralAsset memory, uint8 index) {
         index = collateralAssetIndex[asset];
         if (index == 0 && asset != collateralAssets[0].collateralToken) {
             revert BadAsset();
@@ -1232,7 +1232,6 @@ contract SandboxComet is ISandboxComet {
         }
     }
 
-
     /**
      * @notice Add a new collateral asset to the protocol
      * @param collateralTokenConfig The configuration for the collateral token
@@ -1240,13 +1239,19 @@ contract SandboxComet is ISandboxComet {
      * @dev Note: Reverts if the maximum number of assets has been reached
      */
     function addCollateralAsset(IConfigController.CollateralTokenConfig calldata collateralTokenConfig) external override {
+        address asset = collateralTokenConfig.collateralToken;
+        /// Only the config controller can add new collateral assets.
         if (msg.sender != configController) revert Unauthorized();
+        /// Reverts if the maximum number of assets has been reached.
         if (numAssets == MAX_ASSETS) revert TooManyAssets();
-
+        /// Reverts if the asset is the base token.
+        if (asset == baseToken) revert BaseToken();
+        /// Revert if the asset already added.
+        if (collateralAssetIndex[asset] != 0 && asset == collateralAssets[0].collateralToken) revert CollateralTokenAlreadyAdded();
+        /// Add the asset to the protocol.
         (uint64 scale, address priceFeed) = _addCollateralAsset(collateralTokenConfig, numAssets++);
-
         emit CollateralAssetAdded(
-            collateralTokenConfig.collateralToken,
+            asset,
             scale,
             priceFeed,
             collateralTokenConfig.borrowCollateralFactor,
@@ -1265,6 +1270,7 @@ contract SandboxComet is ISandboxComet {
      */
     function _addCollateralAsset(IConfigController.CollateralTokenConfig calldata collateralTokenConfig, uint8 numAsset) internal returns (uint64 scale, address priceFeed) {
         scale = uint64(10 ** IERC20NonStandard(collateralTokenConfig.collateralToken).decimals());
+
         priceFeed = ISandboxController(sandboxController).tokenToPriceFeed(collateralTokenConfig.collateralToken);
 
         collateralAssets.push(
@@ -1280,11 +1286,12 @@ contract SandboxComet is ISandboxComet {
         );
 
         collateralAssetIndex[collateralTokenConfig.collateralToken] = numAsset;
-
-    receive() external payable {
-        // Fallback function to receive ETH, if needed
-        // Note: This contract does not use ETH, so this is just a placeholder
-        revert("SandboxComet: Cannot receive ETH");
-
     }
+
+    // receive() external payable {
+    //     // Fallback function to receive ETH, if needed
+    //     // Note: This contract does not use ETH, so this is just a placeholder
+    //     revert("SandboxComet: Cannot receive ETH");
+
+    // }
 }

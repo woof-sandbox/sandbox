@@ -5,14 +5,14 @@ import "./IConfigController.sol";
 
 interface IConfigControllerEvents {
     event CometCreated(address comet, address baseToken, address priceFeed, uint cometId, uint baseTokenCurveId);
-    event CuratorProposed(address indexed currentCurator, address indexed proposedCurator, uint expiry);
-    event CuratorAccepted(address indexed oldCurator, address indexed newCurator);
+    event CuratorProposed(uint256 indexed proposalId, address indexed currentCurator, address indexed proposedCurator, uint expiry);
+    event CuratorAccepted(uint256 indexed proposalId, address indexed oldCurator, address indexed newCurator);
     event CuratorCanceled(address indexed oldCurator);
     event CuratorProposalCancelled(address indexed proposedCurator);
     event GuardianUpdated(address indexed oldGuardian, address indexed newGuardian);
     event CometFeeEnabled(address configController, address _comet, bool _enabled);
 
-    event ProposeNewCollateralToken(address indexed proposer, IConfigControllerStructs.CollateralTokenConfig collateralConfig);
+    event ProposeNewCollateralToken(uint256 indexed proposalId, address indexed proposer, IConfigControllerStructs.CollateralTokenConfig collateralConfig);
 
     event ProposalDurationsUpdated(
         uint oldCuratorDuration,
@@ -26,5 +26,9 @@ interface IConfigControllerEvents {
         address indexed accepter,
         bytes32 proposalData
     );
+
+    event ProposeNewCollateralTokenAccepted(uint256 indexed proposalId, address indexed proposer, IConfigControllerStructs.CollateralTokenConfig collateralConfig);
+
+    event ProposalCanceled(uint256 indexed proposalId, address indexed canceler);
 
 }
