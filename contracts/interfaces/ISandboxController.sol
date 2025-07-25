@@ -60,9 +60,6 @@ interface ISandboxController is ISandboxErrors {
         uint64 storeFrontPriceFactor; // 8 bytes
         uint40 minUpdateTime; // 5 bytes
         uint40 maxUpdateTime; // 5 bytes
-        uint40 suggestedLockTimeOfSeedReserves; // 5 bytes
-        /// 2nd 256 bits (32 bytes)
-        uint256 suggestedAmountOfSeedReserves; // 32 bytes
     }
 
     event BaseAssetWhitelisted(address indexed token, address indexed priceFeed, uint8 decimals);
@@ -94,9 +91,16 @@ interface ISandboxController is ISandboxErrors {
 
     function protocolCommission(uint256) external view returns (uint64);
 
-    function getCommissions(uint256, uint256, uint256) external view returns (uint64, uint64);
+    function getCommissions(uint256, uint256, address) external view returns (uint64, uint64);
 
-    function whitelistBaseAsset(address token, address priceFeed, BaseAssetCurve memory baseAssetCurve, uint256 minBorrow) external;
+    function whitelistBaseAsset(
+        address token,
+        address priceFeed,
+        BaseAssetCurve memory baseAssetCurve,
+        uint256 minBorrow,
+        uint256 amountOfSeedReserves,
+        uint40 lockTimeOfSeedReserves
+    ) external;
 
     function whitelistCollateralAsset(
         address token,
@@ -138,4 +142,10 @@ interface ISandboxController is ISandboxErrors {
     function curves(address token) external view returns (BaseAssetCurve[] memory);
 
     function config() external view returns (SandboxControllerConfiguration memory);
+
+    function suggestedAmountOfSeedReserves(address token) external view returns (uint256);
+
+    function suggestedLockTimeOfSeedReserves(address token) external view returns (uint40);
+
+    function baseTokenSuggestedSeedReserves(address token) external view returns (uint256, uint40);
 }

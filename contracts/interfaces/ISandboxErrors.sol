@@ -16,6 +16,8 @@ interface ISandboxErrors {
     error InvalidFactors();
     error InvalidCommissions();
     error IncorrectIndex();
+    error InvalidAmountOfSeedReserves();
+    error InvalidLockTimeOfSeedReserves();
 
     error Unauthorized();
     error NotOwner(address caller);

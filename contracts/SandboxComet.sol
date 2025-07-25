@@ -56,7 +56,7 @@ contract SandboxComet is CometCore, ISandboxComet {
         if (baseToken != address(0)) revert AlreadyInitialized();
         baseToken = comet.baseToken; // aderyn-fp(state-no-address-check)
 
-        uint8 _decimals = IERC20Metadata(comet.baseToken).decimals(); // aderyn-fp(reentrancy-state-change)
+        uint8 _decimals = IERC20Metadata(baseToken).decimals(); // aderyn-fp(reentrancy-state-change)
         if (_decimals > MAX_BASE_DECIMALS) revert BadDecimals();
 
         baseScale = uint64(10 ** _decimals); // aderyn-fp(literal-instead-of-constant)
@@ -64,7 +64,7 @@ contract SandboxComet is CometCore, ISandboxComet {
         accrualDescaleFactor = baseScale / BASE_ACCRUAL_SCALE;
 
         // aderyn-fp-next-line(reentrancy-state-change)
-        address _baseTokenPriceFeed = ISandboxController(sandboxController).tokenToPriceFeed(comet.baseToken);
+        address _baseTokenPriceFeed = ISandboxController(sandboxController).tokenToPriceFeed(baseToken);
         /// @dev price feed is already checked to be listed in config controller
         if (IPriceFeed(_baseTokenPriceFeed).decimals() != PRICE_FEED_DECIMALS) revert BadDecimals(); // aderyn-fp(reentrancy-state-change)
         baseTokenPriceFeed = _baseTokenPriceFeed;
@@ -106,14 +106,16 @@ contract SandboxComet is CometCore, ISandboxComet {
 
         /// It can be safely assumed, that reserve parameters are validated in Sandbox Controller
         targetPercent = config.targetPercent;
-        seedReserves = config.suggestedAmountOfSeedReserves;
-        unlockTimestamp = safe64(block.timestamp + config.suggestedLockTimeOfSeedReserves);
+        (uint256 amountOfSeedReserves, uint40 lockTimeOfSeedReserves) = ISandboxController(sandboxController)
+            .baseTokenSuggestedSeedReserves(baseToken);
+        seedReserves = amountOfSeedReserves;
+        unlockTimestamp = safe64(block.timestamp + lockTimeOfSeedReserves);
 
         /// Interest rate curve
         ///
 
         // aderyn-fp-next-line(reentrancy-state-change)
-        ISandboxController.BaseAssetConfiguration memory bac = ISandboxController(sandboxController).baseAssets(comet.baseToken);
+        ISandboxController.BaseAssetConfiguration memory bac = ISandboxController(sandboxController).baseAssets(baseToken);
         ISandboxController.BaseAssetCurve memory curve = bac.baseAssetCurves[comet.baseTokenCurveId];
 
         /// It can be safely assumed, that curve parameters are validated in Sandbox Controller
@@ -1218,10 +1220,9 @@ contract SandboxComet is CometCore, ISandboxComet {
 
         uint256 basePrice = getPrice(baseTokenPriceFeed);
         uint256 reservesUsd = (reserves * basePrice) / baseScale;
-        uint256 seedUsd = (seedReserves * basePrice) / baseScale;
         uint256 targetUsd = (targetReserves() * basePrice) / baseScale;
 
-        (uint64 reservePct, uint64 protocolPct) = ISandboxController(sandboxController).getCommissions(reservesUsd, seedUsd, targetUsd);
+        (uint64 reservePct, uint64 protocolPct) = ISandboxController(sandboxController).getCommissions(reservesUsd, targetUsd, baseToken);
 
         _reserveFee = mulFactor(profitAmount, uint256(reservePct));
         _daoFee = mulFactor(profitAmount, uint256(protocolPct));
