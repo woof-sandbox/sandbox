@@ -27,6 +27,7 @@ import {
 import { CollateralTokenConfigStruct, CometConfigStruct } from "../build/types/ConfigController";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { parseEther } from "ethers/lib/utils";
+import { time } from "@nomicfoundation/hardhat-network-helpers";
 
 describe("1. System Initialization", function () {
   // Factories
@@ -581,8 +582,16 @@ describe("1. System Initialization", function () {
       const collateralToken = await makeToken({ symbol: "COL" });
       const priceFeedBase = await makePriceFeed(baseToken.address);
       const priceFeedCol = await makePriceFeed(collateralToken.address);
+      const suggestedAmountOfSeedReserves = 100000000n;
+      const suggestedLockTimeOfSeedReserves = time.duration.weeks(1);
 
-      await sandboxListBaseAsset(sandboxController, baseToken, priceFeedBase.address);
+      await sandboxListBaseAsset(
+        sandboxController,
+        baseToken,
+        priceFeedBase.address,
+        suggestedAmountOfSeedReserves,
+        suggestedLockTimeOfSeedReserves
+      );
       await sandboxListCollateralAsset(sandboxController, collateralToken, priceFeedCol.address);
 
       let collateralTokens: CollateralTokenConfigStruct[] = [];
@@ -812,22 +821,6 @@ describe("1. System Initialization", function () {
       );
     });
 
-    it("reverts if suggestedAmountOfSeedReserves = 0", async function () {
-      opts.config.suggestedAmountOfSeedReserves = "0";
-      await expect(_SandboxControllerFactory.deploy(...(Object.values(opts) as DeployParams))).to.be.revertedWithCustomError(
-        _SandboxControllerFactory,
-        "IncorrectSetting"
-      );
-    });
-
-    it("reverts if suggestedLockTimeOfSeedReserves = 0", async function () {
-      opts.config.suggestedLockTimeOfSeedReserves = 0;
-      await expect(_SandboxControllerFactory.deploy(...(Object.values(opts) as DeployParams))).to.be.revertedWithCustomError(
-        _SandboxControllerFactory,
-        "IncorrectSetting"
-      );
-    });
-
     it("initializes state with correct values", async function () {
       const { sandboxController } = await makeSandboxController(opts);
       expect(await sandboxController.owner()).to.equal(owner.address);
@@ -844,8 +837,6 @@ describe("1. System Initialization", function () {
       expect((await sandboxController.config()).storeFrontPriceFactor).to.equal(parseEther("0.6").toString());
       expect((await sandboxController.config()).minUpdateTime).to.equal(MIN_UPDATE_TIME);
       expect((await sandboxController.config()).maxUpdateTime).to.equal(DEFAULT_UPDATE_TIME);
-      expect((await sandboxController.config()).suggestedAmountOfSeedReserves).to.equal(ethers.utils.parseEther("500").toString());
-      expect((await sandboxController.config()).suggestedLockTimeOfSeedReserves).to.equal(86400);
     });
   });
 });
