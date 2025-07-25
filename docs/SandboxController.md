@@ -28,6 +28,12 @@ uint64 MAX_COMMISSIONS
 uint64 MIN_FACTOR
 ```
 
+### MIN_LOCK_TIME
+
+```solidity
+uint40 MIN_LOCK_TIME
+```
+
 ### MARKET_STATES
 
 ```solidity
@@ -134,6 +140,22 @@ minLiquidateCollateralFactor,
 maxLiquidateCollateralFactor,
 minLiquidationFactor, maxLiquidationFactor
 
+### suggestedAmountOfSeedReserves
+
+```solidity
+mapping(address => uint256) suggestedAmountOfSeedReserves
+```
+
+Suggested amount of seed reserves for each base asset.
+
+### suggestedLockTimeOfSeedReserves
+
+```solidity
+mapping(address => uint40) suggestedLockTimeOfSeedReserves
+```
+
+Suggested lock time of seed reserves for each base asset.
+
 ### onlyOwner
 
 ```solidity
@@ -168,7 +190,6 @@ constructor(address _owner, address _dao, address _treasury, bool _feeEnabled, s
 
 _Set all global parameters (including owner and DAO) at deployment.
 
-The `_suggestedAmountOfSeedReserves` and `_suggestedLockTimeOfSeedReserves` must be greater than 0.
 The length of the `_reserveCommissions` and `_protocolCommissions` arrays must be 3._
 
 #### Parameters
@@ -179,7 +200,7 @@ The length of the `_reserveCommissions` and `_protocolCommissions` arrays must b
 | _dao | address | The address of the DAO (governance). |
 | _treasury | address | The address of the treasury. |
 | _feeEnabled | bool | Global fee flag for the entire protocol. |
-| _config | struct ISandboxController.SandboxControllerConfiguration | SanboxController config: _targetPercent, < 0.5 (50%) _storeFrontPriceFactor, < 1e18 _minUpdateTime, > 0 _maxUpdateTime, reasonable time for the proposal duration _suggestedAmountOfSeedReserves The suggested amount of seed reserves in $. Decimals are 6. _suggestedLockTimeOfSeedReserves The suggested lock time of seed reserves in seconds. |
+| _config | struct ISandboxController.SandboxControllerConfiguration | SanboxController config: _targetPercent, < 0.5 (50%) _storeFrontPriceFactor, < 1e18 _minUpdateTime, > 0 _maxUpdateTime, reasonable time for the proposal duration |
 | _reserveCommissions | uint64[3] | The reserve commission factors for each market state. |
 | _protocolCommissions | uint64[3] | The protocol commission factors for each market state. |
 
@@ -233,7 +254,7 @@ Sets the global feeEnabled flag for the entire protocol.
 ### getCommissions
 
 ```solidity
-function getCommissions(uint256 _currentReserves, uint256 _seedReserves, uint256 _targetReserves) external view returns (uint64 _reserveCommission, uint64 _protocolCommission)
+function getCommissions(uint256 _currentReserves, uint256 _targetReserves, address _baseToken) external view returns (uint64 _reserveCommission, uint64 _protocolCommission)
 ```
 
 Returns profit fee distribution based on the reserves
@@ -245,8 +266,8 @@ _The function expects same denomination units for all 3 reserves parameters_
 | Name | Type | Description |
 | ---- | ---- | ----------- |
 | _currentReserves | uint256 | Current Comet reserves |
-| _seedReserves | uint256 | Amount of reserves transferred to the Comet during the initialization |
 | _targetReserves | uint256 | Expected target for the Comet |
+| _baseToken | address | The address of the base asset of the Comet |
 
 #### Return Values
 
@@ -258,10 +279,13 @@ _The function expects same denomination units for all 3 reserves parameters_
 ### whitelistBaseAsset
 
 ```solidity
-function whitelistBaseAsset(address token, address priceFeed, struct ISandboxController.BaseAssetCurve baseAssetCurve, uint256 minBorrow) external
+function whitelistBaseAsset(address token, address priceFeed, struct ISandboxController.BaseAssetCurve baseAssetCurve, uint256 minBorrow, uint256 amountOfSeedReserves, uint40 lockTimeOfSeedReserves) external
 ```
 
 Whitelists a new base asset with its price feed and curve configuration.
+
+_The `amountOfSeedReserves` must be greater than 0.
+The `lockTimeOfSeedReserves` must be greater than or equal to the minimum lock time._
 
 #### Parameters
 
@@ -271,6 +295,8 @@ Whitelists a new base asset with its price feed and curve configuration.
 | priceFeed | address | The associated price feed contract address. |
 | baseAssetCurve | struct ISandboxController.BaseAssetCurve | The initial interest rate curve configuration. |
 | minBorrow | uint256 | The minimal borrow amount for this asset. |
+| amountOfSeedReserves | uint256 | The suggested amount of seed reserves in $. Decimals are 6. |
+| lockTimeOfSeedReserves | uint40 | The suggested lock time of seed reserves in seconds. |
 
 ### whitelistCollateralAsset
 
@@ -406,7 +432,7 @@ _Emitted when a base asset is whitelisted._
 ### _validateConfig
 
 ```solidity
-function _validateConfig(struct ISandboxController.SandboxControllerConfiguration _config) internal
+function _validateConfig(struct ISandboxController.SandboxControllerConfiguration _config) internal pure
 ```
 
 _Validates global config and reverts on incorrect values_
@@ -541,4 +567,25 @@ Returns the configuration of the sandbox controller.
 | Name | Type | Description |
 | ---- | ---- | ----------- |
 | [0] | struct ISandboxController.SandboxControllerConfiguration | The sandbox controller configuration. |
+
+### baseTokenSuggestedSeedReserves
+
+```solidity
+function baseTokenSuggestedSeedReserves(address token) external view returns (uint256, uint40)
+```
+
+Returns the suggested amount of seed reserves and lock time for a base asset.
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| token | address | The address of the whitelisted base asset token. |
+
+#### Return Values
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| [0] | uint256 | The suggested amount of seed reserves and lock time for the base asset. |
+| [1] | uint40 |  |
 
