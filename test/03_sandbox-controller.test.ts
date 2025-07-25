@@ -34,7 +34,6 @@ describe("3. SandboxController", function () {
     [owner, dao, treasury, attacker, other] = await ethers.getSigners();
 
     opts = defaultSandboxControllerOpts({
-      dao: dao,
       treasury: treasury.address,
     });
 

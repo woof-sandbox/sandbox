@@ -153,7 +153,6 @@ export type Protocol = {
 };
 
 export interface SandboxControllerOpts {
-  dao?: SignerWithAddress;
   treasury?: string;
   feeEnabled?: boolean;
   config?: SandboxControllerConfigurationStruct;
@@ -353,8 +352,8 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Par
   const baseToken: FaucetToken = tokens[base];
   const suggestedAmountOfSeedReserves = dfn(opts.suggestedAmountOfSeedReserves, "100000000");
 
+  const SandboxControllerFactory = (await ethers.getContractFactory("SandboxController", dao)) as SandboxController__factory;
   const sandboxControllerOpts = defaultSandboxControllerOpts({
-    dao: dao,
     feeEnabled: false,
     config: {
       storeFrontPriceFactor: (opts.storeFrontPriceFactor ?? exp(0.1, 18)).toString(),
@@ -370,7 +369,7 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Par
     protocolCommissions: opts.protocolCommissions ?? [exp(0.01, 18), exp(0.02, 18), exp(0.03, 18)],
   });
 
-  const sandboxController = (await makeSandboxController(sandboxControllerOpts)).sandboxController;
+  const sandboxController = (await makeSandboxController(sandboxControllerOpts, SandboxControllerFactory)).sandboxController;
   await baseToken.allocateTo(owner.address, sandboxControllerOpts.config.suggestedAmountOfSeedReserves);
   // --- Whitelist the base token ---
   await sandboxController.whitelistBaseAsset(
@@ -645,7 +644,6 @@ export async function makeToken(opts: TokenOpts = {}): Promise<FaucetToken> {
 
 export function defaultSandboxControllerOpts(partial?: Partial<SandboxControllerOpts>): SandboxControllerOpts {
   return {
-    dao: partial?.dao,
     treasury: partial?.treasury,
     feeEnabled: partial?.feeEnabled ?? false,
     config: {
@@ -690,7 +688,7 @@ export async function makeOnlyConfigController(
 
 export async function makeSandboxController(opts: SandboxControllerOpts, factory?): Promise<SandboxControllerInfo> {
   const signers = await ethers.getSigners();
-  const dao = opts.dao || signers[1];
+  const dao = signers[1];
   const treasury = opts.treasury || signers[2].address;
 
   let SandboxControllerFactory: SandboxController__factory;
