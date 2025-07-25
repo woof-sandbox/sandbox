@@ -167,9 +167,7 @@ contract DeployProtocol is Script {
             targetPercent: 2e17, // 20%
             storeFrontPriceFactor: 6e17, // 60%
             minUpdateTime: 300, // 5 minutes
-            maxUpdateTime: 3600, // 1 hour
-            suggestedLockTimeOfSeedReserves: 250, // 250 seconds
-            suggestedAmountOfSeedReserves: 3600 // 3600 wei
+            maxUpdateTime: 3600 // 1 hour
         });
         // Deploy SandboxController with valid parameters
         SandboxController sandboxController = new SandboxController(
@@ -205,8 +203,18 @@ contract DeployProtocol is Script {
             borrowPerYearInterestRateBase: 475646879 * SECONDS_PER_YEAR
         });
 
+        uint256 suggestedAmountOfSeedReserves = 3600; // 3600 wei
+        uint40 suggestedLockTimeOfSeedReserves = 604800; // 1 week
+
         // Whitelist base asset
-        sandboxController.whitelistBaseAsset(baseToken, basePriceFeed, curve, 10);
+        sandboxController.whitelistBaseAsset(
+            baseToken,
+            basePriceFeed,
+            curve,
+            10,
+            suggestedAmountOfSeedReserves,
+            suggestedLockTimeOfSeedReserves
+        );
     }
 
     function whitelistCollateralAsset(address sandboxControllerAddr, address collateralToken, address collateralPriceFeed) internal {
