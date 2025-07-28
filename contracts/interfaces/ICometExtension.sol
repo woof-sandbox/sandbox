@@ -99,5 +99,12 @@ abstract contract ICometExtension is CometCore {
      * @param amounts The number of collateral tokens that are approved
      * @notice The order list of collateral assets must match the order of `collateralAssets`
      */
-    function approveAll(address spender, uint256 baseTokenAmount, uint256[] calldata amounts) external virtual;
+    function approveAllTokens(address spender, uint256 baseTokenAmount, uint256[] calldata amounts) external virtual;
+
+    /**
+     * @notice Single time approve for the whole balance of the base asset
+     * @param spender The spender of the baseToken balance
+     * @param approved Flag to set
+     */
+    function approveAll(address spender, bool approved) external virtual;
 }

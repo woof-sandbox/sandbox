@@ -25,6 +25,29 @@ Determine if the manager has permission to act on behalf of the owner
 | ---- | ---- | ----------- |
 | [0] | bool | Whether or not the manager has permission |
 
+### hasPermissionAll
+
+```solidity
+function hasPermissionAll(address owner, address manager) public view returns (bool)
+```
+
+Determine if the manager has permission to act on behalf of the owner for the whole balance
+The function gives an atomic one-spend permission, which will be discarded
+works for the base asset only
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| owner | address | The owner account |
+| manager | address | The manager account |
+
+#### Return Values
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| [0] | bool | Whether or not the manager has permission |
+
 ### spendAllowance
 
 ```solidity
@@ -42,6 +65,22 @@ Spend the allowance of an asset for a spender on behalf of an owner
 | asset | address | The asset being spent |
 | amount | uint256 | The amount to spend |
 
+### spendAllowanceAll
+
+```solidity
+function spendAllowanceAll(address owner, address manager) internal
+```
+
+Spend the allowance of an asset for a spender on behalf of an owner
+works for the base asset only
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| owner | address | The owner account |
+| manager | address | The spender account |
+
 ### allowInternal
 
 ```solidity
@@ -58,6 +97,24 @@ _Allows a manager to spend an owner's allowance on a specific asset_
 | manager | address | The manager account |
 | asset | address | The asset being spent |
 | amount | uint256 | The amount to spend |
+
+### allowAllInternal
+
+```solidity
+function allowAllInternal(address owner, address manager, bool approved) internal
+```
+
+works for the base asset only
+
+_Allows a manager to spend an owner's allowance on a specific asset_
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| owner | address | The owner of the assets |
+| manager | address | The manager account |
+| approved | bool | Flag to set |
 
 ### presentValue
 

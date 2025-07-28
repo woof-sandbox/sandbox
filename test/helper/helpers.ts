@@ -22,9 +22,10 @@ import {
   SandboxComet,
   ISandboxComet,
 } from "../../build/types";
+
 import { SandboxCometFactory } from "../../build/types/SandboxCometFactory";
 import { SandboxCometFactory__factory } from "../../build/types/factories/SandboxCometFactory__factory";
-import { SandboxController } from "../../build/types/SandboxController";
+import { SandboxController, BaseAssetCurveStruct, SandboxControllerConfigurationStruct } from "../../build/types/SandboxController";
 import { SandboxController__factory } from "../../build/types/factories/SandboxController__factory";
 import { BigNumber, Contract, ContractReceipt, ContractTransaction } from "ethers";
 import { TransactionReceipt, TransactionResponse } from "@ethersproject/abstract-provider";
@@ -156,13 +157,7 @@ export interface SandboxControllerOpts {
   dao?: any;
   treasury?: any;
   feeEnabled?: boolean;
-  storeFrontPriceFactor?: string;
-  targetPercent?: string;
-  minUpdateTime?: number;
-  maxUpdateTime?: number;
-  maxCollateralAssets?: number;
-  suggestedAmountOfSeedReserves?: string;
-  suggestedLockTimeOfSeedReserves?: number;
+  config?: SandboxControllerConfigurationStruct;
   reserveCommissions?: [bigint, bigint, bigint];
   protocolCommissions?: [bigint, bigint, bigint];
 }
@@ -264,6 +259,9 @@ export const factorScale = factor(1);
 export const ONE = factorScale;
 export const ZERO = factor(0);
 
+export const DEFAULT_UPDATE_TIME = 7 * 24 * 60 * 60;
+export const MIN_UPDATE_TIME = 300;
+
 export async function getBlock(n?: number, ethers_ = ethers): Promise<Block> {
   const blockNumber = n == undefined ? await ethers_.provider.getBlockNumber() : n;
   return ethers_.provider.getBlock(blockNumber);
@@ -360,20 +358,22 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Par
     admin: owner,
     dao: dao,
     feeEnabled: false,
-    storeFrontPriceFactor: (opts.storeFrontPriceFactor ?? exp(0.1, 18)).toString(),
-    minUpdateTime: 300,
-    maxUpdateTime: 7 * 24 * 60 * 60,
-    suggestedAmountOfSeedReserves: suggestedAmountOfSeedReserves,
-    suggestedLockTimeOfSeedReserves: 3600,
-    targetPercent: opts.targetPercent
-      ? ethers.utils.parseEther(opts.targetPercent.toString()).toString()
-      : ethers.utils.parseEther("0.4").toString(),
+    config: {
+      storeFrontPriceFactor: (opts.storeFrontPriceFactor ?? exp(0.1, 18)).toString(),
+      minUpdateTime: MIN_UPDATE_TIME,
+      maxUpdateTime: DEFAULT_UPDATE_TIME,
+      suggestedAmountOfSeedReserves: suggestedAmountOfSeedReserves,
+      suggestedLockTimeOfSeedReserves: 3600,
+      targetPercent: opts.targetPercent
+        ? ethers.utils.parseEther(opts.targetPercent.toString()).toString()
+        : ethers.utils.parseEther("0.4").toString(),
+    },
     reserveCommissions: opts.reserveCommissions ?? [exp(0.01, 18), exp(0.02, 18), exp(0.03, 18)],
     protocolCommissions: opts.protocolCommissions ?? [exp(0.01, 18), exp(0.02, 18), exp(0.03, 18)],
   });
 
   const sandboxController = (await makeSandboxController(sandboxControllerOpts)).sandboxController;
-  await baseToken.allocateTo(owner.address, sandboxControllerOpts.suggestedAmountOfSeedReserves);
+  await baseToken.allocateTo(owner.address, sandboxControllerOpts.config.suggestedAmountOfSeedReserves);
   // --- Whitelist the base token ---
   await sandboxController.whitelistBaseAsset(
     tokens[base].address,
@@ -428,8 +428,8 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Par
     cometFactory.address,
     1000,
     "ConfigController",
-    7 * 24 * 60 * 60,
-    7 * 24 * 60 * 60
+    DEFAULT_UPDATE_TIME,
+    DEFAULT_UPDATE_TIME
   );
 
   const configController = (await ConfigControllerFactory.attach(await configControllerFactory.controllerAddresses(0))) as ConfigController;
@@ -466,7 +466,7 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Par
     guardian,
     dao,
     curve,
-    seedReserves: sandboxControllerOpts.suggestedAmountOfSeedReserves,
+    seedReserves: sandboxControllerOpts.config.suggestedAmountOfSeedReserves.toString(),
   };
 }
 
@@ -582,35 +582,25 @@ export async function makeMockERC20({ name, symbol }: MockERC20Params): Promise<
   return token;
 }
 
+export function makeValidCurve(): BaseAssetCurveStruct {
+  return {
+    supplyKink: ethers.utils.parseEther("0.5").toString(),
+    supplyPerYearInterestRateSlopeLow: ethers.BigNumber.from("500"),
+    supplyPerYearInterestRateSlopeHigh: ethers.BigNumber.from("1000"),
+    supplyPerYearInterestRateBase: ethers.BigNumber.from("100"),
+    borrowKink: ethers.utils.parseEther("0.5").toString(),
+    borrowPerYearInterestRateSlopeLow: ethers.BigNumber.from("1000"),
+    borrowPerYearInterestRateSlopeHigh: ethers.BigNumber.from("2000"),
+    borrowPerYearInterestRateBase: ethers.BigNumber.from("1"),
+  };
+}
+
 /// TODO: add opts when testing curves
 export async function sandboxListBaseAsset(sandboxController: SandboxController, baseAsset: FaucetToken, priceFeed: string) {
-  // --- Parameters ---
-  const supplyKink = exp(0.8, 18);
-  const supplyPerYearInterestRateBase = exp(0.001, 18);
-  const supplyPerYearInterestRateSlopeLow = exp(0.05, 18);
-  const supplyPerYearInterestRateSlopeHigh = exp(2, 18);
-  const borrowKink = exp(0.8, 18);
-  const borrowPerYearInterestRateBase = exp(0.005, 18);
-  const borrowPerYearInterestRateSlopeLow = exp(0.1, 18);
-  const borrowPerYearInterestRateSlopeHigh = exp(3, 18);
   const baseBorrowMin = exp(1, await baseAsset.decimals());
 
   // --- Whitelist the base token ---
-  await sandboxController.whitelistBaseAsset(
-    baseAsset.address,
-    priceFeed,
-    {
-      supplyKink,
-      supplyPerYearInterestRateBase,
-      supplyPerYearInterestRateSlopeLow,
-      supplyPerYearInterestRateSlopeHigh,
-      borrowKink,
-      borrowPerYearInterestRateBase,
-      borrowPerYearInterestRateSlopeLow,
-      borrowPerYearInterestRateSlopeHigh,
-    },
-    baseBorrowMin
-  );
+  await sandboxController.whitelistBaseAsset(baseAsset.address, priceFeed, makeValidCurve(), baseBorrowMin);
 }
 
 /// TODO: add opts when testing curves
@@ -659,14 +649,16 @@ export function defaultSandboxControllerOpts(partial?: Partial<SandboxController
   return {
     admin: partial?.admin,
     dao: partial?.dao,
-    treasury: partial?.treasury ?? ethers.Wallet.createRandom().address,
+    treasury: partial?.treasury,
     feeEnabled: partial?.feeEnabled ?? false,
-    storeFrontPriceFactor: partial?.storeFrontPriceFactor ?? ethers.utils.parseEther("0.9999999999").toString(),
-    targetPercent: partial?.targetPercent ?? ethers.utils.parseEther("0.5").toString(),
-    minUpdateTime: partial?.minUpdateTime ?? 300,
-    maxUpdateTime: partial?.maxUpdateTime ?? 7 * 24 * 60 * 60,
-    suggestedAmountOfSeedReserves: partial?.suggestedAmountOfSeedReserves ?? ethers.utils.parseEther("500").toString(),
-    suggestedLockTimeOfSeedReserves: partial?.suggestedLockTimeOfSeedReserves ?? 86400,
+    config: {
+      targetPercent: partial?.config?.targetPercent ?? ethers.utils.parseEther("0.5").toString(),
+      storeFrontPriceFactor: partial?.config?.storeFrontPriceFactor ?? ethers.utils.parseEther("0.6").toString(),
+      minUpdateTime: partial?.config?.minUpdateTime ?? MIN_UPDATE_TIME,
+      maxUpdateTime: partial?.config?.maxUpdateTime ?? DEFAULT_UPDATE_TIME,
+      suggestedAmountOfSeedReserves: partial?.config?.suggestedAmountOfSeedReserves ?? ethers.utils.parseEther("500").toString(),
+      suggestedLockTimeOfSeedReserves: partial?.config?.suggestedLockTimeOfSeedReserves ?? 86400,
+    },
     reserveCommissions: partial?.reserveCommissions ?? [exp(0.01, 18), exp(0.02, 18), exp(0.03, 18)],
     protocolCommissions: partial?.protocolCommissions ?? [exp(0.01, 18), exp(0.02, 18), exp(0.03, 18)],
   };
@@ -689,8 +681,8 @@ export async function makeOnlyConfigController(
     cometFactory,
     1000,
     "ConfigController",
-    7 * 24 * 60 * 60,
-    7 * 24 * 60 * 60
+    DEFAULT_UPDATE_TIME,
+    DEFAULT_UPDATE_TIME
   );
   const receipt: ContractReceipt = await tx.wait();
   const [createConfigControllerEvent] = receipt.events.filter(event => event.event === "ConfigControllerCreated");
@@ -702,7 +694,8 @@ export async function makeOnlyConfigController(
 export async function makeSandboxController(opts: SandboxControllerOpts, factory?): Promise<SandboxControllerInfo> {
   const signers = await ethers.getSigners();
   const admin = opts.admin || signers[0];
-  const dao = opts.dao || signers[3];
+  const dao = opts.dao || signers[1];
+  const treasury = opts.treasury || signers[2];
 
   let SandboxControllerFactory;
   if (factory) {
@@ -714,14 +707,9 @@ export async function makeSandboxController(opts: SandboxControllerOpts, factory
   const sandboxController = await SandboxControllerFactory.deploy(
     admin.address || admin,
     dao.address || dao,
-    opts.treasury,
+    treasury.address || treasury,
     opts.feeEnabled,
-    opts.targetPercent,
-    opts.storeFrontPriceFactor,
-    opts.minUpdateTime,
-    opts.maxUpdateTime,
-    opts.suggestedAmountOfSeedReserves,
-    opts.suggestedLockTimeOfSeedReserves,
+    opts.config,
     opts.reserveCommissions,
     opts.protocolCommissions
   );
