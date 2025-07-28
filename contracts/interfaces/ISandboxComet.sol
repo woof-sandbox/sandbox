@@ -1,79 +1,34 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
-import "../CometCore.sol";
 import "./IConfigController.sol";
-import "./ISandboxController.sol";
+import { ICometStructures } from "./ICometStructures.sol";
 
 /**
  * @title Compound's Comet Main Interface (without Ext)
  * @notice An efficient monolithic money market protocol
  * @author Compound
  */
-abstract contract ISandboxComet is CometCore {
-    error Absurd();
-    error AlreadyInitialized();
-    error AmountTooSmall();
-    error BadAsset();
-    error BadDecimals();
-    error BadDiscount();
-    error BadPrice();
-    error BaseToken();
-    error CollateralTokenAlreadyAdded();
-    error BorrowTooSmall();
-    error BorrowCFTooLarge();
-    error IncorrectInitialization();
-    error InsufficientReserves();
-    error LiquidateCFTooLarge();
-    error NoSelfTransfer();
-    error NotCollateralized();
-    error NotForSale();
-    error NotLiquidatable();
-    error Paused();
-    error ReentrantCallBlocked();
-    error SupplyCapExceeded();
-    error TimestampTooLarge();
-    error TooManyAssets();
-    error TooMuchSlippage();
-    error TransferInFailed();
-    error TransferOutFailed();
-    error Unauthorized();
-    error Locked(uint256 currrentTimestamp, uint256 unlockTimestamp);
-    error ZeroAddress();
+interface ISandboxComet {
+    function supply(address asset, uint256 amount) external;
 
-    event Supply(address indexed from, address indexed dst, uint amount);
-    event Transfer(address indexed from, address indexed to, uint amount);
-    event Withdraw(address indexed src, address indexed to, uint amount);
+    function supplyTo(address dst, address asset, uint256 amount) external;
 
-    event SupplyCollateral(address indexed from, address indexed dst, address indexed asset, uint amount);
-    event TransferCollateral(address indexed from, address indexed to, address indexed asset, uint amount);
-    event WithdrawCollateral(address indexed src, address indexed to, address indexed asset, uint amount);
+    function supplyFrom(address from, address dst, address asset, uint256 amount) external;
 
-    /// @notice Event emitted when a borrow position is absorbed by the protocol
-    event AbsorbDebt(address indexed absorber, address indexed borrower, uint basePaidOut, uint usdValue);
+    function repayAllFrom(address from, address dst) external;
 
-    /// @notice Event emitted when a user's collateral is absorbed by the protocol
-    event AbsorbCollateral(
-        address indexed absorber,
-        address indexed borrower,
-        address indexed asset,
-        uint collateralAbsorbed,
-        uint usdValue
-    );
+    function transfer(address dst, uint256 amount) external returns (bool);
 
-    /// @notice Event emitted when a collateral asset is purchased from the protocol
-    event BuyCollateral(address indexed buyer, address indexed asset, uint baseAmount, uint collateralAmount);
+    function transferFrom(address src, address dst, uint256 amount) external returns (bool);
 
-    /// @notice Event emitted when fees are extracted either to DAO or to protocol
-    event FeesExtracted(address indexed comet, address indexed asset, uint amoint, address to);
+    function transferAllFrom(address src, address dst) external;
 
-    /// @notice Event emitted when an action is paused/unpaused
-    event PauseAction(bool supplyPaused, bool transferPaused, bool withdrawPaused, bool absorbPaused, bool buyPaused);
+    function transferAssetFrom(address src, address dst, address asset, uint256 amount) external;
 
-    /// @notice Event emitted when reserves are withdrawn by the governor
-    event WithdrawReserves(address indexed to, uint amount);
+    function withdraw(address asset, uint256 amount) external;
 
-    event SpeedsChanged(uint baseTrackingSupplySpeed, uint baseTrackingBorrowSpeed, bool dao_);
+    function withdrawTo(address to, address asset, uint256 amount) external;
 
     /// @notice Event emitted when a new collateral asset is added to the protocol
     event CollateralAssetAdded(
@@ -85,82 +40,68 @@ abstract contract ISandboxComet is CometCore {
         uint64 liquidateCollateralFactor,
         uint64 liquidationFactor
     );
-
-    event ControllerFeeDisabled(bool disabled);
     
-    function addCollateralAsset(IConfigController.CollateralTokenConfig calldata collateralTokenConfig) external virtual;
+    function extractFees(address asset) external;
 
-    function supply(address asset, uint amount) external virtual;
+    function isSupplyPaused() external view returns (bool);
 
-    function supplyTo(address dst, address asset, uint amount) external virtual;
+    function addCollateralAsset(IConfigController.CollateralTokenConfig calldata collateralTokenConfig) external;
 
-    function supplyFrom(address from, address dst, address asset, uint amount) external virtual;
+    function withdrawAllFrom(address src, address to) external;
 
-    function transfer(address dst, uint amount) external virtual returns (bool);
+    function withdrawFrom(address src, address to, address asset, uint256 amount) external;
 
-    function transferFrom(address src, address dst, uint amount) external virtual returns (bool);
+    function factoryInit(address, address) external;
 
-    function transferAsset(address dst, address asset, uint amount) external virtual;
+    function initialize(IConfigController.CometConfig memory market, IConfigController.CometGlobalParamsConfig memory config) external;
 
-    function transferAssetFrom(address src, address dst, address asset, uint amount) external virtual;
+    function absorb(address absorber, address[] calldata accounts) external;
 
-    function withdraw(address asset, uint amount) external virtual;
+    function buyCollateral(address asset, uint minAmount, uint baseAmount, address recipient) external;
 
-    function withdrawTo(address to, address asset, uint amount) external virtual;
+    function quoteCollateral(address asset, uint baseAmount) external view returns (uint, uint, uint, uint);
 
-    function withdrawFrom(address src, address to, address asset, uint amount) external virtual;
+    function getPrice(address priceFeed) external view returns (uint);
 
-    function factoryInit(address, address) external virtual;
+    function isBorrowCollateralized(address account) external view returns (bool);
 
-    function initialize(
-        IConfigController.CometConfig memory market,
-        IConfigController.CometGlobalParamsConfig memory config
-    ) external virtual;
+    function isLiquidatable(address account) external view returns (bool);
 
-    function absorb(address absorber, address[] calldata accounts) external virtual;
+    function totalBorrow() external view returns (uint256);
 
-    function buyCollateral(address asset, uint minAmount, uint baseAmount, address recipient) external virtual;
+    function balanceOf(address owner) external view returns (uint256);
 
-    function quoteCollateral(address asset, uint baseAmount) public view virtual returns (uint, uint, uint, uint);
+    function borrowBalanceOf(address account) external view returns (uint256);
 
-    function getCollateralReserves(address asset) public view virtual returns (uint);
-    
-    function getAssetInfoByAddress(address asset) public view virtual returns (CollateralAsset memory, uint8 index);
-    function getReserves() public view virtual returns (int);
+    function pause(bool supplyPaused, bool transferPaused, bool withdrawPaused, bool absorbPaused, bool buyPaused) external;
 
-    function getPrice(address priceFeed) public view virtual returns (uint);
+    function getCollateralReserves(address asset) external view returns (uint);
+        
+    function getReserves() external view returns (int);
 
-    function isBorrowCollateralized(address account) public view virtual returns (bool);
+    function isTransferPaused() external view returns (bool);
 
-    function isLiquidatable(address account) public view virtual returns (bool);
+    function isWithdrawPaused() external view returns (bool);
 
-    function totalBorrow() external view virtual returns (uint256);
+    function isAbsorbPaused() external view returns (bool);
 
-    function balanceOf(address owner) public view virtual returns (uint256);
+    function isBuyPaused() external view returns (bool);
 
-    function borrowBalanceOf(address account) public view virtual returns (uint256);
+    function accrueAccount(address account) external;
 
-    function pause(bool supplyPaused, bool transferPaused, bool withdrawPaused, bool absorbPaused, bool buyPaused) external virtual;
+    function getSupplyRate(uint utilization) external view returns (uint64);
 
-    function extractFees(address) external virtual;
+    function getBorrowRate(uint utilization) external view returns (uint64);
 
-    function isSupplyPaused() public view virtual returns (bool);
+    function getUtilization() external view returns (uint);
 
-    function isTransferPaused() public view virtual returns (bool);
+    function targetReserves() external view returns (uint);
 
-    function isWithdrawPaused() public view virtual returns (bool);
+    function getAssetInfo(uint8 i) external view returns (ICometStructures.CollateralAsset memory);
 
-    function isAbsorbPaused() public view virtual returns (bool);
+    function getAssetInfoByAddress(address asset) external view returns (ICometStructures.CollateralAsset memory, uint8 index);
 
-    function isBuyPaused() public view virtual returns (bool);
+    function initiateCollateralRemoval(address removedAsset) external;
 
-    function accrueAccount(address account) external virtual;
-
-    function getSupplyRate(uint utilization) public view virtual returns (uint64);
-
-    function getBorrowRate(uint utilization) public view virtual returns (uint64);
-
-    function getUtilization() public view virtual returns (uint);
-
-    function targetReserves() external view virtual returns (uint);
+    function isCollateralRemovalInProgress() external view returns (bool);
 }

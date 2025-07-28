@@ -31,4 +31,5 @@ interface IConfigControllerEvents {
 
     event ProposalCanceled(uint256 indexed proposalId, address indexed canceler);
 
+    event OwnershipGranted(address indexed oldOwner, address indexed newOwner);
 }

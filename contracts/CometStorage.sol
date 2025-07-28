@@ -1,46 +1,14 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
-import "./interfaces/IConfigController.sol";
+import { ICometStructures } from "contracts/interfaces/ICometStructures.sol";
 
 /**
  * @title Compound's Comet Storage Interface
  * @dev Versions can enforce append-only storage slots via inheritance.
  * @author Compound
  */
-contract CometStorage {
-    // 512 bits total = 2 slots
-
-    struct TotalsBasic {
-        // 1st slot
-        uint64 baseSupplyIndex;
-        uint64 baseBorrowIndex;
-        uint64 trackingSupplyIndex;
-        uint64 trackingBorrowIndex;
-        // 2nd slot
-        uint104 totalSupplyBase;
-        uint104 totalBorrowBase;
-        uint40 lastAccrualTime;
-        uint8 pauseFlags;
-    }
-
-    struct UserBasic {
-        int104 principal;
-        uint64 baseTrackingIndex;
-        uint64 baseTrackingAccrued;
-        uint24 assetsIn;
-    }
-
-    struct CollateralAsset {
-        address collateralToken;
-        uint64 scale;
-        address priceFeed;
-        uint64 borrowCollateralFactor;
-        uint128 supplyCap;
-        uint64 liquidateCollateralFactor;
-        uint64 liquidationFactor;
-    }
-
+contract CometStorage is ICometStructures {
     /** Internal constants **/
 
     /// @dev The max number of assets this contract is hardcoded to support
@@ -78,8 +46,14 @@ contract CometStorage {
     bytes32 internal constant REENTRANCY_GUARD_FLAG_SLOT = bytes32(keccak256("comet.reentrancy.guard"));
 
     /// @dev The reentrancy guard statuses
-    uint256 internal constant REENTRANCY_GUARD_NOT_ENTERED = 0;
+    uint256 internal constant REENTRANCY_GUARD_NOT_ENTERED = 0; // aderyn-fp(unused-state-variable)
     uint256 internal constant REENTRANCY_GUARD_ENTERED = 1;
+
+    /// @dev The target borrow collateral factor for the processing removal of collateral assets
+    uint64 internal constant TARGET_BORROW_COLLATERAL_FACTOR = 0;
+
+    /// @dev The target liquidate collateral factor for the processing removal of collateral assets
+    uint64 internal constant TARGET_LIQUIDATE_COLLATERAL_FACTOR = 0;
 
     /** General configuration constants **/
     /// @notice Config Controller address
@@ -102,39 +76,39 @@ contract CometStorage {
 
     /// @notice The point in the supply rates separating the low interest rate slope and the high interest rate slope (factor)
     /// @dev uint64
-    uint public supplyKink;
+    uint64 public supplyKink;
 
     /// @notice Per second supply interest rate slope applied when utilization is below kink (factor)
     /// @dev uint64
-    uint public supplyPerSecondInterestRateSlopeLow;
+    uint64 public supplyPerSecondInterestRateSlopeLow;
 
     /// @notice Per secollateralTokenscond supply interest rate slope applied when utilization is above kink (factor)
     /// @dev uint64
-    uint public supplyPerSecondInterestRateSlopeHigh;
+    uint64 public supplyPerSecondInterestRateSlopeHigh;
 
     /// @notice Per second supply base interest rate (factor)
     /// @dev uint64
-    uint public supplyPerSecondInterestRateBase;
+    uint64 public supplyPerSecondInterestRateBase;
 
     /// @notice The point in the borrow rate separating the low interest rate slope and the high interest rate slope (factor)
     /// @dev uint64
-    uint public borrowKink;
+    uint64 public borrowKink;
 
     /// @notice Per second borrow interest rate slope applied when utilization is below kink (factor)
     /// @dev uint64
-    uint public borrowPerSecondInterestRateSlopeLow;
+    uint64 public borrowPerSecondInterestRateSlopeLow;
 
     /// @notice Per second borrow interest rate slope applied when utilization is above kink (factor)
     /// @dev uint64
-    uint public borrowPerSecondInterestRateSlopeHigh;
+    uint64 public borrowPerSecondInterestRateSlopeHigh;
 
     /// @notice Per second borrow base interest rate (factor)
     /// @dev uint64
-    uint public borrowPerSecondInterestRateBase;
+    uint64 public borrowPerSecondInterestRateBase;
 
     /// @notice The fraction of the liquidation penalty that goes to buyers of collateral instead of the protocol
     /// @dev uint64
-    uint public storeFrontPriceFactor;
+    uint64 public storeFrontPriceFactor;
 
     /// @notice The scale for base token (must be less than 18 decimals)
     /// @dev uint64
@@ -161,13 +135,13 @@ contract CometStorage {
     uint public baseBorrowMin;
 
     /// @notice The minimum base token reserves which must be held before collateral is hodled
-    uint public targetPercent;
+    uint64 public targetPercent;
 
     /// @notice Seed reserves, initialized during the Comet creation
     uint public seedReserves;
 
     /// @notice Unlock timestamp
-    uint public unlockTimestamp;
+    uint64 public unlockTimestamp;
 
     /// @notice Factor to divide by when accruing rewards in order to preserve 6 decimals (i.e. baseScale / 1e6)
     uint internal accrualDescaleFactor;
@@ -182,11 +156,14 @@ contract CometStorage {
     uint40 internal lastAccrualTime;
     uint8 internal pauseFlags;
 
+    /// @notice The current collateral removal process state
+    CollateralRemovalState internal _collateralRemovalState;
+
     /// @notice The number of assets this contract actually supports
     uint8 public numAssets;
 
-    /// @notice Marker that the market is closed
-    bool internal _closed;
+    /// @notice The number of assets that have been removed
+    uint8 public numRemovedAssets;
 
     /// @notice Aggregate variables tracked for each collateral asset
     mapping(address => uint256) public totalsCollateral;
@@ -197,7 +174,12 @@ contract CometStorage {
     mapping(address => uint256) public assetFeesDAO;
 
     /// @notice Mapping of users to accounts which may be permitted to manage the user account
-    mapping(address => mapping(address => bool)) public isAllowed;
+    /// @notice user => spender => asset (base or collateral) => amount
+    mapping(address => mapping(address => mapping(address => uint))) public allowance;
+
+    /// @notice user => spender => true or false (for baseAsset only)
+    /// @notice allowance for all is expected to be atomic - for ...All() operations only
+    mapping(address => mapping(address => bool)) public allowanceAll;
 
     /// @notice The next expected nonce for an address, for validating authorizations via signature
     mapping(address => uint) public userNonce;
@@ -209,5 +191,12 @@ contract CometStorage {
     mapping(address => mapping(address => uint)) public userCollateral;
 
     mapping(address => uint8) public collateralAssetIndex;
+
+    /// @notice Mapping indexes for collateral assets that have been removed
+    mapping(address => uint8) public removedCollateralAssetIndex;
+
     CollateralAsset[] public collateralAssets;
+
+    /// @notice The list of collateral assets that have been removed
+    CollateralAsset[] public removedCollateralAssets;
 }

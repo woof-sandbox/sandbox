@@ -45,7 +45,7 @@ fi
 # ESLint check on staged TypeScript files
 if [ -n "$TS_FILES" ]; then
     echo "🔍 Running ESLint TS on staged files..."
-    echo "$TS_FILES" | xargs eslint --config .eslintrc.js
+    echo "$TS_FILES" | xargs npx eslint --config .eslintrc.js
 else
     echo "ℹ️  No TypeScript files to lint"
 fi

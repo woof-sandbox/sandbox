@@ -27,17 +27,18 @@
     }
   },
   "scripts": {
-    "setup": "git submodule update --init --recursive && yarn install",
+    "preinstall": "git submodule update --init --recursive",
+    "postinstall": "yarn setup:hooks",
     "build": "hardhat compile",
     "clean": "hardhat clean && rm -rf build/ cache/ coverage* dist/",
     "test": "hardhat test",
     "test:coverage": "hardhat coverage",
-    "slither": "slither contracts/ --foundry-out-directory artifacts/ --foundry-compile-all",
+    "slither": "yarn clean && yarn build && slither contracts/ --hardhat-ignore-compile --checklist > SLITHER_REPORT.md",
     "lint:ts": "eslint 'scripts/**/*.ts' 'test/**/*.ts' 'hardhat.config.ts'",
     "lint:sol": "solhint contracts/**/*.sol contracts/*.sol --config .solhint.json",
-    "aderyn": "aderyn --src contracts/ -o ADERYN_REPORT.md",
-    "prettier:sol": "prettier --write 'contracts/**/*.sol' --config .prettierrc.json",
-    "prettier:ts": "prettier --write 'test/**/*.ts' 'src/**/*.ts' 'scripts/**/*.ts' 'hardhat.config.ts' --config .prettierrc.json",
+    "aderyn": "npx aderyn --src contracts/ -o ADERYN_REPORT.md",
+    "prettier:sol": "prettier --write 'contracts/**/*.sol' --config .prettierrc.json  --end-of-line auto",
+    "prettier:ts": "prettier --write 'test/**/*.ts' 'src/**/*.ts' 'scripts/**/*.ts' 'hardhat.config.ts' --config .prettierrc.json  --end-of-line auto",
     "doc": "hardhat docgen",
     "clean:out": "./scripts/clean-out.sh",
     "setup:hooks": "git config core.hooksPath .githooks"

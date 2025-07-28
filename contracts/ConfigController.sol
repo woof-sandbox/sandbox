@@ -10,7 +10,7 @@ import "./interfaces/IConfigControllerEvents.sol";
 
 import "./interfaces/IConfigControllerFactory.sol";
 import "./interfaces/ISandboxController.sol";
-import "./interfaces/ISandboxComet.sol";
+import "./interfaces/ISandboxCometConfig.sol";
 import "./interfaces/ISandboxCometFactory.sol";
 
 import "hardhat/console.sol";
@@ -28,11 +28,30 @@ import "hardhat/console.sol";
  */
 contract ConfigController is IConfigController, IConfigControllerErrors, IConfigControllerEvents {
     using SafeERC20 for IERC20;
-    uint256 public constant FEE_DIVISOR = 10_000;
-    address public constant ZERO_ADDRESS = 0x0000000000000000000000000000000000000000;
+    uint32 public constant FEE_DIVISOR = 1e4;
+
+    /// @notice The lifetime of the new collateral proposal
+    /// @dev The maximum value is 3 months. 3 month in seconds is 7776000. The max value of uint32 is 4294967295.
+    uint40 public constant PRPOPOSE_NEW_COLLATERAL_LIFETIME = 2 weeks;
+    /// @notice The maturity time of the new collateral proposal
+    uint40 public constant PROPOSE_NEW_COLLATERAL_MATURITY = 1 weeks;
+    /// @notice The timelock of the new collateral proposal
+    uint40 public constant PROPOSE_NEW_COLLATERAL_TIMELOCK = 0;
+    /// @notice The lifetime of the collateral removal proposal
+    uint40 public constant PROPOSE_COLLATERAL_REMOVAL_LIFETIME = 1 weeks; 
+    /// @notice The maturity time of the collateral removal proposal
+    uint40 public constant PROPOSE_COLLATERAL_REMOVAL_MATURITY = 0;
+    /// @notice The timelock of the collateral removal proposal
+    uint40 public constant PROPOSE_COLLATERAL_REMOVAL_TIMELOCK = 0;
+    /// @notice The lifetime of the curator proposal
+    uint40 public constant PROPOSE_CURATOR_LIFETIME = 1 weeks;
+    /// @notice The maturity time of the curator proposal
+    uint40 public constant PROPOSE_CURATOR_MATURITY = 0;
+    /// @notice The timelock of the curator proposal
+    uint40 public constant PROPOSE_CURATOR_TIMELOCK = 0;
 
     /// @notice The address of the protocol owner
-    address public override owner;
+    address dpublic override owner;
 
     /// @notice The address of the protocol curator
     address public override curator;
@@ -54,7 +73,7 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
     address[] public override comets;
 
     /// @notice The curator fee in basis points (1% = 100)
-    uint public override curatorFee;
+    uint32 public override curatorFee;
 
     /// @notice The name of this controller
     string public override name;
@@ -99,16 +118,17 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
         address _curator,
         address _guardian,
         address _cometFactory,
-        uint _curatorFee,
+        uint32 _curatorFee,
         string memory _name,
-        uint _curatorProposalDuration, // TODO: REMOVE
-        uint _proposalDuration // TODO: REMOVE
+        uint40 _curatorProposalDuration,
+        uint40 _proposalDuration
     ) public override {
         if (configControllerFactory != address(0)) revert AlreadyInitialized();
         /// it is assumed that controller can be initialized only via factory - atomically after the deployment
         configControllerFactory = msg.sender;
 
         /// back-link to ensure that correct sandboxController is used and to bind it with factory - thus avoiding foreign deployments
+        // aderyn-fp-next-line(reentrancy-state-change)
         sandboxController = IConfigControllerFactory(configControllerFactory).sandboxController();
 
         /// Addresses of owner, curator, guardian, sandbox controller and factory are validated in the factory
@@ -117,15 +137,17 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
         unchecked {
             if (_curatorFee > FEE_DIVISOR) revert InvalidFeePercentage();
 
-            (uint minUpdateTime, uint maxUpdateTime) = ISandboxController(sandboxController).proposalBoundaries();
+            // aderyn-fp-next-line(reentrancy-state-change)
+            (uint40 minUpdateTime, uint40 maxUpdateTime) = ISandboxController(sandboxController).proposalBoundaries();
             if (_curatorProposalDuration < minUpdateTime || _proposalDuration < minUpdateTime) revert ProposalDurationTooShort();
             if (_curatorProposalDuration > maxUpdateTime || _proposalDuration > maxUpdateTime) revert ProposalDurationTooLong();
         }
 
-        owner = _owner;
-        guardian = _guardian;
+        /// Zero address is checked in Controller Factory
+        owner = _owner; // aderyn-fp(state-no-address-check)
+        guardian = _guardian; // aderyn-fp(state-no-address-check)
 
-        cometFactory = _cometFactory;
+        cometFactory = _cometFactory; // aderyn-fp(state-no-address-check)
         curatorFee = _curatorFee;
         name = _name;
         _proposeCurator(abi.encode(_curator), proposalCounter);
@@ -145,7 +167,8 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
 
     enum ProposalType {
         ProposeCurator,
-        ProposeNewCollateralToken
+        ProposeNewCollateralToken,
+        ProposeCollateralRemoval
     }
 
     function _proposeCurator(bytes memory _calldata, uint256 _proposalId) internal {
@@ -165,18 +188,19 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
         proposals[_proposalId] = Proposal({
             proposer: msg.sender,
             proposalType: ProposalType.ProposeCurator,
-            expirationTime: uint40(block.timestamp + 1 weeks), /// TODO: Change to sandboxController.proposalBoundaries()
-            maturityTime: 0,
-            timelock: 0, 
+            expirationTime: block.timestamp + PROPOSE_CURATOR_LIFETIME,
+            maturityTime: block.timestamp + PROPOSE_CURATOR_MATURITY,
+            timelock: block.timestamp + PROPOSE_CURATOR_TIMELOCK, 
             comet: address(0),
             call: _calldata
         });
     
-        emit CuratorProposed(_proposalId, curator, proposedCuratorAddress, block.timestamp + 1 weeks);
+        emit CuratorProposed(_proposalId, curator, proposedCuratorAddress, block.timestamp + PROPOSE_CURATOR_LIFETIME);
     }
 
     // Hardcoded selector for addCollateralToken function
     bytes4 constant ADD_COLLATERAL_SELECTOR = 0xfad67aaa;
+    bytes4 constant REMOVE_COLLATERAL_SELECTOR = 0x42966c68;
 
     /**
      * @notice Creates a new proposal
@@ -232,13 +256,13 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
 
             CollateralTokenConfig memory collateralConfig = abi.decode(_calldata[4:], (CollateralTokenConfig));
 
-            try ISandboxComet(_comet).getAssetInfoByAddress(collateralConfig.collateralToken) {
+            try ISandboxCometConfig(_comet).getAssetInfoByAddress(collateralConfig.collateralToken) {
                 revert CollateralTokenAlreadyAdded();
             }
             catch {
                 // Do nothing.
             }
-            ISandboxComet comet = ISandboxComet(_comet);
+            ISandboxCometConfig comet = ISandboxCometConfig(_comet);
             if (comet.baseToken() == collateralConfig.collateralToken) revert WrongCollateralTokenSettings();
             
             _validateCollateralTokenConfig(collateralConfig);
@@ -249,9 +273,9 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
             proposals[proposalId] = Proposal({
                 proposer: msg.sender,
                 proposalType: ProposalType.ProposeNewCollateralToken,
-                maturityTime: uint40(block.timestamp + 1 weeks), /// TODO: Change to sandboxController.proposalBoundaries()
-                expirationTime: uint40(block.timestamp + 2 weeks), /// TODO: Change to sandboxController.proposalBoundaries()
-                timelock: 0, /// TODO: Change to sandboxController.proposalBoundaries()
+                maturityTime: block.timestamp + PROPOSE_NEW_COLLATERAL_MATURITY,
+                expirationTime: block.timestamp + PRPOPOSE_NEW_COLLATERAL_LIFETIME,
+                timelock: block.timestamp + PROPOSE_NEW_COLLATERAL_TIMELOCK,
                 comet: _comet,
                 call: _calldata
             });
@@ -260,6 +284,24 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
         } else if (_proposalType == uint8(ProposalType.ProposeCurator)) {
             if (msg.sender != owner) revert Unauthorized();
             _proposeCurator(_calldata, proposalId);
+        /// Propose collateral removal.
+        } else if (_proposalType == uint8(ProposalType.ProposeCollateralRemoval)) {
+            if (msg.sender != owner) revert Unauthorized();
+            /**
+             * --- Before creating the proposal checks ---
+             * - Check if the selector is valid.
+             * - Check if the collateral is the part of the comet collateral list.
+             */
+            bytes4 selector = bytes4(_calldata);
+            if (selector != REMOVE_COLLATERAL_SELECTOR) revert InvalidSelector();
+
+            /// Inside the comet, the function getAssetInfoByAddress will revert if the collateral token is not added.
+            try comet.getAssetInfoByAddress(collateralConfig.collateralToken) {
+                revert CollateralTokenAlreadyAdded();
+            }
+            catch {
+                // Do nothing.
+            }
         }
         
         return proposalId;
@@ -346,8 +388,7 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
             CollateralTokenConfig memory collateralConfig = abi.decode(params, (CollateralTokenConfig));
             _validateCollateralTokenConfig(collateralConfig);
 
-            ISandboxComet comet = ISandboxComet(_proposal.comet);
-            /// Check if the collateral token is already added.
+            ISandboxCometConfig comet = ISandboxCometConfig(_proposal.comet);
             /// Inside the comet, the function getAssetInfoByAddress will revert if the collateral token is not added.
             try comet.getAssetInfoByAddress(collateralConfig.collateralToken) {
                 revert CollateralTokenAlreadyAdded();
@@ -423,60 +464,70 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
     function createComet(CometConfig memory _cometConfig) external override onlyOwner returns (address) {
         /// Check base token
         ///
-        if (_cometConfig.baseToken == ZERO_ADDRESS) revert ZeroAddress();
+        if (_cometConfig.baseToken == address(0)) revert ZeroAddress();
+        // aderyn-fp-next-line(reentrancy-state-change)
         if (!ISandboxController(sandboxController).isBaseTokenWhitelisted(_cometConfig.baseToken)) revert BaseTokenNotWhitelisted();
         /// Token decimals and price feed decimal are validated on the Comet, as it may be an individual setting
 
         /// Check interest curve
         ///
-        ISandboxController.BaseAssetConfiguration memory baseAssetConfig = 
-            ISandboxController(sandboxController).baseAssets(_cometConfig.baseToken);
+        // aderyn-fp-next-line(reentrancy-state-change)
+        ISandboxController.BaseAssetConfiguration memory baseAssetConfig = ISandboxController(sandboxController).baseAssets(
+            _cometConfig.baseToken
+        );
 
         if (baseAssetConfig.baseAssetCurves.length == 0) revert NoCurveRegistered();
         if (_cometConfig.baseTokenCurveId >= baseAssetConfig.baseAssetCurves.length) revert InvalidCurveId();
 
         /// Check collaterals
         ///
-        uint _length = _cometConfig.collateralTokens.length;
+        uint256 _length = _cometConfig.collateralTokens.length;
         CollateralTokenConfig memory collateralTokenConfig;
         address[] memory addedCollateralTokens = new address[](_length);
 
         /// Upper boundary for collateral tokens number is checked in Comet, as different Comets may be supported
         if (_length == 0) revert ZeroCollateralAssets();
-        for (uint i; i < _length; ++i) {
-            unchecked {
-                collateralTokenConfig = _cometConfig.collateralTokens[i];
-                address _collateralToken = collateralTokenConfig.collateralToken;
+        // aderyn-fp-next-line(require-revert-in-loop)
+        for (uint8 i; i < _length; ) {
+            collateralTokenConfig = _cometConfig.collateralTokens[i];
+            address _collateralToken = collateralTokenConfig.collateralToken;
 
-                /// Quick checks first
-                if (_collateralToken == ZERO_ADDRESS) revert ZeroAddress();
-                if (_collateralToken == _cometConfig.baseToken) revert WrongCollateralTokenSettings();
+            /// Quick checks first
+            if (_collateralToken == address(0)) revert ZeroAddress();
+            if (_collateralToken == _cometConfig.baseToken) revert WrongCollateralTokenSettings();
 
-                for (uint j; j < i; j++) {
-                    if (addedCollateralTokens[j] == _collateralToken) revert CollateralTokenAlreadyAdded();
+            for (uint8 j = 0; j < i; ) {
+                if (addedCollateralTokens[j] == _collateralToken) revert CollateralTokenAlreadyAdded();
+                unchecked {
+                    ++j;
                 }
-                addedCollateralTokens[i] = _collateralToken;
+            }
+            addedCollateralTokens[i] = _collateralToken;
 
-                /// Check alignment with settings from SandboxController
-                _validateCollateralTokenConfig(collateralTokenConfig);
+            /// Check alignment with settings from SandboxController
+            _validateCollateralTokenConfig(collateralTokenConfig);
+            unchecked {
+                ++i;
             }
         }
 
+        // aderyn-fp-next-line(reentrancy-state-change)
         ISandboxController.SandboxControllerConfiguration memory _sandboxConfig = ISandboxController(sandboxController).config();
         CometGlobalParamsConfig memory _globalConfig = CometGlobalParamsConfig(
             _sandboxConfig.targetPercent,
             _sandboxConfig.storeFrontPriceFactor,
-            _sandboxConfig.suggestedAmountOfSeedReserves,
-            _sandboxConfig.suggestedLockTimeOfSeedReserves
+            _sandboxConfig.suggestedLockTimeOfSeedReserves,
+            _sandboxConfig.suggestedAmountOfSeedReserves
         );
 
-        address comet = ISandboxCometFactory(cometFactory).createComet();
-        ISandboxComet(comet).initialize(_cometConfig, _globalConfig);
+        address comet = ISandboxCometFactory(cometFactory).createComet(_cometConfig.name); // aderyn-fp(reentrancy-state-change)
+        ISandboxCometConfig(comet).initialize(_cometConfig, _globalConfig); // aderyn-fp(reentrancy-state-change)
 
         uint256 cometsNum = comets.length;
         comets.push(comet);
         cometId[comet] = cometsNum;
 
+        /// TODO: seed reserves logic will be adjusted
         if (_sandboxConfig.suggestedAmountOfSeedReserves > 0) {
             IERC20(_cometConfig.baseToken).safeTransferFrom(msg.sender, comet, _sandboxConfig.suggestedAmountOfSeedReserves);
         }
@@ -487,7 +538,7 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
     }
 
     /// @notice The number of comets created by this controller
-    function cometsLength() public view override returns (uint) {
+    function cometsLength() public view override returns (uint256) {
         return comets.length;
     }
 
@@ -510,7 +561,7 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
         if (comet == address(0)) revert ZeroAddress();
         if (!_isCometOwned(comet)) revert UnknownComet();
 
-        ISandboxComet(comet).extractFees(asset);
+        ISandboxCometConfig(comet).extractFees(asset);
         /// Note: Comet emits the respective event
 
         /// TODO: extend method once fee distribution is finished
@@ -520,15 +571,18 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
     /// @dev Only callable by the current owner
     /// @param _newOwner The address of the new owner
     function grantOwnership(address _newOwner) external onlyOwner {
-        if (_newOwner == ZERO_ADDRESS) revert ZeroAddress();
+        if (_newOwner == address(0)) revert ZeroAddress();
+        address oldOwner = owner;
         owner = _newOwner;
+
+        emit OwnershipGranted(oldOwner, _newOwner);
     }
 
     /// @notice Removes the current curator
     /// @dev Only callable by the owner
     function removeCurator() external override onlyOwner {
         address oldCurator = curator;
-        curator = ZERO_ADDRESS;
+        curator = address(0);
         emit CuratorCanceled(oldCurator);
     }
 
@@ -536,8 +590,9 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
     /// @dev Only callable by the owner
     /// @param _newGuardian The address of the new guardian
     function setGuardian(address _newGuardian) external override onlyOwner {
+        /// Note: guardian can be set to address(0) which interpets into "no guardian" state
         address oldGuardian = guardian;
-        guardian = _newGuardian;
+        guardian = _newGuardian; // aderyn-fp(state-no-address-check)
 
         emit GuardianUpdated(oldGuardian, _newGuardian);
     }

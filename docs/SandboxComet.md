@@ -25,7 +25,14 @@ can be legally deployed only via the factory which provides correct config contr
 function initialize(struct IConfigController.CometConfig comet, struct IConfigController.CometGlobalParamsConfig config) external
 ```
 
-replaces your old constructor
+can be called only from Config Controller, as factoryInit prevents any other callers
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| comet | struct IConfigController.CometConfig | Base token, interest rate curve, collaterals |
+| config | struct IConfigController.CometGlobalParamsConfig | Global Comet reserve parameters |
 
 ### nonReentrant
 
@@ -56,7 +63,7 @@ _Unsets the reentrancy flag_
 ### getAssetInfo
 
 ```solidity
-function getAssetInfo(uint8 i) public view returns (struct CometStorage.CollateralAsset)
+function getAssetInfo(uint8 i) public view returns (struct ICometStructures.CollateralAsset)
 ```
 
 Get the i-th asset info, according to the order they were passed in originally
@@ -71,12 +78,12 @@ Get the i-th asset info, according to the order they were passed in originally
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-| [0] | struct CometStorage.CollateralAsset | The asset info object |
+| [0] | struct ICometStructures.CollateralAsset | The asset info object |
 
 ### getAssetInfoByAddress
 
 ```solidity
-function getAssetInfoByAddress(address asset) public view returns (struct CometStorage.CollateralAsset, uint8 index)
+function getAssetInfoByAddress(address asset) public view returns (struct ICometStructures.CollateralAsset, uint8 index)
 ```
 
 _Determine index of asset that matches given address_
@@ -96,7 +103,7 @@ function getNowInternal() internal view virtual returns (uint40)
 ### accruedInterestIndices
 
 ```solidity
-function accruedInterestIndices(uint256 timeElapsed) internal view returns (uint64, uint64)
+function accruedInterestIndices(uint40 timeElapsed) internal view returns (uint64, uint64)
 ```
 
 _Calculate accrued interest indices for base token supply and borrows_
@@ -106,6 +113,222 @@ _Calculate accrued interest indices for base token supply and borrows_
 ```solidity
 function accrueInternal() internal
 ```
+
+### interpolateValue
+
+```solidity
+function interpolateValue(uint256 startValue, uint256 targetValue, uint256 currentValue, uint40 elapsed, uint40 duration) internal pure returns (uint64)
+```
+
+Linearly interpolates a curve parameter value during a transition period.
+@dev
+This function is used to smoothly update protocol curve parameters (such as supplyKink, interest rate slopes, etc.)
+from a starting value to a target value over a specified duration. It ensures that the parameter changes
+at a constant rate, providing a predictable and gradual transition rather than an abrupt jump.
+
+The algorithm works for both increasing and decreasing transitions. At any point during the transition,
+the value is calculated as a function of the elapsed time since the start of the transition.
+
+The formula used in this implementation is:
+  if (targetValue > startValue):
+      interpolated = currentValue + (((targetValue - startValue) * elapsed / duration) - (currentValue - startValue))
+  else:
+      interpolated = currentValue - (((startValue - targetValue) * elapsed / duration) - (startValue - currentValue))
+
+This means:
+- At the start (elapsed = 0):      interpolated = startValue
+- At the end (elapsed = duration): interpolated = targetValue
+- In between:                      interpolated is proportionally between startValue and targetValue
+
+Example 1: Increasing transition
+  Suppose we want to transition supplyKink from 200 to 800 over 10 seconds.
+  - startValue = 200
+  - targetValue = 800
+  - duration = 10
+
+  At elapsed = 0, currentValue = 200:
+    interpolated = 200 + ((800 - 200) * 0 / 10 - (200 - 200))
+                 = 200 + (0 - 0)
+                 = 200
+
+  At elapsed = 5, currentValue = 500:
+    interpolated = 500 + ((800 - 200) * 5 / 10 - (500 - 200))
+                 = 500 + (300 - 300)
+                 = 500
+
+  At elapsed = 10, currentValue = 800:
+    interpolated = 800 + ((800 - 200) * 10 / 10 - (800 - 200))
+                 = 800 + (600 - 600)
+                 = 800
+
+Example 2: Decreasing transition
+  Suppose we want to transition supplyKink from 900 to 300 over 10 seconds.
+  - startValue = 900
+  - targetValue = 300
+  - duration = 10
+
+  At elapsed = 0, currentValue = 900:
+    interpolated = 900 - ((900 - 300) * 0 / 10 - (900 - 900))
+                 = 900 - (0 - 0)
+                 = 900
+
+  At elapsed = 4, currentValue = 660:
+    interpolated = 660 - ((900 - 300) * 4 / 10 - (900 - 660))
+                 = 660 - (240 - 240)
+                 = 660
+
+  At elapsed = 10, currentValue = 300:
+    interpolated = 300 - ((900 - 300) * 10 / 10 - (900 - 300))
+                 = 300 - (600 - 600)
+                 = 300
+
+Example 3: No change
+  If startValue = targetValue = 500, duration = 10, any elapsed, currentValue = 500:
+    interpolated = 500 + ((500 - 500) * elapsed / 10 - (500 - 500))
+                 = 500 + (0 - 0)
+                 = 500
+
+Usage:
+  This function is called internally by the protocol during a curve transition, typically in a function like
+  `progressTransition(now_)`, to update each curve parameter to its correct value for the current time.
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| startValue | uint256 | The value of the parameter at the start of the transition. |
+| targetValue | uint256 | The value of the parameter at the end of the transition. |
+| currentValue | uint256 | The current value of the parameter (used for incremental calculation). |
+| elapsed | uint40 | The time elapsed since the start of the transition, in seconds. |
+| duration | uint40 | The total duration of the transition, in seconds. |
+
+#### Return Values
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| [0] | uint64 | The interpolated value as a uint64, representing the parameter's value at the current elapsed time. |
+
+### initiateCollateralRemoval
+
+```solidity
+function initiateCollateralRemoval(address removalAsset) external
+```
+
+Initiates the collateral removal process for a given collateral asset.
+@dev
+This function begins a controlled and gradual removal process of a collateral asset from the protocol.
+It is intended to allow safe offboarding of an asset without causing sudden liquidations or collateral shortfalls.
+
+---
+Access Control:
+- Only the `configController` is authorized to call this method.
+- Unauthorized calls will revert with `Unauthorized()`.
+
+---
+Process Constraints:
+- Only one collateral removal process can be active at a time.
+- If a removal is already in progress, the function will revert with `CollateralRemovalInProgress(...)`,
+  providing:
+    - The currently offboarding token address.
+    - The start time of the active removal process.
+    - The scheduled end time.
+
+---
+On Initialization:
+- Retrieves the collateral asset metadata via `getAssetInfoByAddress(...)`.
+- Stores the current state in `_collateralRemovalState`:
+    - `collateralToken`: Address of the token being removed.
+    - `startBorrowCollateralFactor` / `startLiquidateCollateralFactor`: Initial values before removal.
+    - `startTime`: Current timestamp.
+    - `duration`: Offboarding period, retrieved from `SandboxController`.
+    - `collateralAssetIndex`: Index in the active collateral array.
+    - `removalInProgress`: Flag set to `true`.
+- Sets the collateral’s `supplyCap` to zero to block new supply immediately.
+
+---
+Safety and User Experience:
+- Borrow and liquidation collateral factors are **reduced linearly** over time using `interpolateValue(...)`.
+- This design prevents abrupt liquidations at the start of removal, even if the removed asset represented
+  a large share of the user's borrowing power.
+- The progressive decline gives users the opportunity to:
+    - Withdraw the soon-to-be-removed collateral voluntarily.
+    - Avoid opening new borrow positions against this collateral.
+- Once the removal period ends, collateral factors reach 0%, and the asset is fully offboarded.
+
+---
+Post-Removal Behavior:
+- If a user did not withdraw the collateral before the process ended:
+    - They can **still withdraw it** without restrictions.
+    - As long as their borrow position remains solvent, they will **not be liquidated** solely due to
+      the collateral becoming inactive.
+    - If the asset was not supporting an active borrow, it remains withdrawable regardless.
+
+---
+Lifecycle Summary:
+1. Initiation via this method.
+2. Progressive factor decay handled by `_prepareCollateralRemoval()` during internal state updates.
+3. Finalization via `_finalizeCollateralRemoval()` once the duration elapses.
+4. The asset is removed from active listings and added to the `removedCollateralAssets` array.
+5. `removalInProgress` is set to `false`. The rest of the `_collateralRemovalState` remains in storage
+   for gas efficiency and will be overwritten on the next removal.
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| removalAsset | address | The address of the collateral asset to begin removing from the market. Emits a {CollateralRemovalInitiated} event including: - The index of the collateral in the active array. - The token address. - The start and end timestamps of the removal window. Reverts if: - The caller is not the config controller. - A removal process is already in progress. |
+
+### _prepareCollateralRemoval
+
+```solidity
+function _prepareCollateralRemoval() internal
+```
+
+Prepares the collateral removal process by updating the collateral asset factors.
+@dev
+This internal function manages the gradual removal of a collateral asset from the market.
+- If the removal period has ended (current time >= endTime), it sets the borrow and liquidate collateral factors
+  to their target values and finalizes the removal by calling `_finalizeCollateralRemoval`.
+- If the removal period is still ongoing, it linearly interpolates the borrow and liquidate collateral factors
+  between their starting and target values based on the elapsed time, and updates the collateral asset in storage.
+- This function is intended to be called during interest accrual or other internal state updates to ensure
+  that the collateral removal process progresses smoothly over time.
+
+### _finalizeCollateralRemoval
+
+```solidity
+function _finalizeCollateralRemoval(struct ICometStructures.CollateralAsset collateralAsset, struct ICometStructures.CollateralRemovalState collateralRemovalState) internal
+```
+
+Finalizes the removal of a collateral asset from the market.
+@dev
+- Appends the removed collateral asset to the `removedCollateralAssets` array and updates the corresponding index mapping.
+- Increments the `numRemovedAssets` counter.
+- Removes the asset from the active `collateralAssets` array by replacing it with the last element and popping the array.
+- Decrements the `numAssets` counter and deletes the asset's index from the active mapping.
+- Marks the end of the collateral removal process by setting the `removalInProgress` flag to false.
+- Emits a {CollateralAssetRemoved} event with the asset index and token address.
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| collateralAsset | struct ICometStructures.CollateralAsset | The CollateralAsset struct containing the parameters of the removed collateral. |
+| collateralRemovalState | struct ICometStructures.CollateralRemovalState | The CollateralRemovalState struct containing the state of the removal process. |
+
+### isCollateralRemovalInProgress
+
+```solidity
+function isCollateralRemovalInProgress() public view returns (bool)
+```
+
+Check whether a collateral removal process is in progress
+
+#### Return Values
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| [0] | bool | Whether a collateral removal process is currently ongoing |
 
 ### accrueAccount
 
@@ -422,7 +645,7 @@ _Update assetsIn bit vector if user has entered or exited an asset_
 ### updateBasePrincipal
 
 ```solidity
-function updateBasePrincipal(address account, struct CometStorage.UserBasic basic, int104 principalNew) internal
+function updateBasePrincipal(address account, struct ICometStructures.UserBasic basic, int104 principalNew) internal
 ```
 
 _Write updated principal to store and tracking participation_
@@ -434,16 +657,6 @@ function doTransferIn(address asset, address from, uint256 amount) internal retu
 ```
 
 _Safe ERC20 transfer in and returns the final amount transferred (taking into account any fees)
-Note: Safely handles non-standard ERC-20 tokens that do not return a value.
-See here: https://medium.com/coinmonks/missing-return-value-bug-at-least-130-tokens-affected-d67bf08521ca_
-
-### doTransferOut
-
-```solidity
-function doTransferOut(address asset, address to, uint256 amount) internal
-```
-
-_Safe ERC20 transfer out
 Note: Safely handles non-standard ERC-20 tokens that do not return a value.
 See here: https://medium.com/coinmonks/missing-return-value-bug-at-least-130-tokens-affected-d67bf08521ca_
 
@@ -495,14 +708,28 @@ Supply an amount of asset from `from` to dst, if allowed
 | asset | address | The asset to supply |
 | amount | uint256 | The quantity to supply |
 
+### repayAllFrom
+
+```solidity
+function repayAllFrom(address from, address dst) external
+```
+
+Repay the whole debt in base asset to the protocol from `from` to dst, if allowed
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| from | address | The supplier address |
+| dst | address | The address which will hold the balance (can be the same from address) |
+
 ### supplyInternal
 
 ```solidity
-function supplyInternal(address operator, address from, address dst, address asset, uint256 amount) internal
+function supplyInternal(address operator, address from, address dst, address asset, uint256 amount, bool isAll) internal
 ```
 
-_Supply either collateral or base asset, depending on the asset, if operator is allowed
-Note: Specifying an `amount` of uint256.max will repay all of `dst`'s accrued base borrow balance_
+_Supply either collateral or base asset, depending on the asset, if operator is allowed_
 
 ### supplyBase
 
@@ -563,21 +790,20 @@ ERC20 transfer an amount of base token from src to dst, if allowed
 | ---- | ---- | ----------- |
 | [0] | bool | true |
 
-### transferAsset
+### transferAllFrom
 
 ```solidity
-function transferAsset(address dst, address asset, uint256 amount) external
+function transferAllFrom(address src, address dst) external
 ```
 
-Transfer an amount of asset to dst
+ERC20 transfer the whole base token balance from src to dst, if allowed
 
 #### Parameters
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
+| src | address | The sender address |
 | dst | address | The recipient address |
-| asset | address | The asset to transfer |
-| amount | uint256 | The quantity to transfer |
 
 ### transferAssetFrom
 
@@ -599,11 +825,10 @@ Transfer an amount of asset from src to dst, if allowed
 ### transferInternal
 
 ```solidity
-function transferInternal(address operator, address src, address dst, address asset, uint256 amount) internal
+function transferInternal(address operator, address src, address dst, address asset, uint256 amount, bool isAll) internal
 ```
 
-_Transfer either collateral or base asset, depending on the asset, if operator is allowed
-Note: Specifying an `amount` of uint256.max will transfer all of `src`'s accrued base balance_
+_Transfer either collateral or base asset, depending on the asset, if operator is allowed_
 
 ### transferBase
 
@@ -669,14 +894,28 @@ Withdraw an amount of asset from src to `to`, if allowed
 | asset | address | The asset to withdraw |
 | amount | uint256 | The quantity to withdraw |
 
+### withdrawAllFrom
+
+```solidity
+function withdrawAllFrom(address src, address to) external
+```
+
+Withdraw the whole asset balance from src to `to`, if allowed
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| src | address | The sender address (can be msg.sender) |
+| to | address | The recepient address (can be msg.sender) |
+
 ### withdrawInternal
 
 ```solidity
-function withdrawInternal(address operator, address src, address to, address asset, uint256 amount) internal
+function withdrawInternal(address operator, address src, address to, address asset, uint256 amount, bool isAll) internal
 ```
 
-_Withdraw either collateral or base asset, depending on the asset, if operator is allowed
-Note: Specifying an `amount` of uint256.max will withdraw all of `src`'s accrued base balance_
+_Withdraw either collateral or base asset, depending on the asset, if operator is allowed_
 
 ### withdrawBase
 
@@ -693,6 +932,24 @@ function withdrawCollateral(address src, address to, address asset, uint256 amou
 ```
 
 _Withdraw an amount of collateral asset from src to `to`_
+
+### spendAllowanceInternal
+
+```solidity
+function spendAllowanceInternal(address src, address operator, address asset, uint256 amount, bool isAll) internal
+```
+
+_Spend allowance for an asset, either all for base asset or a specific amount_
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| src | address | The address of the account that is spending the allowance |
+| operator | address | The address of the operator spending the allowance |
+| asset | address | The asset for which the allowance is being spent |
+| amount | uint256 | The amount of the asset to be spent, or 0 for all |
+| isAll | bool | Whether to spend all of the allowance for the base asset |
 
 ### absorb
 
@@ -855,10 +1112,4 @@ fallback() external payable
 ```
 
 Fallback to calling the extension delegate for everything else
-
-### receive
-
-```solidity
-receive() external payable
-```
 

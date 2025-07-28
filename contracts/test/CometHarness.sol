@@ -46,7 +46,7 @@ contract CometHarness is SandboxComet {
         uint256 oldBalance = userCollateral[account][asset];
         userCollateral[account][asset] = balance;
 
-        (CollateralAsset memory assetInfo, uint8 index) = getAssetInfoByAddress(asset);
+        (, uint8 index) = getAssetInfoByAddress(asset);
 
         updateAssetsIn(account, index, oldBalance, balance);
     }
@@ -95,5 +95,17 @@ contract CometHarness is SandboxComet {
 
     function accrue() external {
         accrueInternal();
+    }
+
+    function spendAllowanceExternal(address owner, address manager, address asset, uint256 amount) external {
+        spendAllowance(owner, manager, asset, amount);
+    }
+
+    function targetBorrowCollateralFactor() external pure returns (uint64) {
+        return TARGET_BORROW_COLLATERAL_FACTOR;
+    }
+
+    function targetLiquidateCollateralFactor() external pure returns (uint64) {
+        return TARGET_LIQUIDATE_COLLATERAL_FACTOR;
     }
 }

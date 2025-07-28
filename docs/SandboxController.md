@@ -4,28 +4,40 @@
 
 _Manages base asset configurations and interest rate baseAssetCurves._
 
-### MARKET_STATES
-
-```solidity
-uint256 MARKET_STATES
-```
-
 ### PARAMETERS_SCALE
 
 ```solidity
-uint256 PARAMETERS_SCALE
+uint64 PARAMETERS_SCALE
 ```
 
 ### MAX_TARGET_PERCENT
 
 ```solidity
-uint256 MAX_TARGET_PERCENT
+uint64 MAX_TARGET_PERCENT
 ```
 
 ### MAX_COMMISSIONS
 
 ```solidity
 uint64 MAX_COMMISSIONS
+```
+
+### MIN_FACTOR
+
+```solidity
+uint64 MIN_FACTOR
+```
+
+### MARKET_STATES
+
+```solidity
+uint8 MARKET_STATES
+```
+
+### MIN_COLLATERAL_REMOVAL_DURATION
+
+```solidity
+uint40 MIN_COLLATERAL_REMOVAL_DURATION
 ```
 
 ### treasury
@@ -63,13 +75,22 @@ bool feeEnabled
 20 bytes
 feeEnabled flag. This is the flag that will be used to enable/disable the fees for all markets.
 
+### removalCollateralDuration
+
+```solidity
+uint40 removalCollateralDuration
+```
+
+1 byte
+removal collateral duration. This is the duration of the collateral removal process.
+
 ### _controllerConfiguration
 
 ```solidity
 struct ISandboxController.SandboxControllerConfiguration _controllerConfiguration
 ```
 
-1 byte
+5 bytes
 controller configuration.
 Holds:
 targetPercent,
@@ -79,29 +100,13 @@ maxUpdateTime,
 suggestedAmountOfSeedReserves,
 suggestedLockTimeOfSeedReserves.
 
-### baseAssetTokens
-
-```solidity
-address[] baseAssetTokens
-```
-
-32 bytes
-base asset tokens. Whitelisted base asset tokens.
-
-### collateralAssetTokens
-
-```solidity
-address[] collateralAssetTokens
-```
-
-collateral asset tokens. Whitelisted collateral asset tokens.
-
 ### tokenToPriceFeed
 
 ```solidity
 mapping(address => address) tokenToPriceFeed
 ```
 
+32 bytes
 token to price feed.
 
 ### reserveCommission
@@ -173,7 +178,7 @@ _Both owner and dao are considered "authorized."
 ### constructor
 
 ```solidity
-constructor(address _owner, address _dao, address _treasury, bool _feeEnabled, uint256 _targetPercent, uint256 _storeFrontPriceFactor, uint256 _minUpdateTime, uint256 _maxUpdateTime, uint256 _suggestedAmountOfSeedReserves, uint256 _suggestedLockTimeOfSeedReserves, uint64[3] _reserveCommissions, uint64[3] _protocolCommissions) public
+constructor(address _owner, address _dao, address _treasury, bool _feeEnabled, struct ISandboxController.SandboxControllerConfiguration _config, uint64[3] _reserveCommissions, uint64[3] _protocolCommissions, uint40 _removalCollateralDuration) public
 ```
 
 _Set all global parameters (including owner and DAO) at deployment.
@@ -189,42 +194,26 @@ The length of the `_reserveCommissions` and `_protocolCommissions` arrays must b
 | _dao | address | The address of the DAO (governance). |
 | _treasury | address | The address of the treasury. |
 | _feeEnabled | bool | Global fee flag for the entire protocol. |
-| _targetPercent | uint256 | < 0.5 (50%) |
-| _storeFrontPriceFactor | uint256 | < 1e18 |
-| _minUpdateTime | uint256 | > 0 |
-| _maxUpdateTime | uint256 | reasonable time for the proposal duration |
-| _suggestedAmountOfSeedReserves | uint256 | The suggested amount of seed reserves in $. Decimals are 6. |
-| _suggestedLockTimeOfSeedReserves | uint256 | The suggested lock time of seed reserves in seconds. |
+| _config | struct ISandboxController.SandboxControllerConfiguration | SanboxController config: _targetPercent, < 0.5 (50%) _storeFrontPriceFactor, < 1e18 _minUpdateTime, > 0 _maxUpdateTime, reasonable time for the proposal duration _suggestedAmountOfSeedReserves The suggested amount of seed reserves in $. Decimals are 6. _suggestedLockTimeOfSeedReserves The suggested lock time of seed reserves in seconds. |
 | _reserveCommissions | uint64[3] | The reserve commission factors for each market state. |
 | _protocolCommissions | uint64[3] | The protocol commission factors for each market state. |
+| _removalCollateralDuration | uint40 |  |
 
-### setReserveCommissions
+### setMarketStateCommissions
 
 ```solidity
-function setReserveCommissions(uint64[3] _reserveCommissions) external
+function setMarketStateCommissions(uint8 _index, uint64 _reserveCommission, uint64 _protocolCommission) external
 ```
 
-Sets the reserve commission factors for each market state.
+Sets commission factors for the chosen market state.
 
 #### Parameters
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-| _reserveCommissions | uint64[3] | The new reserve commission factors, scaled by 1e18 (100%). |
-
-### setProtocolCommissions
-
-```solidity
-function setProtocolCommissions(uint64[3] _protocolCommissions) external
-```
-
-Sets the protocol commission factors for each market state.
-
-#### Parameters
-
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| _protocolCommissions | uint64[3] | The new protocol commission factors, scaled by 1e18 (100%). |
+| _index | uint8 | Market state index |
+| _reserveCommission | uint64 | The new reserve commission factor, scaled by 1e18 (100%). |
+| _protocolCommission | uint64 | The new protocol commission factor, scaled by 1e18 (100%). |
 
 ### setTreasury
 
@@ -265,7 +254,7 @@ function getCommissions(uint256 _currentReserves, uint256 _seedReserves, uint256
 
 Returns profit fee distribution based on the reserves
 
-_THe function expects same denomination units for all 3 reserves parameters_
+_The function expects same denomination units for all 3 reserves parameters_
 
 #### Parameters
 
@@ -299,20 +288,6 @@ Whitelists a new base asset with its price feed and curve configuration.
 | baseAssetCurve | struct ISandboxController.BaseAssetCurve | The initial interest rate curve configuration. |
 | minBorrow | uint256 | The minimal borrow amount for this asset. |
 
-### getBaseAssetLength
-
-```solidity
-function getBaseAssetLength() external view returns (uint256)
-```
-
-Returns the length of the baseAssetTokens array.
-
-#### Return Values
-
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| [0] | uint256 | The length of the baseAssetTokens array. |
-
 ### whitelistCollateralAsset
 
 ```solidity
@@ -338,93 +313,6 @@ _Validates that all collateral factor parameters are within allowed ranges and m
 | maxLiquidateCollateralFactor | uint64 | The maximum liquidate collateral factor (scaled by 1e18). |
 | minLiquidationFactor | uint64 | The minimum liquidation factor (scaled by 1e18). |
 | maxLiquidationFactor | uint64 | The maximum liquidation factor (scaled by 1e18). |
-
-### getCollateralAssetLength
-
-```solidity
-function getCollateralAssetLength() external view returns (uint256)
-```
-
-Returns the length of the collateralAssetTokens array.
-
-#### Return Values
-
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| [0] | uint256 | The length of the collateralAssetTokens array. |
-
-### setConfiguration
-
-```solidity
-function setConfiguration(struct ISandboxController.SandboxControllerConfiguration _config) external
-```
-
-_Emitted when a base asset is whitelisted._
-
-#### Parameters
-
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| _config | struct ISandboxController.SandboxControllerConfiguration | Configuration of the sandbox controller. |
-
-### addBaseAssetCurve
-
-```solidity
-function addBaseAssetCurve(address token, struct ISandboxController.BaseAssetCurve baseAssetCurve) external
-```
-
-Adds a new interest rate curve for an existing base asset.
-
-#### Parameters
-
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| token | address | The address of the base asset. |
-| baseAssetCurve | struct ISandboxController.BaseAssetCurve | The new interest rate curve configuration. |
-
-### changeBaseAssetCurve
-
-```solidity
-function changeBaseAssetCurve(address token, uint256 curveIndex, struct ISandboxController.BaseAssetCurve newCurve) external
-```
-
-Updates an existing interest rate curve for a base asset.
-
-#### Parameters
-
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| token | address | The address of the base asset. |
-| curveIndex | uint256 | The index of the curve to update. |
-| newCurve | struct ISandboxController.BaseAssetCurve | The updated interest rate curve. |
-
-### transferOwner
-
-```solidity
-function transferOwner(address newOwner) external
-```
-
-Transfers the owner privileges to a new address.
-
-#### Parameters
-
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| newOwner | address | The address of the new owner. |
-
-### transferDao
-
-```solidity
-function transferDao(address newDao) external
-```
-
-Transfers the DAO privileges to a new address.
-
-#### Parameters
-
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| newDao | address | The address of the new DAO. |
 
 ### isBaseTokenWhitelisted
 
@@ -466,6 +354,37 @@ Checks if a token is whitelisted as a collateral asset.
 | ---- | ---- | ----------- |
 | [0] | bool | True if the token is whitelisted, otherwise false. |
 
+### addBaseAssetCurve
+
+```solidity
+function addBaseAssetCurve(address token, struct ISandboxController.BaseAssetCurve baseAssetCurve) external
+```
+
+Adds a new interest rate curve for an existing base asset.
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| token | address | The address of the base asset. |
+| baseAssetCurve | struct ISandboxController.BaseAssetCurve | The new interest rate curve configuration. |
+
+### changeBaseAssetCurve
+
+```solidity
+function changeBaseAssetCurve(address token, uint256 curveIndex, struct ISandboxController.BaseAssetCurve newCurve) external
+```
+
+Updates an existing interest rate curve for a base asset.
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| token | address | The address of the base asset. |
+| curveIndex | uint256 | The index of the curve to update. |
+| newCurve | struct ISandboxController.BaseAssetCurve | The updated interest rate curve. |
+
 ### isCurveConfigurationValid
 
 ```solidity
@@ -485,6 +404,62 @@ Validates an interest rate curve configuration.
 | Name | Type | Description |
 | ---- | ---- | ----------- |
 | [0] | bool | True if valid, false otherwise. |
+
+### setConfiguration
+
+```solidity
+function setConfiguration(struct ISandboxController.SandboxControllerConfiguration _config) external
+```
+
+_Emitted when a base asset is whitelisted._
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| _config | struct ISandboxController.SandboxControllerConfiguration | Configuration of the sandbox controller. |
+
+### _validateConfig
+
+```solidity
+function _validateConfig(struct ISandboxController.SandboxControllerConfiguration _config) internal
+```
+
+_Validates global config and reverts on incorrect values_
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| _config | struct ISandboxController.SandboxControllerConfiguration | Configuration of the sandbox controller. |
+
+### transferOwner
+
+```solidity
+function transferOwner(address newOwner) external
+```
+
+Transfers the owner privileges to a new address.
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| newOwner | address | The address of the new owner. |
+
+### transferDao
+
+```solidity
+function transferDao(address newDao) external
+```
+
+Transfers the DAO privileges to a new address.
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| newDao | address | The address of the new DAO. |
 
 ### baseAssets
 
@@ -537,7 +512,7 @@ Returns base asset baseAssetCurves for a given token.
 ### proposalBoundaries
 
 ```solidity
-function proposalBoundaries() external view returns (uint256, uint256)
+function proposalBoundaries() external view returns (uint40, uint40)
 ```
 
 Returns the proposal boundaries of the sandbox controller.
@@ -546,8 +521,8 @@ Returns the proposal boundaries of the sandbox controller.
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-| [0] | uint256 | The proposal boundaries. |
-| [1] | uint256 |  |
+| [0] | uint40 | The proposal boundaries. |
+| [1] | uint40 |  |
 
 ### borrowMin
 
@@ -582,4 +557,20 @@ Returns the configuration of the sandbox controller.
 | Name | Type | Description |
 | ---- | ---- | ----------- |
 | [0] | struct ISandboxController.SandboxControllerConfiguration | The sandbox controller configuration. |
+
+### setCollateralRemovalDuration
+
+```solidity
+function setCollateralRemovalDuration(uint40 newDuration) external
+```
+
+Sets the duration for collateral removal.
+
+_The new duration must be at least 7 days._
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| newDuration | uint40 | The new duration in seconds. |
 

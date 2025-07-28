@@ -28,23 +28,24 @@ abstract contract ICometExtension is CometCore {
         uint64 baseTrackingBorrowSpeed;
         uint104 baseMinForRewards;
         uint104 baseBorrowMin;
-        uint104 targetPercent;
+        uint64 targetPercent;
         uint104 seedReserves;
-        uint104 unlockTimestamp;
+        uint64 unlockTimestamp;
         CollateralAsset[] assetConfigs;
     }
 
-    error BadAmount();
     error BadNonce();
     error BadSignatory();
     error InvalidValueS();
     error InvalidValueV();
     error SignatureExpired();
+    error InvalidLength();
 
     function allowBySig(
         address owner,
         address manager,
-        bool isAllowed,
+        address asset,
+        uint256 amount,
         uint256 nonce,
         uint256 expiry,
         uint8 v,
@@ -80,25 +81,34 @@ abstract contract ICometExtension is CometCore {
      */
     function name() external view virtual returns (string memory);
 
-    function symbol() external view virtual returns (string memory);
-
     /**
      * @notice Approve `spender` to transfer up to `amount` from `src`
      * @dev This will overwrite the approval amount for `spender`
      *  and is subject to issues noted [here](https://eips.ethereum.org/EIPS/eip-20#approve)
      * @param spender The address of the account which may transfer tokens
-     * @param amount The number of tokens that are approved (-1 means infinite)
-     * @return Whether or not the approval succeeded
+     * @param amount The number of tokens that are approved
      */
-    function approve(address spender, uint256 amount) external virtual returns (bool);
+    function approve(address spender, address asset, uint256 amount) external virtual;
 
     /**
-     * @notice Get the current allowance from `owner` for `spender`
-     * @param owner The address of the account which owns the tokens to be spent
-     * @param spender The address of the account which may transfer tokens
-     * @return The number of tokens allowed to be spent (-1 means infinite)
+     * @notice Approve `spender` to transfer up to `baseTokenAmount` from `src`
+     *  and `amounts` from each collateral asset
+     * @dev This will overwrite the approval amount for `spender`
+     * @param spender The address of the account which may operate the tokens
+     * @param baseTokenAmount The number of base tokens that are approved
+     * @param amounts The number of collateral tokens that are approved
+     * @notice The order list of collateral assets must match the order of `collateralAssets`
      */
-    function allowance(address owner, address spender) external view virtual returns (uint256);
+    function approveAllTokens(address spender, uint256 baseTokenAmount, uint256[] calldata amounts) external virtual;
 
-    event Approval(address indexed owner, address indexed spender, uint256 amount);
+    /**
+     * @notice Single time approve for the whole balance of the base asset
+     * @param spender The spender of the baseToken balance
+     * @param approved Flag to set
+     */
+    function approveAll(address spender, bool approved) external virtual;
+
+    function targetBorrowCollateralFactor() external pure virtual returns (uint64);
+
+    function targetLiquidateCollateralFactor() external pure virtual returns (uint64);
 }

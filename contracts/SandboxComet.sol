@@ -1,8 +1,11 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
+import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+
+import "./CometCore.sol";
 import "./interfaces/ISandboxComet.sol";
-import "./interfaces/IERC20NonStandard.sol";
 import "./interfaces/IPriceFeed.sol";
 import "./interfaces/IConfigController.sol";
 import "./interfaces/ISandboxController.sol";
@@ -12,10 +15,14 @@ import "./interfaces/ISandboxController.sol";
  * @notice An efficient monolithic money comet protocol
  * @author WOOF! Software
  */
-contract SandboxComet is ISandboxComet {
+// aderyn-fp-next-line(contract-locks-ether)
+contract SandboxComet is CometCore, ISandboxComet {
+    using SafeERC20 for IERC20;
+
     /// @notice can be legally deployed only via the factory which provides correct config controller address
     /// @param _configController legal address of the config controller which triggered the factory
     /// @param _ext extension deployed by the same factory
+    // aderyn-fp-next-line(state-change-without-event)
     function factoryInit(address _configController, address _ext) external override {
         if (factory != address(0) || configController != address(0)) revert AlreadyInitialized();
         if (_configController == address(0) || _ext == address(0)) revert IncorrectInitialization();
@@ -25,15 +32,21 @@ contract SandboxComet is ISandboxComet {
         factory = msg.sender;
         configController = _configController;
         extension = _ext;
+
+        /// Note: event is generated in ConfigController
     }
 
-    /// @notice replaces your old constructor
+    /// @notice can be called only from Config Controller, as factoryInit prevents any other callers
+    /// @param comet Base token, interest rate curve, collaterals
+    /// @param config Global Comet reserve parameters
+    // aderyn-fp-next-line(state-change-without-event)
     function initialize(
         IConfigController.CometConfig calldata comet,
         IConfigController.CometGlobalParamsConfig calldata config
     ) external override {
         /// Relies on fact that factory provides correct controller and that it is set by the time of this call
         if (msg.sender != configController) revert IncorrectInitialization();
+        // aderyn-fp-next-line(reentrancy-state-change)
         sandboxController = IConfigController(msg.sender).sandboxController();
 
         /// Base asset
@@ -41,18 +54,19 @@ contract SandboxComet is ISandboxComet {
 
         /// Rely on base token as main characteristic of the market and that it was validated in Controller
         if (baseToken != address(0)) revert AlreadyInitialized();
-        baseToken = comet.baseToken;
+        baseToken = comet.baseToken; // aderyn-fp(state-no-address-check)
 
-        uint8 _decimals = IERC20NonStandard(comet.baseToken).decimals();
+        uint8 _decimals = IERC20Metadata(comet.baseToken).decimals(); // aderyn-fp(reentrancy-state-change)
         if (_decimals > MAX_BASE_DECIMALS) revert BadDecimals();
 
-        baseScale = uint64(10 ** _decimals);
+        baseScale = uint64(10 ** _decimals); // aderyn-fp(literal-instead-of-constant)
         if (baseScale < BASE_ACCRUAL_SCALE) revert BadDecimals();
         accrualDescaleFactor = baseScale / BASE_ACCRUAL_SCALE;
 
+        // aderyn-fp-next-line(reentrancy-state-change)
         address _baseTokenPriceFeed = ISandboxController(sandboxController).tokenToPriceFeed(comet.baseToken);
         /// @dev price feed is already checked to be listed in config controller
-        if (IPriceFeed(_baseTokenPriceFeed).decimals() != PRICE_FEED_DECIMALS) revert BadDecimals();
+        if (IPriceFeed(_baseTokenPriceFeed).decimals() != PRICE_FEED_DECIMALS) revert BadDecimals(); // aderyn-fp(reentrancy-state-change)
         baseTokenPriceFeed = _baseTokenPriceFeed;
 
         /// Collaterals
@@ -70,7 +84,6 @@ contract SandboxComet is ISandboxComet {
         for (uint8 i; i < colTokensLength; ) {
             _addCollateralAsset(comet.collateralTokens[i], i);
             unchecked { ++i; }
-
         }
 
         /// Reserves
@@ -79,11 +92,12 @@ contract SandboxComet is ISandboxComet {
         /// It can be safely assumed, that reserve parameters are validated in Sandbox Controller
         targetPercent = config.targetPercent;
         seedReserves = config.suggestedAmountOfSeedReserves;
-        unlockTimestamp = block.timestamp + config.suggestedLockTimeOfSeedReserves;
+        unlockTimestamp = safe64(block.timestamp + config.suggestedLockTimeOfSeedReserves);
 
         /// Interest rate curve
         ///
 
+        // aderyn-fp-next-line(reentrancy-state-change)
         ISandboxController.BaseAssetConfiguration memory bac = ISandboxController(sandboxController).baseAssets(comet.baseToken);
         ISandboxController.BaseAssetCurve memory curve = bac.baseAssetCurves[comet.baseTokenCurveId];
 
@@ -115,6 +129,8 @@ contract SandboxComet is ISandboxComet {
         /// to avoid explicit initialization
         /// baseTrackingSupplySpeed = 0;
         /// baseTrackingBorrowSpeed = 0;
+
+        /// Note: event is generated in ConfigController
     }
 
     /**
@@ -160,7 +176,7 @@ contract SandboxComet is ISandboxComet {
      * @param i The index of the asset info to get
      * @return The asset info object
      */
-    function getAssetInfo(uint8 i) public view returns (CollateralAsset memory) {
+    function getAssetInfo(uint8 i) public view override returns (CollateralAsset memory) {
         if (i >= numAssets) revert BadAsset();
         return collateralAssets[i];
     }
@@ -170,10 +186,22 @@ contract SandboxComet is ISandboxComet {
      */
     function getAssetInfoByAddress(address asset) public view override returns (CollateralAsset memory, uint8 index) {
         index = collateralAssetIndex[asset];
-        if (index == 0 && asset != collateralAssets[0].collateralToken) {
-            revert BadAsset();
+
+        // Check if the asset exists in the active collateralAssets array
+        // Special case for index 0: verify by comparing the actual token address
+        if (index != 0 || (collateralAssets.length > 0 && asset == collateralAssets[0].collateralToken)) {
+            return (collateralAssets[index], index);
         }
-        return (collateralAssets[index], index);
+
+        // If not found in active list, check the removedCollateralAssets array
+        index = removedCollateralAssetIndex[asset];
+        // Special case for index 0 again
+        if (index != 0 || (removedCollateralAssets.length > 0 && asset == removedCollateralAssets[0].collateralToken)) {
+            return (removedCollateralAssets[index], index);
+        }
+
+        // Asset not found in either list — revert with an error
+        revert BadAsset();
     }
 
     /**
@@ -187,13 +215,13 @@ contract SandboxComet is ISandboxComet {
     /**
      * @dev Calculate accrued interest indices for base token supply and borrows
      **/
-    function accruedInterestIndices(uint timeElapsed) internal view returns (uint64, uint64) {
+    function accruedInterestIndices(uint40 timeElapsed) internal view returns (uint64, uint64) {
         uint64 baseSupplyIndex_ = baseSupplyIndex;
         uint64 baseBorrowIndex_ = baseBorrowIndex;
         if (timeElapsed > 0) {
             uint utilization = getUtilization();
-            uint supplyRate = getSupplyRate(utilization);
-            uint borrowRate = getBorrowRate(utilization);
+            uint64 supplyRate = getSupplyRate(utilization);
+            uint64 borrowRate = getBorrowRate(utilization);
             baseSupplyIndex_ += safe64(mulFactor(baseSupplyIndex_, supplyRate * timeElapsed));
             baseBorrowIndex_ += safe64(mulFactor(baseBorrowIndex_, borrowRate * timeElapsed));
         }
@@ -202,7 +230,9 @@ contract SandboxComet is ISandboxComet {
 
     function accrueInternal() internal {
         uint40 now_ = getNowInternal();
-        uint timeElapsed = uint256(now_ - lastAccrualTime);
+        uint40 timeElapsed = now_ - lastAccrualTime;
+
+        if (_collateralRemovalState.removalInProgress) _prepareCollateralRemoval();
 
         if (timeElapsed != 0) {
             (baseSupplyIndex, baseBorrowIndex) = accruedInterestIndices(timeElapsed);
@@ -217,8 +247,302 @@ contract SandboxComet is ISandboxComet {
     }
 
     /**
+     * @notice Linearly interpolates a curve parameter value during a transition period.
+     * @dev
+     * This function is used to smoothly update protocol curve parameters (such as supplyKink, interest rate slopes, etc.)
+     * from a starting value to a target value over a specified duration. It ensures that the parameter changes
+     * at a constant rate, providing a predictable and gradual transition rather than an abrupt jump.
+     *
+     * The algorithm works for both increasing and decreasing transitions. At any point during the transition,
+     * the value is calculated as a function of the elapsed time since the start of the transition.
+     *
+     * The formula used in this implementation is:
+     *   if (targetValue > startValue):
+     *       interpolated = currentValue + (((targetValue - startValue) * elapsed / duration) - (currentValue - startValue))
+     *   else:
+     *       interpolated = currentValue - (((startValue - targetValue) * elapsed / duration) - (startValue - currentValue))
+     *
+     * This means:
+     * - At the start (elapsed = 0):      interpolated = startValue
+     * - At the end (elapsed = duration): interpolated = targetValue
+     * - In between:                      interpolated is proportionally between startValue and targetValue
+     *
+     * Example 1: Increasing transition
+     *   Suppose we want to transition supplyKink from 200 to 800 over 10 seconds.
+     *   - startValue = 200
+     *   - targetValue = 800
+     *   - duration = 10
+     *
+     *   At elapsed = 0, currentValue = 200:
+     *     interpolated = 200 + ((800 - 200) * 0 / 10 - (200 - 200))
+     *                  = 200 + (0 - 0)
+     *                  = 200
+     *
+     *   At elapsed = 5, currentValue = 500:
+     *     interpolated = 500 + ((800 - 200) * 5 / 10 - (500 - 200))
+     *                  = 500 + (300 - 300)
+     *                  = 500
+     *
+     *   At elapsed = 10, currentValue = 800:
+     *     interpolated = 800 + ((800 - 200) * 10 / 10 - (800 - 200))
+     *                  = 800 + (600 - 600)
+     *                  = 800
+     *
+     * Example 2: Decreasing transition
+     *   Suppose we want to transition supplyKink from 900 to 300 over 10 seconds.
+     *   - startValue = 900
+     *   - targetValue = 300
+     *   - duration = 10
+     *
+     *   At elapsed = 0, currentValue = 900:
+     *     interpolated = 900 - ((900 - 300) * 0 / 10 - (900 - 900))
+     *                  = 900 - (0 - 0)
+     *                  = 900
+     *
+     *   At elapsed = 4, currentValue = 660:
+     *     interpolated = 660 - ((900 - 300) * 4 / 10 - (900 - 660))
+     *                  = 660 - (240 - 240)
+     *                  = 660
+     *
+     *   At elapsed = 10, currentValue = 300:
+     *     interpolated = 300 - ((900 - 300) * 10 / 10 - (900 - 300))
+     *                  = 300 - (600 - 600)
+     *                  = 300
+     *
+     * Example 3: No change
+     *   If startValue = targetValue = 500, duration = 10, any elapsed, currentValue = 500:
+     *     interpolated = 500 + ((500 - 500) * elapsed / 10 - (500 - 500))
+     *                  = 500 + (0 - 0)
+     *                  = 500
+     *
+     * Usage:
+     *   This function is called internally by the protocol during a curve transition, typically in a function like
+     *   `progressTransition(now_)`, to update each curve parameter to its correct value for the current time.
+     *
+     * @param startValue   The value of the parameter at the start of the transition.
+     * @param targetValue  The value of the parameter at the end of the transition.
+     * @param currentValue The current value of the parameter (used for incremental calculation).
+     * @param elapsed      The time elapsed since the start of the transition, in seconds.
+     * @param duration     The total duration of the transition, in seconds.
+     * @return The interpolated value as a uint64, representing the parameter's value at the current elapsed time.
+     */
+    function interpolateValue(
+        uint256 startValue,
+        uint256 targetValue,
+        uint256 currentValue,
+        uint40 elapsed,
+        uint40 duration
+    ) internal pure returns (uint64) {
+        if (targetValue > startValue) {
+            return safe64(currentValue + ((((targetValue - startValue) * elapsed) / duration) - (currentValue - startValue)));
+        } else {
+            return safe64(currentValue - ((((startValue - targetValue) * elapsed) / duration) - (startValue - currentValue)));
+        }
+    }
+
+    /**
+     * @notice Initiates the collateral removal process for a given collateral asset.
+     * @dev
+     * This function begins a controlled and gradual removal process of a collateral asset from the protocol.
+     * It is intended to allow safe offboarding of an asset without causing sudden liquidations or collateral shortfalls.
+     *
+     * ---
+     * Access Control:
+     * - Only the `configController` is authorized to call this method.
+     * - Unauthorized calls will revert with `Unauthorized()`.
+     *
+     * ---
+     * Process Constraints:
+     * - Only one collateral removal process can be active at a time.
+     * - If a removal is already in progress, the function will revert with `CollateralRemovalInProgress(...)`,
+     *   providing:
+     *     - The currently offboarding token address.
+     *     - The start time of the active removal process.
+     *     - The scheduled end time.
+     *
+     * ---
+     * On Initialization:
+     * - Retrieves the collateral asset metadata via `getAssetInfoByAddress(...)`.
+     * - Stores the current state in `_collateralRemovalState`:
+     *     - `collateralToken`: Address of the token being removed.
+     *     - `startBorrowCollateralFactor` / `startLiquidateCollateralFactor`: Initial values before removal.
+     *     - `startTime`: Current timestamp.
+     *     - `duration`: Offboarding period, retrieved from `SandboxController`.
+     *     - `collateralAssetIndex`: Index in the active collateral array.
+     *     - `removalInProgress`: Flag set to `true`.
+     * - Sets the collateral’s `supplyCap` to zero to block new supply immediately.
+     *
+     * ---
+     * Safety and User Experience:
+     * - Borrow and liquidation collateral factors are **reduced linearly** over time using `interpolateValue(...)`.
+     * - This design prevents abrupt liquidations at the start of removal, even if the removed asset represented
+     *   a large share of the user's borrowing power.
+     * - The progressive decline gives users the opportunity to:
+     *     - Withdraw the soon-to-be-removed collateral voluntarily.
+     *     - Avoid opening new borrow positions against this collateral.
+     * - Once the removal period ends, collateral factors reach 0%, and the asset is fully offboarded.
+     *
+     * ---
+     * Post-Removal Behavior:
+     * - If a user did not withdraw the collateral before the process ended:
+     *     - They can **still withdraw it** without restrictions.
+     *     - As long as their borrow position remains solvent, they will **not be liquidated** solely due to
+     *       the collateral becoming inactive.
+     *     - If the asset was not supporting an active borrow, it remains withdrawable regardless.
+     *
+     * ---
+     * Lifecycle Summary:
+     * 1. Initiation via this method.
+     * 2. Progressive factor decay handled by `_prepareCollateralRemoval()` during internal state updates.
+     * 3. Finalization via `_finalizeCollateralRemoval()` once the duration elapses.
+     * 4. The asset is removed from active listings and added to the `removedCollateralAssets` array.
+     * 5. `removalInProgress` is set to `false`. The rest of the `_collateralRemovalState` remains in storage
+     *    for gas efficiency and will be overwritten on the next removal.
+     *
+     * @param removalAsset The address of the collateral asset to begin removing from the market.
+     *
+     * Emits a {CollateralRemovalInitiated} event including:
+     * - The index of the collateral in the active array.
+     * - The token address.
+     * - The start and end timestamps of the removal window.
+     *
+     * Reverts if:
+     * - The caller is not the config controller.
+     * - A removal process is already in progress.
+     */
+    function initiateCollateralRemoval(address removalAsset) external override {
+        if (msg.sender != configController) revert Unauthorized();
+
+        CollateralRemovalState memory collateralRemovalState_ = _collateralRemovalState;
+
+        if (collateralRemovalState_.removalInProgress) {
+            revert CollateralRemovalInProgress(
+                collateralRemovalState_.collateralToken,
+                collateralRemovalState_.startTime,
+                collateralRemovalState_.startTime + collateralRemovalState_.duration
+            );
+        }
+
+        (CollateralAsset memory asset, uint8 assetIndex) = getAssetInfoByAddress(removalAsset);
+
+        uint40 now_ = getNowInternal();
+        uint40 duration = ISandboxController(sandboxController).removalCollateralDuration();
+
+        // Set the collateral removal state
+        _collateralRemovalState = CollateralRemovalState({
+            collateralToken: asset.collateralToken,
+            startBorrowCollateralFactor: asset.borrowCollateralFactor,
+            startLiquidateCollateralFactor: asset.liquidateCollateralFactor,
+            startTime: now_,
+            duration: duration,
+            collateralAssetIndex: assetIndex,
+            removalInProgress: true
+        });
+
+        // Set the supply capitalization to 0, so that it is impossible to supply a collateral asset after initializing the removal process
+        collateralAssets[assetIndex].supplyCap = 0;
+
+        emit CollateralRemovalInitiated(assetIndex, asset.collateralToken, now_, (now_ + duration));
+    }
+
+    /**
+     * @notice Prepares the collateral removal process by updating the collateral asset factors.
+     * @dev
+     * This internal function manages the gradual removal of a collateral asset from the market.
+     * - If the removal period has ended (current time >= endTime), it sets the borrow and liquidate collateral factors
+     *   to their target values and finalizes the removal by calling `_finalizeCollateralRemoval`.
+     * - If the removal period is still ongoing, it linearly interpolates the borrow and liquidate collateral factors
+     *   between their starting and target values based on the elapsed time, and updates the collateral asset in storage.
+     * - This function is intended to be called during interest accrual or other internal state updates to ensure
+     *   that the collateral removal process progresses smoothly over time.
+     */
+    function _prepareCollateralRemoval() internal {
+        CollateralRemovalState memory collateralRemovalState_ = _collateralRemovalState;
+
+        CollateralAsset memory collateralAsset_ = collateralAssets[collateralRemovalState_.collateralAssetIndex];
+
+        // If the end time of the collateral removal is reached, finalize the removal of the asset
+        if ((collateralRemovalState_.startTime + collateralRemovalState_.duration) <= getNowInternal()) {
+            // Set the borrow and liquidate collateral factors to the target values
+            collateralAsset_.borrowCollateralFactor = TARGET_BORROW_COLLATERAL_FACTOR;
+            collateralAsset_.liquidateCollateralFactor = TARGET_LIQUIDATE_COLLATERAL_FACTOR;
+            // Remove the collateral asset from the list of active collateral assets and save it to the removed assets list
+            _finalizeCollateralRemoval(collateralAsset_, collateralRemovalState_);
+        } else {
+            uint40 now_ = getNowInternal();
+            uint40 elapsed = now_ - collateralRemovalState_.startTime;
+
+            // Calculate the new borrow collateral factors
+            collateralAsset_.borrowCollateralFactor = interpolateValue(
+                collateralRemovalState_.startBorrowCollateralFactor,
+                TARGET_BORROW_COLLATERAL_FACTOR,
+                collateralAsset_.borrowCollateralFactor,
+                elapsed,
+                collateralRemovalState_.duration
+            );
+            // Calculate the new liquidate collateral factors
+            collateralAsset_.liquidateCollateralFactor = interpolateValue(
+                collateralRemovalState_.startLiquidateCollateralFactor,
+                TARGET_LIQUIDATE_COLLATERAL_FACTOR,
+                collateralAsset_.liquidateCollateralFactor,
+                elapsed,
+                collateralRemovalState_.duration
+            );
+
+            // Update the asset in the list with the new borrow and liquidate collateral factors
+            collateralAssets[collateralRemovalState_.collateralAssetIndex] = collateralAsset_;
+        }
+    }
+
+    /**
+     * @notice Finalizes the removal of a collateral asset from the market.
+     * @dev
+     * - Appends the removed collateral asset to the `removedCollateralAssets` array and updates the corresponding index mapping.
+     * - Increments the `numRemovedAssets` counter.
+     * - Removes the asset from the active `collateralAssets` array by replacing it with the last element and popping the array.
+     * - Decrements the `numAssets` counter and deletes the asset's index from the active mapping.
+     * - Marks the end of the collateral removal process by setting the `removalInProgress` flag to false.
+     * - Emits a {CollateralAssetRemoved} event with the asset index and token address.
+     * @param collateralAsset The CollateralAsset struct containing the parameters of the removed collateral.
+     * @param collateralRemovalState The CollateralRemovalState struct containing the state of the removal process.
+     */
+    function _finalizeCollateralRemoval(
+        CollateralAsset memory collateralAsset,
+        CollateralRemovalState memory collateralRemovalState
+    ) internal {
+        // Save the removed asset to the removed assets list
+        removedCollateralAssets.push(collateralAsset);
+        // Save the current removed assets count and updated it
+        uint8 removedAssetIndex = numRemovedAssets++;
+        // Update the index mapping for removed assets
+        removedCollateralAssetIndex[collateralRemovalState.collateralToken] = removedAssetIndex;
+
+        // Remove the asset from the list
+        collateralAssets[collateralRemovalState.collateralAssetIndex] = collateralAssets[numAssets - 1];
+        collateralAssets.pop();
+        // Update the asset count
+        numAssets--;
+        // Update the index mapping
+        delete collateralAssetIndex[collateralRemovalState.collateralToken];
+
+        // Mark the end of a collateral removal process
+        _collateralRemovalState.removalInProgress = false;
+
+        emit CollateralRemovalFinalized(removedAssetIndex, collateralRemovalState.collateralToken);
+    }
+
+    /**
+     * @notice Check whether a collateral removal process is in progress
+     * @return Whether a collateral removal process is currently ongoing
+     */
+    function isCollateralRemovalInProgress() public view override returns (bool) {
+        return _collateralRemovalState.removalInProgress;
+    }
+
+    /**
      * @notice Accrue interest and rewards for an account
      **/
+    // aderyn-fp-next-line(state-change-without-event)
     function accrueAccount(address account) external override {
         accrueInternal();
 
@@ -297,8 +621,7 @@ contract SandboxComet is ISandboxComet {
      * @param asset The collateral asset
      */
     function getCollateralReserves(address asset) public view override returns (uint) {
-        return
-            IERC20NonStandard(asset).balanceOf(address(this)) - totalsCollateral[asset] - assetFeesController[asset] - assetFeesDAO[asset];
+        return IERC20(asset).balanceOf(address(this)) - totalsCollateral[asset] - assetFeesController[asset] - assetFeesDAO[asset];
     }
 
     /**
@@ -306,9 +629,11 @@ contract SandboxComet is ISandboxComet {
      */
     function getReserves() public view override returns (int) {
         (uint64 baseSupplyIndex_, uint64 baseBorrowIndex_) = accruedInterestIndices(getNowInternal() - lastAccrualTime);
-        uint balance = IERC20NonStandard(baseToken).balanceOf(address(this));
+        uint256 balance = IERC20(baseToken).balanceOf(address(this));
         uint totalSupply_ = presentValueSupply(baseSupplyIndex_, totalSupplyBase);
         uint totalBorrow_ = presentValueBorrow(baseBorrowIndex_, totalBorrowBase);
+
+        /// TODO: deduct controller and dao fees
         return signed256(balance) - signed256(totalSupply_) + signed256(totalBorrow_);
     }
 
@@ -327,7 +652,7 @@ contract SandboxComet is ISandboxComet {
         uint8 nAssets = numAssets;
         for (uint8 i = 0; i < nAssets; ) {
             if (isInAsset(assetsIn, i)) {
-                if (liquidity >= 0) return true;
+                if (liquidity >= 0) break;
 
                 CollateralAsset memory asset = getAssetInfo(i);
                 uint newAmount = mulPrice(userCollateral[account][asset.collateralToken], getPrice(asset.priceFeed), asset.scale);
@@ -356,7 +681,7 @@ contract SandboxComet is ISandboxComet {
         uint8 nAssets = numAssets;
         for (uint8 i = 0; i < nAssets; ) {
             if (isInAsset(assetsIn, i)) {
-                if (liquidity >= 0) return false;
+                if (liquidity >= 0) break;
 
                 CollateralAsset memory asset = getAssetInfo(i);
                 uint newAmount = mulPrice(userCollateral[account][asset.collateralToken], getPrice(asset.priceFeed), asset.scale);
@@ -414,7 +739,7 @@ contract SandboxComet is ISandboxComet {
      * @param buyPaused Boolean for pausing buy actions
      */
     function pause(bool supplyPaused, bool transferPaused, bool withdrawPaused, bool absorbPaused, bool buyPaused) external override {
-        address dao = ISandboxController(sandboxController).dao();
+        address dao = ISandboxController(sandboxController).dao(); // aderyn-fp(reentrancy-state-change)
         if (msg.sender != configController && msg.sender != dao) revert Unauthorized();
 
         pauseFlags =
@@ -439,7 +764,7 @@ contract SandboxComet is ISandboxComet {
         // and there is no difference between base asset or collateral
 
         uint256 amount;
-        address dao = ISandboxController(sandboxController).dao();
+        address dao = ISandboxController(sandboxController).dao(); // aderyn-fp(reentrancy-state-change)
 
         if (msg.sender == dao) {
             amount = assetFeesDAO[asset];
@@ -451,7 +776,7 @@ contract SandboxComet is ISandboxComet {
 
         if (amount == 0) revert AmountTooSmall();
 
-        doTransferOut(asset, msg.sender, amount);
+        IERC20(asset).safeTransfer(msg.sender, amount);
         emit FeesExtracted(address(this), asset, amount, msg.sender);
     }
 
@@ -578,55 +903,10 @@ contract SandboxComet is ISandboxComet {
      * @dev Note: Safely handles non-standard ERC-20 tokens that do not return a value.
      * See here: https://medium.com/coinmonks/missing-return-value-bug-at-least-130-tokens-affected-d67bf08521ca
      */
-    function doTransferIn(address asset, address from, uint amount) internal returns (uint) {
-        uint256 preTransferBalance = IERC20NonStandard(asset).balanceOf(address(this));
-        IERC20NonStandard(asset).transferFrom(from, address(this), amount);
-        bool success;
-        assembly ("memory-safe") {
-            switch returndatasize()
-            case 0 {
-                // This is a non-standard ERC-20
-                success := not(0) // set success to true
-            }
-            case 32 {
-                // This is a compliant ERC-20
-                returndatacopy(0, 0, 32)
-                success := mload(0) // Set `success = returndata` of override external call
-            }
-            default {
-                // This is an excessively non-compliant ERC-20, revert.
-                revert(0, 0)
-            }
-        }
-        if (!success) revert TransferInFailed();
-        return IERC20NonStandard(asset).balanceOf(address(this)) - preTransferBalance;
-    }
-
-    /**
-     * @dev Safe ERC20 transfer out
-     * @dev Note: Safely handles non-standard ERC-20 tokens that do not return a value.
-     * See here: https://medium.com/coinmonks/missing-return-value-bug-at-least-130-tokens-affected-d67bf08521ca
-     */
-    function doTransferOut(address asset, address to, uint amount) internal {
-        IERC20NonStandard(asset).transfer(to, amount);
-        bool success;
-        assembly ("memory-safe") {
-            switch returndatasize()
-            case 0 {
-                // This is a non-standard ERC-20
-                success := not(0) // set success to true
-            }
-            case 32 {
-                // This is a compliant ERC-20
-                returndatacopy(0, 0, 32)
-                success := mload(0) // Set `success = returndata` of override external call
-            }
-            default {
-                // This is an excessively non-compliant ERC-20, revert.
-                revert(0, 0)
-            }
-        }
-        if (!success) revert TransferOutFailed();
+    function doTransferIn(address asset, address from, uint256 amount) internal returns (uint256) {
+        uint256 preTransferBalance = IERC20(asset).balanceOf(address(this));
+        IERC20(asset).safeTransferFrom(from, address(this), amount);
+        return IERC20(asset).balanceOf(address(this)) - preTransferBalance;
     }
 
     /**
@@ -634,8 +914,8 @@ contract SandboxComet is ISandboxComet {
      * @param asset The asset to supply
      * @param amount The quantity to supply
      */
-    function supply(address asset, uint amount) external override {
-        return supplyInternal(msg.sender, msg.sender, msg.sender, asset, amount);
+    function supply(address asset, uint256 amount) external override {
+        return supplyInternal(msg.sender, msg.sender, msg.sender, asset, amount, false);
     }
 
     /**
@@ -644,8 +924,8 @@ contract SandboxComet is ISandboxComet {
      * @param asset The asset to supply
      * @param amount The quantity to supply
      */
-    function supplyTo(address dst, address asset, uint amount) external override {
-        return supplyInternal(msg.sender, msg.sender, dst, asset, amount);
+    function supplyTo(address dst, address asset, uint256 amount) external override {
+        return supplyInternal(msg.sender, msg.sender, dst, asset, amount, false);
     }
 
     /**
@@ -655,25 +935,33 @@ contract SandboxComet is ISandboxComet {
      * @param asset The asset to supply
      * @param amount The quantity to supply
      */
-    function supplyFrom(address from, address dst, address asset, uint amount) external override {
-        return supplyInternal(msg.sender, from, dst, asset, amount);
+    function supplyFrom(address from, address dst, address asset, uint256 amount) external override {
+        return supplyInternal(msg.sender, from, dst, asset, amount, false);
+    }
+
+    /**
+     * @notice Repay the whole debt in base asset to the protocol from `from` to dst, if allowed
+     * @param from The supplier address
+     * @param dst The address which will hold the balance (can be the same from address)
+     */
+    function repayAllFrom(address from, address dst) external override {
+        return supplyInternal(msg.sender, from, dst, baseToken, borrowBalanceOf(dst), true);
     }
 
     /**
      * @dev Supply either collateral or base asset, depending on the asset, if operator is allowed
-     * @dev Note: Specifying an `amount` of uint256.max will repay all of `dst`'s accrued base borrow balance
      */
-    function supplyInternal(address operator, address from, address dst, address asset, uint amount) internal nonReentrant {
+    function supplyInternal(address operator, address from, address dst, address asset, uint256 amount, bool isAll) internal nonReentrant {
+        if (amount == 0) revert ZeroAmount();
         if (isSupplyPaused()) revert Paused();
-        if (!hasPermission(from, operator)) revert Unauthorized();
 
+        spendAllowanceInternal(from, operator, asset, amount, isAll);
+
+        /// In case of ...All() operation asset is guaranteed to be baseAsset
         if (asset == baseToken) {
-            if (amount == type(uint256).max) {
-                amount = borrowBalanceOf(dst);
-            }
             return supplyBase(from, dst, amount);
         } else {
-            return supplyCollateral(from, dst, asset, safe128(amount));
+            return supplyCollateral(from, dst, asset, amount);
         }
     }
 
@@ -731,8 +1019,8 @@ contract SandboxComet is ISandboxComet {
      * @param amount The quantity to transfer
      * @return true
      */
-    function transfer(address dst, uint amount) external override returns (bool) {
-        transferInternal(msg.sender, msg.sender, dst, baseToken, amount);
+    function transfer(address dst, uint256 amount) external override returns (bool) {
+        transferInternal(msg.sender, msg.sender, dst, baseToken, amount, false);
         return true;
     }
 
@@ -743,19 +1031,18 @@ contract SandboxComet is ISandboxComet {
      * @param amount The quantity to transfer
      * @return true
      */
-    function transferFrom(address src, address dst, uint amount) external override returns (bool) {
-        transferInternal(msg.sender, src, dst, baseToken, amount);
+    function transferFrom(address src, address dst, uint256 amount) external override returns (bool) {
+        transferInternal(msg.sender, src, dst, baseToken, amount, false);
         return true;
     }
 
     /**
-     * @notice Transfer an amount of asset to dst
+     * @notice ERC20 transfer the whole base token balance from src to dst, if allowed
+     * @param src The sender address
      * @param dst The recipient address
-     * @param asset The asset to transfer
-     * @param amount The quantity to transfer
      */
-    function transferAsset(address dst, address asset, uint amount) external override {
-        return transferInternal(msg.sender, msg.sender, dst, asset, amount);
+    function transferAllFrom(address src, address dst) external override {
+        transferInternal(msg.sender, src, dst, baseToken, balanceOf(src), true);
     }
 
     /**
@@ -765,26 +1052,24 @@ contract SandboxComet is ISandboxComet {
      * @param asset The asset to transfer
      * @param amount The quantity to transfer
      */
-    function transferAssetFrom(address src, address dst, address asset, uint amount) external override {
-        return transferInternal(msg.sender, src, dst, asset, amount);
+    function transferAssetFrom(address src, address dst, address asset, uint256 amount) external override {
+        transferInternal(msg.sender, src, dst, asset, amount, false);
     }
 
     /**
      * @dev Transfer either collateral or base asset, depending on the asset, if operator is allowed
-     * @dev Note: Specifying an `amount` of uint256.max will transfer all of `src`'s accrued base balance
      */
-    function transferInternal(address operator, address src, address dst, address asset, uint amount) internal nonReentrant {
+    function transferInternal(address operator, address src, address dst, address asset, uint256 amount, bool isAll) internal nonReentrant {
+        if (amount == 0) revert ZeroAmount();
         if (isTransferPaused()) revert Paused();
-        if (!hasPermission(src, operator)) revert Unauthorized();
         if (src == dst) revert NoSelfTransfer();
 
+        spendAllowanceInternal(src, operator, asset, amount, isAll);
+
         if (asset == baseToken) {
-            if (amount == type(uint256).max) {
-                amount = balanceOf(src);
-            }
-            return transferBase(src, dst, amount);
+            transferBase(src, dst, amount);
         } else {
-            return transferCollateral(src, dst, asset, safe128(amount));
+            transferCollateral(src, dst, asset, amount);
         }
     }
 
@@ -855,8 +1140,8 @@ contract SandboxComet is ISandboxComet {
      * @param asset The asset to withdraw
      * @param amount The quantity to withdraw
      */
-    function withdraw(address asset, uint amount) external override {
-        return withdrawInternal(msg.sender, msg.sender, msg.sender, asset, amount);
+    function withdraw(address asset, uint256 amount) external override {
+        return withdrawInternal(msg.sender, msg.sender, msg.sender, asset, amount, false);
     }
 
     /**
@@ -865,8 +1150,8 @@ contract SandboxComet is ISandboxComet {
      * @param asset The asset to withdraw
      * @param amount The quantity to withdraw
      */
-    function withdrawTo(address to, address asset, uint amount) external override {
-        return withdrawInternal(msg.sender, msg.sender, to, asset, amount);
+    function withdrawTo(address to, address asset, uint256 amount) external override {
+        return withdrawInternal(msg.sender, msg.sender, to, asset, amount, false);
     }
 
     /**
@@ -876,25 +1161,33 @@ contract SandboxComet is ISandboxComet {
      * @param asset The asset to withdraw
      * @param amount The quantity to withdraw
      */
-    function withdrawFrom(address src, address to, address asset, uint amount) external override {
-        return withdrawInternal(msg.sender, src, to, asset, amount);
+    function withdrawFrom(address src, address to, address asset, uint256 amount) external override {
+        return withdrawInternal(msg.sender, src, to, asset, amount, false);
+    }
+
+    /**
+     * @notice Withdraw the whole asset balance from src to `to`, if allowed
+     * @param src The sender address (can be msg.sender)
+     * @param to The recepient address (can be msg.sender)
+     */
+    function withdrawAllFrom(address src, address to) external override {
+        return withdrawInternal(msg.sender, src, to, baseToken, balanceOf(src), true);
     }
 
     /**
      * @dev Withdraw either collateral or base asset, depending on the asset, if operator is allowed
-     * @dev Note: Specifying an `amount` of uint256.max will withdraw all of `src`'s accrued base balance
      */
-    function withdrawInternal(address operator, address src, address to, address asset, uint amount) internal nonReentrant {
+    function withdrawInternal(address operator, address src, address to, address asset, uint256 amount, bool isAll) internal nonReentrant {
+        if (amount == 0) revert ZeroAmount();
         if (isWithdrawPaused()) revert Paused();
-        if (!hasPermission(src, operator)) revert Unauthorized();
 
+        spendAllowanceInternal(src, operator, asset, amount, isAll);
+
+        /// In case of ...All() operation asset is guaranteed to be baseAsset
         if (asset == baseToken) {
-            if (amount == type(uint256).max) {
-                amount = balanceOf(src);
-            }
             return withdrawBase(src, to, amount);
         } else {
-            return withdrawCollateral(src, to, asset, safe128(amount));
+            return withdrawCollateral(src, to, asset, amount);
         }
     }
 
@@ -921,7 +1214,7 @@ contract SandboxComet is ISandboxComet {
             if (!isBorrowCollateralized(src)) revert NotCollateralized();
         }
 
-        doTransferOut(baseToken, to, amount);
+        IERC20(baseToken).safeTransfer(to, amount);
 
         emit Withdraw(src, to, amount);
 
@@ -946,9 +1239,27 @@ contract SandboxComet is ISandboxComet {
         // Note: no accrue interest, BorrowCF < LiquidationCF covers small changes
         if (!isBorrowCollateralized(src)) revert NotCollateralized();
 
-        doTransferOut(asset, to, amount);
+        IERC20(asset).safeTransfer(to, amount);
 
         emit WithdrawCollateral(src, to, asset, amount);
+    }
+
+    /**
+     * @dev Spend allowance for an asset, either all for base asset or a specific amount
+     * @param src The address of the account that is spending the allowance
+     * @param operator The address of the operator spending the allowance
+     * @param asset The asset for which the allowance is being spent
+     * @param amount The amount of the asset to be spent, or 0 for all
+     * @param isAll Whether to spend all of the allowance for the base asset
+     */
+    function spendAllowanceInternal(address src, address operator, address asset, uint256 amount, bool isAll) internal {
+        if (isAll) {
+            if (!hasPermissionAll(src, operator)) revert InsufficientAllowance(asset, src, operator);
+            spendAllowanceAll(src, operator);
+        } else {
+            if (!hasPermission(src, operator, asset, amount)) revert InsufficientAllowance(asset, src, operator);
+            spendAllowance(src, operator, asset, amount);
+        }
     }
 
     /**
@@ -959,7 +1270,7 @@ contract SandboxComet is ISandboxComet {
     function absorb(address absorber, address[] calldata accounts) external override {
         if (isAbsorbPaused()) revert Paused();
         accrueInternal();
-        for (uint i = 0; i < accounts.length; ) {
+        for (uint8 i = 0; i < accounts.length; ) {
             absorbInternal(absorber, accounts[i]);
             unchecked {
                 i++;
@@ -1061,7 +1372,7 @@ contract SandboxComet is ISandboxComet {
         // Note: Pre-transfer hook can re-enter buyCollateral with a stale collateral ERC20 balance.
         //  Assets should not be listed which allow re-entry from pre-transfer now, as too much collateral could be bought.
         //  This is also a problem if quoteCollateral derives its discount from the collateral ERC20 balance.
-        doTransferOut(asset, recipient, safe128(amountOut));
+        IERC20(asset).safeTransfer(recipient, amountOut);
 
         emit BuyCollateral(msg.sender, asset, baseAmount, amountOut);
     }
@@ -1216,6 +1527,7 @@ contract SandboxComet is ISandboxComet {
     /**
      * @notice Fallback to calling the extension delegate for everything else
      */
+    // aderyn-fp-next-line(contract-locks-ether)
     fallback() external payable {
         address delegate = extension;
         assembly ("memory-safe") {
@@ -1227,7 +1539,7 @@ contract SandboxComet is ISandboxComet {
                 revert(0, returndatasize())
             }
             default {
-                return(0, returndatasize())
+                return(0, returndatasize()) // aderyn-fp(yul-return)
             }
         }
     }
@@ -1250,6 +1562,7 @@ contract SandboxComet is ISandboxComet {
         if (collateralAssetIndex[asset] != 0 && asset == collateralAssets[0].collateralToken) revert CollateralTokenAlreadyAdded();
         /// Add the asset to the protocol.
         (uint64 scale, address priceFeed) = _addCollateralAsset(collateralTokenConfig, numAssets++);
+        
         emit CollateralAssetAdded(
             asset,
             scale,
@@ -1269,19 +1582,21 @@ contract SandboxComet is ISandboxComet {
      * @return priceFeed The price feed address for the collateral asset
      */
     function _addCollateralAsset(IConfigController.CollateralTokenConfig calldata collateralTokenConfig, uint8 numAsset) internal returns (uint64 scale, address priceFeed) {
-        scale = uint64(10 ** IERC20NonStandard(collateralTokenConfig.collateralToken).decimals());
+        scale = uint64(10 ** IERC20Metadata(collateralTokenConfig.collateralToken).decimals());
 
         priceFeed = ISandboxController(sandboxController).tokenToPriceFeed(collateralTokenConfig.collateralToken);
 
         collateralAssets.push(
             CollateralAsset(
-                collateralTokenConfig.collateralToken,
-                scale,
-                priceFeed,
-                collateralTokenConfig.borrowCollateralFactor,
-                collateralTokenConfig.supplyCap,
-                collateralTokenConfig.liquidateCollateralFactor,
-                collateralTokenConfig.liquidationFactor
+                {
+                    collateralToken: collateralTokenConfig.collateralToken,
+                    scale: scale,
+                    priceFeed: priceFeed,
+                    borrowCollateralFactor: collateralTokenConfig.borrowCollateralFactor,
+                    supplyCap: collateralTokenConfig.supplyCap,
+                    liquidateCollateralFactor: collateralTokenConfig.liquidateCollateralFactor,
+                    liquidationFactor: collateralTokenConfig.liquidationFactor
+                }
             )
         );
 

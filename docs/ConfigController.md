@@ -14,13 +14,7 @@ _This contract handles the core configuration of the protocol, including:
 ### FEE_DIVISOR
 
 ```solidity
-uint256 FEE_DIVISOR
-```
-
-### ZERO_ADDRESS
-
-```solidity
-address ZERO_ADDRESS
+uint32 FEE_DIVISOR
 ```
 
 ### owner
@@ -84,7 +78,7 @@ Array of all comets created by this controller
 ### curatorFee
 
 ```solidity
-uint256 curatorFee
+uint32 curatorFee
 ```
 
 The curator fee in basis points (1% = 100)
@@ -108,7 +102,7 @@ The address of the proposed curator
 ### curatorProposalExpiry
 
 ```solidity
-uint256 curatorProposalExpiry
+uint64 curatorProposalExpiry
 ```
 
 The timestamp when the curator proposal expires
@@ -116,7 +110,7 @@ The timestamp when the curator proposal expires
 ### curatorProposalDuration
 
 ```solidity
-uint256 curatorProposalDuration
+uint40 curatorProposalDuration
 ```
 
 The duration of curator proposals in seconds
@@ -124,7 +118,7 @@ The duration of curator proposals in seconds
 ### proposalDuration
 
 ```solidity
-uint256 proposalDuration
+uint40 proposalDuration
 ```
 
 The duration of comet proposals in seconds
@@ -172,7 +166,7 @@ Modifier to restrict access to guardian only
 ### initialize
 
 ```solidity
-function initialize(address _owner, address _curator, address _guardian, address _cometFactory, uint256 _curatorFee, string _name, uint256 _curatorProposalDuration, uint256 _proposalDuration) public
+function initialize(address _owner, address _curator, address _guardian, address _cometFactory, uint32 _curatorFee, string _name, uint40 _curatorProposalDuration, uint40 _proposalDuration) public
 ```
 
 Initializes the ConfigController contract
@@ -185,10 +179,10 @@ Initializes the ConfigController contract
 | _curator | address |  |
 | _guardian | address | The address of the protocol guardian |
 | _cometFactory | address | The address of the cometFactory contract |
-| _curatorFee | uint256 | Initial curator fee in basis points (1% = 100) |
+| _curatorFee | uint32 | Initial curator fee in basis points (1% = 100) |
 | _name | string | Name of the controller |
-| _curatorProposalDuration | uint256 | Duration of curator proposals in seconds |
-| _proposalDuration | uint256 | Duration of comet proposals in seconds |
+| _curatorProposalDuration | uint40 | Duration of curator proposals in seconds |
+| _proposalDuration | uint40 | Duration of comet proposals in seconds |
 
 ### createComet
 
@@ -269,7 +263,7 @@ _Only callable by the current owner_
 ### proposeCurator
 
 ```solidity
-function proposeCurator(address _proposedCurator) public
+function proposeCurator(address _proposedCurator) external
 ```
 
 Proposes a new curator
@@ -347,7 +341,7 @@ _Only callable by the owner_
 ### setProposalDurations
 
 ```solidity
-function setProposalDurations(uint256 _curatorProposalDuration, uint256 _proposalDuration) external
+function setProposalDurations(uint40 _curatorProposalDuration, uint40 _proposalDuration) external
 ```
 
 Sets the duration for curator and comet configuration proposals
@@ -358,8 +352,8 @@ _Only callable by the owner_
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-| _curatorProposalDuration | uint256 | New duration for curator proposals in seconds |
-| _proposalDuration | uint256 | New duration for comet configuration proposals in seconds |
+| _curatorProposalDuration | uint40 | New duration for curator proposals in seconds |
+| _proposalDuration | uint40 | New duration for comet configuration proposals in seconds |
 
 ### _validateCollateralTokenConfig
 

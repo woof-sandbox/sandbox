@@ -9,6 +9,8 @@ import {
   sandboxListBaseAsset,
   sandboxListCollateralAsset,
   SandboxControllerOpts,
+  DEFAULT_UPDATE_TIME,
+  MIN_UPDATE_TIME,
 } from "./helper/helpers";
 import {
   ConfigController,
@@ -42,14 +44,13 @@ describe("1. System Initialization", function () {
   let curator: SignerWithAddress;
   let guardian: SignerWithAddress;
   let dao: SignerWithAddress;
-
-  const _minUpdateTime = 7 * 24 * 60 * 60;
+  let treasury: SignerWithAddress;
 
   const configControllerOpts = {
     _curatorFee: 1000,
     _name: "ConfigController",
-    _curatorProposalDuration: 7 * 24 * 60 * 60,
-    _proposalDuration: 7 * 24 * 60 * 60,
+    _curatorProposalDuration: DEFAULT_UPDATE_TIME,
+    _proposalDuration: DEFAULT_UPDATE_TIME,
   };
 
   let opts: SandboxControllerOpts = {};
@@ -72,8 +73,9 @@ describe("1. System Initialization", function () {
     curator = signers[1];
     guardian = signers[2];
     dao = signers[3];
+    treasury = signers[4];
     /// Options of the sandbox controller
-    opts = defaultSandboxControllerOpts({ admin: owner, dao: dao, feeEnabled: true });
+    opts = defaultSandboxControllerOpts({ admin: owner, dao: dao, treasury: treasury, feeEnabled: true });
   });
 
   describe("Config Controller Factory deployment", function () {
@@ -113,6 +115,15 @@ describe("1. System Initialization", function () {
         _ConfigControllerFactory.deploy(ethers.constants.AddressZero, configControllerImpl.address)
       ).to.be.revertedWithCustomError(_ConfigControllerFactory, "ZeroAddress");
     });
+
+    it("should return false in case no Controller deployed", async function () {
+      const configControllerFactory = (await _ConfigControllerFactory.deploy(
+        sandboxControllerTest.address,
+        configControllerImpl.address
+      )) as ConfigControllerFactory;
+
+      expect(await configControllerFactory.getLastControllerLength()).to.equal(0);
+    });
   });
 
   describe("Sandbox Comet Factory deployment", function () {
@@ -134,6 +145,8 @@ describe("1. System Initialization", function () {
 
       expect(await sandboxCometFactory.cometImplementation()).to.eq(sandboxCometImpl.address);
       expect(await sandboxCometFactory.configControllerFactory()).to.eq(configControllerFactory.address);
+
+      expect(await sandboxCometFactory.getCometsLength()).to.eq(0);
     });
 
     it("should revert if one of the parameters is zero address", async function () {
@@ -156,9 +169,16 @@ describe("1. System Initialization", function () {
     let configControllersCount = 0;
 
     before(async function () {
-      sandboxController = (await makeSandboxController(defaultSandboxControllerOpts({ minUpdateTime: _minUpdateTime }))).sandboxController;
+      sandboxController = (await makeSandboxController(defaultSandboxControllerOpts())).sandboxController;
       configControllerFactory = await _ConfigControllerFactory.deploy(sandboxController.address, configControllerImpl.address);
       sandboxCometFactory = await _SandboxCometFactory.deploy(sandboxCometImpl.address, configControllerFactory.address);
+    });
+
+    it("should not recognize external controller if no Controllers deployed", async function () {
+      const configControllerExternal = (await _ConfigController.deploy()) as ConfigController;
+
+      expect(await configControllerFactory.getLastControllerLength()).to.equal(0);
+      expect(await configControllerFactory.isController(configControllerExternal.address)).to.be.false;
     });
 
     it("should allow to deploy ConfigController", async function () {
@@ -253,7 +273,32 @@ describe("1. System Initialization", function () {
           configControllerOpts._curatorProposalDuration,
           configControllerOpts._proposalDuration
         )
-      ).to.be.revertedWithCustomError(configControllerFactory, "ZeroAddress");
+      ).to.be.revertedWithCustomError(_ConfigControllerFactory, "ZeroAddress");
+    });
+
+    it("should allow deployment with guardian zero address", async function () {
+      const configControllerAddress = await configControllerFactory.callStatic.createConfigController(
+        curator.address,
+        ethers.constants.AddressZero,
+        sandboxCometFactory.address,
+        configControllerOpts._curatorFee,
+        configControllerOpts._name,
+        configControllerOpts._curatorProposalDuration,
+        configControllerOpts._proposalDuration
+      );
+      await configControllerFactory.createConfigController(
+        curator.address,
+        ethers.constants.AddressZero,
+        sandboxCometFactory.address,
+        configControllerOpts._curatorFee,
+        configControllerOpts._name,
+        configControllerOpts._curatorProposalDuration,
+        configControllerOpts._proposalDuration
+      );
+
+      configControllersCount += 1;
+
+      expect(await configControllerFactory.controllerAddresses(configControllersCount - 1)).to.equal(configControllerAddress);
     });
 
     it("should revert on deployment with matching addresses: curator/owner", async function () {
@@ -324,7 +369,7 @@ describe("1. System Initialization", function () {
           curator.address,
           guardian.address,
           sandboxCometFactory.address,
-          maxFee.add(1),
+          maxFee + 1,
           configControllerOpts._name,
           configControllerOpts._curatorProposalDuration,
           configControllerOpts._proposalDuration
@@ -342,7 +387,7 @@ describe("1. System Initialization", function () {
           sandboxCometFactory.address,
           configControllerOpts._curatorFee,
           configControllerOpts._name,
-          minUpdateTime.sub(1),
+          minUpdateTime - 1,
           configControllerOpts._proposalDuration
         )
       ).to.be.revertedWithCustomError(_ConfigController, "ProposalDurationTooShort");
@@ -355,7 +400,7 @@ describe("1. System Initialization", function () {
           configControllerOpts._curatorFee,
           configControllerOpts._name,
           configControllerOpts._curatorProposalDuration,
-          minUpdateTime.sub(1)
+          minUpdateTime - 1
         )
       ).to.be.revertedWithCustomError(_ConfigController, "ProposalDurationTooShort");
     });
@@ -371,7 +416,7 @@ describe("1. System Initialization", function () {
           sandboxCometFactory.address,
           configControllerOpts._curatorFee,
           configControllerOpts._name,
-          maxUpdateTime.add(1),
+          maxUpdateTime + 1,
           configControllerOpts._proposalDuration
         )
       ).to.be.revertedWithCustomError(_ConfigController, "ProposalDurationTooLong");
@@ -384,7 +429,7 @@ describe("1. System Initialization", function () {
           configControllerOpts._curatorFee,
           configControllerOpts._name,
           configControllerOpts._curatorProposalDuration,
-          maxUpdateTime.add(1)
+          maxUpdateTime + 1
         )
       ).to.be.revertedWithCustomError(_ConfigController, "ProposalDurationTooLong");
     });
@@ -432,6 +477,7 @@ describe("1. System Initialization", function () {
       it("should be recognized by factory", async function () {
         expect(await configControllerFactory.isController(configControllerAddress)).to.be.true;
         expect(await configControllerFactory.isController(owner.address)).to.be.false;
+        expect(await configControllerFactory.isController(ethers.constants.AddressZero)).to.be.false;
       });
 
       it("should set roles properly after deployment", async function () {
@@ -484,8 +530,8 @@ describe("1. System Initialization", function () {
     const configControllerOpts = {
       _curatorFee: 1000,
       _name: "ConfigController",
-      _curatorProposalDuration: 7 * 24 * 60 * 60,
-      _proposalDuration: 7 * 24 * 60 * 60,
+      _curatorProposalDuration: DEFAULT_UPDATE_TIME,
+      _proposalDuration: DEFAULT_UPDATE_TIME,
     };
 
     let comet: SandboxComet;
@@ -493,7 +539,7 @@ describe("1. System Initialization", function () {
     let marketConfig: CometConfigStruct;
 
     before(async function () {
-      sandboxController = (await makeSandboxController(defaultSandboxControllerOpts({ minUpdateTime: _minUpdateTime }))).sandboxController;
+      sandboxController = (await makeSandboxController(defaultSandboxControllerOpts())).sandboxController;
 
       const configControllerFactory = await _ConfigControllerFactory.deploy(sandboxController.address, configControllerImpl.address);
       sandboxCometFactory = await _SandboxCometFactory.deploy(sandboxCometImpl.address, configControllerFactory.address);
@@ -552,6 +598,7 @@ describe("1. System Initialization", function () {
         baseToken: baseToken.address,
         collateralTokens: collateralTokens.map(obj => ({ ...obj })),
         baseTokenCurveId: 0n,
+        name: "Comet",
       };
 
       cometAddress = await configController.callStatic.createComet(marketConfig);
@@ -581,8 +628,16 @@ describe("1. System Initialization", function () {
       expect(await comet.baseToken()).to.eq(marketConfig.baseToken);
     });
 
+    it("should set comet name properly on comet extension", async function () {
+      const cometExtension = await ethers.getContractAt("CometExtension", comet.address);
+      expect(await cometExtension.name()).to.eq(marketConfig.name);
+    });
+
     it("should revert if createComet is called not by controller", async function () {
-      await expect(sandboxCometFactory.connect(owner).createComet()).to.be.revertedWithCustomError(sandboxCometFactory, "Unauthorized");
+      await expect(sandboxCometFactory.connect(owner).createComet("comet")).to.be.revertedWithCustomError(
+        sandboxCometFactory,
+        "Unauthorized"
+      );
     });
 
     it("should revert if createComet is called not from owner on config controller", async function () {
@@ -599,7 +654,7 @@ describe("1. System Initialization", function () {
       );
     });
 
-    it("should revert on zero addressesin factoryInit", async function () {
+    it("should revert on zero addresses in factoryInit", async function () {
       const SandboxComet = await ethers.getContractFactory("SandboxComet");
       const _comet = (await SandboxComet.deploy()) as SandboxComet;
 
@@ -649,27 +704,7 @@ describe("1. System Initialization", function () {
     type DeployParams = Parameters<typeof _SandboxControllerFactory.deploy>;
 
     beforeEach(async function () {
-      opts = defaultSandboxControllerOpts();
-      opts.dao = dao.address;
-      opts.admin = owner.address;
-    });
-
-    it("initializes state with correct values", async function () {
-      const { sandboxController } = await makeSandboxController(opts);
-      expect(await sandboxController.owner()).to.equal(owner.address);
-      expect(await sandboxController.dao()).to.equal(dao.address);
-      expect(await sandboxController.feeEnabled()).to.equal(false);
-      expect(await sandboxController.reserveCommission(0)).to.equal(exp(0.01, 18));
-      expect(await sandboxController.reserveCommission(1)).to.equal(exp(0.02, 18));
-      expect(await sandboxController.reserveCommission(2)).to.equal(exp(0.03, 18));
-      expect(await sandboxController.protocolCommission(0)).to.equal(exp(0.01, 18));
-      expect(await sandboxController.protocolCommission(1)).to.equal(exp(0.02, 18));
-      expect(await sandboxController.protocolCommission(2)).to.equal(exp(0.03, 18));
-      expect((await sandboxController.config()).storeFrontPriceFactor).to.equal(parseEther("0.9999999999").toString());
-      expect((await sandboxController.config()).minUpdateTime).to.equal(300);
-      expect((await sandboxController.config()).maxUpdateTime).to.equal(604800);
-      expect((await sandboxController.config()).suggestedAmountOfSeedReserves).to.equal(ethers.utils.parseEther("500").toString());
-      expect((await sandboxController.config()).suggestedLockTimeOfSeedReserves).to.equal(86400);
+      opts = defaultSandboxControllerOpts({ dao: dao.address, admin: owner.address, treasury: treasury.address });
     });
 
     it("reverts if admin = 0", async function () {
@@ -688,71 +723,129 @@ describe("1. System Initialization", function () {
       );
     });
 
-    it("reverts if storeFrontPriceFactor >= 1e18", async function () {
-      opts.storeFrontPriceFactor = ethers.utils.parseEther("1").toString();
+    it("reverts if dao = owner", async function () {
+      opts.dao = opts.admin;
+      await expect(_SandboxControllerFactory.deploy(...(Object.values(opts) as DeployParams))).to.be.revertedWithCustomError(
+        _SandboxControllerFactory,
+        "IncorrectSetting"
+      );
+    });
+
+    it("reverts if treasury = 0", async function () {
+      opts.treasury = ethers.constants.AddressZero;
+      await expect(_SandboxControllerFactory.deploy(...(Object.values(opts) as DeployParams))).to.be.revertedWithCustomError(
+        _SandboxControllerFactory,
+        "ZeroAddress"
+      );
+    });
+
+    it("reverts if targetPercent > 5e17", async function () {
+      opts.config.targetPercent = ethers.utils.parseEther("0.5").add(1).toString();
       await expect(_SandboxControllerFactory.deploy(...(Object.values(opts) as DeployParams))).to.be.revertedWithCustomError(
         _SandboxControllerFactory,
         "InvalidFactors"
       );
     });
 
-    it("reverts if the sum of reserveCommissions elements + protocolCommissions elements > 1e18(first set)", async function () {
-      opts.reserveCommissions = [exp(0.5, 18), exp(0.5, 18), exp(0.5, 18)];
-      opts.protocolCommissions = [exp(0.5, 18), exp(0.5, 18), exp(0.5, 18)];
+    it("should not revert if storeFrontPriceFactor = 1e18", async function () {
+      opts.config.storeFrontPriceFactor = ethers.utils.parseEther("1").toString();
+      const sandboxControllerTest = await _SandboxControllerFactory.deploy(...(Object.values(opts) as DeployParams));
+      await sandboxControllerTest.deployed();
+
+      expect((await sandboxControllerTest._controllerConfiguration()).storeFrontPriceFactor).to.equal(opts.config.storeFrontPriceFactor);
+    });
+
+    it("reverts if storeFrontPriceFactor > 1e18", async function () {
+      opts.config.storeFrontPriceFactor = ethers.utils.parseEther("1").add(1).toString();
       await expect(_SandboxControllerFactory.deploy(...(Object.values(opts) as DeployParams))).to.be.revertedWithCustomError(
         _SandboxControllerFactory,
         "InvalidFactors"
       );
     });
 
-    it("reverts if the sum of reserveCommissions elements + protocolCommissions elements > 1e18(second set)", async function () {
-      opts.reserveCommissions = [exp(0.8, 18), exp(0.9, 18), exp(0.99, 18)];
-      opts.protocolCommissions = [exp(0.3, 18), exp(0.2, 18), exp(0.1, 18)];
+    it("reverts if the sum of reserveCommissions elements + protocolCommissions elements > 80% (first set)", async function () {
+      opts.reserveCommissions = [exp(0.5, 18), exp(0.4, 18), exp(0.3, 18)];
+      opts.protocolCommissions = [exp(0.3, 18), exp(0.3, 18), exp(0.3, 18)];
+      opts.protocolCommissions[0] = opts.protocolCommissions[0] + BigInt(1);
+
       await expect(_SandboxControllerFactory.deploy(...(Object.values(opts) as DeployParams))).to.be.revertedWithCustomError(
         _SandboxControllerFactory,
-        "InvalidFactors"
+        "InvalidCommissions"
       );
     });
-    /// TODO: add fuzzing for this case
-    it("reverts if the sum of reserveCommissions elements + protocolCommissions elements > 1e18(third set)", async function () {
-      opts.reserveCommissions = [exp(0.5, 18), exp(0.5, 18), exp(0.5, 18)];
-      opts.protocolCommissions = [exp(0.8, 18), exp(0.7, 18), exp(0.9, 18)];
+
+    it("reverts if the sum of reserveCommissions elements + protocolCommissions elements > 80% (second set)", async function () {
+      opts.reserveCommissions = [exp(0.4, 18), exp(0.5, 18), exp(0.3, 18)];
+      opts.protocolCommissions = [exp(0.3, 18), exp(0.3, 18), exp(0.3, 18)];
+      opts.protocolCommissions[1] = opts.protocolCommissions[1] + BigInt(1);
+
       await expect(_SandboxControllerFactory.deploy(...(Object.values(opts) as DeployParams))).to.be.revertedWithCustomError(
         _SandboxControllerFactory,
-        "InvalidFactors"
+        "InvalidCommissions"
+      );
+    });
+
+    it("reverts if the sum of reserveCommissions elements + protocolCommissions elements > 80% (third set)", async function () {
+      opts.reserveCommissions = [exp(0.4, 18), exp(0.3, 18), exp(0.5, 18)];
+      opts.protocolCommissions = [exp(0.3, 18), exp(0.3, 18), exp(0.3, 18)];
+      opts.protocolCommissions[2] = opts.protocolCommissions[2] + BigInt(1);
+
+      await expect(_SandboxControllerFactory.deploy(...(Object.values(opts) as DeployParams))).to.be.revertedWithCustomError(
+        _SandboxControllerFactory,
+        "InvalidCommissions"
       );
     });
 
     it("reverts if minUpdateTime = 0", async function () {
-      opts.minUpdateTime = 0;
+      opts.config.minUpdateTime = 0;
       await expect(_SandboxControllerFactory.deploy(...(Object.values(opts) as DeployParams))).to.be.revertedWithCustomError(
         _SandboxControllerFactory,
-        "InvalidFactors"
+        "IncorrectSetting"
+      );
+    });
+
+    it("reverts if minUpdateTime > maxUpdateTime", async function () {
+      opts.config.minUpdateTime = DEFAULT_UPDATE_TIME + 1;
+      await expect(_SandboxControllerFactory.deploy(...(Object.values(opts) as DeployParams))).to.be.revertedWithCustomError(
+        _SandboxControllerFactory,
+        "IncorrectSetting"
       );
     });
 
     it("reverts if suggestedAmountOfSeedReserves = 0", async function () {
-      opts.suggestedAmountOfSeedReserves = "0";
+      opts.config.suggestedAmountOfSeedReserves = "0";
       await expect(_SandboxControllerFactory.deploy(...(Object.values(opts) as DeployParams))).to.be.revertedWithCustomError(
         _SandboxControllerFactory,
-        "InvalidFactors"
+        "IncorrectSetting"
       );
     });
 
     it("reverts if suggestedLockTimeOfSeedReserves = 0", async function () {
-      opts.suggestedLockTimeOfSeedReserves = 0;
+      opts.config.suggestedLockTimeOfSeedReserves = 0;
       await expect(_SandboxControllerFactory.deploy(...(Object.values(opts) as DeployParams))).to.be.revertedWithCustomError(
         _SandboxControllerFactory,
-        "InvalidFactors"
+        "IncorrectSetting"
       );
     });
 
-    it("reverts if targetReserves > 5e17", async function () {
-      opts.targetPercent = ethers.utils.parseEther("0.6").toString();
-      await expect(_SandboxControllerFactory.deploy(...(Object.values(opts) as DeployParams))).to.be.revertedWithCustomError(
-        _SandboxControllerFactory,
-        "InvalidFactors"
-      );
+    it("initializes state with correct values", async function () {
+      const { sandboxController } = await makeSandboxController(opts);
+      expect(await sandboxController.owner()).to.equal(owner.address);
+      expect(await sandboxController.dao()).to.equal(dao.address);
+      expect(await sandboxController.treasury()).to.equal(treasury.address);
+      expect(await sandboxController.feeEnabled()).to.equal(false);
+      expect(await sandboxController.reserveCommission(0)).to.equal(exp(0.01, 18));
+      expect(await sandboxController.reserveCommission(1)).to.equal(exp(0.02, 18));
+      expect(await sandboxController.reserveCommission(2)).to.equal(exp(0.03, 18));
+      expect(await sandboxController.protocolCommission(0)).to.equal(exp(0.01, 18));
+      expect(await sandboxController.protocolCommission(1)).to.equal(exp(0.02, 18));
+      expect(await sandboxController.protocolCommission(2)).to.equal(exp(0.03, 18));
+      expect((await sandboxController.config()).targetPercent).to.equal(parseEther("0.5").toString());
+      expect((await sandboxController.config()).storeFrontPriceFactor).to.equal(parseEther("0.6").toString());
+      expect((await sandboxController.config()).minUpdateTime).to.equal(MIN_UPDATE_TIME);
+      expect((await sandboxController.config()).maxUpdateTime).to.equal(DEFAULT_UPDATE_TIME);
+      expect((await sandboxController.config()).suggestedAmountOfSeedReserves).to.equal(ethers.utils.parseEther("500").toString());
+      expect((await sandboxController.config()).suggestedLockTimeOfSeedReserves).to.equal(86400);
     });
   });
 });

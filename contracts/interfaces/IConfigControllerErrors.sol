@@ -6,7 +6,6 @@ interface IConfigControllerErrors {
     error ZeroAddress();
     error Unauthorized();
     error NoCurveRegistered();
-    error WrongCurveParams();
     error ZeroCollateralAssets();
     error SupplyCapCantBeZero();
     error WrongCollateralTokenSettings();

@@ -4,46 +4,6 @@
 
 _Versions can enforce append-only storage slots via inheritance._
 
-### TotalsBasic
-
-```solidity
-struct TotalsBasic {
-  uint64 baseSupplyIndex;
-  uint64 baseBorrowIndex;
-  uint64 trackingSupplyIndex;
-  uint64 trackingBorrowIndex;
-  uint104 totalSupplyBase;
-  uint104 totalBorrowBase;
-  uint40 lastAccrualTime;
-  uint8 pauseFlags;
-}
-```
-
-### UserBasic
-
-```solidity
-struct UserBasic {
-  int104 principal;
-  uint64 baseTrackingIndex;
-  uint64 baseTrackingAccrued;
-  uint24 assetsIn;
-}
-```
-
-### CollateralAsset
-
-```solidity
-struct CollateralAsset {
-  address collateralToken;
-  address priceFeed;
-  uint128 supplyCap;
-  uint64 borrowCollateralFactor;
-  uint64 liquidateCollateralFactor;
-  uint64 liquidationFactor;
-  uint64 scale;
-}
-```
-
 ### MAX_ASSETS
 
 ```solidity
@@ -156,6 +116,22 @@ _The reentrancy guard statuses_
 uint256 REENTRANCY_GUARD_ENTERED
 ```
 
+### TARGET_BORROW_COLLATERAL_FACTOR
+
+```solidity
+uint64 TARGET_BORROW_COLLATERAL_FACTOR
+```
+
+_The target borrow collateral factor for the processing removal of collateral assets_
+
+### TARGET_LIQUIDATE_COLLATERAL_FACTOR
+
+```solidity
+uint64 TARGET_LIQUIDATE_COLLATERAL_FACTOR
+```
+
+_The target liquidate collateral factor for the processing removal of collateral assets_
+
 ### configController
 
 ```solidity
@@ -207,7 +183,7 @@ The address of the price feed for the base token
 ### supplyKink
 
 ```solidity
-uint256 supplyKink
+uint64 supplyKink
 ```
 
 The point in the supply rates separating the low interest rate slope and the high interest rate slope (factor)
@@ -217,7 +193,7 @@ _uint64_
 ### supplyPerSecondInterestRateSlopeLow
 
 ```solidity
-uint256 supplyPerSecondInterestRateSlopeLow
+uint64 supplyPerSecondInterestRateSlopeLow
 ```
 
 Per second supply interest rate slope applied when utilization is below kink (factor)
@@ -227,7 +203,7 @@ _uint64_
 ### supplyPerSecondInterestRateSlopeHigh
 
 ```solidity
-uint256 supplyPerSecondInterestRateSlopeHigh
+uint64 supplyPerSecondInterestRateSlopeHigh
 ```
 
 Per secollateralTokenscond supply interest rate slope applied when utilization is above kink (factor)
@@ -237,7 +213,7 @@ _uint64_
 ### supplyPerSecondInterestRateBase
 
 ```solidity
-uint256 supplyPerSecondInterestRateBase
+uint64 supplyPerSecondInterestRateBase
 ```
 
 Per second supply base interest rate (factor)
@@ -247,7 +223,7 @@ _uint64_
 ### borrowKink
 
 ```solidity
-uint256 borrowKink
+uint64 borrowKink
 ```
 
 The point in the borrow rate separating the low interest rate slope and the high interest rate slope (factor)
@@ -257,7 +233,7 @@ _uint64_
 ### borrowPerSecondInterestRateSlopeLow
 
 ```solidity
-uint256 borrowPerSecondInterestRateSlopeLow
+uint64 borrowPerSecondInterestRateSlopeLow
 ```
 
 Per second borrow interest rate slope applied when utilization is below kink (factor)
@@ -267,7 +243,7 @@ _uint64_
 ### borrowPerSecondInterestRateSlopeHigh
 
 ```solidity
-uint256 borrowPerSecondInterestRateSlopeHigh
+uint64 borrowPerSecondInterestRateSlopeHigh
 ```
 
 Per second borrow interest rate slope applied when utilization is above kink (factor)
@@ -277,7 +253,7 @@ _uint64_
 ### borrowPerSecondInterestRateBase
 
 ```solidity
-uint256 borrowPerSecondInterestRateBase
+uint64 borrowPerSecondInterestRateBase
 ```
 
 Per second borrow base interest rate (factor)
@@ -287,7 +263,7 @@ _uint64_
 ### storeFrontPriceFactor
 
 ```solidity
-uint256 storeFrontPriceFactor
+uint64 storeFrontPriceFactor
 ```
 
 The fraction of the liquidation penalty that goes to buyers of collateral instead of the protocol
@@ -356,7 +332,7 @@ The minimum base amount required to initiate a borrow
 ### targetPercent
 
 ```solidity
-uint256 targetPercent
+uint64 targetPercent
 ```
 
 The minimum base token reserves which must be held before collateral is hodled
@@ -372,7 +348,7 @@ Seed reserves, initialized during the Comet creation
 ### unlockTimestamp
 
 ```solidity
-uint256 unlockTimestamp
+uint64 unlockTimestamp
 ```
 
 Unlock timestamp
@@ -435,6 +411,14 @@ uint40 lastAccrualTime
 uint8 pauseFlags
 ```
 
+### _collateralRemovalState
+
+```solidity
+struct ICometStructures.CollateralRemovalState _collateralRemovalState
+```
+
+The current collateral removal process state
+
 ### numAssets
 
 ```solidity
@@ -443,13 +427,13 @@ uint8 numAssets
 
 The number of assets this contract actually supports
 
-### _closed
+### numRemovedAssets
 
 ```solidity
-bool _closed
+uint8 numRemovedAssets
 ```
 
-Marker that the market is closed
+The number of assets that have been removed
 
 ### totalsCollateral
 
@@ -475,13 +459,23 @@ mapping(address => uint256) assetFeesDAO
 
 Fees aggregation for the DAO
 
-### isAllowed
+### allowance
 
 ```solidity
-mapping(address => mapping(address => bool)) isAllowed
+mapping(address => mapping(address => mapping(address => uint256))) allowance
 ```
 
 Mapping of users to accounts which may be permitted to manage the user account
+user => spender => asset (base or collateral) => amount
+
+### allowanceAll
+
+```solidity
+mapping(address => mapping(address => bool)) allowanceAll
+```
+
+user => spender => true or false (for baseAsset only)
+allowance for all is expected to be atomic - for ...All() operations only
 
 ### userNonce
 
@@ -494,7 +488,7 @@ The next expected nonce for an address, for validating authorizations via signat
 ### userBasic
 
 ```solidity
-mapping(address => struct CometStorage.UserBasic) userBasic
+mapping(address => struct ICometStructures.UserBasic) userBasic
 ```
 
 Mapping of users to base principal and other basic data
@@ -513,9 +507,25 @@ Mapping of users to collateral data per collateral asset
 mapping(address => uint8) collateralAssetIndex
 ```
 
+### removedCollateralAssetIndex
+
+```solidity
+mapping(address => uint8) removedCollateralAssetIndex
+```
+
+Mapping indexes for collateral assets that have been removed
+
 ### collateralAssets
 
 ```solidity
-struct CometStorage.CollateralAsset[] collateralAssets
+struct ICometStructures.CollateralAsset[] collateralAssets
 ```
+
+### removedCollateralAssets
+
+```solidity
+struct ICometStructures.CollateralAsset[] removedCollateralAssets
+```
+
+The list of collateral assets that have been removed
 

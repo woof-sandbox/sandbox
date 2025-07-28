@@ -27,9 +27,6 @@ A decentralized finance protocol built on Arbitrum that provides lending and bor
 - **[ConfigControllerFactory.sol](./contracts/ConfigControllerFactory.sol)** - Factory for deploying ConfigController instances
 - **[ConfigController.sol](./contracts/ConfigController.sol)** - Individual controller for managing Comet deployments and proposals
 
-#### Supplementary
-- **[BaseBulker.sol](./contracts/bulkers/BaseBulker.sol)** - Batch transaction execution for multiple Comet operations
-
 ## 🛠️ Getting Started
 
 ### Prerequisites
@@ -51,12 +48,7 @@ A decentralized finance protocol built on Arbitrum that provides lending and bor
    yarn install
    ```
 
-3. **Setup Git hooks**
-   ```bash
-   yarn setup:hooks
-   ```
-
-4. **Configure environment variables**
+3. **Configure environment variables**
    Create a `.env` file in the root directory:
    ```env
    # Required
@@ -206,23 +198,23 @@ These tests are explicitly included in `tsconfig.json` and are checked during:
 - CI/CD pipeline
 
 **Test Files:**
-- `01_system-initialization-test.ts` - System setup and initialization
-- `02_system-params-validation-test.ts` - Parameter validation
-- `03_sandbox-controller-test.ts` - Controller functionality
-- `04_config-controller-test.ts` - Configuration management
-- `5_supply-test.ts` - Supply operations
-- `6_withdraw-test.ts` - Withdrawal operations
-- `7_absorb-test.ts` - Absorption mechanics
-- `8_comet-ext-test.ts` - Comet extensions
-- `9_asset-info-test.ts` - Asset information
-- `10_is-liquidatable-test.ts` - Liquidation checks
-- `11_is-borrow-collateralized-test.ts` - Collateralization validation
-- `12_reserves-test.ts` - Reserve management
-- `13_allow-by-sig-test.ts` - Signature-based allowances
-- `14_update-assets-in-test.ts` - Asset updates
-- `15_quote-collateral-test.ts` - Collateral quoting
-- `16_buy-collateral-test.ts` - Collateral purchasing
-- `17_set-controller-fee.ts` - Fee configuration
+- `01_system-initialization.test.ts` - System setup and initialization
+- `02_system-params-validation.test.ts` - Parameter validation
+- `03_sandbox-controller.test.ts` - Controller functionality
+- `04_config-controller.test.ts` - Configuration management
+- `5_supply.test.ts` - Supply operations
+- `6_withdraw.test.ts` - Withdrawal operations
+- `7_absorb.test.ts` - Absorption mechanics
+- `8_comet-ext.test.ts` - Comet extensions
+- `9_asset-info.test.ts` - Asset information
+- `10_is-liquidatable.test.ts` - Liquidation checks
+- `11_is-borrow-collateralized.test.ts` - Collateralization validation
+- `12_reserves.test.ts` - Reserve management
+- `13_allow-by-sig.test.ts` - Signature-based allowances
+- `14_update-assets-in.test.ts` - Asset updates
+- `15_quote-collateral.test.ts` - Collateral quoting
+- `16_buy-collateral.test.ts` - Collateral purchasing
+- `17_set-controller.fee.ts` - Fee configuration
 
 #### Why These Tests Matter
 - **Protocol Integrity**: These tests ensure core DeFi functionality works correctly
@@ -236,7 +228,7 @@ These tests are explicitly included in `tsconfig.json` and are checked during:
 yarn test
 
 # Run specific numbered test
-npx hardhat test test/01_system-initialization-test.ts
+npx hardhat test test/01_system-initialization.test.ts
 
 # Check TypeScript compilation (includes all numbered tests)
 npx tsc
