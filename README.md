@@ -202,7 +202,7 @@ These tests are explicitly included in `tsconfig.json` and are checked during:
 - `02_system-params-validation.test.ts` - Parameter validation
 - `03_sandbox-controller.test.ts` - Controller functionality
 - `04_config-controller.test.ts` - Configuration management
-- `5_supply.test.ts` - Supply operations
+- `05_supply.test.ts` - Supply operations
 - `6_withdraw.test.ts` - Withdrawal operations
 - `7_absorb.test.ts` - Absorption mechanics
 - `8_comet-ext.test.ts` - Comet extensions
