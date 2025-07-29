@@ -301,6 +301,7 @@ contract SandboxComet is ISandboxComet {
 
         (baseSupplyIndex, baseBorrowIndex) = accruedInterestIndices(timeElapsed);
 
+        // TODO: check overflow uint64 baseTrackingSupplySpeed * timeElapsed
         if (totalSupplyBase >= baseMinForRewards)
             trackingSupplyIndex += safe64(divBaseWei(baseTrackingSupplySpeed * timeElapsed, totalSupplyBase));
 
