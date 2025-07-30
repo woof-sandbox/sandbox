@@ -203,8 +203,10 @@ These tests are explicitly included in `tsconfig.json` and are checked during:
 - `03_sandbox-controller.test.ts` - Controller functionality
 - `04_config-controller.test.ts` - Configuration management
 - `05_supply.test.ts` - Supply operations
-- `6_withdraw.test.ts` - Withdrawal operations
-- `7_absorb.test.ts` - Absorption mechanics
+- `06_withdraw.test.ts` - Withdrawal operations
+- `07_repay-debt.test.ts` - Debt coverage operations
+- `08_interest-calculations.test.ts` - Interest rate mechanics
+- `09_absorb.test.ts` - Absorption mechanics
 - `8_comet-ext.test.ts` - Comet extensions
 - `9_asset-info.test.ts` - Asset information
 - `10_is-liquidatable.test.ts` - Liquidation checks

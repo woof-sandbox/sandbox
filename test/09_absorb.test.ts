@@ -2,7 +2,7 @@ import { ContractReceipt, ContractTransaction, ethers } from "ethers";
 import { event, expect, exp, makeProtocol, mulPrice, portfolio, wait, bumpTotalsCollateral, setTotalsBasic, hre } from "./helper/helpers";
 
 // todo: fix, next in line
-describe.skip("7. absorb", function () {
+describe.skip("9. absorb", function () {
   it("reverts if total borrows underflows", async () => {
     const {
       comet,

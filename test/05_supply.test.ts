@@ -19,7 +19,41 @@ import {
   CometExtension,
 } from "../build/types";
 
-describe.only("5. supplyTo", function () {
+describe.skip("5. supply", function () {
+  // Note: isolated supply functionality, withdraw is tested in a separate testset
+
+  describe("supply base asset", function () {
+    describe("supply base asset: reverts", function () {
+      // wip
+    });
+
+    describe("supply base asset into empty pool", function () {
+      // wip
+    });
+
+    describe("supply base asset: happy case", function () {
+      it("supplied amount corresponds to stored principal", async () => {
+        // wip
+      });
+
+      it("total supply is kept for multiple supplies", async () => {
+        // wip
+      });
+
+      it("user's supply is not changed with 0 utilization (no interest)", async () => {
+        // wip
+      });
+    });
+  });
+
+  describe("supply collateral flow", function () {
+    // wip
+  });
+
+  describe("supply flows variations (from/to)", function () {
+    // wip
+  });
+
   it("supplies base from sender if the asset is base", async () => {
     const protocol = await makeProtocol({
       base: "USDC",

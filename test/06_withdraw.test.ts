@@ -15,6 +15,11 @@ import {
 
 // TODO: fix, test is next in line
 describe.skip("6. withdrawTo", function () {
+  // TODO: extend into testcase assuming no illiquidity from over-utilization
+  it("user can withdraw non-less than supplied", async () => {
+    // wip
+  });
+
   it("withdraws base from sender if the asset is base", async () => {
     const protocol = await makeProtocol({
       base: "USDC",
