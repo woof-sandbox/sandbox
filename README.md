@@ -238,7 +238,6 @@ npx tsc
 
 ## 📚 Documentation
 
-- **[SPEC.md](./SPEC.md)** - Detailed protocol specification
 - **[deploy-flow.md](./deploy-flow.md)** - Deployment instructions
 - **[ADERYN_REPORT.md](./ADERYN_REPORT.md)** - Security analysis report
 
@@ -269,5 +268,4 @@ This project is licensed under the BUSL-1.1 License - see the [LICENSE](./LICENS
 For questions and support:
 - Create an issue in the repository
 - Check the documentation in the `docs/` directory
-- Review the specification in `SPEC.md`
 # Test comment

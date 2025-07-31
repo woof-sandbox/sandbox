@@ -4,13 +4,11 @@
   "description": "",
   "main": "dist/index.js",
   "files": [
-    "dist",
-    "deployments/**/roots.json"
+    "dist"
   ],
   "exports": {
     ".": "./dist/index.js",
-    "./*": "./dist/*.js",
-    "./deployments/*": "./deployments/*"
+    "./*": "./dist/*.js"
   },
   "types": "./dist/index.d.ts",
   "typesVersions": {
@@ -20,9 +18,6 @@
       ],
       "*": [
         "dist/*"
-      ],
-      "deployments/*": [
-        "deployments/*"
       ]
     }
   },
@@ -34,11 +29,11 @@
     "test": "hardhat test",
     "test:coverage": "hardhat coverage",
     "slither": "yarn clean && yarn build && slither contracts/ --hardhat-ignore-compile --checklist > SLITHER_REPORT.md",
-    "lint:ts": "eslint 'scripts/**/*.ts' 'test/**/*.ts' 'hardhat.config.ts'",
+    "lint:ts": "eslint --no-error-on-unmatched-pattern 'scripts/**/*.ts' 'test/**/*.ts' 'hardhat.config.ts'",
     "lint:sol": "solhint contracts/**/*.sol contracts/*.sol --config .solhint.json",
     "aderyn": "npx aderyn --src contracts/ -o ADERYN_REPORT.md",
     "prettier:sol": "prettier --write 'contracts/**/*.sol' --config .prettierrc.json  --end-of-line auto",
-    "prettier:ts": "prettier --write 'test/**/*.ts' 'src/**/*.ts' 'scripts/**/*.ts' 'hardhat.config.ts' --config .prettierrc.json  --end-of-line auto",
+    "prettier:ts": "prettier --no-error-on-unmatched-pattern --write 'test/**/*.ts' 'src/**/*.ts' 'scripts/**/*.ts' 'hardhat.config.ts' --config .prettierrc.json  --end-of-line auto",
     "doc": "hardhat docgen",
     "clean:out": "./scripts/clean-out.sh",
     "setup:hooks": "git config core.hooksPath .githooks"

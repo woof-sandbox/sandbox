@@ -7,7 +7,6 @@ import {
   EvilToken__factory,
   FaucetToken,
   FaucetToken__factory,
-  FaucetWETH__factory,
   SimplePriceFeed,
   SimplePriceFeed__factory,
   ConfigController__factory,
