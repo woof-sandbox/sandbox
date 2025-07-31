@@ -30,7 +30,7 @@ import { SandboxController__factory } from "../../build/types/factories/SandboxC
 import { BigNumber, BigNumberish } from "ethers";
 import { TransactionReceipt, TransactionResponse } from "@ethersproject/abstract-provider";
 import { CometHarness, TotalsBasicStructOutput } from "../../build/types/CometHarness";
-import { CometConfigStruct } from "../../build/types/ConfigController";
+import { CometConfigStruct, CollateralTokenConfigStruct } from "../../build/types/ConfigController";
 
 // Snapshot
 export type { SnapshotRestorer } from "@nomicfoundation/hardhat-network-helpers";
@@ -509,11 +509,13 @@ export async function createComet(
   baseToken: FaucetToken | NonStandardFaucetFeeToken,
   name?: string
 ): Promise<SandboxComet> {
+  const _assets = assets || defaultAssets();
   const defaultConfig: CollateralConfig = defaultCollateralConfig();
 
-  const collateralTokens: CometConfigStruct["collateralTokens"] = [];
+  const collateralTokens: CollateralTokenConfigStruct[] = [];
+
   for (let symbol in collaterals) {
-    const assetConfig = assets[symbol];
+    const assetConfig = _assets[symbol];
 
     collateralTokens.push({
       collateralToken: collaterals[symbol].address,
@@ -539,6 +541,7 @@ export async function createComet(
 
   const lastComet = await configController.cometsLength();
   const cometAddr = await configController.comets(lastComet.sub(1));
+
   return (await ethers.getContractAt("SandboxComet", cometAddr)) as SandboxComet;
 }
 
