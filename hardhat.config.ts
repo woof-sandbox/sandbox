@@ -14,14 +14,6 @@ import 'hardhat-preprocessor';
 import 'solidity-docgen';
 import 'solidity-coverage';
 
-// Hardhat tasks
-import './tasks/deployment_manager/task.ts';
-import './tasks/spider/task.ts';
-import './tasks/scenario/task.ts';
-
-// Relation Config
-import relationConfigMap from './deployments/relations';
-import sepoliaUsdcRelationConfigMap from './deployments/sepolia/usdc/relations';
 import fs from 'fs';
 
 task('accounts', 'Prints the list of accounts', async (taskArgs, hre) => {
@@ -200,30 +192,6 @@ const config: HardhatUserConfig = {
     outDir: 'build/types',
     target: 'ethers-v5',
   },
-
-  deploymentManager: {
-    relationConfigMap,
-    networks: {
-      sepolia: {
-        usdc: sepoliaUsdcRelationConfigMap,
-      },
-    },
-  },
-  // TODO: Remove this with the deployment manager.
-  // scenario: {
-  //   bases: [
-  //     {
-  //       name: 'development',
-  //       network: 'hardhat',
-  //       deployment: 'dai'
-  //     },
-  //     {
-  //       name: 'sepolia-usdc',
-  //       network: 'sepolia',
-  //       deployment: 'usdc'
-  //     },
-  //   ],
-  // },
 
   mocha: {
     reporter: 'mocha-multi-reporters',
