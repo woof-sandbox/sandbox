@@ -28,7 +28,7 @@ import { SandboxCometFactory } from "../../build/types/SandboxCometFactory";
 import { SandboxCometFactory__factory } from "../../build/types/factories/SandboxCometFactory__factory";
 import { SandboxController, BaseAssetCurveStruct, SandboxControllerConfigurationStruct } from "../../build/types/SandboxController";
 import { SandboxController__factory } from "../../build/types/factories/SandboxController__factory";
-import { BigNumber, ContractReceipt, ContractTransaction } from "ethers";
+import { BigNumber, BigNumberish, ContractReceipt, ContractTransaction } from "ethers";
 import { TransactionReceipt, TransactionResponse } from "@ethersproject/abstract-provider";
 import { CometHarness, TotalsBasicStructOutput } from "../../build/types/CometHarness";
 import { CometConfigStruct } from "../../build/types/ConfigController";
@@ -56,6 +56,12 @@ export type TokenOpts = {
 };
 
 export type ProtocolOpts = {
+  owner: SignerWithAddress;
+  treasury: SignerWithAddress;
+  curator: SignerWithAddress;
+  guardian: SignerWithAddress;
+  dao: SignerWithAddress;
+
   start?: number;
   assets?: {
     [symbol: string]: {
@@ -80,20 +86,8 @@ export type ProtocolOpts = {
   feeEnabled?: boolean;
   name?: string;
   symbol?: string;
-  owner?: SignerWithAddress;
-  treasury?: SignerWithAddress;
-  curator?: SignerWithAddress;
-  guardian?: SignerWithAddress;
-  dao?: SignerWithAddress;
   base?: string;
-  supplyKink?: Numeric;
-  supplyInterestRateBase?: Numeric;
-  supplyInterestRateSlopeLow?: Numeric;
-  supplyInterestRateSlopeHigh?: Numeric;
-  borrowKink?: Numeric;
-  borrowInterestRateBase?: Numeric;
-  borrowInterestRateSlopeLow?: Numeric;
-  borrowInterestRateSlopeHigh?: Numeric;
+  curve?: BaseAssetCurveStruct;
   trackingIndexScale?: Numeric;
   baseTrackingSupplySpeed?: Numeric;
   baseTrackingBorrowSpeed?: Numeric;
@@ -107,7 +101,6 @@ export type ProtocolOpts = {
 
 export type Protocol = {
   opts: ProtocolOpts;
-  users: SignerWithAddress[];
   base: string;
   comet: SandboxComet;
   tokens: {
@@ -143,18 +136,14 @@ export type Protocol = {
   sandboxController: ISandboxController;
   cometImpl: ISandboxComet;
   cometFactory: ISandboxCometFactory;
-  owner: SignerWithAddress;
-  curator: SignerWithAddress;
-  guardian: SignerWithAddress;
-  dao: SignerWithAddress;
   curve: any;
   seedReserves: string;
 };
 
 export interface SandboxControllerOpts {
-  admin?: any;
-  dao?: any;
-  treasury?: any;
+  admin: string;
+  dao: string;
+  treasury: string;
   feeEnabled?: boolean;
   config?: SandboxControllerConfigurationStruct;
   reserveCommissions?: [bigint, bigint, bigint];
@@ -310,19 +299,8 @@ export async function makeCometFactory(cometImpl: string, configControllerFactor
   return cometFactory;
 }
 
-export async function makeConfigController(
-  opts: ProtocolOpts = {},
-  acceptCurator?: boolean,
-  harness?: boolean
-): Promise<Partial<Protocol>> {
-  const signers = await ethers.getSigners();
-
+export async function makeConfigController(opts: ProtocolOpts, acceptCurator?: boolean, harness?: boolean): Promise<Partial<Protocol>> {
   const assets = opts.assets || defaultAssets();
-  const owner = opts.owner || signers[0];
-  const curator = opts.curator || signers[1];
-  const guardian = opts.guardian || signers[2];
-  const dao = opts.dao || signers[3];
-  const users = signers.slice(4);
   const base = opts.base || "USDC";
 
   const FaucetFactory = (await ethers.getContractFactory("FaucetToken")) as FaucetToken__factory;
@@ -355,21 +333,15 @@ export async function makeConfigController(
   priceFeeds["USUP"] = priceFeed;
 
   // --- Parameters ---
-  const supplyKink = dfn(opts.supplyKink, exp(0.8, 18));
-  const supplyPerYearInterestRateBase = dfn(opts.supplyInterestRateBase, exp(0.001, 18));
-  const supplyPerYearInterestRateSlopeLow = dfn(opts.supplyInterestRateSlopeLow, exp(0.05, 18));
-  const supplyPerYearInterestRateSlopeHigh = dfn(opts.supplyInterestRateSlopeHigh, exp(2, 18));
-  const borrowKink = dfn(opts.borrowKink, exp(0.8, 18));
-  const borrowPerYearInterestRateBase = dfn(opts.borrowInterestRateBase, exp(0.005, 18));
-  const borrowPerYearInterestRateSlopeLow = dfn(opts.borrowInterestRateSlopeLow, exp(0.1, 18));
-  const borrowPerYearInterestRateSlopeHigh = dfn(opts.borrowInterestRateSlopeHigh, exp(3, 18));
   const baseBorrowMin = dfn(opts.baseBorrowMin, exp(1, assets[base].decimals));
   const baseToken: FaucetToken = tokens[base];
+  const curve = opts.curve || makeValidCurve();
 
+  /// --- Deploy sandbox controller
   const sandboxControllerOpts = defaultSandboxControllerOpts({
-    admin: owner,
-    dao: dao,
-    treasury: opts.treasury,
+    admin: opts.owner.address,
+    dao: opts.dao.address,
+    treasury: opts.treasury.address,
     feeEnabled: false,
     config: opts.config,
     reserveCommissions: opts.reserveCommissions,
@@ -377,19 +349,9 @@ export async function makeConfigController(
   });
 
   const sandboxController = (await makeSandboxController(sandboxControllerOpts)).sandboxController;
-  await baseToken.allocateTo(owner.address, sandboxControllerOpts.config.suggestedAmountOfSeedReserves);
+  await baseToken.allocateTo(opts.owner.address, sandboxControllerOpts.config.suggestedAmountOfSeedReserves);
 
   // --- Whitelist the base token ---
-  const curve = {
-    supplyKink,
-    supplyPerYearInterestRateBase,
-    supplyPerYearInterestRateSlopeLow,
-    supplyPerYearInterestRateSlopeHigh,
-    borrowKink,
-    borrowPerYearInterestRateBase,
-    borrowPerYearInterestRateSlopeLow,
-    borrowPerYearInterestRateSlopeHigh,
-  };
   await sandboxController.whitelistBaseAsset(tokens[base].address, priceFeeds[base].address, curve, baseBorrowMin);
 
   // --- Whitelist the collateral assets ---
@@ -413,6 +375,7 @@ export async function makeConfigController(
     );
   }
 
+  // --- deploy config controller ---
   let cometFactory_;
 
   if (harness) {
@@ -427,8 +390,8 @@ export async function makeConfigController(
   const cometFactory = await makeCometFactory(cometImpl.address, configControllerFactory.address);
 
   await configControllerFactory.createConfigController(
-    curator.address,
-    guardian.address,
+    opts.curator.address,
+    opts.guardian.address,
     cometFactory.address,
     1000,
     "ConfigController",
@@ -442,13 +405,12 @@ export async function makeConfigController(
   )) as ConfigController;
 
   if (acceptCurator) {
-    await configController.connect(curator).acceptCuratorRole();
+    await configController.connect(opts.curator).acceptCuratorRole();
   }
 
   return {
     opts,
     base: await baseToken.symbol(),
-    users,
     tokens,
     baseToken,
     assets,
@@ -459,10 +421,6 @@ export async function makeConfigController(
     sandboxController,
     cometImpl,
     cometFactory,
-    owner,
-    curator,
-    guardian,
-    dao,
     curve,
     seedReserves: sandboxControllerOpts.config.suggestedAmountOfSeedReserves.toString(),
   };
@@ -503,22 +461,14 @@ async function createComet2(
   return configController.comets(0);
 }
 
-export const makeProtocol = async (opts: ProtocolOpts = {}) => {
-  const {
-    configController,
-    tokens,
-    baseToken,
-    priceFeeds,
-    dao,
-    sandboxController,
-    seedReserves,
-    users,
-    guardian,
-    owner,
-    unsupportedToken,
-  } = await makeConfigController(opts, true, true);
+export const makeProtocol = async (opts: ProtocolOpts) => {
+  const { configController, tokens, baseToken, priceFeeds, sandboxController, seedReserves, unsupportedToken } = await makeConfigController(
+    opts,
+    true,
+    true
+  );
 
-  await baseToken.allocateTo(owner.address, seedReserves);
+  await baseToken.allocateTo(opts.owner.address, seedReserves);
   await baseToken.approve(configController.address, seedReserves);
 
   const market = await createComet2(opts, configController, tokens, baseToken);
@@ -531,11 +481,7 @@ export const makeProtocol = async (opts: ProtocolOpts = {}) => {
     baseToken,
     base: opts.base,
     priceFeeds,
-    dao,
     market,
-    users,
-    guardian,
-    owner,
     unsupportedToken,
     seedReserves,
     sandboxController,
@@ -551,23 +497,29 @@ export async function makeMockERC20({ name, symbol }: MockERC20Params): Promise<
 
 export function makeValidCurve(): BaseAssetCurveStruct {
   return {
-    supplyKink: ethers.utils.parseEther("0.5").toString(),
-    supplyPerYearInterestRateSlopeLow: ethers.BigNumber.from("500"),
-    supplyPerYearInterestRateSlopeHigh: ethers.BigNumber.from("1000"),
-    supplyPerYearInterestRateBase: ethers.BigNumber.from("100"),
-    borrowKink: ethers.utils.parseEther("0.5").toString(),
-    borrowPerYearInterestRateSlopeLow: ethers.BigNumber.from("1000"),
-    borrowPerYearInterestRateSlopeHigh: ethers.BigNumber.from("2000"),
-    borrowPerYearInterestRateBase: ethers.BigNumber.from("1"),
+    supplyKink: ethers.utils.parseEther("0.8").toString(),
+    supplyPerYearInterestRateSlopeLow: ethers.utils.parseEther("0.05").toString(),
+    supplyPerYearInterestRateSlopeHigh: ethers.utils.parseEther("2").toString(),
+    supplyPerYearInterestRateBase: ethers.utils.parseEther("0.001").toString(),
+    borrowKink: ethers.utils.parseEther("0.8").toString(),
+    borrowPerYearInterestRateSlopeLow: ethers.utils.parseEther("0.1").toString(),
+    borrowPerYearInterestRateSlopeHigh: ethers.utils.parseEther("3").toString(),
+    borrowPerYearInterestRateBase: ethers.utils.parseEther("0.005").toString(),
   };
 }
 
-/// TODO: add opts when testing curves
-export async function sandboxListBaseAsset(sandboxController: SandboxController, baseAsset: FaucetToken, priceFeed: string) {
-  const baseBorrowMin = exp(1, await baseAsset.decimals());
+export async function sandboxListBaseAsset(
+  sandboxController: SandboxController,
+  baseAsset: FaucetToken,
+  priceFeed: string,
+  baseBorrowMin?: BigNumberish,
+  curve?: BaseAssetCurveStruct
+) {
+  const baseBorrowMin_ = baseBorrowMin || exp(1, await baseAsset.decimals());
+  const curve_ = curve || makeValidCurve();
 
   // --- Whitelist the base token ---
-  await sandboxController.whitelistBaseAsset(baseAsset.address, priceFeed, makeValidCurve(), baseBorrowMin);
+  await sandboxController.whitelistBaseAsset(baseAsset.address, priceFeed, curve_, baseBorrowMin_);
 }
 
 /// TODO: add opts when testing curves
@@ -659,11 +611,6 @@ export async function makeOnlyConfigController(
 }
 
 export async function makeSandboxController(opts: SandboxControllerOpts, factory?): Promise<SandboxControllerInfo> {
-  const signers = await ethers.getSigners();
-  const admin = opts.admin || signers[0];
-  const dao = opts.dao || signers[1];
-  const treasury = opts.treasury || signers[2];
-
   let SandboxControllerFactory;
   if (factory) {
     SandboxControllerFactory = factory;
@@ -672,9 +619,9 @@ export async function makeSandboxController(opts: SandboxControllerOpts, factory
   }
 
   const sandboxController = await SandboxControllerFactory.deploy(
-    admin.address || admin,
-    dao.address || dao,
-    treasury.address || treasury,
+    opts.admin,
+    opts.dao,
+    opts.treasury,
     opts.feeEnabled,
     opts.config,
     opts.reserveCommissions,

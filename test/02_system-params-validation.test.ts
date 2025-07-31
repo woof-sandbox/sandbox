@@ -24,6 +24,7 @@ import {
 } from "../build/types";
 import { CollateralTokenConfigStruct, CometConfigStruct } from "../build/types/ConfigController";
 import { BigNumber } from "ethers";
+import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
 describe("2. System Params Validation", function () {
   // Factories
@@ -43,7 +44,7 @@ describe("2. System Params Validation", function () {
   };
 
   let signers;
-  let owner, curator, guardian;
+  let owner, curator, guardian, dao, treasury: SignerWithAddress;
 
   let configControllerAddress;
   let configController: ConfigController;
@@ -67,11 +68,18 @@ describe("2. System Params Validation", function () {
     owner = signers[0];
     curator = signers[1];
     guardian = signers[2];
+    dao = signers[3];
+    treasury = signers[4];
 
     const SandboxControllerFactoryTest = (await ethers.getContractFactory(
       "SandboxControllerNoCurvesTest"
     )) as SandboxControllerNoCurvesTest__factory;
-    sandboxController = (await makeSandboxController(defaultSandboxControllerOpts(), SandboxControllerFactoryTest)).sandboxController;
+    sandboxController = (
+      await makeSandboxController(
+        defaultSandboxControllerOpts({ admin: owner.address, dao: dao.address, treasury: treasury.address }),
+        SandboxControllerFactoryTest
+      )
+    ).sandboxController;
 
     const configControllerFactory = await _ConfigControllerFactory.deploy(sandboxController.address, configControllerImpl.address);
     sandboxCometFactory = await _SandboxCometFactory.deploy(sandboxCometImpl.address, configControllerFactory.address);

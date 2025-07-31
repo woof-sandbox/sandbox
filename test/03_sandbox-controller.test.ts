@@ -18,13 +18,14 @@ import { SandboxController } from "../build/types";
 import { BaseAssetCurveStruct, SandboxControllerConfigurationStruct } from "../build/types/SandboxController";
 
 import { parseEther } from "ethers/lib/utils";
+import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
 describe("3. SandboxController", function () {
-  let owner: any;
-  let dao: any;
-  let attacker: any;
-  let other: any;
-  let treasury: any;
+  let owner: SignerWithAddress;
+  let dao: SignerWithAddress;
+  let attacker: SignerWithAddress;
+  let other: SignerWithAddress;
+  let treasury: SignerWithAddress;
   let opts: any;
   let sandboxController: SandboxController;
 
@@ -32,9 +33,9 @@ describe("3. SandboxController", function () {
     [owner, dao, treasury, attacker, other] = await ethers.getSigners();
 
     opts = defaultSandboxControllerOpts({
-      admin: owner,
-      dao: dao,
-      treasury: treasury,
+      admin: owner.address,
+      dao: dao.address,
+      treasury: treasury.address,
     });
 
     sandboxController = (await makeSandboxController(opts)).sandboxController;

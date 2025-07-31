@@ -53,7 +53,7 @@ describe("1. System Initialization", function () {
     _proposalDuration: DEFAULT_UPDATE_TIME,
   };
 
-  let opts: SandboxControllerOpts = {};
+  let opts: SandboxControllerOpts;
 
   before(async function () {
     _ConfigControllerFactory = (await ethers.getContractFactory("ConfigControllerFactory")) as ConfigControllerFactory__factory;
@@ -75,7 +75,7 @@ describe("1. System Initialization", function () {
     dao = signers[3];
     treasury = signers[4];
     /// Options of the sandbox controller
-    opts = defaultSandboxControllerOpts({ admin: owner, dao: dao, treasury: treasury, feeEnabled: true });
+    opts = defaultSandboxControllerOpts({ admin: owner.address, dao: dao.address, treasury: treasury.address, feeEnabled: true });
   });
 
   describe("Config Controller Factory deployment", function () {
@@ -169,7 +169,9 @@ describe("1. System Initialization", function () {
     let configControllersCount = 0;
 
     before(async function () {
-      sandboxController = (await makeSandboxController(defaultSandboxControllerOpts())).sandboxController;
+      sandboxController = (
+        await makeSandboxController(defaultSandboxControllerOpts({ admin: owner.address, dao: dao.address, treasury: treasury.address }))
+      ).sandboxController;
       configControllerFactory = await _ConfigControllerFactory.deploy(sandboxController.address, configControllerImpl.address);
       sandboxCometFactory = await _SandboxCometFactory.deploy(sandboxCometImpl.address, configControllerFactory.address);
     });
@@ -539,7 +541,9 @@ describe("1. System Initialization", function () {
     let marketConfig: CometConfigStruct;
 
     before(async function () {
-      sandboxController = (await makeSandboxController(defaultSandboxControllerOpts())).sandboxController;
+      sandboxController = (
+        await makeSandboxController(defaultSandboxControllerOpts({ admin: owner.address, dao: dao.address, treasury: treasury.address }))
+      ).sandboxController;
 
       const configControllerFactory = await _ConfigControllerFactory.deploy(sandboxController.address, configControllerImpl.address);
       sandboxCometFactory = await _SandboxCometFactory.deploy(sandboxCometImpl.address, configControllerFactory.address);
