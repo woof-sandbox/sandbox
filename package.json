@@ -29,7 +29,7 @@
     "test": "hardhat test",
     "test:coverage": "hardhat coverage",
     "slither": "yarn clean && yarn build && slither contracts/ --hardhat-ignore-compile --checklist > SLITHER_REPORT.md",
-    "lint:ts": "eslint 'scripts/**/*.ts' 'test/**/*.ts' 'hardhat.config.ts'",
+    "lint:ts": "eslint --no-error-on-unmatched-pattern 'scripts/**/*.ts' 'test/**/*.ts' 'hardhat.config.ts'",
     "lint:sol": "solhint contracts/**/*.sol contracts/*.sol --config .solhint.json",
     "aderyn": "npx aderyn --src contracts/ -o ADERYN_REPORT.md",
     "prettier:sol": "prettier --write 'contracts/**/*.sol' --config .prettierrc.json  --end-of-line auto",
