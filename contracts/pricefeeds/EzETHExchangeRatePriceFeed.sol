@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
-import "../interfaces/IBalancerRateProvider.sol";
-import "../interfaces/IPriceFeed.sol";
+import { IPriceFeed } from "contracts/interfaces/IPriceFeed.sol";
+import { IBalancerRateProvider } from "contracts/interfaces/IBalancerRateProvider.sol";
 import { AccessControl } from "contracts/pricefeeds/AccessControl.sol";
 
 /**
@@ -19,20 +19,17 @@ contract EzETHExchangeRatePriceFeed is IPriceFeed, AccessControl {
     /// @notice Version of the price feed
     uint public constant VERSION = 1;
 
-    /// @notice Description of the price feed
-    string public description;
-
     /// @notice Number of decimals for returned prices
     uint8 public immutable override decimals;
-
-    /// @notice Whether or not the price should be upscaled
-    bool internal immutable shouldUpscale;
 
     /// @notice The amount to upscale or downscale the price by
     int256 internal immutable rescaleFactor;
 
     /// @notice The underlying token
     address public immutable override underlyingToken;
+
+    /// @notice Description of the price feed
+    string public description;
 
     /// @notice ezETH price feed where prices are fetched from
     address public underlyingPriceFeed;
@@ -65,13 +62,8 @@ contract EzETHExchangeRatePriceFeed is IPriceFeed, AccessControl {
         description = description_;
 
         uint8 ezETHRateProviderDecimals = 18;
-        // Note: Solidity does not allow setting immutables in if/else statements
-        shouldUpscale = ezETHRateProviderDecimals < decimals_ ? true : false;
-        rescaleFactor = (
-            shouldUpscale
-                ? signed256(10 ** (decimals_ - ezETHRateProviderDecimals))
-                : signed256(10 ** (ezETHRateProviderDecimals - decimals_))
-        );
+
+        rescaleFactor = signed256(10 ** (ezETHRateProviderDecimals - decimals_));
         underlyingToken = underlyingToken_;
     }
 
@@ -118,13 +110,7 @@ contract EzETHExchangeRatePriceFeed is IPriceFeed, AccessControl {
     }
 
     function scalePrice(int256 price) internal view returns (int256) {
-        int256 scaledPrice;
-        if (shouldUpscale) {
-            scaledPrice = price * rescaleFactor;
-        } else {
-            scaledPrice = price / rescaleFactor;
-        }
-        return scaledPrice;
+        return price / rescaleFactor;
     }
 
     /**

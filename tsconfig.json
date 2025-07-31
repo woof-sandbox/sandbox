@@ -8,19 +8,7 @@
     "declaration": true,
     "skipLibCheck": true
   },
-  "include": [
-    "./test/helpers",
-    "./test/*.test.ts",
-   
-  ],
-  "exclude": [
-    "./plugins",
-    "./scenario",
-    "./node_modules",
-    "./dist",
-    "./build"
-  ],
-  "files": [
-    "./hardhat.config.ts"
-  ]
+  "include": ["./test/helpers", "./test/*.test.ts", "test/pricefeeds/*.test.ts"],
+  "exclude": ["./plugins", "./scenario", "./node_modules", "./dist", "./build"],
+  "files": ["./hardhat.config.ts"]
 }

@@ -13,13 +13,13 @@ contract ConstantPriceFeed is IPriceFeed {
     uint public constant override version = 1;
 
     /// @notice Description of the price feed
-    string public constant description = "Constant price feed";
+    string public constant override description = "Constant price feed";
 
     /// @notice Number of decimals for returned prices
     uint8 public immutable override decimals;
 
     /// @notice The constant price
-    int public immutable constantPrice;
+    int public immutable CONSTANT_PRICE;
 
     /// @notice The underlying token
     address public immutable override underlyingToken;
@@ -32,7 +32,7 @@ contract ConstantPriceFeed is IPriceFeed {
      **/
     constructor(uint8 decimals_, int256 constantPrice_, address underlyingToken_) {
         decimals = decimals_;
-        constantPrice = constantPrice_;
+        CONSTANT_PRICE = constantPrice_;
         underlyingToken = underlyingToken_;
     }
 
@@ -49,6 +49,6 @@ contract ConstantPriceFeed is IPriceFeed {
         view
         returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound)
     {
-        return (1, constantPrice, block.timestamp, block.timestamp, 1);
+        return (1, CONSTANT_PRICE, block.timestamp, block.timestamp, 1);
     }
 }

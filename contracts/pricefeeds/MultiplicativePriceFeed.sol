@@ -1,15 +1,16 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
-import "../interfaces/AggregatorV3Interface.sol";
-import "../interfaces/IPriceFeed.sol";
+import { IPriceFeed } from "contracts/interfaces/IPriceFeed.sol";
+import { AggregatorV3Interface } from "contracts/interfaces/AggregatorV3Interface.sol";
+import { AccessControl } from "contracts/pricefeeds/AccessControl.sol";
 
 /**
  * @title Multiplicative price feed
  * @notice A custom price feed that multiplies the prices from two price feeds and returns the result
  * @author Compound
  */
-contract MultiplicativePriceFeed is IPriceFeed {
+contract MultiplicativePriceFeed is IPriceFeed, AccessControl {
     /** Custom errors **/
     error BadDecimals();
     error InvalidInt256();
@@ -17,26 +18,26 @@ contract MultiplicativePriceFeed is IPriceFeed {
     /// @notice Version of the price feed
     uint public constant VERSION = 1;
 
+    /// @notice The underlying token
+    address public immutable override underlyingToken;
+
     /// @notice Description of the price feed
     string public override description;
 
     /// @notice Number of decimals for returned prices
-    uint8 public immutable override decimals;
+    uint8 public override decimals;
 
     /// @notice Chainlink price feed A
-    address public immutable priceFeedA;
+    address public priceFeedA;
 
     /// @notice Chainlink price feed B
-    address public immutable priceFeedB;
+    address public priceFeedB;
 
     /// @notice Combined scale of the two underlying Chainlink price feeds
-    int public immutable combinedScale;
+    int public combinedScale;
 
     /// @notice Scale of this price feed
-    int public immutable priceFeedScale;
-
-    /// @notice The underlying token
-    address public immutable override underlyingToken;
+    int public priceFeedScale;
 
     /**
      * @notice Construct a new multiplicative price feed
@@ -46,18 +47,41 @@ contract MultiplicativePriceFeed is IPriceFeed {
      * @param description_ The description of the price feed
      * @param underlyingToken_ The address of the underlying token
      **/
-    constructor(address priceFeedA_, address priceFeedB_, uint8 decimals_, string memory description_, address underlyingToken_) {
+    constructor(
+        address priceFeedA_,
+        address priceFeedB_,
+        uint8 decimals_,
+        string memory description_,
+        address underlyingToken_,
+        address owner_,
+        address dao_
+    ) AccessControl(owner_, dao_) {
+        if (priceFeedA_ == address(0) || priceFeedB_ == address(0)) revert ZeroAddress();
+
         priceFeedA = priceFeedA_;
         priceFeedB = priceFeedB_;
         uint8 priceFeedADecimals = AggregatorV3Interface(priceFeedA_).decimals();
         uint8 priceFeedBDecimals = AggregatorV3Interface(priceFeedB_).decimals();
         combinedScale = signed256(10 ** (priceFeedADecimals + priceFeedBDecimals));
 
-        if (decimals_ > 18) revert BadDecimals();
-        decimals = decimals_;
-        description = description_;
+        _validateNSetDecimals(decimals_);
         priceFeedScale = int256(10 ** decimals);
+        description = description_;
         underlyingToken = underlyingToken_;
+    }
+
+    function setPriceFeeds(address priceFeedA_, address priceFeedB_, uint8 decimals_) external onlyAuthorized {
+        if (priceFeedA_ == address(0) || priceFeedB_ == address(0)) revert ZeroAddress();
+
+        priceFeedA = priceFeedA_;
+        priceFeedB = priceFeedB_;
+
+        uint8 priceFeedADecimals = AggregatorV3Interface(priceFeedA_).decimals();
+        uint8 priceFeedBDecimals = AggregatorV3Interface(priceFeedB_).decimals();
+        combinedScale = signed256(10 ** (priceFeedADecimals + priceFeedBDecimals));
+
+        _validateNSetDecimals(decimals_);
+        priceFeedScale = int256(10 ** decimals);
     }
 
     /**
@@ -84,6 +108,12 @@ contract MultiplicativePriceFeed is IPriceFeed {
     function signed256(uint256 n) internal pure returns (int256) {
         if (n > uint256(type(int256).max)) revert InvalidInt256();
         return int256(n);
+    }
+
+    function _validateNSetDecimals(uint8 decimals_) internal {
+        if (decimals_ == 0 || decimals_ > 18) revert BadDecimals();
+
+        decimals = decimals_;
     }
 
     /**
