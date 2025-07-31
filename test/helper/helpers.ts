@@ -8,7 +8,6 @@ import {
   EvilToken__factory,
   FaucetToken,
   FaucetToken__factory,
-  FaucetWETH__factory,
   SimplePriceFeed,
   SimplePriceFeed__factory,
   ConfigController__factory,
@@ -73,7 +72,7 @@ export type ProtocolOpts = {
       supplyCap?: Numeric;
       initialPrice?: number;
       priceFeedDecimals?: number;
-      factory?: FaucetToken__factory | EvilToken__factory | FaucetWETH__factory | NonStandardFaucetFeeToken__factory;
+      factory?: FaucetToken__factory | EvilToken__factory | NonStandardFaucetFeeToken__factory;
     };
   };
   feeEnabled?: boolean;
@@ -132,7 +131,7 @@ export type Protocol = {
       supplyCap?: Numeric;
       initialPrice?: number;
       priceFeedDecimals?: number;
-      factory?: FaucetToken__factory | EvilToken__factory | FaucetWETH__factory | NonStandardFaucetFeeToken__factory;
+      factory?: FaucetToken__factory | EvilToken__factory | NonStandardFaucetFeeToken__factory;
     };
   };
   unsupportedToken: FaucetToken;

@@ -14,8 +14,6 @@
    
   ],
   "exclude": [
-    "./plugins",
-    "./scenario",
     "./node_modules",
     "./dist",
     "./build"
