@@ -4,7 +4,7 @@ import {
   expect,
   defaultSandboxControllerOpts,
   makeSandboxController,
-  makeToken,
+  makeMockERC20,
   makePriceFeed,
   sandboxListBaseAsset,
   sandboxListCollateralAsset,
@@ -169,9 +169,9 @@ describe("1. System Initialization", function () {
     let configControllersCount = 0;
 
     before(async function () {
-      sandboxController = (
-        await makeSandboxController(defaultSandboxControllerOpts({ admin: owner.address, dao: dao.address, treasury: treasury.address }))
-      ).sandboxController;
+      sandboxController = await makeSandboxController(
+        defaultSandboxControllerOpts({ admin: owner.address, dao: dao.address, treasury: treasury.address })
+      );
       configControllerFactory = await _ConfigControllerFactory.deploy(sandboxController.address, configControllerImpl.address);
       sandboxCometFactory = await _SandboxCometFactory.deploy(sandboxCometImpl.address, configControllerFactory.address);
     });
@@ -541,9 +541,9 @@ describe("1. System Initialization", function () {
     let marketConfig: CometConfigStruct;
 
     before(async function () {
-      sandboxController = (
-        await makeSandboxController(defaultSandboxControllerOpts({ admin: owner.address, dao: dao.address, treasury: treasury.address }))
-      ).sandboxController;
+      sandboxController = await makeSandboxController(
+        defaultSandboxControllerOpts({ admin: owner.address, dao: dao.address, treasury: treasury.address })
+      );
 
       const configControllerFactory = await _ConfigControllerFactory.deploy(sandboxController.address, configControllerImpl.address);
       sandboxCometFactory = await _SandboxCometFactory.deploy(sandboxCometImpl.address, configControllerFactory.address);
@@ -578,11 +578,12 @@ describe("1. System Initialization", function () {
       )) as ConfigControllerInitializeTest;
 
       // deploy comet
-      const baseToken = await makeToken({
+      const baseToken = await makeMockERC20({
+        name: "Base",
         symbol: "BASE",
-        initialMint: ethers.utils.parseEther("50000").toString(),
+        supply: ethers.utils.parseEther("50000").toString(),
       });
-      const collateralToken = await makeToken({ symbol: "COL" });
+      const collateralToken = await makeMockERC20({ name: "Collateral", symbol: "COL" });
       const priceFeedBase = await makePriceFeed(baseToken.address);
       const priceFeedCol = await makePriceFeed(collateralToken.address);
 
@@ -833,7 +834,7 @@ describe("1. System Initialization", function () {
     });
 
     it("initializes state with correct values", async function () {
-      const { sandboxController } = await makeSandboxController(opts);
+      const sandboxController = await makeSandboxController(opts);
       expect(await sandboxController.owner()).to.equal(owner.address);
       expect(await sandboxController.dao()).to.equal(dao.address);
       expect(await sandboxController.treasury()).to.equal(treasury.address);
