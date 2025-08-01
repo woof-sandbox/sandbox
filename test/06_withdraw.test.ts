@@ -1,17 +1,5 @@
 import { CometExtension, EvilToken, EvilToken__factory, FaucetToken } from "../build/types";
-import {
-  baseBalanceOf,
-  ethers,
-  expect,
-  exp,
-  makeProtocol,
-  portfolio,
-  ReentryAttack,
-  wait,
-  fastForward,
-  hre,
-  setTotalsBasic,
-} from "./helper/helpers";
+import { baseBalanceOf, ethers, expect, exp, portfolio, ReentryAttack, wait, hre, setTotalsBasic } from "./helper/helpers";
 
 // TODO: fix, test is next in line
 describe.skip("6. withdrawTo", function () {
