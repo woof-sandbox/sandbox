@@ -8,7 +8,7 @@ import {
 } from "../../build/types";
 import { SnapshotRestorer, takeSnapshot, ethers, exp, makeToken, expect } from "../helper/helpers";
 
-describe.only("EzETHExchangeRatePriceFeed", function () {
+describe("EzETHExchangeRatePriceFeed", function () {
   let snapshot: SnapshotRestorer;
 
   // Providers

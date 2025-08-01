@@ -1,7 +1,7 @@
 import { ethers, exp, expect, getBlock, makeToken, SnapshotRestorer, takeSnapshot } from "../helper/helpers";
 import { ConstantPriceFeed, ConstantPriceFeed__factory, FaucetToken } from "../../build/types";
 
-describe.only("ConstantPriceFeed", function () {
+describe("ConstantPriceFeed", function () {
   let snapshot: SnapshotRestorer;
 
   let priceFeed: ConstantPriceFeed;

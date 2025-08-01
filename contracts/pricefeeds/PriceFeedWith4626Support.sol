@@ -65,11 +65,11 @@ contract PriceFeedWith4626Support is IPriceFeed, AccessControl {
         uint8 decimals_,
         string memory description_,
         address underlyingToken_,
+        uint8 updateTimeLimit_,
         address owner_,
-        address dao_,
-        uint8 updateTimeLimit_
+        address dao_
     ) AccessControl(owner_, dao_) {
-        if (underlyingPriceFeed_ == address(0)) revert ZeroAddress();
+        if (underlyingPriceFeed_ == address(0) || rateProvider_ == address(0) || underlyingToken_ == address(0)) revert ZeroAddress();
         rateProvider = rateProvider_;
         underlyingPriceFeed = underlyingPriceFeed_;
         fallbackPriceFeed = fallbackPriceFeed_;
@@ -78,7 +78,7 @@ contract PriceFeedWith4626Support is IPriceFeed, AccessControl {
         combinedScale = signed256(10 ** (rateProviderDecimals + underlyingDecimals));
         description = description_;
 
-        if (decimals_ > 18) revert BadDecimals();
+        if (decimals_ == 0 || decimals_ > 18) revert BadDecimals();
         decimals = decimals_;
         priceFeedScale = int256(10 ** decimals);
         underlyingToken = underlyingToken_;
@@ -100,23 +100,25 @@ contract PriceFeedWith4626Support is IPriceFeed, AccessControl {
      * @return updatedAt Timestamp when the round was last updated; passed on from the underlying asset price feed
      * @return answeredInRound Round id in which the answer was computed; passed on from the underlying asset price feed
      **/
-    function latestRoundData() external view override returns (uint80, int256, uint256, uint256, uint80) {
+    function latestRoundData()
+        external
+        view
+        override
+        returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound)
+    {
         uint256 rate = IERC4626(rateProvider).convertToAssets(10 ** rateProviderDecimals);
-        (uint80 roundId_, int256 underlyingPrice, uint256 startedAt_, uint256 updatedAt_, uint80 answeredInRound_) = AggregatorV3Interface(
-            underlyingPriceFeed
-        ).latestRoundData();
+        (roundId, answer, startedAt, updatedAt, answeredInRound) = AggregatorV3Interface(underlyingPriceFeed).latestRoundData();
 
-        if (underlyingPrice == 0 || updateTimeLimit < block.timestamp - updatedAt_) {
-            if (fallbackPriceFeed == address(0)) return (roundId_, 0, startedAt_, updatedAt_, answeredInRound_);
+        /// @dev If the answer is zero or the update time limit has passed, use the fallback price feed
+        if (answer <= 0 || updateTimeLimit < block.timestamp - updatedAt) {
+            if (fallbackPriceFeed == address(0)) return (roundId, 0, startedAt, updatedAt, answeredInRound);
 
-            (roundId_, underlyingPrice, startedAt_, updatedAt_, answeredInRound_) = AggregatorV3Interface(fallbackPriceFeed)
-                .latestRoundData();
+            (roundId, answer, startedAt, updatedAt, answeredInRound) = AggregatorV3Interface(fallbackPriceFeed).latestRoundData();
         }
 
-        if (rate <= 0 || underlyingPrice <= 0) return (roundId_, 0, startedAt_, updatedAt_, answeredInRound_);
+        if (rate <= 0 || answer <= 0) return (roundId, 0, startedAt, updatedAt, answeredInRound);
 
-        int256 price = (signed256(rate) * underlyingPrice * priceFeedScale) / combinedScale;
-        return (roundId_, price, startedAt_, updatedAt_, answeredInRound_);
+        answer = (signed256(rate) * answer * priceFeedScale) / combinedScale;
     }
 
     function signed256(uint256 n) internal pure returns (int256) {

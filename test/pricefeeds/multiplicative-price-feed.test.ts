@@ -123,7 +123,7 @@ const testCases = [
   },
 ];
 
-describe.only("Multiplicative price feed", function () {
+describe("Multiplicative price feed", function () {
   let snapshot: SnapshotRestorer;
 
   let owner: SignerWithAddress;
