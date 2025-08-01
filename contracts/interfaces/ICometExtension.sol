@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity 0.8.28;
 
 import "../CometCore.sol";
@@ -46,6 +46,17 @@ abstract contract ICometExtension is CometCore {
         address manager,
         address asset,
         uint256 amount,
+        uint256 nonce,
+        uint256 expiry,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) external virtual;
+
+    function allowAllBySig(
+        address owner,
+        address manager,
+        bool approved,
         uint256 nonce,
         uint256 expiry,
         uint8 v,
