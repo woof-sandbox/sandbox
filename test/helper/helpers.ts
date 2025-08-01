@@ -120,7 +120,7 @@ export type Asset = {
   collateralConfig?: CollateralConfig;
   initialPrice?: number;
   priceFeedDecimals?: number;
-  factory?: FaucetToken__factory | EvilToken__factory | FaucetWETH__factory | NonStandardFaucetFeeToken__factory;
+  factory?: FaucetToken__factory | EvilToken__factory | NonStandardFaucetFeeToken__factory;
 };
 
 export type CollateralConfig = {

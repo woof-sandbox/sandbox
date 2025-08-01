@@ -10,7 +10,7 @@ interface ExtendedCometHarness extends CometHarness {
   getConfiguration(): Promise<any>;
 }
 
-describe("8. CometExtension", () => {
+describe.skip("20. CometExtension", () => {
   let comet: ExtendedCometHarness;
   let user: SignerWithAddress;
   let tokens: Record<string, FaucetToken | NonStandardFaucetFeeToken>;

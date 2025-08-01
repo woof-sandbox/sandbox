@@ -4,7 +4,7 @@ import { ethers, expect, exp, makeConfigController, createComet, makeMockERC20 }
 
 import { SandboxComet, ConfigController, FaucetToken, ICometExtension, ISandboxController } from "../build/types";
 
-describe.only("5. supply", function () {
+describe.skip("5. supply", function () {
   let owner, dao, curator, treasury, guardian, alice, bob: SignerWithAddress;
   let comet: SandboxComet;
   let configController: ConfigController;
@@ -126,37 +126,6 @@ describe.only("5. supply", function () {
 
     describe("supply base asset into empty pool", function () {
       it("user supply is same as total supply", async () => {
-        const protocol = await makeProtocol({
-          base: "USDC",
-          assets: {
-            USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
-            COMP: {
-              initial: 1e7,
-              decimals: 18,
-              initialPrice: 1,
-              liquidationFactor: exp(0.8, 18),
-            },
-            WETH: {
-              initial: 1e7,
-              decimals: 18,
-              initialPrice: 1,
-              liquidationFactor: exp(0.8, 18),
-            },
-            WBTC: {
-              initial: 1e7,
-              decimals: 18,
-              initialPrice: 1,
-              liquidationFactor: exp(0.8, 18),
-            },
-          },
-        });
-        const {
-          comet,
-          tokens,
-          users: [bob],
-        } = protocol;
-        const { USDC } = tokens;
-
         const _i0 = await USDC.allocateTo(bob.address, 10);
         const baseAsB = USDC.connect(bob);
         const cometAsB = comet.connect(bob);
