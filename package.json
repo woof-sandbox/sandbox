@@ -61,10 +61,10 @@
     "@types/chai-as-promised": "^8.0.2",
     "@types/mocha": "^10.0.10",
     "@types/node": "^24.1.0",
-    "@typescript-eslint/eslint-plugin": "^8.38.0",
-    "@typescript-eslint/parser": "^8.38.0",
+    "@typescript-eslint/eslint-plugin": "5.62.0",
+    "@typescript-eslint/parser": "5.62.0",
     "dotenv": "^17.2.1",
-    "eslint": "^9.32.0",
+    "eslint": "8.56.0",
     "ethers": "^5.7.2",
     "hardhat": "^2.22.14",
     "hardhat-chai-matchers": "https://github.com/jflatow/hardhat/releases/download/viaIR/nomicfoundation-hardhat-chai-matchers-v1.0.4.tgz",
@@ -78,7 +78,7 @@
     "solidity-coverage": "^0.8.16",
     "ts-node": "^10.9.2",
     "typechain": "^6.0.2",
-    "typescript": "^5.9.2"
+    "typescript": "5.1.6"
   },
   "repository": "git@github.com:woof-sandbox/sandbox.git",
   "resolutions": {
