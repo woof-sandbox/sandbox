@@ -1,6 +1,16 @@
-import { ethers, event, expect, makeProtocol, SnapshotRestorer, takeSnapshot, wait } from "./helper/helpers";
+import {
+  ethers,
+  event,
+  expect,
+  SnapshotRestorer,
+  takeSnapshot,
+  wait,
+  makeConfigController,
+  createComet,
+  makeMockERC20,
+} from "./helper/helpers";
 import { BigNumber, Signature } from "ethers";
-import { CometExtension, CometHarness, FaucetToken, NonStandardFaucetFeeToken } from "../build/types";
+import { CometExtension, SandboxComet, FaucetToken } from "../build/types";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { time } from "@nomicfoundation/hardhat-network-helpers";
 
@@ -18,13 +28,10 @@ const types = {
 describe("13. allowBySig — SandboxComet / CometExtension", function () {
   let snapshot: SnapshotRestorer;
 
-  let comet: CometHarness;
+  let comet: SandboxComet;
   let cometExt: CometExtension;
 
-  let users: SignerWithAddress[];
-  let signer: SignerWithAddress;
-  let manager: SignerWithAddress;
-  let tokens: Record<string, FaucetToken | NonStandardFaucetFeeToken>;
+  let owner, dao, curator, treasury, guardian, manager: SignerWithAddress;
   let unsupportedToken: FaucetToken;
   let domain: { name: string; version: string; chainId: number; verifyingContract: string };
 
@@ -42,9 +49,15 @@ describe("13. allowBySig — SandboxComet / CometExtension", function () {
   let signature: Signature;
 
   before(async function () {
-    ({ comet, users, tokens, unsupportedToken } = await makeProtocol());
+    [owner, dao, treasury, curator, guardian, manager] = await ethers.getSigners();
+
+    const opts = await makeConfigController({ owner: owner, dao: dao, treasury: treasury, curator: curator, guardian: guardian }, true);
+
+    comet = await createComet(owner, opts.opts.assets, opts.configController, opts.sandboxController, opts.collaterals, opts.baseToken);
+
     cometExt = (await ethers.getContractAt("CometExtension", comet.address)) as CometExtension;
-    [signer, manager] = users;
+
+    unsupportedToken = await makeMockERC20({ name: "TKN", symbol: "TKN" });
 
     domain = {
       name: await cometExt.name(),
@@ -56,15 +69,15 @@ describe("13. allowBySig — SandboxComet / CometExtension", function () {
     now = await time.latest();
 
     signatureArgs = {
-      owner: signer.address,
+      owner: owner.address,
       manager: manager.address,
-      asset: tokens["COMP"].address,
+      asset: opts.collaterals["COMP"].address,
       amount: BigNumber.from(100),
-      nonce: await cometExt.userNonce(signer.address),
+      nonce: await cometExt.userNonce(owner.address),
       expiry: now + 10,
     };
 
-    const rawSignature = await signer._signTypedData(domain, types, signatureArgs);
+    const rawSignature = await owner._signTypedData(domain, types, signatureArgs);
     signature = ethers.utils.splitSignature(rawSignature);
 
     snapshot = await takeSnapshot();
@@ -91,12 +104,12 @@ describe("13. allowBySig — SandboxComet / CometExtension", function () {
         )
     );
 
-    expect(await cometExt.allowance(signer.address, manager.address, signatureArgs.asset)).to.equal(signatureArgs.amount);
-    expect(await cometExt.userNonce(signer.address)).to.equal(signatureArgs.nonce.add(1));
+    expect(await cometExt.allowance(owner.address, manager.address, signatureArgs.asset)).to.equal(signatureArgs.amount);
+    expect(await cometExt.userNonce(owner.address)).to.equal(signatureArgs.nonce.add(1));
 
     expect(event(tx, 0)).to.deep.equal({
       Approval: {
-        owner: signer.address,
+        owner: owner.address,
         spender: manager.address,
         asset: signatureArgs.asset,
         amount: signatureArgs.amount,
@@ -325,7 +338,7 @@ describe("13. allowBySig — SandboxComet / CometExtension", function () {
   });
 
   it("fails if token is asset is not base asset or collateral", async function () {
-    const rawSignature = await signer._signTypedData(domain, types, { ...signatureArgs, asset: unsupportedToken.address });
+    const rawSignature = await owner._signTypedData(domain, types, { ...signatureArgs, asset: unsupportedToken.address });
     signature = ethers.utils.splitSignature(rawSignature);
 
     await expect(
@@ -349,7 +362,7 @@ describe("13. allowBySig — SandboxComet / CometExtension", function () {
 
   it("fails if manager is zero address", async function () {
     const zeroAddress = ethers.constants.AddressZero;
-    const rawSignature = await signer._signTypedData(domain, types, { ...signatureArgs, manager: zeroAddress });
+    const rawSignature = await owner._signTypedData(domain, types, { ...signatureArgs, manager: zeroAddress });
     signature = ethers.utils.splitSignature(rawSignature);
 
     await expect(
@@ -371,7 +384,7 @@ describe("13. allowBySig — SandboxComet / CometExtension", function () {
 
   it("fails if asset is zero address", async function () {
     const zeroAddress = ethers.constants.AddressZero;
-    const rawSignature = await signer._signTypedData(domain, types, { ...signatureArgs, asset: zeroAddress });
+    const rawSignature = await owner._signTypedData(domain, types, { ...signatureArgs, asset: zeroAddress });
     signature = ethers.utils.splitSignature(rawSignature);
 
     await expect(

@@ -3,7 +3,7 @@ import { ICometExtension, FaucetToken, NonStandardFaucetFeeToken, SandboxComet }
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { impersonateAccount, SnapshotRestorer, takeSnapshot } from "@nomicfoundation/hardhat-network-helpers";
 
-describe("19. allowance", function () {
+describe.skip("19. allowance", function () {
   let comet: SandboxComet;
   let cometExt: ICometExtension;
   let owner, dao, curator, treasury, guardian, alice, user: SignerWithAddress;

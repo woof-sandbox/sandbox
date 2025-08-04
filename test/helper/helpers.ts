@@ -3,7 +3,6 @@ import { ethers } from "hardhat";
 import { expect } from "chai";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import {
-  CometHarness__factory,
   EvilToken__factory,
   FaucetToken,
   FaucetToken__factory,
@@ -28,7 +27,6 @@ import { SandboxController, BaseAssetCurveStruct, SandboxControllerConfiguration
 import { SandboxController__factory } from "../../build/types/factories/SandboxController__factory";
 import { BigNumber, BigNumberish } from "ethers";
 import { TransactionReceipt, TransactionResponse } from "@ethersproject/abstract-provider";
-import { CometHarness, TotalsBasicStructOutput } from "../../build/types/CometHarness";
 import { CometConfigStruct, CollateralTokenConfigStruct } from "../../build/types/ConfigController";
 
 // Snapshot
@@ -45,27 +43,8 @@ export enum ReentryAttack {
   SupplyFrom = 2,
   BuyCollateral = 3,
 }
-
-export function dfn<T>(x: T | undefined | null, dflt: T): T {
-  return x == undefined ? dflt : x;
-}
-
 export function exp(i: number, d: Numeric = 0, r: Numeric = 6): bigint {
   return (BigInt(Math.floor(i * 10 ** Number(r))) * 10n ** BigInt(d)) / 10n ** BigInt(r);
-}
-
-export function factor(f: number): bigint {
-  return exp(f, factorDecimals);
-}
-
-export function defactor(f: bigint | BigNumber): number {
-  return Number(toBigInt(f)) / 1e18;
-}
-
-// Truncates a factor to a certain number of decimals
-export function truncateDecimals(factor: bigint | BigNumber, decimals = 4) {
-  const descaleFactor = factorScale / exp(1, decimals);
-  return (toBigInt(factor) / descaleFactor) * descaleFactor;
 }
 
 export function mulPrice(n: bigint, price: bigint | BigNumber, fromScale: bigint | BigNumber): bigint {
@@ -79,11 +58,6 @@ function toBigInt(f: bigint | BigNumber): bigint {
     return f.toBigInt();
   }
 }
-
-export const factorDecimals = 18;
-export const factorScale = factor(1);
-export const ONE = factorScale;
-export const ZERO = factor(0);
 
 /// Exported constants
 export const DEFAULT_UPDATE_TIME = 7 * 24 * 60 * 60;
@@ -112,9 +86,9 @@ export type AssetLimits = {
 export type Asset = {
   name: string;
   symbol: string;
-  decimals: Numeric;
+  decimals: number;
 
-  initial?: Numeric;
+  initial?: BigNumberish;
   assetLimits?: AssetLimits;
 
   collateralConfig?: CollateralConfig;
@@ -134,7 +108,9 @@ export type SandboxControllerOpts = {
   admin: string;
   dao: string;
   treasury: string;
+
   feeEnabled?: boolean;
+
   config?: SandboxControllerConfigurationStruct;
   reserveCommissions?: [bigint, bigint, bigint];
   protocolCommissions?: [bigint, bigint, bigint];
@@ -378,7 +354,7 @@ async function makeCometFactory(cometImpl: string, configControllerFactory: stri
   return cometFactory;
 }
 
-export async function makeConfigController(opts: ProtocolOpts, acceptCurator?: boolean, harness?: boolean): Promise<Protocol> {
+export async function makeConfigController(opts: ProtocolOpts, acceptCurator?: boolean): Promise<Protocol> {
   const assets = opts.assets || defaultAssets();
   const baseTokenSymbol = opts.baseTokenSymbol || "USDC";
   let baseToken: FaucetToken;
@@ -405,8 +381,7 @@ export async function makeConfigController(opts: ProtocolOpts, acceptCurator?: b
 
   // --- Price feeds ---
   let priceFeeds = {};
-  let tokenAddress;
-  String;
+  let tokenAddress: string;
   const PriceFeedFactory = (await ethers.getContractFactory("SimplePriceFeed")) as SimplePriceFeed__factory;
   for (const symbol in assets) {
     const initialPrice = exp(assets[symbol].initialPrice || 1, 8);
@@ -449,13 +424,8 @@ export async function makeConfigController(opts: ProtocolOpts, acceptCurator?: b
   }
 
   // --- deploy config controller ---
-  let cometFactory_;
+  const cometFactory_ = (await ethers.getContractFactory("SandboxComet")) as SandboxComet__factory;
 
-  if (harness) {
-    cometFactory_ = (await ethers.getContractFactory("CometHarness")) as CometHarness__factory;
-  } else {
-    cometFactory_ = (await ethers.getContractFactory("SandboxComet")) as SandboxComet__factory;
-  }
   const cometImpl = await cometFactory_.deploy();
   await cometImpl.deployed();
 
@@ -544,26 +514,7 @@ export async function createComet(
   return (await ethers.getContractAt("SandboxComet", cometAddr)) as SandboxComet;
 }
 
-export async function bumpTotalsCollateral(
-  comet: CometHarness,
-  token: FaucetToken | NonStandardFaucetFeeToken,
-  delta: bigint
-): Promise<BigNumber> {
-  const totalCollateralBefore = await comet.totalsCollateral(token.address);
-
-  const totalCollateralAfter = totalCollateralBefore.add(delta);
-  await token.allocateTo(comet.address, delta);
-  await wait(comet.setTotalsCollateral(token.address, totalCollateralAfter));
-
-  return totalCollateralAfter;
-}
-
-export async function setTotalsBasic(comet: CometHarness, overrides = {}): Promise<TotalsBasicStructOutput> {
-  const t0 = await comet.totalsBasic();
-  const t1 = Object.assign({}, t0, overrides);
-  await wait(comet.setTotalsBasic(t1));
-  return t1;
-}
+/// ---------------------
 
 export async function baseBalanceOf(comet: ISandboxComet, account: string): Promise<bigint> {
   const balanceOf = await comet.balanceOf(account);
@@ -580,15 +531,6 @@ type Portfolio = {
   };
 };
 
-type TotalsAndReserves = {
-  totals: {
-    [symbol: string]: bigint;
-  };
-  reserves: {
-    [symbol: string]: bigint;
-  };
-};
-
 export async function portfolio({ comet, base, tokens }, account): Promise<Portfolio> {
   const internal = { [base]: await baseBalanceOf(comet, account) };
   const external = { [base]: BigInt(await tokens[base].balanceOf(account)) };
@@ -599,20 +541,6 @@ export async function portfolio({ comet, base, tokens }, account): Promise<Portf
     }
   }
   return { internal, external };
-}
-
-export async function totalsAndReserves({ comet, base, tokens }): Promise<TotalsAndReserves> {
-  const totals = {
-    [base]: BigInt((await comet.totalsBasic()).totalSupplyBase),
-  };
-  const reserves = { [base]: BigInt(await comet.getReserves()) };
-  for (const symbol in tokens) {
-    if (symbol != base) {
-      totals[symbol] = BigInt((await comet.totalsCollateral(tokens[symbol].address)).totalSupplyAsset);
-      reserves[symbol] = BigInt(await comet.getCollateralReserves(tokens[symbol].address));
-    }
-  }
-  return { totals, reserves };
 }
 
 export interface TransactionResponseExt extends TransactionResponse {
@@ -657,8 +585,4 @@ function convertToBigInt(arr) {
     }
   }
   return newArr;
-}
-
-export function getGasUsed(tx: TransactionResponseExt): bigint {
-  return tx.receipt.gasUsed.mul(tx.receipt.effectiveGasPrice).toBigInt();
 }

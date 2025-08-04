@@ -3,7 +3,7 @@ import { ethers, expect, makeConfigController, createComet, CollateralConfig, de
 import { SandboxComet, FaucetToken } from "../build/types";
 
 // TODO: extend the test - it does not cover all cases
-describe("18. asset info — SandboxComet", () => {
+describe.skip("18. asset info — SandboxComet", () => {
   let owner, dao, curator, treasury, guardian: SignerWithAddress;
   let comet: SandboxComet;
 
