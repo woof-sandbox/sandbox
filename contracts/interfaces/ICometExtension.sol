@@ -85,6 +85,12 @@ abstract contract ICometExtension is CometCore {
 
     function version() external view virtual returns (string memory);
 
+    function deprecationDuration() external view virtual returns (uint64);
+
+    function targetLiquidateFactor() external view virtual returns (uint64);
+
+    function targetLiquidateCollateralFactor() external view virtual returns (uint64);
+
     /**
      * ===== ERC20 interfaces =====
      * Does not include the following functions/events, which are defined in `CometMainInterface` instead:

@@ -123,9 +123,24 @@ interface ICometErrors {
     error PrincipalDecreaseOnSupply();
 
     /**
-     * @notice Error thrown when the market is closed
+     * @notice Error thrown when the market is deprecated
      */
-    error MarketIsClosed();
+    error MarketIsDeprecated();
+
+    /**
+     * @notice Error thrown when the market is deprecating
+     */
+    error DeprecationInProgress();
+
+    /**
+     * @notice Error thrown when the market is not deprecated
+     */
+    error MarketIsNotDeprecated();
+
+    /**
+     * @notice Error thrown when the market still has active supply base tokens
+     */
+    error ActiveSupplyBaseExists();
 
     /**
      * @notice Error thrown when the operation requires free reserves but they are insufficient
@@ -146,5 +161,4 @@ interface ICometErrors {
      * @notice Error thrown when the unlock timestamp has not been reached for to withdraw seed reserves
      */
     error UnlockNotReached();
-
 }

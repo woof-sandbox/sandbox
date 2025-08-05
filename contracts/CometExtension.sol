@@ -55,6 +55,18 @@ contract CometExtension is ICometExtension {
         return MAX_ASSETS;
     }
 
+    function deprecationDuration() external pure override returns (uint64) {
+        return DEPRECATION_DURATION;
+    }
+
+    function targetLiquidateFactor() external pure override returns (uint64) {
+        return TARGET_LIQUIDATION_FACTOR;
+    }
+
+    function targetLiquidateCollateralFactor() external pure override returns (uint64) {
+        return TARGET_LIQUIDATE_COLLATERAL_FACTOR;
+    }
+
     /**
      * @notice Aggregate variables tracked for the entire market
      **/

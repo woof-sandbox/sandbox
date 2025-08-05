@@ -107,11 +107,8 @@ interface IConfigController {
         bool buyPaused
     ) external;
 
-    /// @notice Closes the specified market
-    /// @param comet The address of the comet to close
-    function closeMarket(address comet) external;
-
-    /// @notice Withdraws free reserves from the specified comet
-    /// @param comet The address of the comet to withdraw free reserves from
-    function withdrawFreeReservesFrom(address comet) external;
+    /// @notice Withdraws free seed reserves from the specified comet
+    /// @param comet The address of the comet to withdraw free seed reserves from
+    /// @param amount The amount of free seed reserves to withdraw
+    function withdrawFreeSeedReservesFrom(address comet, uint256 amount) external;
 }

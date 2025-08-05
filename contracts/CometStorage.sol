@@ -49,6 +49,13 @@ contract CometStorage is ICometStructures {
     uint256 internal constant REENTRANCY_GUARD_NOT_ENTERED = 0; // aderyn-fp(unused-state-variable)
     uint256 internal constant REENTRANCY_GUARD_ENTERED = 1;
 
+    /// @dev The target liquidate collateral factor for the processing removal of collateral assets
+    uint64 internal constant TARGET_LIQUIDATE_COLLATERAL_FACTOR = 0;
+
+    uint64 internal constant TARGET_LIQUIDATION_FACTOR = 1e18;
+
+    uint40 internal constant DEPRECATION_DURATION = 21 days;
+
     /** General configuration constants **/
     /// @notice Config Controller address
     address public configController;
@@ -121,6 +128,13 @@ contract CometStorage is ICometStructures {
     /// @notice Unlock timestamp
     uint64 public unlockTimestamp;
 
+    /// @notice Whether the market is devalued
+    bool public isDeprecated;
+
+    bool public isDeprecating;
+
+    uint40 internal deprecationStartTime;
+
     /// @dev Aggregate variables tracked for the entire market
     uint64 internal baseSupplyIndex;
     uint64 internal baseBorrowIndex;
@@ -159,4 +173,6 @@ contract CometStorage is ICometStructures {
 
     mapping(address => uint8) public collateralAssetIndex;
     CollateralAsset[] public collateralAssets;
+
+    mapping(address => DeprecationInitParams) public deprecationInitParams;
 }

@@ -7,7 +7,7 @@ import "../ConfigController.sol";
  * @title ConfigController for testing purposes
  */
 contract ConfigControllerTest is ConfigController {
-    function withdrawFreeSeedReserves(address _comet) external {
-        ISandboxComet(_comet).withdrawFreeReserves();
+    function initiateDeprecationMarket(address comet) external {
+        ISandboxComet(comet).initiateDeprecation();
     }
 }
