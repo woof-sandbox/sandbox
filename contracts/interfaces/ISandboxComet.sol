@@ -40,21 +40,7 @@ abstract contract ISandboxComet is CometCore {
     event TransferCollateral(address indexed from, address indexed to, address indexed asset, uint amount);
     event WithdrawCollateral(address indexed src, address indexed to, address indexed asset, uint amount);
 
-    event IncentiveConfigChanged(
-        uint64 trackingIndexScale,
-        uint104 baseMinForRewards,
-        uint64 baseTrackingSupplySpeed,
-        uint64 baseTrackingBorrowSpeed,
-        uint104 minSupplyForReward,
-        uint104 minBorrowForReward
-    );
-
-    event DaoIncentiveConfigChanged(
-        uint64 daoTrackingIndexScale,
-        uint104 daoBaseMinForRewards,
-        uint64 daoBaseTrackingSupplySpeed,
-        uint64 daoBaseTrackingBorrowSpeed
-    );
+    event RewardsSet(address indexed rewards);
 
     /// @notice Event emitted when a borrow position is absorbed by the protocol
     event AbsorbDebt(address indexed absorber, address indexed borrower, uint basePaidOut, uint usdValue);
@@ -113,21 +99,7 @@ abstract contract ISandboxComet is CometCore {
 
     function absorb(address absorber, address[] calldata accounts) external virtual;
 
-    function setIncentiveConfig(
-        uint64 trackingIndexScale_,
-        uint104 baseMinForRewards_,
-        uint64 baseTrackingSupplySpeed_,
-        uint64 baseTrackingBorrowSpeed_,
-        uint104 minSupplyForReward_,
-        uint104 minBorrowForReward_
-    ) external virtual;
-
-    function setDaoIncentiveConfig(
-        uint64 daoTrackingIndexScale_,
-        uint104 daoBaseMinForRewards_,
-        uint64 daoBaseTrackingSupplySpeed_,
-        uint64 daoBaseTrackingBorrowSpeed_
-    ) external virtual;
+    function setRewards(address _rewards) external virtual;
 
     function buyCollateral(address asset, uint minAmount, uint baseAmount, address recipient) external virtual;
 

@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
-import "../SandboxComet.sol";
+import { SandboxComet } from "contracts/SandboxComet.sol";
+import { ICometExtension } from "../interfaces/ICometExtension.sol";
 
 contract CometHarness is SandboxComet {
     uint public nowOverride;
@@ -24,13 +25,9 @@ contract CometHarness is SandboxComet {
         return userCollateral[account][asset];
     }
 
-    function setTotalsBasic(TotalsBasic memory totals) external {
+    function setTotalsBasic(ICometExtension.TotalsBasic memory totals) external {
         baseSupplyIndex = totals.baseSupplyIndex;
         baseBorrowIndex = totals.baseBorrowIndex;
-        trackingSupplyIndex = totals.trackingSupplyIndex;
-        trackingBorrowIndex = totals.trackingBorrowIndex;
-        daoTrackingSupplyIndex = totals.daoTrackingSupplyIndex;
-        daoTrackingBorrowIndex = totals.daoTrackingBorrowIndex;
         totalSupplyBase = totals.totalSupplyBase;
         totalBorrowBase = totals.totalBorrowBase;
         lastAccrualTime = totals.lastAccrualTime;
@@ -53,15 +50,11 @@ contract CometHarness is SandboxComet {
         updateAssetsIn(account, index, oldBalance, balance);
     }
 
-    function totalsBasic() public view returns (TotalsBasic memory) {
+    function totalsBasic() public view returns (ICometExtension.TotalsBasic memory) {
         return
-            TotalsBasic({
+            ICometExtension.TotalsBasic({
                 baseSupplyIndex: baseSupplyIndex,
                 baseBorrowIndex: baseBorrowIndex,
-                trackingSupplyIndex: trackingSupplyIndex,
-                trackingBorrowIndex: trackingBorrowIndex,
-                daoTrackingSupplyIndex: daoTrackingSupplyIndex,
-                daoTrackingBorrowIndex: daoTrackingBorrowIndex,
                 totalSupplyBase: totalSupplyBase,
                 totalBorrowBase: totalBorrowBase,
                 lastAccrualTime: lastAccrualTime,

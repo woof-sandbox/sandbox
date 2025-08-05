@@ -8,6 +8,7 @@ import "./interfaces/ISandboxComet.sol";
 import "./interfaces/IPriceFeed.sol";
 import "./interfaces/IConfigController.sol";
 import "./interfaces/ISandboxController.sol";
+import "./interfaces/IRewardsV2.sol";
 
 /**
  * @title Compound's Comet Contract
@@ -60,7 +61,6 @@ contract SandboxComet is ISandboxComet {
 
         baseScale = uint64(10 ** _decimals); // aderyn-fp(literal-instead-of-constant)
         if (baseScale < BASE_ACCRUAL_SCALE) revert BadDecimals();
-        accrualDescaleFactor = baseScale / BASE_ACCRUAL_SCALE;
 
         // aderyn-fp-next-line(reentrancy-state-change)
         address _baseTokenPriceFeed = ISandboxController(sandboxController).tokenToPriceFeed(comet.baseToken);
@@ -135,14 +135,6 @@ contract SandboxComet is ISandboxComet {
         baseSupplyIndex = BASE_INDEX_SCALE;
         baseBorrowIndex = BASE_INDEX_SCALE;
 
-        /// Rewards are disabled by default
-        baseMinForRewards = type(uint104).max;
-        daoBaseMinForRewards = type(uint104).max;
-        minSupplyForReward = type(uint104).max;
-        minBorrowForReward = type(uint104).max;
-        trackingIndexScale = 1;
-        daoTrackingIndexScale = 1;
-
         /// Note: event is generated in ConfigController
     }
 
@@ -214,66 +206,17 @@ contract SandboxComet is ISandboxComet {
     }
 
     /**
-     * @notice Set the base tracking supply and borrow speeds
-     * @param trackingIndexScale_ The new tracking index scale
-     * @param baseMinForRewards_ The new base minimum for rewards
-     * @param baseTrackingSupplySpeed_ The new base tracking supply speed
-     * @param baseTrackingBorrowSpeed_ The new base tracking borrow speed
-     * @param minSupplyForReward_ The minimum amount of user principal represented in present value for rewards to accrue
-     * @param minBorrowForReward_ The minimum amount of user principal represented in present value for rewards to accrue
+     * @notice Sets the rewards contract for a comet
+     * @param _rewards The address of the rewards contract to set
+     * @dev Can be set as zero address to disable rewards
+     * @dev Only callable by the config controller, which is set during initialization
      */
-    function setIncentiveConfig(
-        uint64 trackingIndexScale_,
-        uint104 baseMinForRewards_,
-        uint64 baseTrackingSupplySpeed_,
-        uint64 baseTrackingBorrowSpeed_,
-        uint104 minSupplyForReward_,
-        uint104 minBorrowForReward_
-    ) external override {
+    function setRewards(address _rewards) external override {
         if (msg.sender != configController) revert Unauthorized();
 
-        if (trackingIndexScale_ < 1) revert BadTrackingIndexScale();
+        rewardAddress = _rewards;
 
-        baseTrackingSupplySpeed = baseTrackingSupplySpeed_;
-        baseTrackingBorrowSpeed = baseTrackingBorrowSpeed_;
-        trackingIndexScale = trackingIndexScale_;
-        baseMinForRewards = baseMinForRewards_;
-        minSupplyForReward = minSupplyForReward_;
-        minBorrowForReward = minBorrowForReward_;
-
-        emit IncentiveConfigChanged(
-            trackingIndexScale,
-            baseMinForRewards,
-            baseTrackingSupplySpeed,
-            baseTrackingBorrowSpeed,
-            minSupplyForReward,
-            minBorrowForReward
-        );
-    }
-
-    /**
-     * @notice Set the DAO base tracking supply and borrow speeds
-     * @param daoTrackingIndexScale_ The new DAO tracking index scale
-     * @param daoBaseMinForRewards_ The new DAO base minimum for rewards
-     * @param daoBaseTrackingSupplySpeed_ The new DAO base tracking supply speed
-     * @param daoBaseTrackingBorrowSpeed_ The new DAO base tracking borrow speed
-     */
-    function setDaoIncentiveConfig(
-        uint64 daoTrackingIndexScale_,
-        uint104 daoBaseMinForRewards_,
-        uint64 daoBaseTrackingSupplySpeed_,
-        uint64 daoBaseTrackingBorrowSpeed_
-    ) external override {
-        if (msg.sender != ISandboxController(sandboxController).dao()) revert Unauthorized();
-
-        if (daoTrackingIndexScale_ < 1) revert BadTrackingIndexScale();
-
-        daoBaseTrackingSupplySpeed = daoBaseTrackingSupplySpeed_;
-        daoBaseTrackingBorrowSpeed = daoBaseTrackingBorrowSpeed_;
-        daoTrackingIndexScale = daoTrackingIndexScale_;
-        daoBaseMinForRewards = daoBaseMinForRewards_;
-
-        emit DaoIncentiveConfigChanged(daoTrackingIndexScale, daoBaseMinForRewards, daoBaseTrackingSupplySpeed, daoBaseTrackingBorrowSpeed);
+        emit RewardsSet(_rewards);
     }
 
     /**
@@ -300,20 +243,6 @@ contract SandboxComet is ISandboxComet {
         uint40 timeElapsed = now_ - lastAccrualTime;
 
         (baseSupplyIndex, baseBorrowIndex) = accruedInterestIndices(timeElapsed);
-
-        // TODO: check overflow uint64 baseTrackingSupplySpeed * timeElapsed
-        if (totalSupplyBase >= baseMinForRewards)
-            trackingSupplyIndex += safe64(divBaseWei(baseTrackingSupplySpeed * timeElapsed, totalSupplyBase));
-
-        if (totalSupplyBase >= daoBaseMinForRewards)
-            daoTrackingSupplyIndex += safe64(divBaseWei(daoBaseTrackingSupplySpeed * timeElapsed, totalSupplyBase));
-
-        if (totalBorrowBase >= baseMinForRewards) {
-            trackingBorrowIndex += safe64(divBaseWei(baseTrackingBorrowSpeed * timeElapsed, totalBorrowBase));
-        }
-
-        if (totalBorrowBase >= daoBaseMinForRewards)
-            daoTrackingBorrowIndex += safe64(divBaseWei(daoBaseTrackingBorrowSpeed * timeElapsed, totalBorrowBase));
 
         lastAccrualTime = now_;
     }
@@ -649,42 +578,10 @@ contract SandboxComet is ISandboxComet {
      * @dev Write updated principal to store and tracking participation
      */
     function updateBasePrincipal(address account, UserBasic memory basic, int104 principalNew) internal {
-        int104 principal = basic.principal;
         basic.principal = principalNew;
-
-        uint indexDelta;
-        uint daoIndexDelta;
-
-        if (principal >= 0) {
-            indexDelta = unsigned256(presentValue(principal)) >= minSupplyForReward
-                ? uint256(trackingSupplyIndex - basic.baseTrackingIndex)
-                : 0;
-            daoIndexDelta = uint256(daoTrackingSupplyIndex - basic.daoBaseTrackingIndex);
-        } else {
-            principal = -principal;
-            indexDelta = unsigned256(presentValue(principal)) >= minBorrowForReward
-                ? uint256(trackingBorrowIndex - basic.baseTrackingIndex)
-                : 0;
-            daoIndexDelta = uint256(daoTrackingBorrowIndex - basic.daoBaseTrackingIndex);
-        }
-
-        // 0 delta means the same block or disabled rewards
-        if (indexDelta > 0) {
-            basic.baseTrackingAccrued += safe64((uint104(principal) * indexDelta) / trackingIndexScale / accrualDescaleFactor);
-        }
-        if (daoIndexDelta > 0) {
-            basic.daoBaseTrackingAccrued += safe64((uint104(principal) * daoIndexDelta) / daoTrackingIndexScale / accrualDescaleFactor);
-        }
-
-        if (principalNew >= 0) {
-            basic.baseTrackingIndex = trackingSupplyIndex;
-            basic.daoBaseTrackingIndex = daoTrackingSupplyIndex;
-        } else {
-            basic.baseTrackingIndex = trackingBorrowIndex;
-            basic.daoBaseTrackingIndex = daoTrackingBorrowIndex;
-        }
-
         userBasic[account] = basic;
+
+        if (rewardAddress != address(0)) IRewardsV2(rewardAddress).accrue();
     }
 
     /**

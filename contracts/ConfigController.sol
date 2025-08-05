@@ -238,34 +238,17 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
         emit CometFeeEnabled(address(this), comet, feeEnabled);
     }
 
-    /// @notice Set speeds for a specific comet
+    /// @notice Sets the rewards contract for a specific comet
+    /// @param _comet Comet which should be registered in Controller
+    /// @param _rewards The address of the rewards contract
     /// @dev Only callable by the owner
-    /// @param comet The address of the comet to set speeds for
-    /// @param trackingIndexScale The new tracking index scale
-    /// @param baseMinForRewards The new base minimum for rewards
-    /// @param baseTrackingSupplySpeed The new base tracking supply speed
-    /// @param baseTrackingBorrowSpeed The new base tracking borrow speed
-    /// @param minSupplyForReward The minimum amount of user principal represented in present value for rewards to accrue
-    /// @param minBorrowForReward The minimum amount of user principal represented in present value for rewards to accrue
-    function setIncentiveConfigOnMarket(
-        address comet,
-        uint64 trackingIndexScale,
-        uint104 baseMinForRewards,
-        uint64 baseTrackingSupplySpeed,
-        uint64 baseTrackingBorrowSpeed,
-        uint104 minSupplyForReward,
-        uint104 minBorrowForReward
-    ) external onlyOwner {
-        if (comet == address(0)) revert ZeroAddress();
-        if (!_isCometOwned(comet)) revert UnknownComet();
-        ISandboxComet(comet).setIncentiveConfig(
-            trackingIndexScale,
-            baseMinForRewards,
-            baseTrackingSupplySpeed,
-            baseTrackingBorrowSpeed,
-            minSupplyForReward,
-            minBorrowForReward
-        );
+    function setRewards(address _comet, address _rewards) external onlyOwner {
+        if (_comet == address(0)) revert ZeroAddress();
+        if (!_isCometOwned(_comet)) revert UnknownComet();
+
+        ISandboxComet(_comet).setRewards(_rewards);
+
+        emit RewardsSet(_comet, _rewards);
     }
 
     /// @notice Extracts fees to a self and distributes it

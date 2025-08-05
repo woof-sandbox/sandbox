@@ -23,21 +23,23 @@ abstract contract ICometExtension is CometCore {
         uint64 borrowPerYearInterestRateSlopeHigh;
         uint64 borrowPerYearInterestRateBase;
         uint64 storeFrontPriceFactor;
-        uint64 trackingIndexScale;
-        uint64 daoTrackingIndexScale;
-        uint64 baseTrackingSupplySpeed;
-        uint64 baseTrackingBorrowSpeed;
-        uint64 daoBaseTrackingSupplySpeed;
-        uint64 daoBaseTrackingBorrowSpeed;
-        uint104 baseMinForRewards;
-        uint104 daoBaseMinForRewards;
-        uint104 minSupplyForReward;
-        uint104 minBorrowForReward;
         uint104 baseBorrowMin;
         uint64 targetPercent;
         uint104 seedReserves;
         uint64 unlockTimestamp;
         CollateralAsset[] assetConfigs;
+    }
+
+    // 512 bits total = 2 slots
+    struct TotalsBasic {
+        // Slot 1
+        uint104 totalSupplyBase; // aderyn-fp(local-variable-shadowing)
+        uint104 totalBorrowBase; // aderyn-fp(local-variable-shadowing)
+        uint40 lastAccrualTime; // aderyn-fp(local-variable-shadowing)
+        uint8 pauseFlags; // aderyn-fp(local-variable-shadowing)
+        // Slot 2
+        uint64 baseSupplyIndex; // aderyn-fp(local-variable-shadowing)
+        uint64 baseBorrowIndex; // aderyn-fp(local-variable-shadowing)
     }
 
     error BadAmount();
@@ -59,8 +61,6 @@ abstract contract ICometExtension is CometCore {
     ) external virtual;
 
     function collateralBalanceOf(address account, address asset) external view virtual returns (uint256);
-
-    function baseTrackingAccrued(address account) external view virtual returns (uint64);
 
     function baseAccrualScale() external view virtual returns (uint64);
 

@@ -94,22 +94,7 @@ interface IConfigController {
     /// @return The address of the ConfigControllerFactory
     function configControllerFactory() external view returns (address);
 
-    /// @notice Set speeds for a specific comet
-    /// @dev Only callable by the ownerAdd commentMore actions
-    /// @param comet The address of the comet
-    /// @param trackingIndexScale The new tracking index scale
-    /// @param baseMinForRewards The new base minimum for rewards
-    /// @param baseTrackingSupplySpeed The new base tracking supply speed
-    /// @param baseTrackingBorrowSpeed The new base tracking borrow speed
-    /// @param minSupplyForReward The minimum amount of user principal represented in present value for rewards to accrue
-    /// @param minBorrowForReward The minimum amount of user principal represented in present value for rewards to accrue
-    function setIncentiveConfigOnMarket(
-        address comet,
-        uint64 trackingIndexScale,
-        uint104 baseMinForRewards,
-        uint64 baseTrackingSupplySpeed,
-        uint64 baseTrackingBorrowSpeed,
-        uint104 minSupplyForReward,
-        uint104 minBorrowForReward
-    ) external;
+    /// @notice Sets the address of rewards contract for a specific comet
+    /// @dev Only callable by the owner
+    function setRewards(address _comet, address _rewards) external;
 }

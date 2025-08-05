@@ -63,10 +63,6 @@ contract CometExtension is ICometExtension {
             TotalsBasic({
                 baseSupplyIndex: baseSupplyIndex,
                 baseBorrowIndex: baseBorrowIndex,
-                trackingSupplyIndex: trackingSupplyIndex,
-                trackingBorrowIndex: trackingBorrowIndex,
-                daoTrackingSupplyIndex: daoTrackingSupplyIndex,
-                daoTrackingBorrowIndex: daoTrackingBorrowIndex,
                 totalSupplyBase: totalSupplyBase,
                 totalBorrowBase: totalBorrowBase,
                 lastAccrualTime: lastAccrualTime,
@@ -127,15 +123,6 @@ contract CometExtension is ICometExtension {
      */
     function collateralBalanceOf(address account, address asset) external view override returns (uint256) {
         return userCollateral[account][asset];
-    }
-
-    /**
-     * @notice Query the total accrued base rewards for an account
-     * @param account The account to query
-     * @return The accrued rewards, scaled by `BASE_ACCRUAL_SCALE`
-     */
-    function baseTrackingAccrued(address account) external view override returns (uint64) {
-        return userBasic[account].baseTrackingAccrued;
     }
 
     /**
@@ -232,16 +219,6 @@ contract CometExtension is ICometExtension {
                 borrowPerYearInterestRateSlopeHigh: borrowPerSecondInterestRateSlopeHigh * SECONDS_PER_YEAR,
                 borrowPerYearInterestRateBase: borrowPerSecondInterestRateBase * SECONDS_PER_YEAR,
                 storeFrontPriceFactor: storeFrontPriceFactor,
-                trackingIndexScale: trackingIndexScale,
-                daoTrackingIndexScale: daoTrackingIndexScale,
-                baseTrackingSupplySpeed: baseTrackingSupplySpeed,
-                baseTrackingBorrowSpeed: baseTrackingBorrowSpeed,
-                daoBaseTrackingSupplySpeed: daoBaseTrackingSupplySpeed,
-                daoBaseTrackingBorrowSpeed: daoBaseTrackingBorrowSpeed,
-                baseMinForRewards: baseMinForRewards,
-                daoBaseMinForRewards: daoBaseMinForRewards,
-                minSupplyForReward: minSupplyForReward,
-                minBorrowForReward: minBorrowForReward,
                 baseBorrowMin: uint104(baseBorrowMin),
                 targetPercent: targetPercent,
                 seedReserves: uint104(seedReserves),

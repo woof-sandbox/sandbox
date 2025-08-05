@@ -9,23 +9,6 @@ import "./interfaces/IConfigController.sol";
  * @author Compound
  */
 contract CometStorage {
-    // 512 bits total = 2 slots
-
-    struct TotalsBasic {
-        // 1st slot
-        uint64 baseSupplyIndex; // aderyn-fp(local-variable-shadowing)
-        uint64 baseBorrowIndex; // aderyn-fp(local-variable-shadowing)
-        uint64 trackingSupplyIndex; // aderyn-fp(local-variable-shadowing)
-        uint64 trackingBorrowIndex; // aderyn-fp(local-variable-shadowing)
-        uint64 daoTrackingSupplyIndex; // aderyn-fp(local-variable-shadowing)
-        uint64 daoTrackingBorrowIndex; // aderyn-fp(local-variable-shadowing)
-        // 2nd slot
-        uint104 totalSupplyBase; // aderyn-fp(local-variable-shadowing)
-        uint104 totalBorrowBase; // aderyn-fp(local-variable-shadowing)
-        uint40 lastAccrualTime; // aderyn-fp(local-variable-shadowing)
-        uint8 pauseFlags; // aderyn-fp(local-variable-shadowing)
-    }
-
     /**
      * @notice User account data for base token positions and reward tracking
      * @param principal The user's base token principal amount.
@@ -45,10 +28,6 @@ contract CometStorage {
      */
     struct UserBasic {
         int104 principal;
-        uint64 baseTrackingIndex;
-        uint64 baseTrackingAccrued;
-        uint64 daoBaseTrackingIndex;
-        uint64 daoBaseTrackingAccrued;
         uint24 assetsIn;
     }
 
@@ -112,6 +91,9 @@ contract CometStorage {
     /// @notice The address of the extension contract
     address public extension;
 
+    /// @notice The address of the reward contract
+    address public rewardAddress;
+
     /// @notice The address of the base token contract
     address public baseToken;
 
@@ -159,42 +141,6 @@ contract CometStorage {
     /// @notice The scale for base token (must be less than 18 decimals)
     uint64 public baseScale;
 
-    /// @notice The scale for reward tracking
-    uint64 public trackingIndexScale;
-
-    /// @notice The scale for DAO reward tracking
-    uint64 public daoTrackingIndexScale;
-
-    /// @notice The speed at which supply rewards are tracked (in trackingIndexScale)
-    uint64 public baseTrackingSupplySpeed;
-
-    /// @notice The speed at which borrow rewards are tracked (in trackingIndexScale)
-    uint64 public baseTrackingBorrowSpeed;
-
-    /// @notice The speed at which DAO supply rewards are tracked (in daoTrackingIndexScale)
-    uint64 public daoBaseTrackingSupplySpeed;
-
-    /// @notice The speed at which DAO borrow rewards are tracked (in daoTrackingIndexScale)
-    uint64 public daoBaseTrackingBorrowSpeed;
-
-    /// @notice The minimum amount of base principal wei for rewards to accrue
-    /// @dev This must be large enough so as to prevent division by base wei from overflowing the 64 bit indices
-    uint104 public baseMinForRewards;
-
-    /// @notice The minimum amount of base principal wei for dao rewards to accrue
-    /// @dev This must be large enough so as to prevent division by base wei from overflowing the 64 bit indices
-    uint104 public daoBaseMinForRewards;
-
-    /// @notice The minimum amoount of user principal represented in present value for rewards to accrue
-    /// @dev This must be large enough so as to prevent division by base wei from overflowing the 64 bit indices
-    /// @dev This is used to prevent rewards from accruing on very small positions
-    uint104 public minSupplyForReward;
-
-    /// @notice The minimum amount of user principal represented in present value for dao rewards to accrue
-    /// @dev This must be large enough so as to prevent division by base wei from overflowing the 64 bit indices
-    /// @dev This is used to prevent dao rewards from accruing on very small positions
-    uint104 public minBorrowForReward;
-
     /// @notice The minimum base amount required to initiate a borrow
     uint public baseBorrowMin;
 
@@ -207,19 +153,12 @@ contract CometStorage {
     /// @notice Unlock timestamp
     uint64 public unlockTimestamp;
 
-    /// @notice Factor to divide by when accruing rewards in order to preserve 6 decimals (i.e. baseScale / 1e6)
-    uint internal accrualDescaleFactor;
-
     /// @notice Suggested reserves
     uint public suggestedReserves;
 
     /// @dev Aggregate variables tracked for the entire market
     uint64 internal baseSupplyIndex;
     uint64 internal baseBorrowIndex;
-    uint64 public daoTrackingSupplyIndex;
-    uint64 public daoTrackingBorrowIndex;
-    uint64 internal trackingSupplyIndex;
-    uint64 internal trackingBorrowIndex;
     uint104 internal totalSupplyBase;
     uint104 internal totalBorrowBase;
     uint40 internal lastAccrualTime;
