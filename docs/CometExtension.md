@@ -146,7 +146,10 @@ Query the current collateral balance of an account
 function approve(address spender, address asset, uint256 amount) external
 ```
 
-Approve a spender to transfer a specific amount of an asset on behalf of the sender
+Approve or disallow `spender` to transfer on sender's behalf
+
+_Note: this binary approval is unlike most other ERC20 tokens
+Note: this grants full approval for spender to manage *all* the owner's assets_
 
 #### Parameters
 

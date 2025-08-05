@@ -4,36 +4,6 @@
 
 _Versions can enforce append-only storage slots via inheritance._
 
-### UserBasic
-
-User account data for base token positions and reward tracking
-
-#### Parameters
-
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-
-```solidity
-struct UserBasic {
-  int104 principal;
-  uint24 assetsIn;
-}
-```
-
-### CollateralAsset
-
-```solidity
-struct CollateralAsset {
-  address collateralToken;
-  address priceFeed;
-  uint128 supplyCap;
-  uint64 borrowCollateralFactor;
-  uint64 liquidateCollateralFactor;
-  uint64 liquidationFactor;
-  uint64 scale;
-}
-```
-
 ### MAX_ASSETS
 
 ```solidity
