@@ -4,23 +4,6 @@
 
 _Versions can enforce append-only storage slots via inheritance._
 
-### TotalsBasic
-
-```solidity
-struct TotalsBasic {
-  uint64 baseSupplyIndex;
-  uint64 baseBorrowIndex;
-  uint64 trackingSupplyIndex;
-  uint64 trackingBorrowIndex;
-  uint64 daoTrackingSupplyIndex;
-  uint64 daoTrackingBorrowIndex;
-  uint104 totalSupplyBase;
-  uint104 totalBorrowBase;
-  uint40 lastAccrualTime;
-  uint8 pauseFlags;
-}
-```
-
 ### UserBasic
 
 User account data for base token positions and reward tracking
@@ -33,10 +16,6 @@ User account data for base token positions and reward tracking
 ```solidity
 struct UserBasic {
   int104 principal;
-  uint64 baseTrackingIndex;
-  uint64 baseTrackingAccrued;
-  uint64 daoBaseTrackingIndex;
-  uint64 daoBaseTrackingAccrued;
   uint24 assetsIn;
 }
 ```
@@ -191,6 +170,14 @@ address extension
 
 The address of the extension contract
 
+### rewardAddress
+
+```solidity
+address rewardAddress
+```
+
+The address of the reward contract
+
 ### baseToken
 
 ```solidity
@@ -311,96 +298,6 @@ uint64 baseScale
 
 The scale for base token (must be less than 18 decimals)
 
-### trackingIndexScale
-
-```solidity
-uint64 trackingIndexScale
-```
-
-The scale for reward tracking
-
-### daoTrackingIndexScale
-
-```solidity
-uint64 daoTrackingIndexScale
-```
-
-The scale for DAO reward tracking
-
-### baseTrackingSupplySpeed
-
-```solidity
-uint64 baseTrackingSupplySpeed
-```
-
-The speed at which supply rewards are tracked (in trackingIndexScale)
-
-### baseTrackingBorrowSpeed
-
-```solidity
-uint64 baseTrackingBorrowSpeed
-```
-
-The speed at which borrow rewards are tracked (in trackingIndexScale)
-
-### daoBaseTrackingSupplySpeed
-
-```solidity
-uint64 daoBaseTrackingSupplySpeed
-```
-
-The speed at which DAO supply rewards are tracked (in daoTrackingIndexScale)
-
-### daoBaseTrackingBorrowSpeed
-
-```solidity
-uint64 daoBaseTrackingBorrowSpeed
-```
-
-The speed at which DAO borrow rewards are tracked (in daoTrackingIndexScale)
-
-### baseMinForRewards
-
-```solidity
-uint104 baseMinForRewards
-```
-
-The minimum amount of base principal wei for rewards to accrue
-
-_This must be large enough so as to prevent division by base wei from overflowing the 64 bit indices_
-
-### daoBaseMinForRewards
-
-```solidity
-uint104 daoBaseMinForRewards
-```
-
-The minimum amount of base principal wei for dao rewards to accrue
-
-_This must be large enough so as to prevent division by base wei from overflowing the 64 bit indices_
-
-### minSupplyForReward
-
-```solidity
-uint104 minSupplyForReward
-```
-
-The minimum amoount of user principal represented in present value for rewards to accrue
-
-_This must be large enough so as to prevent division by base wei from overflowing the 64 bit indices
-This is used to prevent rewards from accruing on very small positions_
-
-### minBorrowForReward
-
-```solidity
-uint104 minBorrowForReward
-```
-
-The minimum amount of user principal represented in present value for dao rewards to accrue
-
-_This must be large enough so as to prevent division by base wei from overflowing the 64 bit indices
-This is used to prevent dao rewards from accruing on very small positions_
-
 ### baseBorrowMin
 
 ```solidity
@@ -433,14 +330,6 @@ uint64 unlockTimestamp
 
 Unlock timestamp
 
-### accrualDescaleFactor
-
-```solidity
-uint256 accrualDescaleFactor
-```
-
-Factor to divide by when accruing rewards in order to preserve 6 decimals (i.e. baseScale / 1e6)
-
 ### suggestedReserves
 
 ```solidity
@@ -461,30 +350,6 @@ _Aggregate variables tracked for the entire market_
 
 ```solidity
 uint64 baseBorrowIndex
-```
-
-### daoTrackingSupplyIndex
-
-```solidity
-uint64 daoTrackingSupplyIndex
-```
-
-### daoTrackingBorrowIndex
-
-```solidity
-uint64 daoTrackingBorrowIndex
-```
-
-### trackingSupplyIndex
-
-```solidity
-uint64 trackingSupplyIndex
-```
-
-### trackingBorrowIndex
-
-```solidity
-uint64 trackingBorrowIndex
 ```
 
 ### totalSupplyBase

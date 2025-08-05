@@ -101,7 +101,7 @@ function maxAssets() external pure returns (uint8)
 ### totalsBasic
 
 ```solidity
-function totalsBasic() public view returns (struct CometStorage.TotalsBasic)
+function totalsBasic() public view returns (struct ICometExtension.TotalsBasic)
 ```
 
 Aggregate variables tracked for the entire market
@@ -154,26 +154,6 @@ Query the current collateral balance of an account
 | Name | Type | Description |
 | ---- | ---- | ----------- |
 | [0] | uint256 | The collateral balance of the account |
-
-### baseTrackingAccrued
-
-```solidity
-function baseTrackingAccrued(address account) external view returns (uint64)
-```
-
-Query the total accrued base rewards for an account
-
-#### Parameters
-
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| account | address | The account to query |
-
-#### Return Values
-
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| [0] | uint64 | The accrued rewards, scaled by `BASE_ACCRUAL_SCALE` |
 
 ### approve
 

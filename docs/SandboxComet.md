@@ -100,41 +100,22 @@ function getNowInternal() internal view virtual returns (uint40)
 | ---- | ---- | ----------- |
 | [0] | uint40 | The current timestamp |
 
-### setIncentiveConfig
+### setRewards
 
 ```solidity
-function setIncentiveConfig(uint64 trackingIndexScale_, uint104 baseMinForRewards_, uint64 baseTrackingSupplySpeed_, uint64 baseTrackingBorrowSpeed_, uint104 minSupplyForReward_, uint104 minBorrowForReward_) external
+function setRewards(address _rewards) external
 ```
 
-Set the base tracking supply and borrow speeds
+Sets the rewards contract for a comet
+
+_Can be set as zero address to disable rewards
+Only callable by the config controller, which is set during initialization_
 
 #### Parameters
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-| trackingIndexScale_ | uint64 | The new tracking index scale |
-| baseMinForRewards_ | uint104 | The new base minimum for rewards |
-| baseTrackingSupplySpeed_ | uint64 | The new base tracking supply speed |
-| baseTrackingBorrowSpeed_ | uint64 | The new base tracking borrow speed |
-| minSupplyForReward_ | uint104 | The minimum amount of user principal represented in present value for rewards to accrue |
-| minBorrowForReward_ | uint104 | The minimum amount of user principal represented in present value for rewards to accrue |
-
-### setDaoIncentiveConfig
-
-```solidity
-function setDaoIncentiveConfig(uint64 daoTrackingIndexScale_, uint104 daoBaseMinForRewards_, uint64 daoBaseTrackingSupplySpeed_, uint64 daoBaseTrackingBorrowSpeed_) external
-```
-
-Set the DAO base tracking supply and borrow speeds
-
-#### Parameters
-
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| daoTrackingIndexScale_ | uint64 | The new DAO tracking index scale |
-| daoBaseMinForRewards_ | uint104 | The new DAO base minimum for rewards |
-| daoBaseTrackingSupplySpeed_ | uint64 | The new DAO base tracking supply speed |
-| daoBaseTrackingBorrowSpeed_ | uint64 | The new DAO base tracking borrow speed |
+| _rewards | address | The address of the rewards contract to set |
 
 ### accruedInterestIndices
 
