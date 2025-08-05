@@ -39,6 +39,11 @@ contract CometStorage {
         uint64 scale;
     }
 
+    struct DeprecationInitParams {
+        uint64 startLiquidateCollateralFactor;
+        uint64 startLiquidationFactor;
+    }
+
     /** Internal constants **/
 
     /// @dev The max number of assets this contract is hardcoded to support
@@ -78,6 +83,13 @@ contract CometStorage {
     /// @dev The reentrancy guard statuses
     uint256 internal constant REENTRANCY_GUARD_NOT_ENTERED = 0; // aderyn-fp(unused-state-variable)
     uint256 internal constant REENTRANCY_GUARD_ENTERED = 1;
+
+    /// @dev The target liquidate collateral factor for the processing removal of collateral assets
+    uint64 internal constant TARGET_LIQUIDATE_COLLATERAL_FACTOR = 0;
+
+    uint64 internal constant TARGET_LIQUIDATION_FACTOR = 1e18;
+
+    uint40 internal constant DEPRECATION_DURATION = 21 days;
 
     /** General configuration constants **/
     /// @notice Config Controller address
@@ -167,8 +179,12 @@ contract CometStorage {
     /// @notice Unlock timestamp
     uint64 public unlockTimestamp;
 
-    /// @notice Whether the market is closed
-    bool public isClosed;
+    /// @notice Whether the market is devalued
+    bool public isDeprecated;
+
+    bool public isDeprecating;
+
+    uint40 internal deprecationStartTime;
 
     /// @notice Factor to divide by when accruing rewards in order to preserve 6 decimals (i.e. baseScale / 1e6)
     uint internal accrualDescaleFactor;
@@ -209,4 +225,6 @@ contract CometStorage {
 
     mapping(address => uint8) public collateralAssetIndex;
     CollateralAsset[] public collateralAssets;
+
+    mapping(address => DeprecationInitParams) public deprecationInitParams;
 }

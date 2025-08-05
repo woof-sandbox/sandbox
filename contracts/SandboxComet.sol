@@ -234,6 +234,8 @@ contract SandboxComet is ISandboxComet {
         uint40 now_ = getNowInternal();
         uint40 timeElapsed = now_ - lastAccrualTime;
 
+        if (isDeprecating) _prepareDeprecation();
+
         if (timeElapsed != 0) {
             (baseSupplyIndex, baseBorrowIndex) = accruedInterestIndices(timeElapsed);
             if (totalSupplyBase >= baseMinForRewards) {
@@ -243,6 +245,100 @@ contract SandboxComet is ISandboxComet {
                 trackingBorrowIndex += safe64(divBaseWei(baseTrackingBorrowSpeed * timeElapsed, totalBorrowBase));
             }
             lastAccrualTime = now_;
+        }
+    }
+
+    /**
+     * @notice Linearly interpolates a curve parameter value during a transition period.
+     * @dev
+     * This function is used to smoothly update protocol curve parameters (such as supplyKink, interest rate slopes, etc.)
+     * from a starting value to a target value over a specified duration. It ensures that the parameter changes
+     * at a constant rate, providing a predictable and gradual transition rather than an abrupt jump.
+     *
+     * The algorithm works for both increasing and decreasing transitions. At any point during the transition,
+     * the value is calculated as a function of the elapsed time since the start of the transition.
+     *
+     * The formula used in this implementation is:
+     *   if (targetValue > startValue):
+     *       interpolated = currentValue + (((targetValue - startValue) * elapsed / duration) - (currentValue - startValue))
+     *   else:
+     *       interpolated = currentValue - (((startValue - targetValue) * elapsed / duration) - (startValue - currentValue))
+     *
+     * This means:
+     * - At the start (elapsed = 0):      interpolated = startValue
+     * - At the end (elapsed = duration): interpolated = targetValue
+     * - In between:                      interpolated is proportionally between startValue and targetValue
+     *
+     * Example 1: Increasing transition
+     *   Suppose we want to transition supplyKink from 200 to 800 over 10 seconds.
+     *   - startValue = 200
+     *   - targetValue = 800
+     *   - duration = 10
+     *
+     *   At elapsed = 0, currentValue = 200:
+     *     interpolated = 200 + ((800 - 200) * 0 / 10 - (200 - 200))
+     *                  = 200 + (0 - 0)
+     *                  = 200
+     *
+     *   At elapsed = 5, currentValue = 500:
+     *     interpolated = 500 + ((800 - 200) * 5 / 10 - (500 - 200))
+     *                  = 500 + (300 - 300)
+     *                  = 500
+     *
+     *   At elapsed = 10, currentValue = 800:
+     *     interpolated = 800 + ((800 - 200) * 10 / 10 - (800 - 200))
+     *                  = 800 + (600 - 600)
+     *                  = 800
+     *
+     * Example 2: Decreasing transition
+     *   Suppose we want to transition supplyKink from 900 to 300 over 10 seconds.
+     *   - startValue = 900
+     *   - targetValue = 300
+     *   - duration = 10
+     *
+     *   At elapsed = 0, currentValue = 900:
+     *     interpolated = 900 - ((900 - 300) * 0 / 10 - (900 - 900))
+     *                  = 900 - (0 - 0)
+     *                  = 900
+     *
+     *   At elapsed = 4, currentValue = 660:
+     *     interpolated = 660 - ((900 - 300) * 4 / 10 - (900 - 660))
+     *                  = 660 - (240 - 240)
+     *                  = 660
+     *
+     *   At elapsed = 10, currentValue = 300:
+     *     interpolated = 300 - ((900 - 300) * 10 / 10 - (900 - 300))
+     *                  = 300 - (600 - 600)
+     *                  = 300
+     *
+     * Example 3: No change
+     *   If startValue = targetValue = 500, duration = 10, any elapsed, currentValue = 500:
+     *     interpolated = 500 + ((500 - 500) * elapsed / 10 - (500 - 500))
+     *                  = 500 + (0 - 0)
+     *                  = 500
+     *
+     * Usage:
+     *   This function is called internally by the protocol during a curve transition, typically in a function like
+     *   `progressTransition(now_)`, to update each curve parameter to its correct value for the current time.
+     *
+     * @param startValue   The value of the parameter at the start of the transition.
+     * @param targetValue  The value of the parameter at the end of the transition.
+     * @param currentValue The current value of the parameter (used for incremental calculation).
+     * @param elapsed      The time elapsed since the start of the transition, in seconds.
+     * @param duration     The total duration of the transition, in seconds.
+     * @return The interpolated value as a uint64, representing the parameter's value at the current elapsed time.
+     */
+    function interpolateValue(
+        uint256 startValue,
+        uint256 targetValue,
+        uint256 currentValue,
+        uint40 elapsed,
+        uint40 duration
+    ) internal pure returns (uint64) {
+        if (targetValue > startValue) {
+            return safe64(currentValue + ((((targetValue - startValue) * elapsed) / duration) - (currentValue - startValue)));
+        } else {
+            return safe64(currentValue - ((((startValue - targetValue) * elapsed) / duration) - (startValue - currentValue)));
         }
     }
 
@@ -447,8 +543,9 @@ contract SandboxComet is ISandboxComet {
         address caller = msg.sender;
         address dao = ISandboxController(sandboxController).dao(); // aderyn-fp(reentrancy-state-change)
         if (caller != configController && caller != dao) revert Unauthorized();
-        /// Note: Not allowed to reset pause flags if the market is closed
-        if (isClosed) revert MarketIsClosed();
+        /// Note: If the market is devaluating or already devalued, not allowed transfers the assets.
+        if (isDeprecating) revert DeprecationInProgress();
+        if (isDeprecated) revert MarketIsDeprecated();
 
         pauseFlags =
             uint8(0) |
@@ -676,8 +773,8 @@ contract SandboxComet is ISandboxComet {
 
         UserBasic memory dstUser = userBasic[dst];
         int104 dstPrincipal = dstUser.principal;
-        /// Note: If the market is closed, allow deposits to be made only to close the debt.
-        if (isClosed && dstPrincipal > 0) revert MarketIsClosed();
+        /// Note: If the market is devalued, allow deposits to be made only to close the debt.
+        if (isDeprecated && dstPrincipal > 0) revert MarketIsDeprecated();
 
         int256 dstBalance = presentValue(dstPrincipal) + signed256(amount);
         int104 dstPrincipalNew = principalValue(dstBalance);
@@ -699,8 +796,9 @@ contract SandboxComet is ISandboxComet {
      * @dev Supply an amount of collateral asset from `from` to dst
      */
     function supplyCollateral(address from, address dst, address asset, uint256 amount) internal {
-        /// Note: If the market is closed, not allowed deposits the collaterals.
-        if (isClosed) revert MarketIsClosed();
+        /// Note: If the market is devaluating or already devalued, not allowed transfers the assets.
+        if (isDeprecating) revert DeprecationInProgress();
+        if (isDeprecated) revert MarketIsDeprecated();
         amount = doTransferIn(asset, from, amount);
 
         (CollateralAsset memory assetInfo, uint8 index) = getAssetInfoByAddress(asset);
@@ -770,8 +868,9 @@ contract SandboxComet is ISandboxComet {
      */
     function transferInternal(address operator, address src, address dst, address asset, uint256 amount) internal nonReentrant {
         if (amount == 0) revert ZeroAmount();
-        /// Note: If the market is closed, not allowed transfers the assets.
-        if (isClosed) revert MarketIsClosed();
+        /// Note: If the market is devaluating or already devalued, not allowed transfers the assets.
+        if (isDeprecating) revert DeprecationInProgress();
+        if (isDeprecated) revert MarketIsDeprecated();
         if (isTransferPaused()) revert Paused();
         if (!hasPermission(src, operator, asset, amount)) revert InsufficientAllowance(asset, src, operator);
         spendAllowance(src, operator, asset, amount);
@@ -904,17 +1003,16 @@ contract SandboxComet is ISandboxComet {
      */
     function withdrawBase(address src, address to, uint256 amount) internal {
         accrueInternal();
-
         UserBasic memory srcUser = userBasic[src];
         int104 srcPrincipal = srcUser.principal;
         int256 srcBalance = presentValue(srcPrincipal) - signed256(amount);
         int104 srcPrincipalNew = principalValue(srcBalance);
 
-        /// Note: If the market is closed, not allowed getting the debt
-        if (isClosed && srcPrincipalNew < 0) revert MarketIsClosed();
+        /// Note: If the market is devaluing or already devalued, not allowed getting the debt
+        if (isDeprecating && srcPrincipalNew < 0) revert DeprecationInProgress();
+        if (isDeprecated && srcPrincipalNew < 0) revert MarketIsDeprecated();
 
         (uint104 withdrawAmount, uint104 borrowAmount) = withdrawAndBorrowAmount(srcPrincipal, srcPrincipalNew);
-
         totalSupplyBase -= withdrawAmount;
         totalBorrowBase += borrowAmount;
 
@@ -956,49 +1054,98 @@ contract SandboxComet is ISandboxComet {
     }
 
     /**
-     * @notice Withdraw surplus reserves from the protocol above the seed reserves threshold
-     * @dev Only the DAO can withdraw surplus reserves. Surplus reserves are defined as total reserves
-     *      minus seed reserves. If total reserves are less than or equal to seed reserves, no surplus
-     *      exists and the transaction will revert.
-     */
-    function withdrawSurplusReserves() external override nonReentrant {
-        address dao = ISandboxController(sandboxController).dao(); // aderyn-fp(reentrancy-state-change)
-        if (msg.sender != dao) revert Unauthorized();
-
-        int total = getReserves();
-        if (total <= int(seedReserves)) revert NoSurplusReserves();
-
-        uint256 surplusReserves = uint256(total) - seedReserves;
-
-        IERC20(baseToken).safeTransfer(dao, surplusReserves);
-        emit SurplusReservesWithdrawn(dao, surplusReserves);
-    }
-
-    /**
-     * @notice Withdraw free reserves (seed reserves) from the protocol
+     * @notice Withdraw free seed reserves from the protocol
      * @dev Only the config controller can withdraw free reserves. Withdrawal is allowed only if the market
      *      is closed or the unlock timestamp has been reached. The amount withdrawn is limited to the
      *      current seed reserves or total reserves, whichever is smaller. If insufficient free reserves
      *      are available, the available amount will be returned if it's non-zero. Remaining reserves can
      *      be withdrawn over time as they accumulate. Reserves cannot be withdrawn from user balances.
+     * @param amount The amount of free seed reserves to withdraw
      */
-    function withdrawFreeReserves() external override nonReentrant {
+    function withdrawFreeSeedReserves(uint256 amount) external override nonReentrant {
         address caller = msg.sender;
         if (caller != configController) revert Unauthorized();
-        /// Note: Allowed to withdraw of seed reserves only if the market is closed
+        /// Note: Allowed to withdraw of seed reserves only if the market is devalued
         /// or the unlock timestamp has been reached
-        if (!isClosed && block.timestamp < unlockTimestamp) revert UnlockNotReached();
+        if (!isDeprecated && block.timestamp < unlockTimestamp) revert UnlockNotReached();
 
         int total = getReserves();
         if (total <= 0) revert NoFreeReserves();
 
         uint256 currentSeedReserves = seedReserves;
         uint256 freeReserves = uint256(total) > currentSeedReserves ? currentSeedReserves : uint256(total);
+        if (amount > freeReserves) revert InsufficientFreeReserves();
 
-        seedReserves = currentSeedReserves - freeReserves;
+        seedReserves = currentSeedReserves - amount;
 
-        IERC20(baseToken).safeTransfer(caller, freeReserves);
-        emit FreeReservesWithdrawn(caller, freeReserves);
+        IERC20(baseToken).safeTransfer(caller, amount);
+        emit FreeSeedReservesWithdrawn(caller, amount);
+    }
+
+    /**
+     * @notice Withdraw surplus seed reserves from the protocol above the seed reserves threshold
+     * @dev Only the DAO can withdraw surplus reserves when the market is deprecated and no active supply exists.
+     *      Surplus reserves are defined as total reserves minus seed reserves. If total reserves are less than
+     *      or equal to seed reserves, no surplus exists and the transaction will revert. This function ensures
+     *      that surplus reserves can only be extracted after market deprecation and all supply positions are closed.
+     *      The withdrawn amount is sent to the protocol treasury.
+     */
+    function withdrawSurplusSeedReserves() external override nonReentrant {
+        address dao = ISandboxController(sandboxController).dao(); // aderyn-fp(reentrancy-state-change)
+        if (msg.sender != dao) revert Unauthorized();
+        if (!isDeprecated) revert MarketIsNotDeprecated();
+        if (totalSupplyBase != 0) revert ActiveSupplyBaseExists();
+
+        int256 total = getReserves();
+        uint256 _seedReserves = seedReserves;
+
+        if (total <= int256(_seedReserves)) revert NoSurplusReserves();
+
+        uint256 surplusReserves = uint256(total) - _seedReserves;
+        address recipient = ISandboxController(sandboxController).treasury(); // aderyn-fp(reentrancy-state-change)
+
+        IERC20(baseToken).safeTransfer(recipient, surplusReserves);
+        emit SurplusSeedReservesWithdrawn(recipient, surplusReserves);
+    }
+
+    /**
+     * @notice Withdraw surplus collateral reserves from the protocol for a specific asset
+     * @dev Only the DAO can withdraw surplus collateral reserves when the market is deprecated
+     *      and no active collateral positions exist for the asset. Surplus reserves are defined
+     *      as total collateral reserves minus any fees and user balances. This function allows
+     *      recovery of excess collateral that remains after market deprecation.
+     * @param assets The addresses of the collateral assets to withdraw surplus reserves for
+     */
+    function withdrawSurplusCollateralReserves(address[] calldata assets) external override nonReentrant {
+        address dao = ISandboxController(sandboxController).dao(); // aderyn-fp(reentrancy-state-change)
+        if (msg.sender != dao) revert Unauthorized();
+        if (!isDeprecated) revert MarketIsNotDeprecated();
+        if (totalSupplyBase != 0) revert ActiveSupplyBaseExists();
+
+        uint8 assetsLength = uint8(assets.length);
+        if (assetsLength > MAX_ASSETS) revert TooManyAssets();
+        address recipient = ISandboxController(sandboxController).treasury(); // aderyn-fp(reentrancy-state-change)
+
+        uint256[] memory surplusCollateralsReserves = new uint256[](assetsLength);
+
+        for (uint8 i = 0; i < assetsLength; ) {
+            if (assets[i] == address(0)) revert ZeroAddress();
+            // Note: We do not check if asset is registered, as it might be already delisted
+            surplusCollateralsReserves[i] = getCollateralReserves(assets[i]);
+            if (surplusCollateralsReserves[i] == 0) {
+                unchecked {
+                    ++i;
+                }
+                continue;
+            }
+            IERC20(assets[i]).safeTransfer(recipient, surplusCollateralsReserves[i]);
+
+            unchecked {
+                ++i;
+            }
+        }
+
+        emit SurplusCollateralReservesWithdrawn(recipient, assets, surplusCollateralsReserves);
     }
 
     /**
@@ -1033,6 +1180,7 @@ contract SandboxComet is ISandboxComet {
 
         uint8 nAssets = numAssets;
         for (uint8 i = 0; i < nAssets; ) {
+            // @todo
             if (isInAsset(assetsIn, i)) {
                 CollateralAsset memory assetInfo = getAssetInfo(i);
                 address asset = assetInfo.collateralToken;
@@ -1262,21 +1410,120 @@ contract SandboxComet is ISandboxComet {
     }
 
     /**
-     * @notice Close the market permanently, preventing most future operations
-     * @dev Only the config controller can close the market. Once closed, the market cannot be reopened.
-     *      All pause flags are cleared when the market is closed.
-     *      When market is closed:
-     *      - Users cannot make transfers or supply new collateral assets
+     * @notice Initiate the gradual deprecation of collateral assets to prepare for market closure
+     * @dev Only the config controller can initiate deprecation. Once started, collateral factors will
+     *      gradually decrease over the deprecation period until they reach target values and the market
+     *      is permanently deprecated. All pause flags are cleared when deprecation begins.
+     *      During deprecation:
+     *      - Collateral liquidation factors gradually decrease to target values over time
+     *      - Users cannot transfer assets or supply new collateral
      *      - Users can still supply base asset to close existing debt positions
-     *      - Users can withdraw base asset and collateral if they have no debt or have closed their debt position
+     *      - Once deprecation completes, the market becomes permanently deprecated
      */
-    function close() external override {
+    function initiateDeprecation() external override {
         if (msg.sender != configController) revert Unauthorized();
-        if (isClosed) revert MarketIsClosed();
-        /// Note: Clear all pause flags
+        if (isDeprecated) revert MarketIsDeprecated();
+        if (isDeprecating) revert DeprecationInProgress();
+        /// Note: All pause flags are cleared
         pauseFlags = 0;
-        isClosed = true;
-        emit MarketClosed();
+
+        uint40 now_ = getNowInternal();
+        uint8 _numAssets = numAssets;
+        // Store the start time of the deprecation process
+        deprecationStartTime = now_;
+        // Initialize deprecation parameters for each collateral asset
+        for (uint8 i = 0; i < _numAssets; ) {
+            CollateralAsset memory assetInfo = getAssetInfo(i);
+            if (assetInfo.collateralToken == baseToken) continue;
+
+            DeprecationInitParams memory initParams = DeprecationInitParams({
+                startLiquidateCollateralFactor: assetInfo.liquidateCollateralFactor,
+                startLiquidationFactor: assetInfo.liquidationFactor
+            });
+
+            deprecationInitParams[assetInfo.collateralToken] = initParams;
+
+            unchecked {
+                ++i;
+            }
+        }
+        /// Note: Marks the start of market deprecation process
+        isDeprecating = true;
+
+        emit DeprecationInitiated(now_, (now_ + DEPRECATION_DURATION));
+    }
+
+    /**
+     * @dev Progress the deprecation process by updating collateral factors or finalizing if duration is complete
+     * @notice This internal function is called during interest accrual to gradually reduce collateral factors
+     *         over the deprecation period. If the deprecation duration has elapsed, it finalizes the deprecation.
+     *         During the deprecation period, collateral factors are linearly interpolated from their starting
+     *         values to target values, making positions easier to liquidate over time.
+     */
+    function _prepareDeprecation() internal {
+        uint40 _devaluationStartTime = deprecationStartTime;
+        uint40 now_ = getNowInternal();
+
+        // If the end time of the devaluation is reached, finalize the devaluation of market
+        if ((_devaluationStartTime + DEPRECATION_DURATION) <= now_) {
+            _finalizeDeprecation();
+        } else {
+            uint8 _numAssets = numAssets;
+            uint40 elapsed = now_ - _devaluationStartTime;
+
+            for (uint8 i = 0; i < _numAssets; ) {
+                CollateralAsset storage assetInfo = collateralAssets[i];
+
+                DeprecationInitParams memory initParams = deprecationInitParams[assetInfo.collateralToken];
+
+                assetInfo.liquidateCollateralFactor = interpolateValue(
+                    initParams.startLiquidateCollateralFactor,
+                    TARGET_LIQUIDATE_COLLATERAL_FACTOR,
+                    assetInfo.liquidateCollateralFactor,
+                    elapsed,
+                    DEPRECATION_DURATION
+                );
+                assetInfo.liquidationFactor = interpolateValue(
+                    initParams.startLiquidationFactor,
+                    TARGET_LIQUIDATION_FACTOR,
+                    assetInfo.liquidationFactor,
+                    elapsed,
+                    DEPRECATION_DURATION
+                );
+
+                unchecked {
+                    ++i;
+                }
+            }
+        }
+    }
+
+    /**
+     * @dev Complete the deprecation process by setting final collateral factors and marking the market as deprecated
+     * @notice This internal function finalizes the market deprecation by setting all collateral liquidation
+     *         factors to their target values and permanently deprecating the market. Once finalized:
+     *         - All collateral assets have minimum liquidation factors for maximum liquidation efficiency
+     *         - The market is permanently deprecated and cannot be reopened
+     *         - Users can only close positions and withdraw assets with no debt
+     */
+    function _finalizeDeprecation() internal {
+        uint8 _numAssets = numAssets;
+
+        for (uint8 i = 0; i < _numAssets; ) {
+            CollateralAsset storage assetInfo = collateralAssets[i];
+
+            assetInfo.liquidationFactor = TARGET_LIQUIDATION_FACTOR;
+            assetInfo.liquidateCollateralFactor = TARGET_LIQUIDATE_COLLATERAL_FACTOR;
+
+            unchecked {
+                ++i;
+            }
+        }
+        /// Note: Marks the end of market deprecation process
+        isDeprecating = false;
+        isDeprecated = true;
+
+        emit DeprecationFinalized();
     }
 
     /**

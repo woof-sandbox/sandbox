@@ -20,16 +20,43 @@ import {
   ConfigControllerFactory,
   ConfigControllerFactory__factory,
   SandboxComet,
+  SandboxComet__factory,
+  CometExtension,
+  CometExtension__factory,
   ISandboxComet,
+  SandboxCometFactory,
+  SandboxCometFactory__factory,
+  SandboxController,
+  SandboxController__factory,
+  CometHarness,
 } from "../../build/types";
-import { SandboxCometFactory } from "../../build/types/SandboxCometFactory";
-import { SandboxCometFactory__factory } from "../../build/types/factories/SandboxCometFactory__factory";
-import { SandboxController } from "../../build/types/SandboxController";
-import { SandboxController__factory } from "../../build/types/factories/SandboxController__factory";
-import { BigNumber, Contract, ContractReceipt, ContractTransaction } from "ethers";
-import { TransactionReceipt, TransactionResponse } from "@ethersproject/abstract-provider";
-import { CometHarness, TotalsBasicStructOutput } from "../../build/types/CometHarness";
+import { Provider } from "@ethersproject/providers";
 import { CometConfigStruct } from "../../build/types/ConfigController";
+import { TotalsBasicStructOutput } from "../../build/types/CometHarness";
+import { TransactionReceipt, TransactionResponse } from "@ethersproject/abstract-provider";
+import { BigNumber, Contract, ContractReceipt, ContractTransaction, Signer } from "ethers";
+
+// The function to connect to a combined contract
+export type CombinedComet = SandboxComet & CometExtension;
+
+export function getCombinedComet(sandboxCometAddress: string, signerOrProvider: Signer | Provider): CombinedComet {
+  const sandboxComet = SandboxComet__factory.connect(sandboxCometAddress, signerOrProvider);
+  const cometExtension = CometExtension__factory.connect(sandboxCometAddress, signerOrProvider);
+
+  return new Proxy(sandboxComet, {
+    get(target, prop) {
+      // First, look in SandboxComet
+      if (prop in target) {
+        return target[prop as keyof typeof target];
+      }
+      // Then, look in CometExtension
+      if (prop in cometExtension) {
+        return cometExtension[prop as keyof typeof cometExtension];
+      }
+      return undefined;
+    },
+  }) as CombinedComet;
+}
 
 // Snapshot
 export type { SnapshotRestorer } from "@nomicfoundation/hardhat-network-helpers";
@@ -357,7 +384,6 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Par
   const baseToken: FaucetToken = tokens[base];
   const suggestedAmountOfSeedReserves = dfn(opts.suggestedAmountOfSeedReserves, "100000000");
 
-
   const sandboxControllerOpts = defaultSandboxControllerOpts({
     admin: owner,
     dao: dao,
@@ -500,7 +526,7 @@ async function createComet2(
     collateralTokens: collateralTokens,
     baseTokenCurveId: 0n,
     name: opts.name || "Comet",
-    amountOfSeedReserves: dfn(opts.amountOfSeedReserves, "100000000")
+    amountOfSeedReserves: dfn(opts.amountOfSeedReserves, "100000000"),
   };
 
   await configController.createComet(marketConfig);

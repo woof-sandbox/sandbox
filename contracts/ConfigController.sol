@@ -416,27 +416,17 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
         /// Note: Comet emits the respective event
     }
 
-    /// @notice Closes a comet market permanently, preventing most future operations
+    /// @notice Withdraws free seed reserves from a comet market
     /// @dev Only callable by the owner. The comet must be owned by this controller.
-    ///      Once closed, the market cannot be reopened and all pause flags are cleared
-    /// @param comet The address of the comet to close permanently
-    function closeMarket(address comet) external override onlyOwner {
-        if (comet == address(0)) revert ZeroAddress();
-        if (!_isCometOwned(comet)) revert UnknownComet();
-
-        ISandboxComet(comet).close();
-        /// Note: Comet emits the respective event
-    }
-
-    /// @notice Withdraws free reserves (seed reserves) from a comet market
-    /// @dev Only callable by the owner. The comet must be owned by this controller.
-    ///      Withdrawal is allowed only if the market is closed or unlock timestamp has been reached
+    ///      Withdrawal is allowed only if the market is deprecated or unlock timestamp has been reached.
+    ///      The specified amount will be withdrawn if sufficient free reserves are available.
     /// @param comet The address of the comet to withdraw free reserves from
-    function withdrawFreeReservesFrom(address comet) external override onlyOwner {
+    /// @param amount The amount of free seed reserves to withdraw
+    function withdrawFreeSeedReservesFrom(address comet, uint256 amount) external override onlyOwner {
         if (comet == address(0)) revert ZeroAddress();
         if (!_isCometOwned(comet)) revert UnknownComet();
 
-        ISandboxComet(comet).withdrawFreeReserves();
+        ISandboxComet(comet).withdrawFreeSeedReserves(amount);
         /// Note: Comet emits the respective event
     }
 }
