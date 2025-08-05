@@ -494,8 +494,6 @@ describe.skip("16. buyCollateral", function () {
 
       expect(normalTotalsBasic.baseSupplyIndex).to.equal(evilTotalsBasic.baseSupplyIndex);
       expect(normalTotalsBasic.baseBorrowIndex).to.equal(evilTotalsBasic.baseBorrowIndex);
-      expect(normalTotalsBasic.trackingSupplyIndex).to.equal(evilTotalsBasic.trackingSupplyIndex);
-      expect(normalTotalsBasic.trackingBorrowIndex).to.equal(evilTotalsBasic.trackingBorrowIndex);
       expect(normalTotalsBasic.totalSupplyBase).to.equal(1e6);
       // EvilToken attack should be blocked
       expect(evilTotalsBasic.totalSupplyBase).to.equal(0);

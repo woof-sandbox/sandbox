@@ -228,84 +228,54 @@ describe("4. ConfigController", () => {
     });
   });
 
-  describe("setIncentiveConfigOnMarket", function () {
-    // Data for the incentive config
-    const trackingIndexScale = 1000;
-    const baseMinForRewards = 1000000n;
-    const baseTrackingSupplySpeed = 500;
-    const baseTrackingBorrowSpeed = 300;
-    const minSupplyForReward = 1000n;
-    const minBorrowForReward = 500n;
+  describe("setRewards", function () {
+    it("should allow to set rewards contract", async function () {
+      const rewardsContract = users[4].address;
 
-    it("should allow to set incentive config on market", async () => {
-      // Set incentive config
-      await configController
-        .connect(owner)
-        .setIncentiveConfigOnMarket(
-          comet.address,
-          trackingIndexScale,
-          baseMinForRewards,
-          baseTrackingSupplySpeed,
-          baseTrackingBorrowSpeed,
-          minSupplyForReward,
-          minBorrowForReward
-        );
+      await configController.setRewards(comet.address, rewardsContract);
 
-      // Check that the config was set correctly
-      const cometExtension = await ethers.getContractAt("CometExtension", comet.address);
-      const config = await cometExtension.getConfiguration();
-      expect(config.trackingIndexScale).to.equal(trackingIndexScale);
-      expect(config.baseMinForRewards).to.equal(baseMinForRewards);
-      expect(config.baseTrackingSupplySpeed).to.equal(baseTrackingSupplySpeed);
-      expect(config.baseTrackingBorrowSpeed).to.equal(baseTrackingBorrowSpeed);
-      expect(config.minSupplyForReward).to.equal(minSupplyForReward);
-      expect(config.minBorrowForReward).to.equal(minBorrowForReward);
+      expect(await comet.rewardAddress()).to.equal(rewardsContract);
     });
 
-    it("should revert if called by non-owner", async () => {
-      await expect(
-        configController
-          .connect(users[4])
-          .setIncentiveConfigOnMarket(
-            comet.address,
-            trackingIndexScale,
-            baseMinForRewards,
-            baseTrackingSupplySpeed,
-            baseTrackingBorrowSpeed,
-            minSupplyForReward,
-            minBorrowForReward
-          )
-      ).to.be.revertedWithCustomError(configController, "Unauthorized");
+    it("should allow to set rewards contract to zero address", async function () {
+      await configController.setRewards(comet.address, ethers.constants.AddressZero);
+
+      expect(await comet.rewardAddress()).to.equal(ethers.constants.AddressZero);
     });
 
-    it("should revert if comet address is zero", async () => {
-      await expect(
-        configController.setIncentiveConfigOnMarket(
-          ethers.constants.AddressZero,
-          trackingIndexScale,
-          baseMinForRewards,
-          baseTrackingSupplySpeed,
-          baseTrackingBorrowSpeed,
-          minSupplyForReward,
-          minBorrowForReward
-        )
-      ).to.be.revertedWithCustomError(configController, "ZeroAddress");
+    it("should emit 'RewardsSet' event", async function () {
+      const rewardsContract = users[4].address;
+
+      await expect(configController.setRewards(comet.address, rewardsContract))
+        .to.emit(configController, "RewardsSet")
+        .withArgs(comet.address, rewardsContract);
     });
 
-    it("should revert if comet is not owned by the controller", async () => {
-      await expect(
-        configController
-          .connect(owner)
-          .setIncentiveConfigOnMarket(
-            users[4].address,
-            trackingIndexScale,
-            baseMinForRewards,
-            baseTrackingSupplySpeed,
-            baseTrackingBorrowSpeed,
-            minSupplyForReward,
-            minBorrowForReward
-          )
-      ).to.be.revertedWithCustomError(configController, "UnknownComet");
+    it("should revert if called by non-owner", async function () {
+      const rewardsContract = users[4].address;
+
+      await expect(configController.connect(users[4]).setRewards(comet.address, rewardsContract)).to.be.revertedWithCustomError(
+        configController,
+        "Unauthorized"
+      );
+    });
+
+    it("should revert if comet is zero address", async function () {
+      const rewardsContract = users[4].address;
+
+      await expect(configController.setRewards(ethers.constants.AddressZero, rewardsContract)).to.be.revertedWithCustomError(
+        configController,
+        "ZeroAddress"
+      );
+    });
+
+    it("should revert if comet is unknown", async function () {
+      const rewardsContract = users[4].address;
+
+      await expect(configController.setRewards(users[5].address, rewardsContract)).to.be.revertedWithCustomError(
+        configController,
+        "UnknownComet"
+      );
     });
   });
 });
