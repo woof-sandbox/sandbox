@@ -147,22 +147,6 @@ modifier onlyOwner()
 
 Modifier to restrict access to owner only
 
-### onlyOwnerOrCurator
-
-```solidity
-modifier onlyOwnerOrCurator()
-```
-
-Modifier to restrict access to owner or curator
-
-### onlyGuardian
-
-```solidity
-modifier onlyGuardian()
-```
-
-Modifier to restrict access to guardian only
-
 ### initialize
 
 ```solidity

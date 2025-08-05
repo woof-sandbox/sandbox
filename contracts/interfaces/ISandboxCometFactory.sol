@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity 0.8.28;
 
 abstract contract ISandboxCometFactory {
@@ -28,5 +28,5 @@ abstract contract ISandboxCometFactory {
 
     /// @notice Creates a new comet and its extension
     /// @return The address of the newly created comet
-    function createComet() external virtual returns (address);
+    function createComet(string memory _name) external virtual returns (address);
 }

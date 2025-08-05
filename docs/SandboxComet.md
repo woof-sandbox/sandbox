@@ -63,7 +63,7 @@ _Unsets the reentrancy flag_
 ### getAssetInfo
 
 ```solidity
-function getAssetInfo(uint8 i) public view returns (struct CometStorage.CollateralAsset)
+function getAssetInfo(uint8 i) public view returns (struct ICometStructures.CollateralAsset)
 ```
 
 Get the i-th asset info, according to the order they were passed in originally
@@ -78,12 +78,12 @@ Get the i-th asset info, according to the order they were passed in originally
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-| [0] | struct CometStorage.CollateralAsset | The asset info object |
+| [0] | struct ICometStructures.CollateralAsset | The asset info object |
 
 ### getAssetInfoByAddress
 
 ```solidity
-function getAssetInfoByAddress(address asset) public view returns (struct CometStorage.CollateralAsset, uint8 index)
+function getAssetInfoByAddress(address asset) public view returns (struct ICometStructures.CollateralAsset, uint8 index)
 ```
 
 _Determine index of asset that matches given address_
@@ -448,7 +448,7 @@ _Update assetsIn bit vector if user has entered or exited an asset_
 ### updateBasePrincipal
 
 ```solidity
-function updateBasePrincipal(address account, struct CometStorage.UserBasic basic, int104 principalNew) internal
+function updateBasePrincipal(address account, struct ICometStructures.UserBasic basic, int104 principalNew) internal
 ```
 
 _Write updated principal to store and tracking participation_
@@ -511,14 +511,28 @@ Supply an amount of asset from `from` to dst, if allowed
 | asset | address | The asset to supply |
 | amount | uint256 | The quantity to supply |
 
+### repayAllFrom
+
+```solidity
+function repayAllFrom(address from, address dst) external
+```
+
+Repay the whole debt in base asset to the protocol from `from` to dst, if allowed
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| from | address | The supplier address |
+| dst | address | The address which will hold the balance (can be the same from address) |
+
 ### supplyInternal
 
 ```solidity
-function supplyInternal(address operator, address from, address dst, address asset, uint256 amount) internal
+function supplyInternal(address operator, address from, address dst, address asset, uint256 amount, bool isAll) internal
 ```
 
-_Supply either collateral or base asset, depending on the asset, if operator is allowed
-Note: Specifying an `amount` of uint256.max will repay all of `dst`'s accrued base borrow balance_
+_Supply either collateral or base asset, depending on the asset, if operator is allowed_
 
 ### supplyBase
 
@@ -579,21 +593,20 @@ ERC20 transfer an amount of base token from src to dst, if allowed
 | ---- | ---- | ----------- |
 | [0] | bool | true |
 
-### transferAsset
+### transferAllFrom
 
 ```solidity
-function transferAsset(address dst, address asset, uint256 amount) external
+function transferAllFrom(address src, address dst) external
 ```
 
-Transfer an amount of asset to dst
+ERC20 transfer the whole base token balance from src to dst, if allowed
 
 #### Parameters
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
+| src | address | The sender address |
 | dst | address | The recipient address |
-| asset | address | The asset to transfer |
-| amount | uint256 | The quantity to transfer |
 
 ### transferAssetFrom
 
@@ -615,11 +628,10 @@ Transfer an amount of asset from src to dst, if allowed
 ### transferInternal
 
 ```solidity
-function transferInternal(address operator, address src, address dst, address asset, uint256 amount) internal
+function transferInternal(address operator, address src, address dst, address asset, uint256 amount, bool isAll) internal
 ```
 
-_Transfer either collateral or base asset, depending on the asset, if operator is allowed
-Note: Specifying an `amount` of uint256.max will transfer all of `src`'s accrued base balance_
+_Transfer either collateral or base asset, depending on the asset, if operator is allowed_
 
 ### transferBase
 
@@ -685,14 +697,28 @@ Withdraw an amount of asset from src to `to`, if allowed
 | asset | address | The asset to withdraw |
 | amount | uint256 | The quantity to withdraw |
 
+### withdrawAllFrom
+
+```solidity
+function withdrawAllFrom(address src, address to) external
+```
+
+Withdraw the whole asset balance from src to `to`, if allowed
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| src | address | The sender address (can be msg.sender) |
+| to | address | The recepient address (can be msg.sender) |
+
 ### withdrawInternal
 
 ```solidity
-function withdrawInternal(address operator, address src, address to, address asset, uint256 amount) internal
+function withdrawInternal(address operator, address src, address to, address asset, uint256 amount, bool isAll) internal
 ```
 
-_Withdraw either collateral or base asset, depending on the asset, if operator is allowed
-Note: Specifying an `amount` of uint256.max will withdraw all of `src`'s accrued base balance_
+_Withdraw either collateral or base asset, depending on the asset, if operator is allowed_
 
 ### withdrawBase
 
@@ -709,6 +735,24 @@ function withdrawCollateral(address src, address to, address asset, uint256 amou
 ```
 
 _Withdraw an amount of collateral asset from src to `to`_
+
+### spendAllowanceInternal
+
+```solidity
+function spendAllowanceInternal(address src, address operator, address asset, uint256 amount, bool isAll) internal
+```
+
+_Spend allowance for an asset, either all for base asset or a specific amount_
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| src | address | The address of the account that is spending the allowance |
+| operator | address | The address of the operator spending the allowance |
+| asset | address | The asset for which the allowance is being spent |
+| amount | uint256 | The amount of the asset to be spent, or 0 for all |
+| isAll | bool | Whether to spend all of the allowance for the base asset |
 
 ### absorb
 
@@ -763,6 +807,22 @@ function quoteCollateral(address asset, uint256 baseAmount) public view returns 
 | ---- | ---- | ----------- |
 | asset | address | The collateral asset to get the quote for |
 | baseAmount | uint256 | The amount of the base asset to get the quote for |
+
+### totalSupply
+
+```solidity
+function totalSupply() external view returns (uint256)
+```
+
+Get the total number of tokens in circulation
+
+_Note: uses updated interest indices to calculate_
+
+#### Return Values
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| [0] | uint256 | The supply of tokens |
 
 ### totalBorrow
 

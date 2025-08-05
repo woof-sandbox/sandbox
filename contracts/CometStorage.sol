@@ -1,46 +1,14 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
-import "./interfaces/IConfigController.sol";
+import { ICometStructures } from "contracts/interfaces/ICometStructures.sol";
 
 /**
  * @title Compound's Comet Storage Interface
  * @dev Versions can enforce append-only storage slots via inheritance.
  * @author Compound
  */
-contract CometStorage {
-    /**
-     * @notice User account data for base token positions and reward tracking
-     * @param principal The user's base token principal amount.
-     *              Positive values represent supply positions,
-     *              negative values represent borrow positions.
-     * @param baseTrackingIndex The user's base tracking index for protocol rewards.
-     *              Used to calculate how many protocol rewards the user
-     *              has earned since their last update.
-     * @param baseTrackingAccrued The amount of protocol rewards accrued but not yet
-     *              claimed by the user.
-     * @param daoBaseTrackingIndex The user's DAO tracking index for DAO rewards.
-     *              Similar to baseTrackingIndex but for DAO-specific rewards.
-     * @param daoBaseTrackingAccrued The amount of DAO rewards accrued but not yet
-     *              claimed by the user.
-     * @param assetsIn Bit vector indicating which collateral assets
-     *              the user has a non-zero balance in.
-     */
-    struct UserBasic {
-        int104 principal;
-        uint24 assetsIn;
-    }
-
-    struct CollateralAsset {
-        address collateralToken;
-        address priceFeed;
-        uint128 supplyCap;
-        uint64 borrowCollateralFactor;
-        uint64 liquidateCollateralFactor;
-        uint64 liquidationFactor;
-        uint64 scale;
-    }
-
+contract CometStorage is ICometStructures {
     /** Internal constants **/
 
     /// @dev The max number of assets this contract is hardcoded to support
@@ -179,7 +147,12 @@ contract CometStorage {
     mapping(address => uint256) public assetFeesDAO;
 
     /// @notice Mapping of users to accounts which may be permitted to manage the user account
-    mapping(address => mapping(address => bool)) public isAllowed;
+    /// @notice user => spender => asset (base or collateral) => amount
+    mapping(address => mapping(address => mapping(address => uint))) public allowance;
+
+    /// @notice user => spender => true or false (for baseAsset only)
+    /// @notice allowance for all is expected to be atomic - for ...All() operations only
+    mapping(address => mapping(address => bool)) public allowanceAll;
 
     /// @notice The next expected nonce for an address, for validating authorizations via signature
     mapping(address => uint) public userNonce;

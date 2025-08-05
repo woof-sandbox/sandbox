@@ -27,8 +27,6 @@ describe.skip("16. buyCollateral", function () {
   it("allows buying collateral when reserves < target reserves", async () => {
     const protocol = await makeProtocol({
       base: "USDC",
-      storeFrontPriceFactor: exp(0.5, 18),
-      targetPercent: 0.5,
       assets: {
         USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
 
@@ -123,8 +121,6 @@ describe.skip("16. buyCollateral", function () {
   it("reverts if trying to buy collateral which belongs to users", async () => {
     const protocol = await makeProtocol({
       base: "USDC",
-      storeFrontPriceFactor: exp(0.5, 18),
-      targetPercent: 0.5,
       assets: {
         USDC: { initial: 0, decimals: 6, initialPrice: 1 },
         COMP: {
@@ -164,7 +160,6 @@ describe.skip("16. buyCollateral", function () {
   it("reverts if slippage is too high", async () => {
     const protocol = await makeProtocol({
       base: "USDC",
-      targetPercent: 0.5,
       assets: {
         USDC: {
           initial: 1e6,
@@ -207,7 +202,6 @@ describe.skip("16. buyCollateral", function () {
   it("reverts if not enough collateral to buy", async () => {
     const protocol = await makeProtocol({
       base: "USDC",
-      targetPercent: 0.5,
       assets: {
         USDC: {
           initial: 1e6,
@@ -250,7 +244,6 @@ describe.skip("16. buyCollateral", function () {
   it("reverts if buy is paused", async () => {
     const protocol = await makeProtocol({
       base: "USDC",
-      targetPercent: 0.5,
       assets: {
         USDC: {
           initial: 1e6,
@@ -286,8 +279,6 @@ describe.skip("16. buyCollateral", function () {
   it("buys the correct amount in a fee-like situation", async () => {
     const protocol = await makeProtocol({
       base: "USDT",
-      storeFrontPriceFactor: exp(0.5, 18),
-      targetPercent: 0.5,
       assets: {
         USDT: {
           initial: 1e6,
@@ -382,7 +373,8 @@ describe.skip("16. buyCollateral", function () {
 
   // TODO: Fix this
   describe.skip("reentrancy", function () {
-    it("is blocked during reentrant supply", async () => {
+    // todo: check test to have correct target percent
+    it.skip("is blocked during reentrant supply", async () => {
       const wethArgs = {
         initial: 1e4,
         decimals: 18,
@@ -401,7 +393,6 @@ describe.skip("16. buyCollateral", function () {
           USDC: baseTokenArgs,
           WETH: wethArgs,
         },
-        targetPercent: 0.5,
       });
       const {
         comet: normalComet,
@@ -420,7 +411,7 @@ describe.skip("16. buyCollateral", function () {
           },
           WETH: wethArgs,
         },
-        targetPercent: 0.01,
+        //       targetPercent: 0.01,
       });
       const evilTokens = evilProtocol.tokens;
       /// TODO: FIX of ts compiler error. Check if this is correct.
@@ -515,7 +506,8 @@ describe.skip("16. buyCollateral", function () {
       expect(evilBobPortfolio.internal.EVIL).to.equal(0);
     });
 
-    it("reentrant buyCollateral is reverted", async () => {
+    // todo: check test to have correct target percent
+    it.skip("reentrant buyCollateral is reverted", async () => {
       const wethArgs = {
         initial: 1e4,
         decimals: 18,
@@ -537,7 +529,7 @@ describe.skip("16. buyCollateral", function () {
           },
           WETH: wethArgs,
         },
-        targetPercent: 0.01,
+        //        targetPercent: 0.01,
       });
       const {
         tokens: evilTokens,

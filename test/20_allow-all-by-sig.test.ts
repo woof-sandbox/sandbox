@@ -5,17 +5,16 @@ import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { time } from "@nomicfoundation/hardhat-network-helpers";
 
 const types = {
-  Authorization: [
+  AuthorizationAll: [
     { name: "owner", type: "address" },
     { name: "manager", type: "address" },
-    { name: "asset", type: "address" },
-    { name: "amount", type: "uint256" },
+    { name: "approved", type: "bool" },
     { name: "nonce", type: "uint256" },
     { name: "expiry", type: "uint256" },
   ],
 };
 
-describe("13. allowBySig — SandboxComet / CometExtension", function () {
+describe("20. allowAllBySig — SandboxComet / CometExtension", function () {
   let snapshot: SnapshotRestorer;
 
   let comet: CometHarness;
@@ -24,8 +23,7 @@ describe("13. allowBySig — SandboxComet / CometExtension", function () {
   let users: SignerWithAddress[];
   let signer: SignerWithAddress;
   let manager: SignerWithAddress;
-  let tokens: Record<string, FaucetToken | NonStandardFaucetFeeToken>;
-  let unsupportedToken: FaucetToken;
+  let baseToken: FaucetToken | NonStandardFaucetFeeToken;
   let domain: { name: string; version: string; chainId: number; verifyingContract: string };
 
   let now: number;
@@ -33,8 +31,7 @@ describe("13. allowBySig — SandboxComet / CometExtension", function () {
   let signatureArgs: {
     owner: string;
     manager: string;
-    asset: string;
-    amount: BigNumber;
+    approved: boolean;
     nonce: BigNumber;
     expiry: number;
   };
@@ -42,7 +39,7 @@ describe("13. allowBySig — SandboxComet / CometExtension", function () {
   let signature: Signature;
 
   before(async function () {
-    ({ comet, users, tokens, unsupportedToken } = await makeProtocol());
+    ({ comet, users, baseToken } = await makeProtocol());
     cometExt = (await ethers.getContractAt("CometExtension", comet.address)) as CometExtension;
     [signer, manager] = users;
 
@@ -58,8 +55,7 @@ describe("13. allowBySig — SandboxComet / CometExtension", function () {
     signatureArgs = {
       owner: signer.address,
       manager: manager.address,
-      asset: tokens["COMP"].address,
-      amount: BigNumber.from(100),
+      approved: true,
       nonce: await cometExt.userNonce(signer.address),
       expiry: now + 10,
     };
@@ -73,16 +69,15 @@ describe("13. allowBySig — SandboxComet / CometExtension", function () {
   afterEach(async () => await snapshot.restore());
 
   it("authorizes with a valid signature", async function () {
-    expect(await cometExt.allowance(signatureArgs.owner, signatureArgs.manager, signatureArgs.asset)).to.equal(0);
+    expect(await cometExt.allowanceAll(signatureArgs.owner, signatureArgs.manager)).to.be.false;
 
     const tx = await wait(
       cometExt
         .connect(manager)
-        .allowBySig(
+        .allowAllBySig(
           signatureArgs.owner,
           signatureArgs.manager,
-          signatureArgs.asset,
-          signatureArgs.amount,
+          signatureArgs.approved,
           signatureArgs.nonce,
           signatureArgs.expiry,
           signature.v,
@@ -91,15 +86,15 @@ describe("13. allowBySig — SandboxComet / CometExtension", function () {
         )
     );
 
-    expect(await cometExt.allowance(signer.address, manager.address, signatureArgs.asset)).to.equal(signatureArgs.amount);
+    expect(await cometExt.allowanceAll(signer.address, manager.address)).to.be.true;
     expect(await cometExt.userNonce(signer.address)).to.equal(signatureArgs.nonce.add(1));
 
     expect(event(tx, 0)).to.deep.equal({
-      Approval: {
+      ApprovalAll: {
         owner: signer.address,
         spender: manager.address,
-        asset: signatureArgs.asset,
-        amount: signatureArgs.amount,
+        baseAsset: baseToken.address,
+        approval: signatureArgs.approved,
       },
     });
   });
@@ -110,11 +105,10 @@ describe("13. allowBySig — SandboxComet / CometExtension", function () {
     await expect(
       cometExt
         .connect(manager)
-        .allowBySig(
+        .allowAllBySig(
           invalidOwnerAddress,
           signatureArgs.manager,
-          signatureArgs.asset,
-          signatureArgs.amount,
+          signatureArgs.approved,
           signatureArgs.nonce,
           signatureArgs.expiry,
           signature.v,
@@ -130,11 +124,10 @@ describe("13. allowBySig — SandboxComet / CometExtension", function () {
     await expect(
       cometExt
         .connect(manager)
-        .allowBySig(
+        .allowAllBySig(
           signatureArgs.owner,
           invalidManagerAddress,
-          signatureArgs.asset,
-          signatureArgs.amount,
+          signatureArgs.approved,
           signatureArgs.nonce,
           signatureArgs.expiry,
           signature.v,
@@ -148,11 +141,10 @@ describe("13. allowBySig — SandboxComet / CometExtension", function () {
     await expect(
       cometExt
         .connect(manager)
-        .allowBySig(
+        .allowAllBySig(
           signatureArgs.owner,
           signatureArgs.manager,
-          signatureArgs.asset,
-          signatureArgs.amount,
+          signatureArgs.approved,
           signatureArgs.nonce.add(1),
           signatureArgs.expiry,
           signature.v,
@@ -166,11 +158,10 @@ describe("13. allowBySig — SandboxComet / CometExtension", function () {
     await expect(
       cometExt
         .connect(manager)
-        .allowBySig(
+        .allowAllBySig(
           signatureArgs.owner,
           signatureArgs.manager,
-          signatureArgs.asset,
-          signatureArgs.amount,
+          signatureArgs.approved,
           signatureArgs.nonce,
           signatureArgs.expiry + 100,
           signature.v,
@@ -190,11 +181,10 @@ describe("13. allowBySig — SandboxComet / CometExtension", function () {
     await expect(
       cometExt
         .connect(manager)
-        .allowBySig(
+        .allowAllBySig(
           signatureArgs.owner,
           signatureArgs.manager,
-          signatureArgs.asset,
-          signatureArgs.amount,
+          signatureArgs.approved,
           invalidNonce,
           signatureArgs.expiry,
           sigBad.v,
@@ -207,11 +197,10 @@ describe("13. allowBySig — SandboxComet / CometExtension", function () {
   it("rejects a repeated message", async function () {
     await cometExt
       .connect(manager)
-      .allowBySig(
+      .allowAllBySig(
         signatureArgs.owner,
         signatureArgs.manager,
-        signatureArgs.asset,
-        signatureArgs.amount,
+        signatureArgs.approved,
         signatureArgs.nonce,
         signatureArgs.expiry,
         signature.v,
@@ -222,11 +211,10 @@ describe("13. allowBySig — SandboxComet / CometExtension", function () {
     await expect(
       cometExt
         .connect(manager)
-        .allowBySig(
+        .allowAllBySig(
           signatureArgs.owner,
           signatureArgs.manager,
-          signatureArgs.asset,
-          signatureArgs.amount,
+          signatureArgs.approved,
           signatureArgs.nonce,
           signatureArgs.expiry,
           signature.v,
@@ -246,11 +234,10 @@ describe("13. allowBySig — SandboxComet / CometExtension", function () {
     await expect(
       cometExt
         .connect(manager)
-        .allowBySig(
+        .allowAllBySig(
           expiredArgs.owner,
           expiredArgs.manager,
-          expiredArgs.asset,
-          expiredArgs.amount,
+          expiredArgs.approved,
           expiredArgs.nonce,
           expiredArgs.expiry,
           expiredSignature.v,
@@ -264,11 +251,10 @@ describe("13. allowBySig — SandboxComet / CometExtension", function () {
     await expect(
       cometExt
         .connect(manager)
-        .allowBySig(
+        .allowAllBySig(
           signatureArgs.owner,
           signatureArgs.manager,
-          signatureArgs.asset,
-          signatureArgs.amount,
+          signatureArgs.approved,
           signatureArgs.nonce,
           signatureArgs.expiry,
           26,
@@ -284,11 +270,10 @@ describe("13. allowBySig — SandboxComet / CometExtension", function () {
     await expect(
       cometExt
         .connect(manager)
-        .allowBySig(
+        .allowAllBySig(
           signatureArgs.owner,
           signatureArgs.manager,
-          signatureArgs.asset,
-          signatureArgs.amount,
+          signatureArgs.approved,
           signatureArgs.nonce,
           signatureArgs.expiry,
           signature.v,
@@ -310,11 +295,10 @@ describe("13. allowBySig — SandboxComet / CometExtension", function () {
     await expect(
       cometExt
         .connect(manager)
-        .allowBySig(
+        .allowAllBySig(
           ethers.constants.AddressZero,
           manager.address,
-          signatureArgs.asset,
-          signatureArgs.amount,
+          signatureArgs.approved,
           await cometExt.userNonce(ethers.constants.AddressZero),
           now + 100,
           invalidSig.v,
@@ -322,29 +306,6 @@ describe("13. allowBySig — SandboxComet / CometExtension", function () {
           invalidSig.s
         )
     ).to.be.revertedWith("custom error 'BadSignatory()'");
-  });
-
-  it("fails if token is asset is not base asset or collateral", async function () {
-    const rawSignature = await signer._signTypedData(domain, types, { ...signatureArgs, asset: unsupportedToken.address });
-    signature = ethers.utils.splitSignature(rawSignature);
-
-    await expect(
-      cometExt
-        .connect(manager)
-        .allowBySig(
-          signatureArgs.owner,
-          manager.address,
-          unsupportedToken.address,
-          signatureArgs.amount,
-          signatureArgs.nonce,
-          signatureArgs.expiry,
-          signature.v,
-          signature.r,
-          signature.s
-        )
-    )
-      .to.be.revertedWithCustomError(cometExt, "WrongToken")
-      .withArgs(unsupportedToken.address);
   });
 
   it("fails if manager is zero address", async function () {
@@ -355,11 +316,10 @@ describe("13. allowBySig — SandboxComet / CometExtension", function () {
     await expect(
       cometExt
         .connect(manager)
-        .allowBySig(
+        .allowAllBySig(
           signatureArgs.owner,
           zeroAddress,
-          signatureArgs.asset,
-          signatureArgs.amount,
+          signatureArgs.approved,
           signatureArgs.nonce,
           signatureArgs.expiry,
           signature.v,
@@ -369,25 +329,27 @@ describe("13. allowBySig — SandboxComet / CometExtension", function () {
     ).to.be.revertedWith("custom error 'ZeroAddress()'");
   });
 
-  it("fails if asset is zero address", async function () {
-    const zeroAddress = ethers.constants.AddressZero;
-    const rawSignature = await signer._signTypedData(domain, types, { ...signatureArgs, asset: zeroAddress });
+  it("fails if type of allowance is already set", async function () {
+    const rawSignature = await signer._signTypedData(domain, types, { ...signatureArgs, approved: false });
     signature = ethers.utils.splitSignature(rawSignature);
+    signatureArgs.approved = false;
+
+    // check that the allowanceAll is already set to false
+    expect(await cometExt.allowanceAll(signatureArgs.owner, signatureArgs.manager)).to.be.false;
 
     await expect(
       cometExt
         .connect(manager)
-        .allowBySig(
+        .allowAllBySig(
           signatureArgs.owner,
           signatureArgs.manager,
-          zeroAddress,
-          signatureArgs.amount,
+          signatureArgs.approved,
           signatureArgs.nonce,
           signatureArgs.expiry,
           signature.v,
           signature.r,
           signature.s
         )
-    ).to.be.revertedWithCustomError(cometExt, "ZeroAddress");
+    ).to.be.revertedWithCustomError(cometExt, "IncorrectApproval");
   });
 });

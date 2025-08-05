@@ -40,14 +40,14 @@ contract SandboxCometFactory is ISandboxCometFactory {
      * @dev Uses OpenZeppelin's Clones library to create a new comet instance
      * @return The address of the newly created comet
      */
-    function createComet() external override returns (address) {
+    function createComet(string calldata _name) external override returns (address) {
         // aderyn-fp-next-line(reentrancy-state-change)
         if (!IConfigControllerFactory(configControllerFactory).isController(msg.sender)) revert Unauthorized();
 
         address comet = Clones.clone(cometImplementation);
         comets.push(comet);
 
-        CometExtension ext = new CometExtension(bytes32(0), bytes32(0));
+        CometExtension ext = new CometExtension(bytes32(bytes(_name)));
 
         ISandboxComet(comet).factoryInit(msg.sender, address(ext));
 
