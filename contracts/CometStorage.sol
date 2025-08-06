@@ -176,7 +176,7 @@ contract CometStorage is ICometStructures {
     mapping(address => UserBasic) public userBasic;
 
     /// @notice Mapping of users to collateral data per collateral asset
-    mapping(address => mapping(address => uint)) public override userCollateral;
+    mapping(address => mapping(address => uint)) public userCollateral;
 
     mapping(address => uint8) public collateralAssetIndex;
     CollateralAsset[] public collateralAssets;
