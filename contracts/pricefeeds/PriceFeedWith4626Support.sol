@@ -66,9 +66,8 @@ contract PriceFeedWith4626Support is IPriceFeed, AccessControl {
         string memory description_,
         address underlyingToken_,
         uint8 updateTimeLimit_,
-        address owner_,
         address dao_
-    ) AccessControl(owner_, dao_) {
+    ) AccessControl(dao_) {
         if (underlyingPriceFeed_ == address(0) || rateProvider_ == address(0) || underlyingToken_ == address(0)) revert ZeroAddress();
         rateProvider = rateProvider_;
         underlyingPriceFeed = underlyingPriceFeed_;

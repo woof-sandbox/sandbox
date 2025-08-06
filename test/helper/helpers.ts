@@ -21,6 +21,9 @@ import {
   ConfigControllerFactory__factory,
   SandboxComet,
   ISandboxComet,
+  WstETHPriceFeed__factory,
+  SimpleWstETH__factory,
+  WBTCPriceFeed__factory,
 } from "../../build/types";
 import { SandboxCometFactory } from "../../build/types/SandboxCometFactory";
 import { SandboxCometFactory__factory } from "../../build/types/factories/SandboxCometFactory__factory";
@@ -30,6 +33,7 @@ import { BigNumber, Contract, ContractReceipt, ContractTransaction } from "ether
 import { TransactionReceipt, TransactionResponse } from "@ethersproject/abstract-provider";
 import { CometHarness, TotalsBasicStructOutput } from "../../build/types/CometHarness";
 import { CometConfigStruct } from "../../build/types/ConfigController";
+import { time } from "@nomicfoundation/hardhat-network-helpers";
 
 export { ethers, expect, hre };
 
@@ -263,6 +267,7 @@ export const factorDecimals = 18;
 export const factorScale = factor(1);
 export const ONE = factorScale;
 export const ZERO = factor(0);
+export const ZERO_ADDRESS = ethers.constants.AddressZero;
 
 export async function getBlock(n?: number, ethers_ = ethers): Promise<Block> {
   const blockNumber = n == undefined ? await ethers_.provider.getBlockNumber() : n;
@@ -863,4 +868,95 @@ function convertToBigInt(arr) {
 
 export function getGasUsed(tx: TransactionResponseExt): bigint {
   return tx.receipt.gasUsed.mul(tx.receipt.effectiveGasPrice).toBigInt();
+}
+
+/*//////////////////////////////////////////////////////////////
+                              PRICE FEEDS
+//////////////////////////////////////////////////////////////*/
+
+export async function makeWstETHPriceFeed({ stEthPrice, tokensPerStEth, updateTimeLimit, dao }) {
+  // factories
+  const SimplePriceFeed = (await ethers.getContractFactory("SimplePriceFeed")) as SimplePriceFeed__factory;
+  const SimpleWstETH = (await ethers.getContractFactory("SimpleWstETH")) as SimpleWstETH__factory;
+  const WstETHPriceFeed = (await ethers.getContractFactory("WstETHPriceFeed")) as WstETHPriceFeed__factory;
+
+  const wstETH = await SimpleWstETH.deploy(tokensPerStEth);
+
+  const stETHPriceFeed = await SimplePriceFeed.deploy(stEthPrice, 18, wstETH.address);
+  const fallbackPriceFeed = await SimplePriceFeed.deploy(stEthPrice, 18, wstETH.address);
+
+  const timeNow = await time.latest();
+  await stETHPriceFeed.setRoundData(1, stEthPrice, timeNow, timeNow, 1);
+
+  const wstETHPriceFeed = await WstETHPriceFeed.deploy(
+    stETHPriceFeed.address,
+    fallbackPriceFeed.address,
+    wstETH.address,
+    8,
+    updateTimeLimit,
+    updateTimeLimit,
+    dao.address
+  );
+  await wstETHPriceFeed.deployed();
+
+  return {
+    wstETH,
+    stETHPriceFeed,
+    wstETHPriceFeed,
+    fallbackPriceFeed,
+    WstETHPriceFeed,
+  };
+}
+
+export async function makeWBTCPriceFeed({
+  WBTCToBTCPrice,
+  BTCToUSDPrice,
+  fallbackBTCtoUSDPrice,
+  dao,
+  updateTimeLimit,
+  fallbackUpdateTimeLimit,
+}) {
+  const wbtc = await makeToken({ name: "Wrapped Bitcoin", symbol: "WBTC", decimals: 8 });
+
+  const SimplePriceFeed = (await ethers.getContractFactory("SimplePriceFeed")) as SimplePriceFeed__factory;
+
+  const WBTCToBTCPriceFeed = await SimplePriceFeed.deploy(WBTCToBTCPrice, 8, wbtc.address);
+  await WBTCToBTCPriceFeed.deployed();
+
+  const BTCToUSDPriceFeed = await SimplePriceFeed.deploy(BTCToUSDPrice, 8, wbtc.address);
+  await BTCToUSDPriceFeed.deployed();
+
+  const fallbackPriceFeed = await SimplePriceFeed.deploy(BTCToUSDPrice, 8, wbtc.address);
+  await fallbackPriceFeed.deployed();
+
+  // set correct info
+  const timeNow = await time.latest();
+  await WBTCToBTCPriceFeed.setRoundData(1, WBTCToBTCPrice, timeNow, timeNow, 1);
+  await BTCToUSDPriceFeed.setRoundData(1, BTCToUSDPrice, timeNow, timeNow, 1);
+  await fallbackPriceFeed.setRoundData(1, fallbackBTCtoUSDPrice, timeNow, timeNow, 1);
+
+  const WBTCPriceFeed = (await ethers.getContractFactory("WBTCPriceFeed")) as WBTCPriceFeed__factory;
+
+  const wbtcPriceFeed = await WBTCPriceFeed.deploy(
+    dao.address,
+    WBTCToBTCPriceFeed.address,
+    BTCToUSDPriceFeed.address,
+    fallbackPriceFeed.address,
+    updateTimeLimit,
+    fallbackUpdateTimeLimit,
+    8,
+    wbtc.address
+  );
+  await wbtcPriceFeed.deployed();
+
+  return {
+    SimplePriceFeed,
+    WBTCToBTCPriceFeed,
+    BTCToUSDPriceFeed,
+    fallbackPriceFeed,
+    WBTCPriceFeed,
+    wbtc,
+    wbtcPriceFeed,
+    fallbackBTCtoUSDPrice,
+  };
 }

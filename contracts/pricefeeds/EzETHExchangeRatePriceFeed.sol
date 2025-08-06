@@ -50,9 +50,8 @@ contract EzETHExchangeRatePriceFeed is IPriceFeed, AccessControl {
         uint8 decimals_,
         string memory description_,
         address underlyingToken_,
-        address owner_,
         address dao_
-    ) AccessControl(owner_, dao_) {
+    ) AccessControl(dao_) {
         if (ezETHRateProvider == address(0)) revert ZeroAddress();
         underlyingPriceFeed = ezETHRateProvider;
         fallbackPriceFeed = fallbackEzETHRateProvider;

@@ -11,7 +11,7 @@ import {
 } from "../../build/types";
 import { time } from "@nomicfoundation/hardhat-network-helpers";
 
-describe.only("PriceFeedWith4626Support", function () {
+describe("PriceFeedWith4626Support", function () {
   let snapshot: SnapshotRestorer;
 
   let owner: SignerWithAddress;

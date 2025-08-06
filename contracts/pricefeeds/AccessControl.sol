@@ -2,21 +2,17 @@
 pragma solidity 0.8.28;
 
 abstract contract AccessControl {
-    address public owner;
+    address public contractor;
     address public dao;
 
-    error ZeroAddress();
-    error NotOwner(address caller);
-    error NotDao(address caller);
-    error Unauthorized();
+    event DaoTransferred(address indexed previousDao, address indexed newDao);
+    event ContractorSet(address indexed previousContractor, address indexed newContractor);
 
-    /**
-     * @dev Modifier to check if the caller is the owner.
-     */
-    modifier onlyOwner() {
-        if (msg.sender != owner) revert NotOwner(msg.sender);
-        _;
-    }
+    error ZeroAddress();
+    error NotDao(address caller);
+    error NotContractor(address caller);
+    error Unauthorized();
+    error InvalidAddress();
 
     /**
      * @dev Modifier to check if the caller is the DAO.
@@ -32,28 +28,29 @@ abstract contract AccessControl {
      *      in the relevant functions. For shared powers, use onlyAuthorized.
      */
     modifier onlyAuthorized() {
-        if (msg.sender != owner && msg.sender != dao) revert Unauthorized();
+        if (msg.sender != contractor && msg.sender != dao) revert Unauthorized();
         _;
     }
 
-    constructor(address _owner, address _dao) {
-        if (_owner == address(0) || _dao == address(0)) revert ZeroAddress();
-
-        owner = _owner;
-        dao = _dao;
+    modifier onlyContractor() {
+        if (msg.sender != contractor) revert NotContractor(msg.sender);
+        _;
     }
 
-    event OwnerTransferred(address indexed previousOwner, address indexed newOwner);
-    event DaoTransferred(address indexed previousDao, address indexed newDao);
+    constructor(address _dao) {
+        if (_dao == address(0)) revert ZeroAddress();
 
-    /**
-     * @notice Transfers the owner privileges to a new address.
-     * @param newOwner The address of the new owner.
-     */
-    function transferOwner(address newOwner) external onlyOwner {
-        if (newOwner == address(0)) revert ZeroAddress();
-        emit OwnerTransferred(owner, newOwner);
-        owner = newOwner;
+        dao = _dao;
+
+        emit DaoTransferred(address(0), _dao);
+    }
+
+    function setContractor(address newContractor) external onlyDao {
+        if (newContractor == contractor) revert InvalidAddress();
+
+        emit ContractorSet(contractor, newContractor);
+
+        contractor = newContractor;
     }
 
     /**
@@ -62,7 +59,10 @@ abstract contract AccessControl {
      */
     function transferDao(address newDao) external onlyDao {
         if (newDao == address(0)) revert ZeroAddress();
+        if (newDao == dao) revert InvalidAddress();
+
         emit DaoTransferred(dao, newDao);
+
         dao = newDao;
     }
 }

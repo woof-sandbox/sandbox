@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
-import "../interfaces/AggregatorV3Interface.sol";
-import "../interfaces/ILRTOracle.sol";
-import "../interfaces/IPriceFeed.sol";
+import { IPriceFeed } from "contracts/interfaces/IPriceFeed.sol";
+import { ILRTOracle } from "contracts/interfaces/ILRTOracle.sol";
 
 /**
  * @title Scaling price feed for rsETH
@@ -11,12 +10,8 @@ import "../interfaces/IPriceFeed.sol";
  * @author Compound
  */
 contract RsETHScalingPriceFeed is IPriceFeed {
-    /** Custom errors **/
-    error InvalidInt256();
-    error BadDecimals();
-
     /// @notice Version of the price feed
-    uint public constant VERSION = 1;
+    uint256 public constant override version = 1;
 
     /// @notice Description of the price feed
     string public description;
@@ -27,14 +22,17 @@ contract RsETHScalingPriceFeed is IPriceFeed {
     /// @notice Underlying Kelp price feed where prices are fetched from
     address public immutable underlyingPriceFeed;
 
-    /// @notice Whether or not the price should be upscaled
-    bool internal immutable shouldUpscale;
-
     /// @notice The amount to upscale or downscale the price by
     int256 internal immutable rescaleFactor;
 
     /// @notice The underlying token
     address public immutable override underlyingToken;
+
+    /** Custom errors **/
+    error InvalidInt256();
+    error BadDecimals();
+    error ZeroAddress();
+    error PriceNotAvailable();
 
     /**
      * @notice Construct a new scaling price feed
@@ -44,20 +42,16 @@ contract RsETHScalingPriceFeed is IPriceFeed {
      * @param underlyingToken_ The address of the underlying token
      **/
     constructor(address underlyingPriceFeed_, uint8 decimals_, string memory description_, address underlyingToken_) {
+        if (underlyingPriceFeed_ == address(0) || underlyingToken_ == address(0)) revert ZeroAddress();
+        if (decimals_ == 0 || decimals_ > 18) revert BadDecimals();
+
         underlyingPriceFeed = underlyingPriceFeed_;
-        if (decimals_ > 18) revert BadDecimals();
+        underlyingToken = underlyingToken_;
         decimals = decimals_;
         description = description_;
 
         uint8 underlyingPriceFeedDecimals = 18;
-        // Note: Solidity does not allow setting immutables in if/else statements
-        shouldUpscale = underlyingPriceFeedDecimals < decimals_ ? true : false;
-        rescaleFactor = (
-            shouldUpscale
-                ? signed256(10 ** (decimals_ - underlyingPriceFeedDecimals))
-                : signed256(10 ** (underlyingPriceFeedDecimals - decimals_))
-        );
-        underlyingToken = underlyingToken_;
+        rescaleFactor = signed256(10 ** (underlyingPriceFeedDecimals - decimals_));
     }
 
     /**
@@ -74,30 +68,17 @@ contract RsETHScalingPriceFeed is IPriceFeed {
         override
         returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound)
     {
-        int256 price = signed256(ILRTOracle(underlyingPriceFeed).rsETHPrice());
-        return (1, scalePrice(price), block.timestamp, block.timestamp, 1);
+        int256 rsETHPrice = signed256(ILRTOracle(underlyingPriceFeed).rsETHPrice());
+
+        if (rsETHPrice == 0) revert PriceNotAvailable();
+
+        int256 price = rsETHPrice / rescaleFactor;
+
+        return (1, price, block.timestamp, block.timestamp, 1);
     }
 
     function signed256(uint256 n) internal pure returns (int256) {
         if (n > uint256(type(int256).max)) revert InvalidInt256();
         return int256(n);
-    }
-
-    function scalePrice(int256 price) internal view returns (int256) {
-        int256 scaledPrice;
-        if (shouldUpscale) {
-            scaledPrice = price * rescaleFactor;
-        } else {
-            scaledPrice = price / rescaleFactor;
-        }
-        return scaledPrice;
-    }
-
-    /**
-     * @notice Current version of the price feed
-     * @return The version of the price feed contract
-     **/
-    function version() external pure returns (uint256) {
-        return VERSION;
     }
 }

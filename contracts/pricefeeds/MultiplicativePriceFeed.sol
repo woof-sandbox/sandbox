@@ -53,9 +53,8 @@ contract MultiplicativePriceFeed is IPriceFeed, AccessControl {
         uint8 decimals_,
         string memory description_,
         address underlyingToken_,
-        address owner_,
         address dao_
-    ) AccessControl(owner_, dao_) {
+    ) AccessControl(dao_) {
         if (priceFeedA_ == address(0) || priceFeedB_ == address(0)) revert ZeroAddress();
 
         priceFeedA = priceFeedA_;
