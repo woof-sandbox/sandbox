@@ -111,27 +111,6 @@ Get the name of the SandboxComet
 | ---- | ---- | ----------- |
 | [0] | string | The name as a string |
 
-### collateralBalanceOf
-
-```solidity
-function collateralBalanceOf(address account, address asset) external view returns (uint256)
-```
-
-Query the current collateral balance of an account
-
-#### Parameters
-
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| account | address | The account whose balance to query |
-| asset | address | The collateral asset to check the balance for |
-
-#### Return Values
-
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| [0] | uint256 | The collateral balance of the account |
-
 ### baseTrackingAccrued
 
 ```solidity

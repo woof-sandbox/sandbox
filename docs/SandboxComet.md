@@ -792,7 +792,7 @@ function quoteCollateral(address asset, uint256 baseAmount) public view returns 
 ### totalSupply
 
 ```solidity
-function totalSupply() external view returns (uint256)
+function totalSupply() public view returns (uint256)
 ```
 
 Get the total number of tokens in circulation
