@@ -122,20 +122,22 @@ interface ICometErrors {
 
     error PrincipalDecreaseOnSupply();
 
-    /**
-     * @notice Error thrown when the market is deprecated
-     */
-    error MarketIsDeprecated();
+    // /**
+    //  * @notice Error thrown when the market is deprecated
+    //  */
+    // error MarketIsDeprecated();
 
-    /**
-     * @notice Error thrown when the market is deprecating
-     */
-    error DeprecationInProgress();
+    // /**
+    //  * @notice Error thrown when the market is deprecating
+    //  */
+    // error DeprecationInProgress();
 
-    /**
-     * @notice Error thrown when the market is not deprecated
-     */
-    error MarketIsNotDeprecated();
+    // /**
+    //  * @notice Error thrown when the market is not deprecated
+    //  */
+    // error MarketIsNotDeprecated();
+
+    error InvalidDeprecationState(uint8 deprecationStatus);
 
     /**
      * @notice Error thrown when the market still has active supply base tokens

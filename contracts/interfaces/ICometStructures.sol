@@ -28,8 +28,9 @@ interface ICometStructures {
         uint64 scale;
     }
 
-    struct DeprecationInitParams {
-        uint64 startLiquidateCollateralFactor;
-        uint64 startLiquidationFactor;
+    enum DeprecationStatus {
+        NotStarted,
+        InProgress,
+        Finalized
     }
 }

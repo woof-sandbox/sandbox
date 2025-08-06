@@ -9,6 +9,8 @@ import "./interfaces/ISandboxComet.sol";
 import "./interfaces/IPriceFeed.sol";
 import "./interfaces/IConfigController.sol";
 import "./interfaces/ISandboxController.sol";
+
+import "hardhat/console.sol";
 import "./interfaces/IRewardsV2.sol";
 
 /**
@@ -229,7 +231,7 @@ contract SandboxComet is CometCore, ISandboxComet {
         uint40 now_ = getNowInternal();
         uint40 timeElapsed = now_ - lastAccrualTime;
 
-        if (isDeprecating) _prepareDeprecation();
+        if (deprecationStatus == DeprecationStatus.InProgress) _prepareDeprecation();
 
         (baseSupplyIndex, baseBorrowIndex) = accruedInterestIndices(timeElapsed);
 
@@ -540,8 +542,9 @@ contract SandboxComet is CometCore, ISandboxComet {
         address dao = ISandboxController(sandboxController).dao(); // aderyn-fp(reentrancy-state-change)
         if (caller != configController && caller != dao) revert Unauthorized();
         /// Note: If the market is devaluating or already devalued, not allowed transfers the assets.
-        if (isDeprecating) revert DeprecationInProgress();
-        if (isDeprecated) revert MarketIsDeprecated();
+        if (deprecationStatus != DeprecationStatus.NotStarted) {
+            revert InvalidDeprecationState(uint8(deprecationStatus));
+        }
 
         pauseFlags =
             uint8(0) |
@@ -758,7 +761,9 @@ contract SandboxComet is CometCore, ISandboxComet {
         UserBasic memory dstUser = userBasic[dst];
         int104 dstPrincipal = dstUser.principal;
         /// Note: If the market is devalued, allow deposits to be made only to close the debt.
-        if (isDeprecated && dstPrincipal > 0) revert MarketIsDeprecated();
+        if (deprecationStatus != DeprecationStatus.NotStarted && dstPrincipal > 0) {
+            revert InvalidDeprecationState(uint8(deprecationStatus));
+        }
 
         int256 dstBalance = presentValue(dstPrincipal) + signed256(amount);
         int104 dstPrincipalNew = principalValue(dstBalance);
@@ -787,8 +792,9 @@ contract SandboxComet is CometCore, ISandboxComet {
      */
     function supplyCollateral(address from, address dst, address asset, uint256 amount) internal {
         /// Note: If the market is devaluating or already devalued, not allowed transfers the assets.
-        if (isDeprecating) revert DeprecationInProgress();
-        if (isDeprecated) revert MarketIsDeprecated();
+        if (deprecationStatus != DeprecationStatus.NotStarted) {
+            revert InvalidDeprecationState(uint8(deprecationStatus));
+        }
         amount = doTransferIn(asset, from, amount);
         accrueInternal();
 
@@ -858,8 +864,9 @@ contract SandboxComet is CometCore, ISandboxComet {
     function transferInternal(address operator, address src, address dst, address asset, uint256 amount, bool isAll) internal nonReentrant {
         if (amount == 0) revert ZeroAmount();
         /// Note: If the market is devaluating or already devalued, not allowed transfers the assets.
-        if (isDeprecating) revert DeprecationInProgress();
-        if (isDeprecated) revert MarketIsDeprecated();
+        if (deprecationStatus != DeprecationStatus.NotStarted) {
+            revert InvalidDeprecationState(uint8(deprecationStatus));
+        }
         if (isTransferPaused()) revert Paused();
         if (src == dst) revert NoSelfTransfer();
 
@@ -1006,8 +1013,9 @@ contract SandboxComet is CometCore, ISandboxComet {
         int104 srcPrincipalNew = principalValue(srcBalance);
 
         /// Note: If the market is devaluing or already devalued, not allowed getting the debt
-        if (isDeprecating && srcPrincipalNew < 0) revert DeprecationInProgress();
-        if (isDeprecated && srcPrincipalNew < 0) revert MarketIsDeprecated();
+        if (deprecationStatus != DeprecationStatus.NotStarted && srcPrincipalNew < 0) {
+            revert InvalidDeprecationState(uint8(deprecationStatus));
+        }
 
         (uint104 withdrawAmount, uint104 borrowAmount) = withdrawAndBorrowAmount(srcPrincipal, srcPrincipalNew);
         totalSupplyBase -= withdrawAmount;
@@ -1084,7 +1092,9 @@ contract SandboxComet is CometCore, ISandboxComet {
         if (caller != configController) revert Unauthorized();
         /// Note: Allowed to withdraw of seed reserves only if the market is devalued
         /// or the unlock timestamp has been reached
-        if (!isDeprecated && block.timestamp < unlockTimestamp) revert UnlockNotReached();
+        if (deprecationStatus != DeprecationStatus.Finalized && block.timestamp < unlockTimestamp) {
+            revert UnlockNotReached();
+        }
 
         int total = getReserves();
         if (total <= 0) revert NoFreeReserves();
@@ -1110,7 +1120,9 @@ contract SandboxComet is CometCore, ISandboxComet {
     function withdrawSurplusSeedReserves() external override nonReentrant {
         address dao = ISandboxController(sandboxController).dao(); // aderyn-fp(reentrancy-state-change)
         if (msg.sender != dao) revert Unauthorized();
-        if (!isDeprecated) revert MarketIsNotDeprecated();
+        if (deprecationStatus != DeprecationStatus.Finalized) {
+            revert InvalidDeprecationState(uint8(deprecationStatus));
+        }
         if (totalSupplyBase != 0) revert ActiveSupplyBaseExists();
 
         int256 total = getReserves();
@@ -1136,7 +1148,9 @@ contract SandboxComet is CometCore, ISandboxComet {
     function withdrawSurplusCollateralReserves(address[] calldata assets) external override nonReentrant {
         address dao = ISandboxController(sandboxController).dao(); // aderyn-fp(reentrancy-state-change)
         if (msg.sender != dao) revert Unauthorized();
-        if (!isDeprecated) revert MarketIsNotDeprecated();
+        if (deprecationStatus != DeprecationStatus.Finalized) {
+            revert InvalidDeprecationState(uint8(deprecationStatus));
+        }
         if (totalSupplyBase != 0) revert ActiveSupplyBaseExists();
 
         uint8 assetsLength = uint8(assets.length);
@@ -1189,40 +1203,104 @@ contract SandboxComet is CometCore, ISandboxComet {
 
         UserBasic memory accountUser = userBasic[account];
         int104 oldPrincipal = accountUser.principal;
+        console.logString("oldPrincipal:");
+        console.logInt(oldPrincipal);
         int256 oldBalance = presentValue(oldPrincipal);
+        console.logString("oldBalance:");
+        console.logInt(oldBalance);
+        console.logString("oldBalance to UINT:");
+        console.logUint(unsigned256(-oldBalance));
         uint24 assetsIn = accountUser.assetsIn;
-
+        console.logString("assetsIn:");
+        console.logUint(assetsIn);
         uint256 basePrice = getPrice(baseTokenPriceFeed);
         uint256 deltaValue = 0;
 
+        uint256 targetValue = mulPrice(unsigned256(-oldBalance), basePrice, uint64(baseScale));
+        console.logString("targetValue:");
+        console.logUint(targetValue);
+
         uint8 nAssets = numAssets;
-        for (uint8 i = 0; i < nAssets; ) {
-            // @todo
-            if (isInAsset(assetsIn, i)) {
-                CollateralAsset memory assetInfo = getAssetInfo(i);
-                address asset = assetInfo.collateralToken;
-                uint256 seizeAmount = userCollateral[account][asset];
-                userCollateral[account][asset] = 0;
-                totalsCollateral[asset] -= seizeAmount;
+        if (deprecationStatus == DeprecationStatus.Finalized) {
+            for (uint8 i = 0; i < nAssets; ) {
+                // @todo
+                if (isInAsset(assetsIn, i)) {
+                    CollateralAsset memory assetInfo = getAssetInfo(i);
+                    address asset = assetInfo.collateralToken;
+                    uint256 seizeAmount = userCollateral[account][asset];
+                    console.logString("seizeAmount:");
+                    console.logUint(seizeAmount);
 
-                uint256 value = mulPrice(seizeAmount, getPrice(assetInfo.priceFeed), assetInfo.scale);
-                deltaValue += mulFactor(value, assetInfo.liquidationFactor);
+                    uint256 value = mulPrice(seizeAmount, getPrice(assetInfo.priceFeed), assetInfo.scale);
+                    console.logString("value:");
+                    console.logUint(value);
+                    if (value <= targetValue) {
+                        targetValue -= value;
+                        deltaValue += mulFactor(value, assetInfo.liquidationFactor);
+                        userCollateral[account][asset] = 0;
+                        totalsCollateral[asset] -= seizeAmount;
+                    } else {
+                        deltaValue += mulFactor(targetValue, assetInfo.liquidationFactor);
+                        uint256 newSeizeAmount = divPrice((value - targetValue), getPrice(assetInfo.priceFeed), assetInfo.scale);
+                        console.logString("newSeizeAmount:");
+                        console.logUint(newSeizeAmount);
+                        userCollateral[account][asset] = newSeizeAmount;
+                        totalsCollateral[asset] -= seizeAmount - newSeizeAmount;
+                        targetValue = 0;
+                    }
+                    console.logString("deltaValue:");
+                    console.logUint(deltaValue);
 
-                emit AbsorbCollateral(absorber, account, asset, seizeAmount, value);
+                    emit AbsorbCollateral(absorber, account, asset, seizeAmount, value);
+                }
+                if (targetValue == 0) {
+                    // No need to continue if we have already seized enough collateral
+                    break;
+                } else {
+                    unchecked {
+                        ++i;
+                    }
+                }
             }
-            unchecked {
-                ++i;
+        } else {
+            for (uint8 i = 0; i < nAssets; ) {
+                // @todo temporary solution to such an expansion of logic
+                if (isInAsset(assetsIn, i)) {
+                    CollateralAsset memory assetInfo = getAssetInfo(i);
+                    address asset = assetInfo.collateralToken;
+                    uint256 seizeAmount = userCollateral[account][asset];
+                    console.logString("seizeAmount:");
+                    console.logUint(seizeAmount);
+                    userCollateral[account][asset] = 0;
+                    totalsCollateral[asset] -= seizeAmount;
+
+                    uint256 value = mulPrice(seizeAmount, getPrice(assetInfo.priceFeed), assetInfo.scale);
+                    console.logString("value:");
+                    console.logUint(value);
+                    deltaValue += mulFactor(value, assetInfo.liquidationFactor);
+                    console.logString("deltaValue:");
+                    console.logUint(deltaValue);
+
+                    emit AbsorbCollateral(absorber, account, asset, seizeAmount, value);
+                }
+                unchecked {
+                    ++i;
+                }
             }
         }
 
         uint256 deltaBalance = divPrice(deltaValue, basePrice, uint64(baseScale));
         int256 newBalance = oldBalance + signed256(deltaBalance);
+        console.logString("newBalance:");
+        console.logInt(newBalance);
         // New balance will not be negative, all excess debt absorbed by reserves
         if (newBalance < 0) {
             newBalance = 0;
         }
 
         int104 newPrincipal = principalValue(newBalance);
+        console.logString("newPrincipal:");
+        console.logInt(newPrincipal);
 
         /// @dev rewards should be updated with previous principal
         updateUserRewards(account);
@@ -1452,8 +1530,9 @@ contract SandboxComet is CometCore, ISandboxComet {
      */
     function initiateDeprecation() external override {
         if (msg.sender != configController) revert Unauthorized();
-        if (isDeprecated) revert MarketIsDeprecated();
-        if (isDeprecating) revert DeprecationInProgress();
+        if (deprecationStatus != DeprecationStatus.NotStarted) {
+            revert InvalidDeprecationState(uint8(deprecationStatus));
+        }
         /// Note: All pause flags are cleared
         pauseFlags = 0;
 
@@ -1463,22 +1542,26 @@ contract SandboxComet is CometCore, ISandboxComet {
         deprecationStartTime = now_;
         // Initialize deprecation parameters for each collateral asset
         for (uint8 i = 0; i < _numAssets; ) {
-            CollateralAsset memory assetInfo = getAssetInfo(i);
-            if (assetInfo.collateralToken == baseToken) continue;
+            CollateralAsset storage assetInfo = collateralAssets[i];
 
-            DeprecationInitParams memory initParams = DeprecationInitParams({
-                startLiquidateCollateralFactor: assetInfo.liquidateCollateralFactor,
-                startLiquidationFactor: assetInfo.liquidationFactor
-            });
+            assetInfo.liquidateCollateralFactor = TARGET_LIQUIDATE_COLLATERAL_FACTOR;
 
-            deprecationInitParams[assetInfo.collateralToken] = initParams;
+            startLiquidationFactors[assetInfo.collateralToken] = assetInfo.liquidationFactor;
 
             unchecked {
                 ++i;
             }
         }
+        /// Note: Resets all interest rates to zero
+        supplyPerSecondInterestRateSlopeLow = ZERO_INTEREST_RATE;
+        supplyPerSecondInterestRateSlopeHigh = ZERO_INTEREST_RATE;
+        supplyPerSecondInterestRateBase = ZERO_INTEREST_RATE;
+        borrowPerSecondInterestRateSlopeLow = ZERO_INTEREST_RATE;
+        borrowPerSecondInterestRateSlopeHigh = ZERO_INTEREST_RATE;
+        borrowPerSecondInterestRateBase = ZERO_INTEREST_RATE;
+
         /// Note: Marks the start of market deprecation process
-        isDeprecating = true;
+        deprecationStatus = DeprecationStatus.InProgress;
 
         emit DeprecationInitiated(now_, (now_ + DEPRECATION_DURATION));
     }
@@ -1504,17 +1587,8 @@ contract SandboxComet is CometCore, ISandboxComet {
             for (uint8 i = 0; i < _numAssets; ) {
                 CollateralAsset storage assetInfo = collateralAssets[i];
 
-                DeprecationInitParams memory initParams = deprecationInitParams[assetInfo.collateralToken];
-
-                assetInfo.liquidateCollateralFactor = interpolateValue(
-                    initParams.startLiquidateCollateralFactor,
-                    TARGET_LIQUIDATE_COLLATERAL_FACTOR,
-                    assetInfo.liquidateCollateralFactor,
-                    elapsed,
-                    DEPRECATION_DURATION
-                );
                 assetInfo.liquidationFactor = interpolateValue(
-                    initParams.startLiquidationFactor,
+                    startLiquidationFactors[assetInfo.collateralToken],
                     TARGET_LIQUIDATION_FACTOR,
                     assetInfo.liquidationFactor,
                     elapsed,
@@ -1543,15 +1617,13 @@ contract SandboxComet is CometCore, ISandboxComet {
             CollateralAsset storage assetInfo = collateralAssets[i];
 
             assetInfo.liquidationFactor = TARGET_LIQUIDATION_FACTOR;
-            assetInfo.liquidateCollateralFactor = TARGET_LIQUIDATE_COLLATERAL_FACTOR;
 
             unchecked {
                 ++i;
             }
         }
         /// Note: Marks the end of market deprecation process
-        isDeprecating = false;
-        isDeprecated = true;
+        deprecationStatus = DeprecationStatus.Finalized;
 
         emit DeprecationFinalized();
     }

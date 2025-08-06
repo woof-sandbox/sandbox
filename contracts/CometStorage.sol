@@ -56,6 +56,8 @@ contract CometStorage is ICometStructures {
 
     uint40 internal constant DEPRECATION_DURATION = 21 days;
 
+    uint64 internal constant ZERO_INTEREST_RATE = 0;
+
     /** General configuration constants **/
     /// @notice Config Controller address
     address public configController;
@@ -128,10 +130,12 @@ contract CometStorage is ICometStructures {
     /// @notice Unlock timestamp
     uint64 public unlockTimestamp;
 
-    /// @notice Whether the market is devalued
-    bool public isDeprecated;
+    // /// @notice Whether the market is devalued
+    // bool public isDeprecated;
 
-    bool public isDeprecating;
+    // bool public isDeprecating;
+
+    DeprecationStatus public deprecationStatus;
 
     uint40 internal deprecationStartTime;
 
@@ -174,5 +178,5 @@ contract CometStorage is ICometStructures {
     mapping(address => uint8) public collateralAssetIndex;
     CollateralAsset[] public collateralAssets;
 
-    mapping(address => DeprecationInitParams) public deprecationInitParams;
+    mapping(address => uint64) public startLiquidationFactors;
 }
