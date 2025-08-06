@@ -32,4 +32,8 @@ interface IConfigControllerEvents {
     event ProposalCanceled(uint256 indexed proposalId, address indexed canceler);
 
     event OwnershipGranted(address indexed oldOwner, address indexed newOwner);
+
+    event ProposeCollateralRemoval(uint256 indexed proposalId, address indexed proposer, address indexed collateralToken);
+
+    event ProposeCollateralRemovalAccepted(uint256 indexed proposalId, address indexed accepter, address indexed collateralToken);
 }

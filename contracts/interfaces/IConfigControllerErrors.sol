@@ -34,4 +34,5 @@ interface IConfigControllerErrors {
     error ProposalNotTimelocked();
     error CometCallFailed();
     error MaxCollateralTokensReached();
+    error CollateralTokenNotAdded();
 }

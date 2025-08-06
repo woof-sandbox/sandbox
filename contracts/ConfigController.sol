@@ -31,27 +31,27 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
     uint32 public constant FEE_DIVISOR = 1e4;
 
     /// @notice The lifetime of the new collateral proposal
-    /// @dev The maximum value is 3 months. 3 month in seconds is 7776000. The max value of uint32 is 4294967295.
-    uint40 public constant PRPOPOSE_NEW_COLLATERAL_LIFETIME = 2 weeks;
+    /// @dev the max value of the uint24 is 16_777_215 seconds and 6.5 months or 194 days.
+    uint24 public constant PRPOPOSE_NEW_COLLATERAL_LIFETIME = 2 weeks;
     /// @notice The maturity time of the new collateral proposal
-    uint40 public constant PROPOSE_NEW_COLLATERAL_MATURITY = 1 weeks;
+    uint24 public constant PROPOSE_NEW_COLLATERAL_MATURITY = 1 weeks;
     /// @notice The timelock of the new collateral proposal
-    uint40 public constant PROPOSE_NEW_COLLATERAL_TIMELOCK = 0;
+    uint24 public constant PROPOSE_NEW_COLLATERAL_TIMELOCK = 0;
     /// @notice The lifetime of the collateral removal proposal
-    uint40 public constant PROPOSE_COLLATERAL_REMOVAL_LIFETIME = 1 weeks; 
+    uint24 public constant PROPOSE_COLLATERAL_REMOVAL_LIFETIME = 2 weeks; 
     /// @notice The maturity time of the collateral removal proposal
-    uint40 public constant PROPOSE_COLLATERAL_REMOVAL_MATURITY = 0;
+    uint24 public constant PROPOSE_COLLATERAL_REMOVAL_MATURITY = 1 weeks;
     /// @notice The timelock of the collateral removal proposal
-    uint40 public constant PROPOSE_COLLATERAL_REMOVAL_TIMELOCK = 0;
+    uint24 public constant PROPOSE_COLLATERAL_REMOVAL_TIMELOCK = 0;
     /// @notice The lifetime of the curator proposal
-    uint40 public constant PROPOSE_CURATOR_LIFETIME = 1 weeks;
+    uint24 public constant PROPOSE_CURATOR_LIFETIME = 1 weeks;
     /// @notice The maturity time of the curator proposal
-    uint40 public constant PROPOSE_CURATOR_MATURITY = 0;
+    uint24 public constant PROPOSE_CURATOR_MATURITY = 0;
     /// @notice The timelock of the curator proposal
-    uint40 public constant PROPOSE_CURATOR_TIMELOCK = 0;
+    uint24 public constant PROPOSE_CURATOR_TIMELOCK = 0;
 
     /// @notice The address of the protocol owner
-    address dpublic override owner;
+    address public override owner;
 
     /// @notice The address of the protocol curator
     address public override curator;
@@ -188,9 +188,9 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
         proposals[_proposalId] = Proposal({
             proposer: msg.sender,
             proposalType: ProposalType.ProposeCurator,
-            expirationTime: block.timestamp + PROPOSE_CURATOR_LIFETIME,
-            maturityTime: block.timestamp + PROPOSE_CURATOR_MATURITY,
-            timelock: block.timestamp + PROPOSE_CURATOR_TIMELOCK, 
+            expirationTime: uint40(block.timestamp + PROPOSE_CURATOR_LIFETIME),
+            maturityTime: uint40(block.timestamp + PROPOSE_CURATOR_MATURITY),
+            timelock: uint40(block.timestamp + PROPOSE_CURATOR_TIMELOCK), 
             comet: address(0),
             call: _calldata
         });
@@ -200,7 +200,7 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
 
     // Hardcoded selector for addCollateralToken function
     bytes4 constant ADD_COLLATERAL_SELECTOR = 0xfad67aaa;
-    bytes4 constant REMOVE_COLLATERAL_SELECTOR = 0x42966c68;
+    bytes4 constant REMOVE_COLLATERAL_SELECTOR = 0x58b77c0e;
 
     /**
      * @notice Creates a new proposal
@@ -234,7 +234,7 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
         uint8 _proposalType
     ) external returns (uint256) {
         // Check if proposal type is valid
-        if (_proposalType >= uint8(ProposalType.ProposeNewCollateralToken) + 1) revert InvalidProposalType();
+        if (_proposalType > uint8(ProposalType.ProposeCollateralRemoval)) revert InvalidProposalType();
         if (_proposalType != uint8(ProposalType.ProposeCurator) && !_isCometOwned(_comet)) revert UnknownComet(); 
         // Increment proposal counter
         proposalCounter++;
@@ -256,13 +256,13 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
 
             CollateralTokenConfig memory collateralConfig = abi.decode(_calldata[4:], (CollateralTokenConfig));
 
-            try ISandboxCometConfig(_comet).getAssetInfoByAddress(collateralConfig.collateralToken) {
+            ISandboxCometConfig comet = ISandboxCometConfig(_comet);
+            try comet.getAssetInfoByAddress(collateralConfig.collateralToken) {
                 revert CollateralTokenAlreadyAdded();
             }
             catch {
                 // Do nothing.
             }
-            ISandboxCometConfig comet = ISandboxCometConfig(_comet);
             if (comet.baseToken() == collateralConfig.collateralToken) revert WrongCollateralTokenSettings();
             
             _validateCollateralTokenConfig(collateralConfig);
@@ -273,9 +273,9 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
             proposals[proposalId] = Proposal({
                 proposer: msg.sender,
                 proposalType: ProposalType.ProposeNewCollateralToken,
-                maturityTime: block.timestamp + PROPOSE_NEW_COLLATERAL_MATURITY,
-                expirationTime: block.timestamp + PRPOPOSE_NEW_COLLATERAL_LIFETIME,
-                timelock: block.timestamp + PROPOSE_NEW_COLLATERAL_TIMELOCK,
+                maturityTime: uint40(block.timestamp + PROPOSE_NEW_COLLATERAL_MATURITY),
+                expirationTime: uint40(block.timestamp + PRPOPOSE_NEW_COLLATERAL_LIFETIME),
+                timelock: uint40(block.timestamp + PROPOSE_NEW_COLLATERAL_TIMELOCK),
                 comet: _comet,
                 call: _calldata
             });
@@ -286,7 +286,7 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
             _proposeCurator(_calldata, proposalId);
         /// Propose collateral removal.
         } else if (_proposalType == uint8(ProposalType.ProposeCollateralRemoval)) {
-            if (msg.sender != owner) revert Unauthorized();
+            if (msg.sender != owner && msg.sender != curator) revert Unauthorized();
             /**
              * --- Before creating the proposal checks ---
              * - Check if the selector is valid.
@@ -294,14 +294,32 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
              */
             bytes4 selector = bytes4(_calldata);
             if (selector != REMOVE_COLLATERAL_SELECTOR) revert InvalidSelector();
+            
+            /**
+             * --- Decode the collateral token from calldata ---
+             * calldata in bytes format is:
+             * [selector(4 bytes)][collateralToken(32 bytes)]
+             */
 
+            address collateralToken = abi.decode(_calldata[4:], (address));
             /// Inside the comet, the function getAssetInfoByAddress will revert if the collateral token is not added.
-            try comet.getAssetInfoByAddress(collateralConfig.collateralToken) {
-                revert CollateralTokenAlreadyAdded();
+            try ISandboxCometConfig(_comet).getAssetInfoByAddress(collateralToken) {
             }
             catch {
-                // Do nothing.
+                revert CollateralTokenNotAdded();
             }
+
+            // Create the proposal   
+            proposals[proposalId] = Proposal({
+                proposer: msg.sender,
+                proposalType: ProposalType.ProposeCollateralRemoval,
+                maturityTime: uint40(block.timestamp + PROPOSE_COLLATERAL_REMOVAL_MATURITY),
+                expirationTime: uint40(block.timestamp + PROPOSE_COLLATERAL_REMOVAL_LIFETIME),
+                timelock: uint40(block.timestamp + PROPOSE_COLLATERAL_REMOVAL_TIMELOCK),
+                comet: _comet,
+                call: _calldata
+            });
+            emit ProposeCollateralRemoval(proposalId, msg.sender, collateralToken);
         }
         
         return proposalId;
@@ -376,11 +394,10 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
              * - We can't add the same collateral token twice. 
              * - We can't add more than MAX_ASSETS collateral tokens.
             */
-            // Extract selector and parameters
             bytes4 selector = bytes4(_proposal.call);
             if (selector != ADD_COLLATERAL_SELECTOR) revert InvalidSelector();
             
-            // Create a new bytes array for parameters (skip first 4 bytes)
+            // Copy the parameters (skip the first 4 bytes which is the selector)
             bytes memory params = new bytes(_proposal.call.length - 4);
             for (uint i = 4; i < _proposal.call.length; i++) {
                 params[i - 4] = _proposal.call[i];
@@ -411,6 +428,48 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
             
             
             emit ProposeNewCollateralTokenAccepted(_proposalId, msg.sender, collateralConfig);
+        } else if (_proposal.proposalType == ProposalType.ProposeCollateralRemoval) {
+            /**
+             * --- Significant checks ---
+             * The most significant checks. If they fail, the proposal can't be executed. Since that we performed them earlier.  
+             * - Check that the msg.sender is owner or curator.         
+             * - Check if the comet is owned by the ConfigController. Before the proposal is executed the comet can be 
+             *   transferred to the another ConfigController.
+             */
+            if (msg.sender != owner && msg.sender != curator) revert Unauthorized();
+            if (!_isCometOwned(_proposal.comet)) revert UnknownComet();
+
+            /**
+             * --- Before executing the proposal checks ---
+             * - Check if the collateral token is stil the part of the comet collateral list.
+             */
+              
+            // Copy the parameters (skip the first 4 bytes which is the selector)
+            bytes memory collateralTokenBytes = new bytes(_proposal.call.length - 4);
+            for (uint i = 4; i < _proposal.call.length; i++) {
+                collateralTokenBytes[i - 4] = _proposal.call[i];
+            }            
+            address collateralToken = abi.decode(collateralTokenBytes, (address));
+
+            /// Inside the comet, the function getAssetInfoByAddress will revert if the collateral token is not added.
+            try ISandboxCometConfig(_proposal.comet).getAssetInfoByAddress(collateralToken) {
+                // Collateral token is still part of the comet collateral list
+            }
+            catch {
+                revert CollateralTokenNotAdded();
+            }
+
+            /// Execute the collateral removal
+            (bool success, bytes memory result) = _proposal.comet.call(_proposal.call);
+            if (!success) revert CometCallFailed();
+            /**
+             * --- After executing the proposal ---
+             * - We must mark the proposal as not active.
+             * - No additional checks are needed, since the only the ConfigController is evolved.
+             */
+            _proposal.expirationTime = 0;
+            
+            emit ProposeCollateralRemovalAccepted(_proposalId, msg.sender, collateralToken);
         }
 
         proposals[_proposalId] = _proposal;
@@ -431,22 +490,16 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
         if (block.timestamp > _proposal.expirationTime) revert ProposalExpired();
         
         // Check authorization based on proposal state
-        bool canCancel = false;
+        bool canCancel;
         
-        if (_proposal.maturityTime > 0) {
-            // Proposal has maturity period
-            if (block.timestamp < _proposal.maturityTime) {
-                // During maturity period: only guardian or owner can cancel
-                canCancel = (msg.sender == guardian || msg.sender == owner);
-            } else {
-                // After the maturity time the curator can cancel if the curator is proposer or owner can cancel
-                canCancel = ((msg.sender == _proposal.proposer && msg.sender == curator) || msg.sender == owner);
-            }
+        // Proposal has maturity period
+        if (block.timestamp < _proposal.maturityTime) {
+            // During maturity period: only guardian or owner can cancel
+            canCancel = (msg.sender == guardian || (msg.sender == _proposal.proposer && msg.sender == curator) || msg.sender == owner);
         } else {
-            // No maturity period: the curator can cancel if the curator is proposer or owner can cancel.
+            // After the maturity time the curator can cancel if the curator is proposer or owner can cancel
             canCancel = ((msg.sender == _proposal.proposer && msg.sender == curator) || msg.sender == owner);
         }
-        
         if (!canCancel) revert Unauthorized();
         
         // Cancel the proposal

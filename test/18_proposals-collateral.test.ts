@@ -2,7 +2,7 @@ import { SnapshotRestorer, takeSnapshot } from "@nomicfoundation/hardhat-network
 import { makeProtocol, ethers, expect } from "./helper/helpers";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { ContractTransaction, ContractReceipt, Event } from "ethers";
-import { CollateralAssetStruct, SandboxComet } from "../build/types/SandboxComet";
+import { CollateralAssetStruct } from "../build/types/SandboxComet";
 import { 
     ConfigControllerProposalTest, 
     ConfigController, 
@@ -12,7 +12,8 @@ import {
     SandboxCometFactory, 
     SandboxController, 
     SimplePriceFeed, 
-    SimplePriceFeed__factory 
+    SimplePriceFeed__factory,
+    SandboxComet
 } from "../build/types";
 import { CollateralTokenConfigStruct, CometConfigStruct } from "../build/types/ConfigController";
 import { ProposeNewCollateralTokenEvent } from "../build/types/ConfigControllerProposalTest";
