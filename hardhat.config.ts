@@ -1,7 +1,6 @@
 import 'dotenv/config';
 
 import { HardhatUserConfig, task } from 'hardhat/config';
-import '@compound-finance/hardhat-import';
 import '@nomiclabs/hardhat-ethers';
 import '@nomiclabs/hardhat-etherscan';
 import '@typechain/hardhat';
