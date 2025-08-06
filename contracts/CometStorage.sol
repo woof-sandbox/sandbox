@@ -39,9 +39,10 @@ contract CometStorage {
         uint64 scale;
     }
 
-    struct DeprecationInitParams {
-        uint64 startLiquidateCollateralFactor;
-        uint64 startLiquidationFactor;
+    enum DeprecationStatus {
+        NotStarted,
+        InProgress,
+        Finalized
     }
 
     /** Internal constants **/
@@ -90,6 +91,8 @@ contract CometStorage {
     uint64 internal constant TARGET_LIQUIDATION_FACTOR = 1e18;
 
     uint40 internal constant DEPRECATION_DURATION = 21 days;
+
+    uint64 internal constant ZERO_INTEREST_RATE = 0;
 
     /** General configuration constants **/
     /// @notice Config Controller address
@@ -179,10 +182,12 @@ contract CometStorage {
     /// @notice Unlock timestamp
     uint64 public unlockTimestamp;
 
-    /// @notice Whether the market is devalued
-    bool public isDeprecated;
+    // /// @notice Whether the market is devalued
+    // bool public isDeprecated;
 
-    bool public isDeprecating;
+    // bool public isDeprecating;
+
+    DeprecationStatus public deprecationStatus;
 
     uint40 internal deprecationStartTime;
 
@@ -226,5 +231,5 @@ contract CometStorage {
     mapping(address => uint8) public collateralAssetIndex;
     CollateralAsset[] public collateralAssets;
 
-    mapping(address => DeprecationInitParams) public deprecationInitParams;
+    mapping(address => uint64) public startLiquidationFactors;
 }

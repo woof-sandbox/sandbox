@@ -278,8 +278,6 @@ describe("21. withdraw reserves", function () {
 
     // @todo add tests for withdrawal reserves when the market is deprecated
   });
-;
-
   describe("Edge Cases", function () {
     context("Overflow:", function () {
       // Global variables for the context of the tests
@@ -506,7 +504,7 @@ describe("21. withdraw reserves", function () {
         // Withdraw base token from the comet contract
         await comet.connect(secondUser).withdraw(baseToken.address, ethers.constants.MaxUint256);
         // Check that the market is deprecated
-        expect(await comet.isDeprecated()).to.be.true;
+        expect(await comet.deprecationStatus()).to.equal(2); // DeprecationStatus.Finalized
         console.log(
           "\nUser (firstUser) base balance before liquidation:",
           ethers.utils.formatEther(await comet.balanceOf(firstUser.address))
