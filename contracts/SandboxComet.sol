@@ -675,6 +675,49 @@ contract SandboxComet is ISandboxComet {
         int104 dstPrincipal = dstUser.principal;
         int256 dstBalance = presentValue(dstPrincipal) + signed256(amount);
         int104 dstPrincipalNew = principalValue(dstBalance);
+        // We must to detect if the user is repaying debt.
+        if (dstPrincipal < 0) {
+            // If the user is repaying not the all debt, we can take the delta value from the amount.
+            if (dstPrincipalNew < 0) {
+                // Get the delta value from the amount. The delta is the difference betwenn the borrow rate and the supply rate.
+                uint256 deltaValue = amount;
+                
+                // Split the delta into three parts:
+                (, uint256 daoFee, uint256 controllerFee) = _distributeProfit(deltaValue);
+                // 1. The reserve commission. get the percentage from the SandboxController.getCommissions
+                // 2. The protocol commission. get the percentage from the SandboxController.getCommissions
+                // 3. The config controller commission. The rest of the amount.
+                // Save the protocol commisison to assetFeesDAO[asset] if the fee is enabled.
+                // The reserves commission is not needed to save, because it is already in the reserves.
+                if (daoFee > 0) {
+                    assetFeesDAO[baseToken] += daoFee;
+                }
+                // Save the config controller commission to assetFeesController[asset]. if the config controller is enabled.
+                if (controllerFee > 0) {
+                    assetFeesController[baseToken] += controllerFee;
+                }
+            } else {
+                // If the user is repaying the all debt, we must to calcualte the amount of the debt.
+                // Get the delta value from the amount. The delta is the difference betwenn the borrow rate and the supply rate.
+                // Calculate the actual debt amount by converting principal value to present value
+                uint256 deltaValue = presentValueBorrow(baseBorrowIndex, uint104(-dstPrincipal));
+                
+                // Split the delta into three parts:
+                (, uint256 daoFee, uint256 controllerFee) = _distributeProfit(deltaValue);
+                // 1. The reserve commission. get the percentage from the SandboxController.getCommissions
+                // 2. The protocol commission. get the percentage from the SandboxController.getCommissions
+                // 3. The config controller commission. The rest of the amount.
+                // Save the protocol commisison to assetFeesDAO[asset] if the fee is enabled.
+                // The reserves commission is not needed to save, because it is already in the reserves.
+                if (daoFee > 0) {
+                    assetFeesDAO[baseToken] += daoFee;
+                }
+                // Save the config controller commission to assetFeesController[asset]. if the config controller is enabled.
+                if (controllerFee > 0) {
+                    assetFeesController[baseToken] += controllerFee;
+                }
+            }
+        }
 
         (uint104 repayAmount, uint104 supplyAmount) = repayAndSupplyAmount(dstPrincipal, dstPrincipalNew);
         totalSupplyBase += supplyAmount;
@@ -1043,6 +1086,7 @@ contract SandboxComet is ISandboxComet {
         if (amountOut + feeProtocol + feeController > getCollateralReserves(asset)) revert InsufficientReserves();
 
         if (feeProtocol > 0) {
+            // TODO: Fix the feeController to feeProtocol
             assetFeesDAO[asset] += feeController;
         }
         if (feeController > 0) {
@@ -1130,7 +1174,7 @@ contract SandboxComet is ISandboxComet {
         uint256 scaledBaseAmount = mulFactor(baseAmount, 2 * FACTOR_SCALE - assetInfo.liquidationFactor);
         uint256 scaledCollateralValue = (scaledBaseAmount * basePrice * assetInfo.scale) / assetPrice / baseScale;
         uint256 profit = scaledCollateralValue - amountOut;
-
+        // TODO: Maybe delete the feeReserve
         // function guarantees that reserve+protocol+controller == profit
         (feeReserve, feeProtocol, feeController) = _distributeProfit(profit);
     }
@@ -1193,7 +1237,7 @@ contract SandboxComet is ISandboxComet {
         uint256 seedUsd = (seedReserves * basePrice) / baseScale;
         uint256 targetUsd = (targetReserves() * basePrice) / baseScale;
 
-        (uint64 reservePct, uint64 protocolPct) = ISandboxController(sandboxController).getCommissions(reservesUsd, seedUsd, targetUsd);
+        (uint64 reservePct, uint64 protocolPct) = ISandboxController(sandboxController).getCommissions(reservesUsd, targetUsd);
 
         _reserveFee = mulFactor(profitAmount, uint256(reservePct));
         _daoFee = mulFactor(profitAmount, uint256(protocolPct));
