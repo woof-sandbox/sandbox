@@ -42,14 +42,12 @@ interface ICometStructures {
     }
 
     struct CollateralRemovalState {
-        // 1st slot 28 bytes occupied and 4 bytes free
-        address collateralToken; //20
-        uint64 startBorrowCollateralFactor; //8
-        // 2nd slot 20 bytes occupied and 12 bytes free
-        uint64 startLiquidateCollateralFactor; //8
-        uint40 startTime; //5
-        uint40 duration; //5
-        uint8 collateralAssetIndex; //1
-        bool removalInProgress; //1
+        address collateralToken;
+        uint64 startBorrowCollateralFactor;
+        uint64 startLiquidateCollateralFactor;
+        uint40 startTime;
+        uint40 duration;
+        uint8 collateralAssetIndex;
+        bool removalInProgress;
     }
 }

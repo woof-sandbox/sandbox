@@ -458,39 +458,33 @@ contract SandboxComet is CometCore, ISandboxComet {
      */
     function _prepareCollateralRemoval() internal {
         CollateralRemovalState memory collateralRemovalState_ = _collateralRemovalState;
-
-        CollateralAsset memory collateralAsset_ = collateralAssets[collateralRemovalState_.collateralAssetIndex];
-
+        CollateralAsset storage collateralAsset = collateralAssets[collateralRemovalState_.collateralAssetIndex];
+        uint40 now_ = getNowInternal();
         // If the end time of the collateral removal is reached, finalize the removal of the asset
-        if ((collateralRemovalState_.startTime + collateralRemovalState_.duration) <= getNowInternal()) {
+        if ((collateralRemovalState_.startTime + collateralRemovalState_.duration) <= now_) {
             // Set the borrow and liquidate collateral factors to the target values
-            collateralAsset_.borrowCollateralFactor = TARGET_BORROW_COLLATERAL_FACTOR;
-            collateralAsset_.liquidateCollateralFactor = TARGET_LIQUIDATE_COLLATERAL_FACTOR;
+            collateralAsset.borrowCollateralFactor = TARGET_BORROW_COLLATERAL_FACTOR;
+            collateralAsset.liquidateCollateralFactor = TARGET_LIQUIDATE_COLLATERAL_FACTOR;
             // Remove the collateral asset from the list of active collateral assets and save it to the removed assets list
-            _finalizeCollateralRemoval(collateralAsset_, collateralRemovalState_);
+            _finalizeCollateralRemoval(collateralAsset, collateralRemovalState_);
         } else {
-            uint40 now_ = getNowInternal();
             uint40 elapsed = now_ - collateralRemovalState_.startTime;
-
-            // Calculate the new borrow collateral factors
-            collateralAsset_.borrowCollateralFactor = interpolateValue(
+            // Calculate and set the new borrow collateral factors
+            collateralAsset.borrowCollateralFactor = interpolateValue(
                 collateralRemovalState_.startBorrowCollateralFactor,
                 TARGET_BORROW_COLLATERAL_FACTOR,
-                collateralAsset_.borrowCollateralFactor,
+                collateralAsset.borrowCollateralFactor,
                 elapsed,
                 collateralRemovalState_.duration
             );
-            // Calculate the new liquidate collateral factors
-            collateralAsset_.liquidateCollateralFactor = interpolateValue(
+            // Calculate and set the new liquidate collateral factors
+            collateralAsset.liquidateCollateralFactor = interpolateValue(
                 collateralRemovalState_.startLiquidateCollateralFactor,
                 TARGET_LIQUIDATE_COLLATERAL_FACTOR,
-                collateralAsset_.liquidateCollateralFactor,
+                collateralAsset.liquidateCollateralFactor,
                 elapsed,
                 collateralRemovalState_.duration
             );
-
-            // Update the asset in the list with the new borrow and liquidate collateral factors
-            collateralAssets[collateralRemovalState_.collateralAssetIndex] = collateralAsset_;
         }
     }
 
