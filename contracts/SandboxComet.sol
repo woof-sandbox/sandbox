@@ -264,6 +264,11 @@ contract SandboxComet is CometCore, ISandboxComet {
      * @return The per second supply rate at `utilization`
      */
     function getSupplyRate(uint utilization) public view override returns (uint64) {
+        /// No supply - no supply interest
+        if (totalSupplyBase == 0) return 0;
+
+        /// No borrows - keep interest until the seed reserves exhaustion
+        if (utilization == 0 && totalSupply() >= IERC20(baseToken).balanceOf(address(this))) return 0;
         if (utilization <= supplyKink) {
             // interestRateBase + interestRateSlopeLow * utilization
             return safe64(supplyPerSecondInterestRateBase + mulFactor(supplyPerSecondInterestRateSlopeLow, utilization));
@@ -660,6 +665,7 @@ contract SandboxComet is CometCore, ISandboxComet {
      * @dev Supply either collateral or base asset, depending on the asset, if operator is allowed
      */
     function supplyInternal(address operator, address from, address dst, address asset, uint256 amount, bool isAll) internal nonReentrant {
+        if (asset == address(0)) revert ZeroAddress();
         if (amount == 0) revert ZeroAmount();
         if (isSupplyPaused()) revert Paused();
 
@@ -1168,7 +1174,7 @@ contract SandboxComet is CometCore, ISandboxComet {
      * @dev Note: uses updated interest indices to calculate
      * @return The supply of tokens
      **/
-    function totalSupply() external view override returns (uint256) {
+    function totalSupply() public view override returns (uint256) {
         (uint64 baseSupplyIndex_, ) = accruedInterestIndices(getNowInternal() - lastAccrualTime);
         return presentValueSupply(baseSupplyIndex_, totalSupplyBase);
     }

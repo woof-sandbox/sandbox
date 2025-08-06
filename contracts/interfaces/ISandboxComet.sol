@@ -10,6 +10,8 @@ import { ICometStructures } from "./ICometStructures.sol";
  * @author Compound
  */
 interface ISandboxComet {
+    function userCollateral(address user, address asset) external returns (uint256);
+
     function supply(address asset, uint256 amount) external;
 
     function supplyTo(address dst, address asset, uint256 amount) external;

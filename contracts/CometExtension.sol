@@ -91,16 +91,6 @@ contract CometExtension is ICometExtension {
     }
 
     /**
-     * @notice Query the current collateral balance of an account
-     * @param account The account whose balance to query
-     * @param asset The collateral asset to check the balance for
-     * @return The collateral balance of the account
-     */
-    function collateralBalanceOf(address account, address asset) external view override returns (uint256) {
-        return userCollateral[account][asset];
-    }
-
-    /**
      * @notice Query the total accrued base rewards for an account
      * @param account The account to query
      * @return The accrued rewards, scaled by `BASE_ACCRUAL_SCALE`
