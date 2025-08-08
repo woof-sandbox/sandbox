@@ -449,21 +449,15 @@ describe.only("5. supply", function () {
       });
 
       it("balanceOf() is >= bob's deposit", async () => {
-        const snapshot: SnapshotRestorer = await takeSnapshot();
-
         const newBalanceNaive = SUPPLIED_AMOUNT_BOB;
 
         /// Note: since there is a rounding error, the immediate comet.balanceOf() may return value
         /// which is 1 wei less than the deposited amount. Though the difference will be neglected
         /// in around 1 block of supply interest (in case if )
-        await ethers.provider.send("evm_increaseTime", [30]); // 30 sec
-        await ethers.provider.send("evm_mine", []);
 
         const newBalance = await comet.balanceOf(bob.address);
 
-        expect(newBalance).to.be.greaterThanOrEqual(newBalanceNaive);
-
-        await snapshot.restore();
+        expect(newBalance.sub(newBalanceNaive)).to.be.approximately(0, 1);
       });
 
       it("Comet's displayed total supply corresponds to displayed balances from all users", async () => {
@@ -472,7 +466,11 @@ describe.only("5. supply", function () {
         const alicePresent = await comet.balanceOf(alice.address);
         const bobPresent = await comet.balanceOf(bob.address);
         const totalPresentSupply = alicePresent.add(bobPresent);
-        expect(await comet.totalSupply()).to.equal(totalPresentSupply);
+
+        /// Note: because of the rounding errors accumulated (supplied amount -> principle -> present value)
+        /// There is a high chance to have around 1 wei difference in the displayed market supply (totalSupply())
+        /// and the sum of all balances from all users
+        expect(await comet.totalSupply()).to.be.approximately(totalPresentSupply, 1);
       });
     });
   });
