@@ -15,13 +15,13 @@ import { AccessControl } from "contracts/pricefeeds/AccessControl.sol";
  */
 contract ScalingPriceFeed is AccessControl, IPriceFeed {
     /// @notice Version of the price feed
-    uint public constant override version = 1;
-
-    /// @notice Description of the price feed
-    string public description;
+    uint256 public constant override version = 1;
 
     /// @notice Number of decimals for returned prices
     uint8 public immutable override decimals;
+
+    /// @notice Description of the price feed
+    string public description;
 
     /// @notice Underlying price feed where prices are fetched from
     address public underlyingPriceFeed;
@@ -29,27 +29,32 @@ contract ScalingPriceFeed is AccessControl, IPriceFeed {
     /// @notice Fallback price feed address
     address public fallbackPriceFeed;
 
-    /// @notice Whether or not the price should be upscaled
-    bool internal shouldUpscale;
-
-    bool internal shouldUpscaleFallback;
-
     /// @notice The amount to upscale or downscale the price by
     int256 public rescaleFactor;
 
+    /// @notice The amount to upscale or downscale the price by for the fallback price feed
     int256 public fallbackRescaleFactor;
 
     /// @notice The underlying token
     address public immutable override underlyingToken;
 
-    uint16 public updateTimeLimit;
-    uint16 public fallbackUpdateTimeLimit;
+    /// @notice Update time limit for the underlying price feed
+    uint24 public updateTimeLimit;
+
+    /// @notice Update time limit for the fallback price feed
+    uint24 public fallbackUpdateTimeLimit;
+
+    /// @notice Whether or not the price should be upscaled
+    bool internal shouldUpscale;
+
+    /// @notice Whether or not the fallback price should be upscaled
+    bool internal shouldUpscaleFallback;
 
     event PriceFeedsUpdated(
         address indexed underlyingPriceFeed,
         address indexed fallbackPriceFeed,
-        uint16 updateTimeLimit,
-        uint16 fallbackUpdateTimeLimit
+        uint24 updateTimeLimit,
+        uint24 fallbackUpdateTimeLimit
     );
 
     /** Custom errors **/
@@ -70,8 +75,8 @@ contract ScalingPriceFeed is AccessControl, IPriceFeed {
         address underlyingPriceFeed_,
         address fallbackPriceFeed_,
         address underlyingToken_,
-        uint16 updateTimeLimit_,
-        uint16 fallbackUpdateTimeLimit_,
+        uint24 updateTimeLimit_,
+        uint24 fallbackUpdateTimeLimit_,
         uint8 decimals_,
         string memory description_
     ) AccessControl(dao_) {
@@ -94,11 +99,18 @@ contract ScalingPriceFeed is AccessControl, IPriceFeed {
         if (fallbackPriceFeed != address(0)) (fallbackRescaleFactor, shouldUpscaleFallback) = getRescaleFactor(fallbackPriceFeed);
     }
 
+    /**
+     * @notice Set the price feeds for the contract
+     * @param underlyingPriceFeed_ The address of the underlying price feed to fetch prices from
+     * @param fallbackPriceFeed_ The address of the fallback price feed to fetch prices from
+     * @param updateTimeLimit_ The update time limit for the underlying price feed
+     * @param fallbackUpdateTimeLimit_ The update time limit for the fallback price feed
+     */
     function setPriceFeeds(
         address underlyingPriceFeed_,
         address fallbackPriceFeed_,
-        uint16 updateTimeLimit_,
-        uint16 fallbackUpdateTimeLimit_
+        uint24 updateTimeLimit_,
+        uint24 fallbackUpdateTimeLimit_
     ) external onlyAuthorized {
         if (underlyingPriceFeed_ == address(0)) revert ZeroAddress();
         if (updateTimeLimit_ == 0 || (fallbackPriceFeed_ != address(0) && fallbackUpdateTimeLimit_ == 0)) revert InvalidUpdateTimeLimit();
@@ -151,11 +163,21 @@ contract ScalingPriceFeed is AccessControl, IPriceFeed {
         return (roundId, answer, startedAt, updatedAt, answeredInRound);
     }
 
+    /**
+     * @notice Converts an unsigned integer to a signed integer
+     * @param n The unsigned integer to convert to signed
+     */
     function signed256(uint256 n) internal pure returns (int256) {
         if (n > uint256(type(int256).max)) revert InvalidInt256();
         return int256(n);
     }
 
+    /**
+     * @notice Scales the price based on the rescale factor
+     * @param price The price to scale
+     * @param isFallback Whether the price is from the fallback price feed
+     * @return scaledPrice The scaled price
+     */
     function scalePrice(int256 price, bool isFallback) internal view returns (int256 scaledPrice) {
         if (isFallback) {
             shouldUpscaleFallback ? scaledPrice = price * fallbackRescaleFactor : scaledPrice = price / fallbackRescaleFactor;
@@ -164,6 +186,12 @@ contract ScalingPriceFeed is AccessControl, IPriceFeed {
         }
     }
 
+    /**
+     * @notice Gets the rescale factor for the price feed
+     * @param priceFeed The address of the price feed to get the rescale factor for
+     * @return factor The rescale factor
+     * @return isUpscale Whether the price feed is being upscaled
+     */
     function getRescaleFactor(address priceFeed) internal view returns (int256, bool) {
         uint8 priceFeedDecimals = AggregatorV3Interface(priceFeed).decimals();
         bool isUpscale = priceFeedDecimals < decimals ? true : false;

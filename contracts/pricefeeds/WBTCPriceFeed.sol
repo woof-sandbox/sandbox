@@ -11,49 +11,66 @@ import { AccessControl } from "contracts/pricefeeds/AccessControl.sol";
  * @author Compound
  */
 contract WBTCPriceFeed is AccessControl, IPriceFeed {
-    /** Custom errors **/
-    error BadDecimals();
-    error InvalidInt256();
-    error ZeroUpdateTimeLimit();
-    error PriceNotAvailable();
-
     /// @notice Version of the price feed
-    uint public constant override version = 1;
+    uint256 public constant version = 1;
 
     /// @notice Description of the price feed
-    string public constant override description = "Custom price feed for WBTC / USD";
+    string public constant description = "Custom price feed for WBTC / USD";
+
+    /// @notice Scale of this price feed
+    int256 public immutable priceFeedScale;
 
     /// @notice Number of decimals for returned prices
-    uint8 public immutable override decimals;
+    uint8 public immutable decimals;
+
+    /// @notice The underlying token
+    address public immutable override underlyingToken;
 
     /// @notice Chainlink WBTC / BTC price feed
     address public WBTCtoBTCPriceFeed;
 
     /// @notice Combined scale of the two underlying Chainlink price feeds
-    int public combinedScale;
-
-    /// @notice Scale of this price feed
-    int public immutable priceFeedScale;
-
-    /// @notice The underlying token
-    address public immutable override underlyingToken;
+    int256 public combinedScale;
 
     /// @notice Chainlink BTC / USD price feed
     address public BTCtoUSDPriceFeed;
 
+    /// @notice Fallback Chainlink BTC / USD price feed
     address public fallbackBTCtoUSDPriceFeed;
 
-    uint16 public updateTimeLimit;
+    /// @notice Update time limit for the underlying price feed
+    uint24 public updateTimeLimit;
 
-    uint16 public fallbackUpdateTimeLimit;
+    /// @notice Update time limit for the fallback price feed
+    uint24 public fallbackUpdateTimeLimit;
 
+    /**
+     * @notice Set the price feeds and update time limits
+     * @param WBTCtoBTCPriceFeed The address of the WBTC / BTC price feed
+     * @param BTCtoUSDPriceFeed The address of the BTC / USD price feed
+     * @param fallbackBTCtoUSDPriceFeed The address of the fallback BTC / USD price feed
+     * @param updateTimeLimit The update time limit for the underlying price feed
+     * @param fallbackUpdateTimeLimit The update time limit for the fallback price feed
+     */
     event PriceFeedsSet(
         address indexed WBTCtoBTCPriceFeed,
         address indexed BTCtoUSDPriceFeed,
         address indexed fallbackBTCtoUSDPriceFeed,
-        uint16 updateTimeLimit,
-        uint16 fallbackUpdateTimeLimit
+        uint24 updateTimeLimit,
+        uint24 fallbackUpdateTimeLimit
     );
+
+    /// @notice Reverts when bad decimals are provided
+    error BadDecimals();
+
+    /// @notice Reverts when int256 overflows during signing
+    error InvalidInt256();
+
+    /// @notice Reverts when zero update time limit is provided
+    error ZeroUpdateTimeLimit();
+
+    /// @notice Reverts when price is not available
+    error PriceNotAvailable();
 
     /**
      * @notice Construct a new WBTC / USD price feed
@@ -67,8 +84,8 @@ contract WBTCPriceFeed is AccessControl, IPriceFeed {
         address WBTCtoBTCPriceFeed_,
         address BTCtoUSDPriceFeed_,
         address fallbackBTCtoUSDPriceFeed_,
-        uint16 updateTimeLimit_,
-        uint16 fallbackUpdateTimeLimit_,
+        uint24 updateTimeLimit_,
+        uint24 fallbackUpdateTimeLimit_,
         uint8 decimals_,
         address underlyingToken_
     ) AccessControl(dao_) {
@@ -92,12 +109,20 @@ contract WBTCPriceFeed is AccessControl, IPriceFeed {
         fallbackUpdateTimeLimit = fallbackUpdateTimeLimit_;
     }
 
+    /**
+     * @notice Set the price feeds and update time limits
+     * @param WBTCtoBTCPriceFeed_ The address of the WBTC / BTC price feed
+     * @param BTCtoUSDPriceFeed_ The address of the BTC / USD price feed
+     * @param fallbackBTCtoUSDPriceFeed_ The address of the fallback BTC / USD price feed
+     * @param updateTimeLimit_ The update time limit for the underlying price feed
+     * @param fallbackUpdateTimeLimit_ The update time limit for the fallback price feed
+     */
     function setPriceFeeds(
         address WBTCtoBTCPriceFeed_,
         address BTCtoUSDPriceFeed_,
         address fallbackBTCtoUSDPriceFeed_,
-        uint16 updateTimeLimit_,
-        uint16 fallbackUpdateTimeLimit_
+        uint24 updateTimeLimit_,
+        uint24 fallbackUpdateTimeLimit_
     ) external onlyAuthorized {
         if (BTCtoUSDPriceFeed_ == address(0) || WBTCtoBTCPriceFeed_ == address(0)) revert ZeroAddress();
         if (updateTimeLimit_ == 0 || fallbackUpdateTimeLimit_ == 0) revert ZeroUpdateTimeLimit();
@@ -147,6 +172,10 @@ contract WBTCPriceFeed is AccessControl, IPriceFeed {
         return (roundId_, price, startedAt_, updatedAt_, answeredInRound_);
     }
 
+    /**
+     * @notice Converts an unsigned integer to a signed integer
+     * @param n The unsigned integer to convert to signed
+     */
     function signed256(uint256 n) internal pure returns (int256) {
         if (n > uint256(type(int256).max)) revert InvalidInt256();
         return int256(n);

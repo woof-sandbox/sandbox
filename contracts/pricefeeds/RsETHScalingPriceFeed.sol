@@ -28,10 +28,16 @@ contract RsETHScalingPriceFeed is IPriceFeed {
     /// @notice The underlying token
     address public immutable override underlyingToken;
 
-    /** Custom errors **/
+    /// @notice Reverts when an invalid int256 is encountered
     error InvalidInt256();
+
+    /// @notice Reverts when bad decimals are provided
     error BadDecimals();
+
+    /// @notice Reverts when a zero address is provided
     error ZeroAddress();
+
+    /// @notice Reverts when the price is not available
     error PriceNotAvailable();
 
     /**
@@ -77,6 +83,10 @@ contract RsETHScalingPriceFeed is IPriceFeed {
         return (1, price, block.timestamp, block.timestamp, 1);
     }
 
+    /**
+     * @notice Converts an unsigned integer to a signed integer
+     * @param n The unsigned integer to convert to signed
+     */
     function signed256(uint256 n) internal pure returns (int256) {
         if (n > uint256(type(int256).max)) revert InvalidInt256();
         return int256(n);

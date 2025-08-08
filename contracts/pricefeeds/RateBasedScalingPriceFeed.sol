@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
-import "../interfaces/AggregatorV3Interface.sol";
-import "../interfaces/IPriceFeed.sol";
-import "../interfaces/IRateProvider.sol";
+import { IPriceFeed } from "contracts/interfaces/IPriceFeed.sol";
+import { IRateProvider } from "contracts/interfaces/IRateProvider.sol";
 
 /**
  * @title Scaling price feed for rate based oracles
@@ -11,12 +10,8 @@ import "../interfaces/IRateProvider.sol";
  * @author Compound
  */
 contract RateBasedScalingPriceFeed is IPriceFeed {
-    /** Custom errors **/
-    error InvalidInt256();
-    error BadDecimals();
-
     /// @notice Version of the price feed
-    uint public constant VERSION = 1;
+    uint256 public constant version = 1;
 
     /// @notice Description of the price feed
     string public description;
@@ -36,6 +31,12 @@ contract RateBasedScalingPriceFeed is IPriceFeed {
     /// @notice The underlying token
     address public immutable override underlyingToken;
 
+    /** Custom errors **/
+    error InvalidInt256();
+    error BadDecimals();
+    error ZeroAddress();
+    error PriceNotAvailable();
+
     /**
      * @notice Construct a new scaling price feed
      * @param underlyingPriceFeed_ The address of the underlying price feed to fetch prices from
@@ -46,23 +47,23 @@ contract RateBasedScalingPriceFeed is IPriceFeed {
      **/
     constructor(
         address underlyingPriceFeed_,
-        uint8 decimals_,
+        address underlyingToken_,
         uint8 underlyingDecimals_,
-        string memory description_,
-        address underlyingToken_
+        uint8 decimals_,
+        string memory description_
     ) {
+        if (underlyingPriceFeed_ == address(0) || underlyingToken_ == address(0)) revert ZeroAddress();
+        if (decimals_ == 0 || decimals_ > 18 || underlyingDecimals_ == 0 || underlyingDecimals_ > 18) revert BadDecimals();
+
         underlyingPriceFeed = underlyingPriceFeed_;
-        if (decimals_ > 18) revert BadDecimals();
         decimals = decimals_;
         description = description_;
-
-        uint8 priceFeedDecimals = underlyingDecimals_;
-        // Note: Solidity does not allow setting immutables in if/else statements
-        shouldUpscale = priceFeedDecimals < decimals_ ? true : false;
-        rescaleFactor = (
-            shouldUpscale ? signed256(10 ** (decimals_ - priceFeedDecimals)) : signed256(10 ** (priceFeedDecimals - decimals_))
-        );
         underlyingToken = underlyingToken_;
+
+        shouldUpscale = underlyingDecimals_ < decimals_ ? true : false;
+        rescaleFactor = (
+            shouldUpscale ? signed256(10 ** (decimals_ - underlyingDecimals_)) : signed256(10 ** (underlyingDecimals_ - decimals_))
+        );
     }
 
     /**
@@ -80,6 +81,9 @@ contract RateBasedScalingPriceFeed is IPriceFeed {
         returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound)
     {
         uint256 rate = IRateProvider(underlyingPriceFeed).getRate();
+
+        if (rate == 0) revert PriceNotAvailable();
+
         return (1, scalePrice(signed256(rate)), block.timestamp, block.timestamp, 1);
     }
 
@@ -89,20 +93,6 @@ contract RateBasedScalingPriceFeed is IPriceFeed {
     }
 
     function scalePrice(int256 price) internal view returns (int256) {
-        int256 scaledPrice;
-        if (shouldUpscale) {
-            scaledPrice = price * rescaleFactor;
-        } else {
-            scaledPrice = price / rescaleFactor;
-        }
-        return scaledPrice;
-    }
-
-    /**
-     * @notice Current version of the price feed
-     * @return The version of the price feed contract
-     **/
-    function version() external pure returns (uint256) {
-        return VERSION;
+        return shouldUpscale ? price * rescaleFactor : price / rescaleFactor;
     }
 }
