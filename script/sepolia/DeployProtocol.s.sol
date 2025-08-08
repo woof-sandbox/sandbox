@@ -1,37 +1,32 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
-import "forge-std/Script.sol";
-import "../contracts/SandboxController.sol";
-import "../contracts/ConfigControllerFactory.sol";
-import "../contracts/SandboxCometFactory.sol";
-import "../contracts/SandboxComet.sol";
-import "../contracts/interfaces/ISandboxComet.sol";
-import "../contracts/test/MockPriceFeed.sol";
-import "../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
+import { Script, console } from "forge/lib/forge-std/src/Script.sol";
+import { SandboxController } from "contracts/SandboxController.sol";
+import { ConfigController } from "contracts/ConfigController.sol";
+import { ConfigControllerFactory } from "contracts/ConfigControllerFactory.sol";
+import { IConfigController } from "contracts/interfaces/IConfigController.sol";
+import { ISandboxController } from "contracts/interfaces/ISandboxController.sol";
+import { SandboxCometFactory } from "contracts/SandboxCometFactory.sol";
+import { SandboxComet } from "contracts/SandboxComet.sol";
+import { ManagedFaucetToken } from "contracts/test/ManagedFaucetToken.sol";
+import { ManagedSimplePriceFeed } from "contracts/test/ManagedSimplePriceFeed.sol";
+import { HelperConfig } from "script/helpers/HelperConfig.s.sol";
+import { IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 
-/**
- * @title DeployProtocolArbitrum
- * @notice This script is used to deploy the protocol on Arbitrum.
- * @dev This script is used to deploy the protocol on Arbitrum.
- */
 contract DeployProtocol is Script {
     address curator;
     address owner;
     uint256 ownerPrivateKey;
     uint256 userPrivateKey;
-    address basePriceFeed1;
-    address collateralPriceFeed1;
-    address collateralPriceFeed2;
-    address collateralPriceFeed3;
-    address baseToken1 = 0xaf88d065e77c8cC2239327C5EDb3A432268e5831;
-    address collateralToken1 = 0x912CE59144191C1204E64559FE8253a0e49E6548;
-    address collateralToken2 = 0xfc5A1A6EB076a2C7aD06eD22C90d7E710E35ad0a;
-    address collateralToken3 = 0x82aF49447D8a07e3bd95BD0d56f35241523fBab1;
 
     uint64 internal constant SECONDS_PER_YEAR = 31_536_000;
+    uint256 internal constant MILLION = 1_000_000;
 
     function run() external {
+        HelperConfig helperConfig = new HelperConfig();
+        HelperConfig.NetworkConfig memory config = helperConfig.getConfig();
+
         // Get owner's private key from .env
         ownerPrivateKey = vm.envUint("OWNER_PRIVATE_KEY");
         owner = vm.addr(ownerPrivateKey);
@@ -52,58 +47,96 @@ contract DeployProtocol is Script {
         address configControllerFactory = deployConfigControllerFactory(sandboxController, configControllerImplementation);
         address cometFactory = deploySandboxCometFactory(cometImplementation, configControllerFactory, sandboxController);
 
-        // Deploy price feeds for Comet 1.
-        basePriceFeed1 = deployPriceFeed(0x50834F3163758fcC1Df9973b6e91f0F0F0434aD3, baseToken1);
-        collateralPriceFeed1 = deployPriceFeed(0xb2A824043730FE05F3DA2efaFa1CBbe83fa548D6, collateralToken1);
-        collateralPriceFeed2 = deployPriceFeed(0xDB98056FecFff59D032aB628337A4887110df3dB, collateralToken2);
+        // Whitelist USDC as base asset in SandboxController
+        whitelistBaseAsset(sandboxController, config.usdc, config.usdcPriceFeed);
 
-        // Deploy test tokens and price feeds for Comet 2
-        collateralPriceFeed3 = deployPriceFeed(0x639Fe6ab55C921f74e7fac1ee960C0B6293ba612, collateralToken3);
-
-        // Whitelist assets in SandboxController for Comet 1
-        whitelistBaseAsset(sandboxController, baseToken1, basePriceFeed1);
-        whitelistCollateralAsset(sandboxController, collateralToken1, collateralPriceFeed1);
-        whitelistCollateralAsset(sandboxController, collateralToken2, collateralPriceFeed2);
-
-        // Whitelist assets in SandboxController for Comet 2
-        whitelistCollateralAsset(sandboxController, collateralToken3, collateralPriceFeed3);
+        // Whitelist collaterals
+        // WETH
+        whitelistCollateralAsset(sandboxController, config.weth, config.wethPriceFeed);
+        // WBTC
+        whitelistCollateralAsset(sandboxController, config.wbtc, config.wbtcPriceFeed);
+        // COMP
+        whitelistCollateralAsset(sandboxController, config.comp, config.compPriceFeed);
+        // LINK
+        whitelistCollateralAsset(sandboxController, config.link, config.linkPriceFeed);
 
         // Create ConfigController instances
         address configController1 = createConfigController(configControllerFactory, sandboxController, cometFactory, owner);
 
-        IERC20(baseToken1).approve(configController1, type(uint256).max);
-
         address configController2 = createConfigController(configControllerFactory, sandboxController, cometFactory, owner);
-
-        IERC20(baseToken1).approve(configController2, type(uint256).max);
 
         // Initialize arrays with correct sizes
         address[] memory collateralTokens1 = new address[](2);
-        collateralTokens1[0] = collateralToken1;
-        collateralTokens1[1] = collateralToken2;
-
+        collateralTokens1[0] = config.weth;
+        collateralTokens1[1] = config.wbtc;
         address[] memory collateralPriceFeeds1 = new address[](2);
-        collateralPriceFeeds1[0] = collateralPriceFeed1;
-        collateralPriceFeeds1[1] = collateralPriceFeed2;
+        collateralPriceFeeds1[0] = config.wethPriceFeed;
+        collateralPriceFeeds1[1] = config.wbtcPriceFeed;
+        uint128[] memory supplyCaps1 = new uint128[](2);
+        supplyCaps1[0] = 402207198880612340000; // 1 million $
+        supplyCaps1[1] = 965454719; // 1 million $
 
         // Create Comet instances
-        address comet1 = createComet(configController1, baseToken1, basePriceFeed1, collateralTokens1, collateralPriceFeeds1);
+        address comet1 = createComet(
+            configController1,
+            config.usdc,
+            config.usdcPriceFeed,
+            collateralTokens1,
+            collateralPriceFeeds1,
+            supplyCaps1
+        );
 
-        address[] memory collateralTokens2 = new address[](3);
-        collateralTokens2[0] = collateralToken1;
-        collateralTokens2[1] = collateralToken2;
-        collateralTokens2[2] = collateralToken3;
+        address[] memory collateralTokens2 = new address[](4);
+        collateralTokens2[0] = config.weth;
+        collateralTokens2[1] = config.wbtc;
+        collateralTokens2[2] = config.comp;
+        collateralTokens2[3] = config.link;
 
-        address[] memory collateralPriceFeeds2 = new address[](3);
-        collateralPriceFeeds2[0] = collateralPriceFeed1;
-        collateralPriceFeeds2[1] = collateralPriceFeed2;
-        collateralPriceFeeds2[2] = collateralPriceFeed3;
+        address[] memory collateralPriceFeeds2 = new address[](4);
+        collateralPriceFeeds2[0] = config.wethPriceFeed;
+        collateralPriceFeeds2[1] = config.wbtcPriceFeed;
+        collateralPriceFeeds2[2] = config.compPriceFeed;
+        collateralPriceFeeds2[3] = config.linkPriceFeed;
 
-        address comet2 = createComet(configController2, baseToken1, basePriceFeed1, collateralTokens2, collateralPriceFeeds2);
+        uint128[] memory supplyCaps2 = new uint128[](4);
+        supplyCaps2[0] = 402207198880612340000; // 1 million $
+        supplyCaps2[1] = 965454719; // 1 million $
+        supplyCaps2[2] = 20343454485595485000000; // 1 million $
+        supplyCaps2[3] = 75841461009904890000000; // 1 million $
+
+        address comet2 = createComet(
+            configController2,
+            config.usdc,
+            config.usdcPriceFeed,
+            collateralTokens2,
+            collateralPriceFeeds2,
+            supplyCaps2
+        );
+
         // Stop broadcasting
         vm.stopBroadcast();
 
+        vm.startBroadcast(userPrivateKey);
+        ConfigController(configController1).acceptCuratorRole();
+        ConfigController(configController2).acceptCuratorRole();
+        vm.stopBroadcast();
+
+        // setPrices();
+
         // Log deployment addresses
+        console.log("Token addresses:");
+        console.log("USDC:", config.usdc);
+        console.log("WETH:", config.weth);
+        console.log("WBTC:", config.wbtc);
+        console.log("COMP:", config.comp);
+        console.log("LINK:", config.link);
+        console.log("Price Feed addresses:");
+        console.log("USDC Price Feed:", config.usdcPriceFeed);
+        console.log("WETH Price Feed:", config.wethPriceFeed);
+        console.log("WBTC Price Feed:", config.wbtcPriceFeed);
+        console.log("COMP Price Feed:", config.compPriceFeed);
+        console.log("LINK Price Feed:", config.linkPriceFeed);
+
         console.log("Owner Address:", owner);
         console.log("Comet Implementation:", cometImplementation);
         console.log("ConfigController Implementation:", configControllerImplementation);
@@ -112,27 +145,31 @@ contract DeployProtocol is Script {
         console.log("SandboxController:", sandboxController);
 
         console.log("\nComet 1 Configuration:");
-        console.log("Base Token (USDC):", baseToken1);
-        console.log("Base Price Feed:", basePriceFeed1);
-        console.log("Collateral Token 1 (ARB):", collateralToken1);
-        console.log("Collateral Price Feed 1:", collateralPriceFeed1);
-        console.log("Collateral Token 2 (GMX):", collateralToken2);
-        console.log("Collateral Price Feed 2:", collateralPriceFeed2);
+        console.log("Base Token (USDC):");
+        console.log("Collaterals: WETH, WBTC");
         console.log("ConfigController 1:", configController1);
         console.log("Comet 1:", comet1);
 
         console.log("\nComet 2 Configuration:");
-        console.log("Base Token (USDC):", baseToken1);
-        console.log("Base Price Feed:", basePriceFeed1);
-        console.log("Collateral Token 1 (ARB):", collateralToken1);
-        console.log("Collateral Price Feed 1:", collateralPriceFeed1);
-        console.log("Collateral Token 2 (GMX):", collateralToken2);
-        console.log("Collateral Price Feed 2:", collateralPriceFeed2);
-        console.log("Collateral Token 3 (WETH):", collateralToken3);
-        console.log("Collateral Price Feed 3:", collateralPriceFeed3);
+        console.log("Base Token (USDC)");
+        console.log("Collaterals: WETH, WBTC, COMP, LINK");
         console.log("ConfigController 2:", configController2);
         console.log("Comet 2:", comet2);
     }
+
+    // function setPrices() internal {
+    //     vm.startBroadcast(ownerPrivateKey);
+
+    //     console.log("Setting prices");
+    //     ManagedSimplePriceFeed(basePriceFeed1).setRoundData(0, 99981900, block.timestamp, block.timestamp, 0); // USDC
+    //     ManagedSimplePriceFeed(collateralPriceFeed1).setRoundData(0, 248628071000, block.timestamp, block.timestamp, 0); // WETH
+    //     ManagedSimplePriceFeed(collateralPriceFeed2).setRoundData(0, 10357813578659, block.timestamp, block.timestamp, 0); // WBTC
+    //     ManagedSimplePriceFeed(collateralPriceFeed3).setRoundData(0, 4915585997, block.timestamp, block.timestamp, 0); // COMP
+    //     ManagedSimplePriceFeed(collateralPriceFeed4).setRoundData(0, 1318540000, block.timestamp, block.timestamp, 0); // LINK
+    //     console.log("Prices set");
+
+    //     vm.stopBroadcast();
+    // }
 
     function deployCometImplementation() internal returns (address) {
         // Deploy Comet implementation contract
@@ -183,10 +220,42 @@ contract DeployProtocol is Script {
         return address(sandboxController);
     }
 
-    function deployPriceFeed(address _priceFeed, address _underlyingToken) internal returns (address) {
-        // Deploy price feed
-        MockPriceFeed priceFeed = new MockPriceFeed(8, _underlyingToken, _priceFeed);
-        return address(priceFeed);
+    function deployBaseAsset(string memory name, uint8 decimals) internal returns (address, address) {
+        // Deploy test base token
+        ManagedFaucetToken baseToken = new ManagedFaucetToken(
+            1e24, // initialAmount
+            name,
+            decimals,
+            name
+        );
+
+        // Deploy price feed for base token
+        ManagedSimplePriceFeed basePriceFeed = new ManagedSimplePriceFeed(
+            1e18, // initial price: 1.0
+            8,
+            address(baseToken)
+        );
+
+        return (address(baseToken), address(basePriceFeed));
+    }
+
+    function deployCollateralAsset(string memory name, uint8 decimals) internal returns (address, address) {
+        // Deploy test collateral token
+        ManagedFaucetToken collateralToken = new ManagedFaucetToken(
+            1e24, // initialAmount
+            name,
+            decimals,
+            name
+        );
+
+        // Deploy price feed for collateral token
+        ManagedSimplePriceFeed collateralPriceFeed = new ManagedSimplePriceFeed(
+            1e18, // initial price: 1.0
+            8,
+            address(collateralToken)
+        );
+
+        return (address(collateralToken), address(collateralPriceFeed));
     }
 
     function whitelistBaseAsset(address sandboxControllerAddr, address baseToken, address basePriceFeed) internal {
@@ -197,7 +266,7 @@ contract DeployProtocol is Script {
             supplyKink: 9e17, // 90%
             supplyPerYearInterestRateSlopeLow: 1141552511 * SECONDS_PER_YEAR,
             supplyPerYearInterestRateSlopeHigh: 101344495180 * SECONDS_PER_YEAR,
-            supplyPerYearInterestRateBase: 0,
+            supplyPerYearInterestRateBase: 140000000 * SECONDS_PER_YEAR,
             borrowKink: 9e17, // 90%
             borrowPerYearInterestRateSlopeLow: 880834601 * SECONDS_PER_YEAR,
             borrowPerYearInterestRateSlopeHigh: 114155251141 * SECONDS_PER_YEAR,
@@ -251,7 +320,8 @@ contract DeployProtocol is Script {
         address baseToken,
         address basePriceFeed,
         address[] memory collateralTokens,
-        address[] memory collateralPriceFeeds
+        address[] memory collateralPriceFeeds,
+        uint128[] memory supplyCaps
     ) internal returns (address) {
         IConfigController configController = IConfigController(configControllerAddr);
 
@@ -261,12 +331,14 @@ contract DeployProtocol is Script {
         );
 
         for (uint i = 0; i < collateralTokens.length; i++) {
+            // (, int256 price, , , ) = ManagedSimplePriceFeed(collateralPriceFeeds[i]).latestRoundData();
+
             collateralConfigs[i] = IConfigController.CollateralTokenConfig({
                 collateralToken: collateralTokens[i],
-                supplyCap: 1e24, // 1,000,000 tokens
-                borrowCollateralFactor: 8000, // 80%
-                liquidateCollateralFactor: 8500, // 85%
-                liquidationFactor: 5000 // 50%
+                supplyCap: supplyCaps[i], // 1 million tokens
+                borrowCollateralFactor: 8.1e17, // 80%
+                liquidateCollateralFactor: 8.5e17, // 85%
+                liquidationFactor: 9e17 // 90%
             });
         }
 

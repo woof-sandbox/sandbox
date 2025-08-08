@@ -4,6 +4,7 @@ pragma solidity 0.8.28;
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
+import "./CometCore.sol";
 import "./interfaces/ISandboxComet.sol";
 import "./interfaces/IPriceFeed.sol";
 import "./interfaces/IConfigController.sol";
@@ -15,7 +16,7 @@ import "./interfaces/ISandboxController.sol";
  * @author WOOF! Software
  */
 // aderyn-fp-next-line(contract-locks-ether)
-contract SandboxComet is ISandboxComet {
+contract SandboxComet is CometCore, ISandboxComet {
     using SafeERC20 for IERC20;
 
     /// @notice can be legally deployed only via the factory which provides correct config controller address
@@ -139,7 +140,7 @@ contract SandboxComet is ISandboxComet {
 
         /// Rewards are disabled by default
         trackingIndexScale = 1;
-        baseMinForRewards = type(uint256).max;
+        baseMinForRewards = type(uint104).max;
         /// to avoid explicit initialization
         /// baseTrackingSupplySpeed = 0;
         /// baseTrackingBorrowSpeed = 0;
@@ -190,7 +191,7 @@ contract SandboxComet is ISandboxComet {
      * @param i The index of the asset info to get
      * @return The asset info object
      */
-    function getAssetInfo(uint8 i) public view returns (CollateralAsset memory) {
+    function getAssetInfo(uint8 i) public view override returns (CollateralAsset memory) {
         if (i >= numAssets) revert BadAsset();
         return collateralAssets[i];
     }
@@ -198,7 +199,7 @@ contract SandboxComet is ISandboxComet {
     /**
      * @dev Determine index of asset that matches given address
      */
-    function getAssetInfoByAddress(address asset) public view returns (CollateralAsset memory, uint8 index) {
+    function getAssetInfoByAddress(address asset) public view override returns (CollateralAsset memory, uint8 index) {
         index = collateralAssetIndex[asset];
         if (index == 0 && asset != collateralAssets[0].collateralToken) {
             revert BadAsset();
@@ -339,6 +340,8 @@ contract SandboxComet is ISandboxComet {
         uint256 balance = IERC20(baseToken).balanceOf(address(this));
         uint totalSupply_ = presentValueSupply(baseSupplyIndex_, totalSupplyBase);
         uint totalBorrow_ = presentValueBorrow(baseBorrowIndex_, totalBorrowBase);
+
+        /// TODO: deduct controller and dao fees
         return signed256(balance) - signed256(totalSupply_) + signed256(totalBorrow_);
     }
 
@@ -608,7 +611,7 @@ contract SandboxComet is ISandboxComet {
      * @dev Note: Safely handles non-standard ERC-20 tokens that do not return a value.
      * See here: https://medium.com/coinmonks/missing-return-value-bug-at-least-130-tokens-affected-d67bf08521ca
      */
-    function doTransferIn(address asset, address from, uint amount) internal returns (uint) {
+    function doTransferIn(address asset, address from, uint256 amount) internal returns (uint256) {
         uint256 preTransferBalance = IERC20(asset).balanceOf(address(this));
         IERC20(asset).safeTransferFrom(from, address(this), amount);
         return IERC20(asset).balanceOf(address(this)) - preTransferBalance;
@@ -619,8 +622,8 @@ contract SandboxComet is ISandboxComet {
      * @param asset The asset to supply
      * @param amount The quantity to supply
      */
-    function supply(address asset, uint amount) external override {
-        return supplyInternal(msg.sender, msg.sender, msg.sender, asset, amount);
+    function supply(address asset, uint256 amount) external override {
+        return supplyInternal(msg.sender, msg.sender, msg.sender, asset, amount, false);
     }
 
     /**
@@ -629,8 +632,8 @@ contract SandboxComet is ISandboxComet {
      * @param asset The asset to supply
      * @param amount The quantity to supply
      */
-    function supplyTo(address dst, address asset, uint amount) external override {
-        return supplyInternal(msg.sender, msg.sender, dst, asset, amount);
+    function supplyTo(address dst, address asset, uint256 amount) external override {
+        return supplyInternal(msg.sender, msg.sender, dst, asset, amount, false);
     }
 
     /**
@@ -640,25 +643,33 @@ contract SandboxComet is ISandboxComet {
      * @param asset The asset to supply
      * @param amount The quantity to supply
      */
-    function supplyFrom(address from, address dst, address asset, uint amount) external override {
-        return supplyInternal(msg.sender, from, dst, asset, amount);
+    function supplyFrom(address from, address dst, address asset, uint256 amount) external override {
+        return supplyInternal(msg.sender, from, dst, asset, amount, false);
+    }
+
+    /**
+     * @notice Repay the whole debt in base asset to the protocol from `from` to dst, if allowed
+     * @param from The supplier address
+     * @param dst The address which will hold the balance (can be the same from address)
+     */
+    function repayAllFrom(address from, address dst) external override {
+        return supplyInternal(msg.sender, from, dst, baseToken, borrowBalanceOf(dst), true);
     }
 
     /**
      * @dev Supply either collateral or base asset, depending on the asset, if operator is allowed
-     * @dev Note: Specifying an `amount` of uint256.max will repay all of `dst`'s accrued base borrow balance
      */
-    function supplyInternal(address operator, address from, address dst, address asset, uint amount) internal nonReentrant {
+    function supplyInternal(address operator, address from, address dst, address asset, uint256 amount, bool isAll) internal nonReentrant {
+        if (amount == 0) revert ZeroAmount();
         if (isSupplyPaused()) revert Paused();
-        if (!hasPermission(from, operator)) revert Unauthorized();
 
+        spendAllowanceInternal(from, operator, asset, amount, isAll);
+
+        /// In case of ...All() operation asset is guaranteed to be baseAsset
         if (asset == baseToken) {
-            if (amount == type(uint256).max) {
-                amount = borrowBalanceOf(dst);
-            }
             return supplyBase(from, dst, amount);
         } else {
-            return supplyCollateral(from, dst, asset, safe128(amount));
+            return supplyCollateral(from, dst, asset, amount);
         }
     }
 
@@ -716,8 +727,8 @@ contract SandboxComet is ISandboxComet {
      * @param amount The quantity to transfer
      * @return true
      */
-    function transfer(address dst, uint amount) external override returns (bool) {
-        transferInternal(msg.sender, msg.sender, dst, baseToken, amount);
+    function transfer(address dst, uint256 amount) external override returns (bool) {
+        transferInternal(msg.sender, msg.sender, dst, baseToken, amount, false);
         return true;
     }
 
@@ -728,19 +739,18 @@ contract SandboxComet is ISandboxComet {
      * @param amount The quantity to transfer
      * @return true
      */
-    function transferFrom(address src, address dst, uint amount) external override returns (bool) {
-        transferInternal(msg.sender, src, dst, baseToken, amount);
+    function transferFrom(address src, address dst, uint256 amount) external override returns (bool) {
+        transferInternal(msg.sender, src, dst, baseToken, amount, false);
         return true;
     }
 
     /**
-     * @notice Transfer an amount of asset to dst
+     * @notice ERC20 transfer the whole base token balance from src to dst, if allowed
+     * @param src The sender address
      * @param dst The recipient address
-     * @param asset The asset to transfer
-     * @param amount The quantity to transfer
      */
-    function transferAsset(address dst, address asset, uint amount) external override {
-        return transferInternal(msg.sender, msg.sender, dst, asset, amount);
+    function transferAllFrom(address src, address dst) external override {
+        transferInternal(msg.sender, src, dst, baseToken, balanceOf(src), true);
     }
 
     /**
@@ -750,26 +760,24 @@ contract SandboxComet is ISandboxComet {
      * @param asset The asset to transfer
      * @param amount The quantity to transfer
      */
-    function transferAssetFrom(address src, address dst, address asset, uint amount) external override {
-        return transferInternal(msg.sender, src, dst, asset, amount);
+    function transferAssetFrom(address src, address dst, address asset, uint256 amount) external override {
+        transferInternal(msg.sender, src, dst, asset, amount, false);
     }
 
     /**
      * @dev Transfer either collateral or base asset, depending on the asset, if operator is allowed
-     * @dev Note: Specifying an `amount` of uint256.max will transfer all of `src`'s accrued base balance
      */
-    function transferInternal(address operator, address src, address dst, address asset, uint amount) internal nonReentrant {
+    function transferInternal(address operator, address src, address dst, address asset, uint256 amount, bool isAll) internal nonReentrant {
+        if (amount == 0) revert ZeroAmount();
         if (isTransferPaused()) revert Paused();
-        if (!hasPermission(src, operator)) revert Unauthorized();
         if (src == dst) revert NoSelfTransfer();
 
+        spendAllowanceInternal(src, operator, asset, amount, isAll);
+
         if (asset == baseToken) {
-            if (amount == type(uint256).max) {
-                amount = balanceOf(src);
-            }
-            return transferBase(src, dst, amount);
+            transferBase(src, dst, amount);
         } else {
-            return transferCollateral(src, dst, asset, safe128(amount));
+            transferCollateral(src, dst, asset, amount);
         }
     }
 
@@ -840,8 +848,8 @@ contract SandboxComet is ISandboxComet {
      * @param asset The asset to withdraw
      * @param amount The quantity to withdraw
      */
-    function withdraw(address asset, uint amount) external override {
-        return withdrawInternal(msg.sender, msg.sender, msg.sender, asset, amount);
+    function withdraw(address asset, uint256 amount) external override {
+        return withdrawInternal(msg.sender, msg.sender, msg.sender, asset, amount, false);
     }
 
     /**
@@ -850,8 +858,8 @@ contract SandboxComet is ISandboxComet {
      * @param asset The asset to withdraw
      * @param amount The quantity to withdraw
      */
-    function withdrawTo(address to, address asset, uint amount) external override {
-        return withdrawInternal(msg.sender, msg.sender, to, asset, amount);
+    function withdrawTo(address to, address asset, uint256 amount) external override {
+        return withdrawInternal(msg.sender, msg.sender, to, asset, amount, false);
     }
 
     /**
@@ -861,25 +869,33 @@ contract SandboxComet is ISandboxComet {
      * @param asset The asset to withdraw
      * @param amount The quantity to withdraw
      */
-    function withdrawFrom(address src, address to, address asset, uint amount) external override {
-        return withdrawInternal(msg.sender, src, to, asset, amount);
+    function withdrawFrom(address src, address to, address asset, uint256 amount) external override {
+        return withdrawInternal(msg.sender, src, to, asset, amount, false);
+    }
+
+    /**
+     * @notice Withdraw the whole asset balance from src to `to`, if allowed
+     * @param src The sender address (can be msg.sender)
+     * @param to The recepient address (can be msg.sender)
+     */
+    function withdrawAllFrom(address src, address to) external override {
+        return withdrawInternal(msg.sender, src, to, baseToken, balanceOf(src), true);
     }
 
     /**
      * @dev Withdraw either collateral or base asset, depending on the asset, if operator is allowed
-     * @dev Note: Specifying an `amount` of uint256.max will withdraw all of `src`'s accrued base balance
      */
-    function withdrawInternal(address operator, address src, address to, address asset, uint amount) internal nonReentrant {
+    function withdrawInternal(address operator, address src, address to, address asset, uint256 amount, bool isAll) internal nonReentrant {
+        if (amount == 0) revert ZeroAmount();
         if (isWithdrawPaused()) revert Paused();
-        if (!hasPermission(src, operator)) revert Unauthorized();
 
+        spendAllowanceInternal(src, operator, asset, amount, isAll);
+
+        /// In case of ...All() operation asset is guaranteed to be baseAsset
         if (asset == baseToken) {
-            if (amount == type(uint256).max) {
-                amount = balanceOf(src);
-            }
             return withdrawBase(src, to, amount);
         } else {
-            return withdrawCollateral(src, to, asset, safe128(amount));
+            return withdrawCollateral(src, to, asset, amount);
         }
     }
 
@@ -934,6 +950,24 @@ contract SandboxComet is ISandboxComet {
         IERC20(asset).safeTransfer(to, amount);
 
         emit WithdrawCollateral(src, to, asset, amount);
+    }
+
+    /**
+     * @dev Spend allowance for an asset, either all for base asset or a specific amount
+     * @param src The address of the account that is spending the allowance
+     * @param operator The address of the operator spending the allowance
+     * @param asset The asset for which the allowance is being spent
+     * @param amount The amount of the asset to be spent, or 0 for all
+     * @param isAll Whether to spend all of the allowance for the base asset
+     */
+    function spendAllowanceInternal(address src, address operator, address asset, uint256 amount, bool isAll) internal {
+        if (isAll) {
+            if (!hasPermissionAll(src, operator)) revert InsufficientAllowance(asset, src, operator);
+            spendAllowanceAll(src, operator);
+        } else {
+            if (!hasPermission(src, operator, asset, amount)) revert InsufficientAllowance(asset, src, operator);
+            spendAllowance(src, operator, asset, amount);
+        }
     }
 
     /**
@@ -1127,6 +1161,16 @@ contract SandboxComet is ISandboxComet {
 
         // function guarantees that reserve+protocol+controller == profit
         (feeReserve, feeProtocol, feeController) = _distributeProfit(profit);
+    }
+
+    /**
+     * @notice Get the total number of tokens in circulation
+     * @dev Note: uses updated interest indices to calculate
+     * @return The supply of tokens
+     **/
+    function totalSupply() external view returns (uint256) {
+        (uint64 baseSupplyIndex_, ) = accruedInterestIndices(getNowInternal() - lastAccrualTime);
+        return presentValueSupply(baseSupplyIndex_, totalSupplyBase);
     }
 
     /**

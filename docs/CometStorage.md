@@ -4,46 +4,6 @@
 
 _Versions can enforce append-only storage slots via inheritance._
 
-### TotalsBasic
-
-```solidity
-struct TotalsBasic {
-  uint64 baseSupplyIndex;
-  uint64 baseBorrowIndex;
-  uint64 trackingSupplyIndex;
-  uint64 trackingBorrowIndex;
-  uint104 totalSupplyBase;
-  uint104 totalBorrowBase;
-  uint40 lastAccrualTime;
-  uint8 pauseFlags;
-}
-```
-
-### UserBasic
-
-```solidity
-struct UserBasic {
-  int104 principal;
-  uint64 baseTrackingIndex;
-  uint64 baseTrackingAccrued;
-  uint24 assetsIn;
-}
-```
-
-### CollateralAsset
-
-```solidity
-struct CollateralAsset {
-  address collateralToken;
-  address priceFeed;
-  uint128 supplyCap;
-  uint64 borrowCollateralFactor;
-  uint64 liquidateCollateralFactor;
-  uint64 liquidationFactor;
-  uint64 scale;
-}
-```
-
 ### MAX_ASSETS
 
 ```solidity
@@ -467,13 +427,23 @@ mapping(address => uint256) assetFeesDAO
 
 Fees aggregation for the DAO
 
-### isAllowed
+### allowance
 
 ```solidity
-mapping(address => mapping(address => bool)) isAllowed
+mapping(address => mapping(address => mapping(address => uint256))) allowance
 ```
 
 Mapping of users to accounts which may be permitted to manage the user account
+user => spender => asset (base or collateral) => amount
+
+### allowanceAll
+
+```solidity
+mapping(address => mapping(address => bool)) allowanceAll
+```
+
+user => spender => true or false (for baseAsset only)
+allowance for all is expected to be atomic - for ...All() operations only
 
 ### userNonce
 
@@ -486,7 +456,7 @@ The next expected nonce for an address, for validating authorizations via signat
 ### userBasic
 
 ```solidity
-mapping(address => struct CometStorage.UserBasic) userBasic
+mapping(address => struct ICometStructures.UserBasic) userBasic
 ```
 
 Mapping of users to base principal and other basic data
@@ -508,6 +478,6 @@ mapping(address => uint8) collateralAssetIndex
 ### collateralAssets
 
 ```solidity
-struct CometStorage.CollateralAsset[] collateralAssets
+struct ICometStructures.CollateralAsset[] collateralAssets
 ```
 

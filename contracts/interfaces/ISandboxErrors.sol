@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity 0.8.28;
 
 interface ISandboxErrors {
@@ -15,6 +15,7 @@ interface ISandboxErrors {
     error WrongPriceFeedUnderlying();
     error InvalidFactors();
     error InvalidCommissions();
+    error IncorrectIndex();
 
     error Unauthorized();
     error NotOwner(address caller);

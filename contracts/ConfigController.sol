@@ -80,18 +80,6 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
         _;
     }
 
-    /// @notice Modifier to restrict access to owner or curator
-    modifier onlyOwnerOrCurator() {
-        if (msg.sender != owner && msg.sender != curator) revert Unauthorized();
-        _;
-    }
-
-    /// @notice Modifier to restrict access to guardian only
-    modifier onlyGuardian() {
-        if (msg.sender != guardian) revert Unauthorized();
-        _;
-    }
-
     /// @notice Initializes the ConfigController contract
     /// @param _owner The address of the protocol owner
     /// @param _guardian The address of the protocol guardian
@@ -130,7 +118,7 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
             if (_curatorProposalDuration > maxUpdateTime || _proposalDuration > maxUpdateTime) revert ProposalDurationTooLong();
         }
 
-        /// Zero address is checked in Controller
+        /// Zero address is checked in Controller Factory
         owner = _owner; // aderyn-fp(state-no-address-check)
         guardian = _guardian; // aderyn-fp(state-no-address-check)
 
@@ -206,13 +194,14 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
             _sandboxConfig.suggestedAmountOfSeedReserves
         );
 
-        address comet = ISandboxCometFactory(cometFactory).createComet(); // aderyn-fp(reentrancy-state-change)
+        address comet = ISandboxCometFactory(cometFactory).createComet(_cometConfig.name); // aderyn-fp(reentrancy-state-change)
         ISandboxComet(comet).initialize(_cometConfig, _globalConfig); // aderyn-fp(reentrancy-state-change)
 
         uint256 cometsNum = comets.length;
         comets.push(comet);
         cometId[comet] = cometsNum;
 
+        /// TODO: seed reserves logic will be adjusted
         if (_sandboxConfig.suggestedAmountOfSeedReserves > 0) {
             IERC20(_cometConfig.baseToken).safeTransferFrom(msg.sender, comet, _sandboxConfig.suggestedAmountOfSeedReserves);
         }
@@ -258,6 +247,8 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
     function grantOwnership(address _newOwner) external onlyOwner {
         if (_newOwner == address(0)) revert ZeroAddress();
         address oldOwner = owner;
+
+        if (_newOwner == oldOwner) revert IncorrectValue();
         owner = _newOwner;
 
         emit OwnershipGranted(oldOwner, _newOwner);
@@ -390,7 +381,6 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
     /// @return True if the comet is owned by this controller
     function _isCometOwned(address comet) internal view returns (bool) {
         if (cometsLength() == 0) return false;
-        return comets[cometId[comet]] != comet;
+        return comets[cometId[comet]] == comet;
     }
 }
-// Test comment
