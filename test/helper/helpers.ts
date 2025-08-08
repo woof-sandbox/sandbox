@@ -874,7 +874,7 @@ export function getGasUsed(tx: TransactionResponseExt): bigint {
                               PRICE FEEDS
 //////////////////////////////////////////////////////////////*/
 
-export async function makeWstETHPriceFeed({ stEthPrice, tokensPerStEth, updateTimeLimit, dao }) {
+export async function makeWstETHPriceFeed({ stEthPrice, tokensPerStEth, updateTimeLimit, fallbackUpdateTimeLimit, dao }) {
   // factories
   const SimplePriceFeed = (await ethers.getContractFactory("SimplePriceFeed")) as SimplePriceFeed__factory;
   const SimpleWstETH = (await ethers.getContractFactory("SimpleWstETH")) as SimpleWstETH__factory;
@@ -894,7 +894,7 @@ export async function makeWstETHPriceFeed({ stEthPrice, tokensPerStEth, updateTi
     wstETH.address,
     8,
     updateTimeLimit,
-    updateTimeLimit,
+    fallbackUpdateTimeLimit,
     dao.address
   );
   await wstETHPriceFeed.deployed();
@@ -905,6 +905,8 @@ export async function makeWstETHPriceFeed({ stEthPrice, tokensPerStEth, updateTi
     wstETHPriceFeed,
     fallbackPriceFeed,
     WstETHPriceFeed,
+    fallbackUpdateTimeLimit,
+    SimplePriceFeed,
   };
 }
 

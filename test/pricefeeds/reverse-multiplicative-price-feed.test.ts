@@ -3,61 +3,63 @@ import { ethers, exp, expect, makeToken, SnapshotRestorer, takeSnapshot, ZERO_AD
 import { time } from "@nomicfoundation/hardhat-network-helpers";
 import {
   FaucetToken,
-  MultiplicativePriceFeed,
-  MultiplicativePriceFeed__factory,
+  ReverseMultiplicativePriceFeed,
+  ReverseMultiplicativePriceFeed__factory,
   SimplePriceFeed,
   SimplePriceFeed__factory,
 } from "../../build/types";
 
-describe("Multiplicative Price Feed", function () {
+describe("Reverse Multiplicative Price Feed", function () {
   let snapshot: SnapshotRestorer;
 
   // factories
-  let MultiplicativePriceFeedFactory: MultiplicativePriceFeed__factory;
+  let ReverseMultiplicativePriceFeedFactory: ReverseMultiplicativePriceFeed__factory;
   let SimplePriceFeed: SimplePriceFeed__factory;
 
   let dao: SignerWithAddress;
   let attacker: SignerWithAddress;
 
   const DECIMALS = 8n;
-  const DESCRIPTION = "TokenA*TokenB Price Feed";
+  const DESCRIPTION = "TokenX/ETH Price Feed";
   const UPDATE_TIME_LIMIT_A = time.duration.minutes(2);
   const UPDATE_TIME_LIMIT_B = time.duration.minutes(3);
   const UPDATE_TIME_LIMIT_FALLBACK_A = time.duration.minutes(4);
   const UPDATE_TIME_LIMIT_FALLBACK_B = time.duration.minutes(5);
 
   let underlyingToken: FaucetToken;
-  let priceFeed: MultiplicativePriceFeed;
+  let priceFeed: ReverseMultiplicativePriceFeed;
   let priceFeedA: SimplePriceFeed;
   let priceFeedB: SimplePriceFeed;
   let fallbackPriceFeedA: SimplePriceFeed;
   let fallbackPriceFeedB: SimplePriceFeed;
 
-  // Price feed A (TokenA/USD) - 8 decimals
-  const priceFeedAPrice = exp(100, 8); // $1.00
+  // Price feed A (TokenX/USD) - 8 decimals
+  const priceFeedAPrice = exp(5000, 8); // $50.00
   const priceFeedADecimals = 8n;
 
-  // Price feed B (TokenB/USD) - 8 decimals
-  const priceFeedBPrice = exp(2500, 8); // $25.00
+  // Price feed B (ETH/USD) - 8 decimals
+  const priceFeedBPrice = exp(2500, 8); // $2500.00
   const priceFeedBDecimals = 8n;
 
-  // Fallback price feed A (TokenA/USD) - 18 decimals
-  const fallbackPriceFeedAPrice = exp(95, 16); // $0.95
+  // Fallback price feed A (TokenX/USD) - 18 decimals
+  const fallbackPriceFeedAPrice = exp(4800, 18); // $48.00
   const fallbackPriceFeedADecimals = 18n;
 
-  // Fallback price feed B (TokenB/USD) - 6 decimals
-  const fallbackPriceFeedBPrice = exp(24, 6); // $24.00
+  // Fallback price feed B (ETH/USD) - 6 decimals
+  const fallbackPriceFeedBPrice = exp(2400, 6); // $2400.00
   const fallbackPriceFeedBDecimals = 6n;
 
   before(async function () {
     [dao, attacker] = await ethers.getSigners();
 
-    MultiplicativePriceFeedFactory = (await ethers.getContractFactory("MultiplicativePriceFeed")) as MultiplicativePriceFeed__factory;
+    ReverseMultiplicativePriceFeedFactory = (await ethers.getContractFactory(
+      "ReverseMultiplicativePriceFeed"
+    )) as ReverseMultiplicativePriceFeed__factory;
     SimplePriceFeed = (await ethers.getContractFactory("SimplePriceFeed")) as SimplePriceFeed__factory;
 
     underlyingToken = await makeToken({
-      name: "TokenB",
-      symbol: "TKNB",
+      name: "TokenX",
+      symbol: "TKNX",
       decimals: 18,
     });
 
@@ -73,7 +75,7 @@ describe("Multiplicative Price Feed", function () {
     fallbackPriceFeedB = await SimplePriceFeed.deploy(fallbackPriceFeedBPrice, fallbackPriceFeedBDecimals, underlyingToken.address);
     await fallbackPriceFeedB.deployed();
 
-    priceFeed = await MultiplicativePriceFeedFactory.deploy(
+    priceFeed = await ReverseMultiplicativePriceFeedFactory.deploy(
       dao.address,
       priceFeedA.address,
       priceFeedB.address,
@@ -109,16 +111,25 @@ describe("Multiplicative Price Feed", function () {
       expect(await priceFeed.description()).to.eq(DESCRIPTION);
       expect(await priceFeed.underlyingToken()).to.eq(underlyingToken.address);
       expect(await priceFeed.version()).to.eq(1);
-      expect(await priceFeed.priceFeedScale()).to.eq(10n ** DECIMALS);
-      expect(await priceFeed.priceFeedADecimals()).to.eq(priceFeedADecimals);
-      expect(await priceFeed.priceFeedBDecimals()).to.eq(priceFeedBDecimals);
-      expect(await priceFeed.fallbackPriceFeedADecimals()).to.eq(fallbackPriceFeedADecimals);
-      expect(await priceFeed.fallbackPriceFeedBDecimals()).to.eq(fallbackPriceFeedBDecimals);
+    });
+
+    it("sets price feed scales properly", async function () {
+      const priceFeedAScale = await priceFeed.priceFeedAScale();
+      const priceFeedBScale = await priceFeed.priceFeedBScale();
+      const fallbackPriceFeedAScale = await priceFeed.fallbackPriceFeedAScale();
+      const fallbackPriceFeedBScale = await priceFeed.fallbackPriceFeedBScale();
+      const priceFeedScale = await priceFeed.priceFeedScale();
+
+      expect(priceFeedAScale).to.eq(10n ** priceFeedADecimals);
+      expect(priceFeedBScale).to.eq(10n ** priceFeedBDecimals);
+      expect(fallbackPriceFeedAScale).to.eq(10n ** fallbackPriceFeedADecimals);
+      expect(fallbackPriceFeedBScale).to.eq(10n ** fallbackPriceFeedBDecimals);
+      expect(priceFeedScale).to.eq(10n ** DECIMALS);
     });
 
     it("reverts if price feed A is zero address", async function () {
       await expect(
-        MultiplicativePriceFeedFactory.deploy(
+        ReverseMultiplicativePriceFeedFactory.deploy(
           dao.address,
           ZERO_ADDRESS,
           priceFeedB.address,
@@ -137,7 +148,7 @@ describe("Multiplicative Price Feed", function () {
 
     it("reverts if price feed B is zero address", async function () {
       await expect(
-        MultiplicativePriceFeedFactory.deploy(
+        ReverseMultiplicativePriceFeedFactory.deploy(
           dao.address,
           priceFeedA.address,
           ZERO_ADDRESS,
@@ -155,7 +166,7 @@ describe("Multiplicative Price Feed", function () {
     });
 
     it("allows fallback price feed A to be zero address", async function () {
-      const priceFeedWithoutFallbackA = await MultiplicativePriceFeedFactory.deploy(
+      const priceFeedWithoutFallbackA = await ReverseMultiplicativePriceFeedFactory.deploy(
         dao.address,
         priceFeedA.address,
         priceFeedB.address,
@@ -175,7 +186,7 @@ describe("Multiplicative Price Feed", function () {
     });
 
     it("allows fallback price feed B to be zero address", async function () {
-      const priceFeedWithoutFallbackB = await MultiplicativePriceFeedFactory.deploy(
+      const priceFeedWithoutFallbackB = await ReverseMultiplicativePriceFeedFactory.deploy(
         dao.address,
         priceFeedA.address,
         priceFeedB.address,
@@ -196,7 +207,7 @@ describe("Multiplicative Price Feed", function () {
 
     it("reverts if update time limit A is zero", async function () {
       await expect(
-        MultiplicativePriceFeedFactory.deploy(
+        ReverseMultiplicativePriceFeedFactory.deploy(
           dao.address,
           priceFeedA.address,
           priceFeedB.address,
@@ -215,7 +226,7 @@ describe("Multiplicative Price Feed", function () {
 
     it("reverts if update time limit B is zero", async function () {
       await expect(
-        MultiplicativePriceFeedFactory.deploy(
+        ReverseMultiplicativePriceFeedFactory.deploy(
           dao.address,
           priceFeedA.address,
           priceFeedB.address,
@@ -234,7 +245,7 @@ describe("Multiplicative Price Feed", function () {
 
     it("reverts if fallback update time limit A is zero when fallback A is set", async function () {
       await expect(
-        MultiplicativePriceFeedFactory.deploy(
+        ReverseMultiplicativePriceFeedFactory.deploy(
           dao.address,
           priceFeedA.address,
           priceFeedB.address,
@@ -253,7 +264,7 @@ describe("Multiplicative Price Feed", function () {
 
     it("reverts if fallback update time limit B is zero when fallback B is set", async function () {
       await expect(
-        MultiplicativePriceFeedFactory.deploy(
+        ReverseMultiplicativePriceFeedFactory.deploy(
           dao.address,
           priceFeedA.address,
           priceFeedB.address,
@@ -271,7 +282,7 @@ describe("Multiplicative Price Feed", function () {
     });
 
     it("allows fallback update time limit A to be zero when fallback A is not set", async function () {
-      const priceFeedWithoutFallbackA = await MultiplicativePriceFeedFactory.deploy(
+      const priceFeedWithoutFallbackA = await ReverseMultiplicativePriceFeedFactory.deploy(
         dao.address,
         priceFeedA.address,
         priceFeedB.address,
@@ -291,7 +302,7 @@ describe("Multiplicative Price Feed", function () {
     });
 
     it("allows fallback update time limit B to be zero when fallback B is not set", async function () {
-      const priceFeedWithoutFallbackB = await MultiplicativePriceFeedFactory.deploy(
+      const priceFeedWithoutFallbackB = await ReverseMultiplicativePriceFeedFactory.deploy(
         dao.address,
         priceFeedA.address,
         priceFeedB.address,
@@ -312,7 +323,7 @@ describe("Multiplicative Price Feed", function () {
 
     it("reverts if decimals is zero", async function () {
       await expect(
-        MultiplicativePriceFeedFactory.deploy(
+        ReverseMultiplicativePriceFeedFactory.deploy(
           dao.address,
           priceFeedA.address,
           priceFeedB.address,
@@ -331,7 +342,7 @@ describe("Multiplicative Price Feed", function () {
 
     it("reverts if decimals is greater than 18", async function () {
       await expect(
-        MultiplicativePriceFeedFactory.deploy(
+        ReverseMultiplicativePriceFeedFactory.deploy(
           dao.address,
           priceFeedA.address,
           priceFeedB.address,
@@ -349,13 +360,13 @@ describe("Multiplicative Price Feed", function () {
     });
 
     it("works with different price feed decimals", async function () {
-      const priceFeedA6 = await SimplePriceFeed.deploy(exp(1, 6), 6n, underlyingToken.address);
+      const priceFeedA6 = await SimplePriceFeed.deploy(exp(50, 6), 6n, underlyingToken.address);
       await priceFeedA6.deployed();
 
-      const priceFeedB18 = await SimplePriceFeed.deploy(exp(25, 18), 18n, underlyingToken.address);
+      const priceFeedB18 = await SimplePriceFeed.deploy(exp(2500, 18), 18n, underlyingToken.address);
       await priceFeedB18.deployed();
 
-      const mixedDecimalPriceFeed = await MultiplicativePriceFeedFactory.deploy(
+      const mixedDecimalPriceFeed = await ReverseMultiplicativePriceFeedFactory.deploy(
         dao.address,
         priceFeedA6.address,
         priceFeedB18.address,
@@ -371,13 +382,13 @@ describe("Multiplicative Price Feed", function () {
       );
       await mixedDecimalPriceFeed.deployed();
 
-      expect(await mixedDecimalPriceFeed.priceFeedA()).to.eq(priceFeedA6.address);
-      expect(await mixedDecimalPriceFeed.priceFeedB()).to.eq(priceFeedB18.address);
+      expect(await mixedDecimalPriceFeed.priceFeedAScale()).to.eq(10n ** 6n);
+      expect(await mixedDecimalPriceFeed.priceFeedBScale()).to.eq(10n ** 18n);
     });
 
     it("emits PriceFeedSet events during construction", async function () {
       expect(
-        await MultiplicativePriceFeedFactory.deploy(
+        await ReverseMultiplicativePriceFeedFactory.deploy(
           dao.address,
           priceFeedA.address,
           priceFeedB.address,
@@ -393,14 +404,14 @@ describe("Multiplicative Price Feed", function () {
         )
       )
         .to.emit(priceFeed, "PriceFeedSet")
-        .withArgs(priceFeedA.address, priceFeedADecimals, UPDATE_TIME_LIMIT_A, true)
+        .withArgs(priceFeedA.address, 10n ** priceFeedADecimals, UPDATE_TIME_LIMIT_A, true)
         .to.emit(priceFeed, "PriceFeedSet")
-        .withArgs(priceFeedB.address, priceFeedBDecimals, UPDATE_TIME_LIMIT_B, false);
+        .withArgs(priceFeedB.address, 10n ** priceFeedBDecimals, UPDATE_TIME_LIMIT_B, false);
     });
 
     it("emits FallbackPriceFeedSet events during construction", async function () {
       expect(
-        await MultiplicativePriceFeedFactory.deploy(
+        await ReverseMultiplicativePriceFeedFactory.deploy(
           dao.address,
           priceFeedA.address,
           priceFeedB.address,
@@ -416,24 +427,24 @@ describe("Multiplicative Price Feed", function () {
         )
       )
         .to.emit(priceFeed, "FallbackPriceFeedSet")
-        .withArgs(fallbackPriceFeedA.address, fallbackPriceFeedADecimals, UPDATE_TIME_LIMIT_FALLBACK_A, true)
+        .withArgs(fallbackPriceFeedA.address, UPDATE_TIME_LIMIT_FALLBACK_A, true)
         .to.emit(priceFeed, "FallbackPriceFeedSet")
-        .withArgs(fallbackPriceFeedB.address, fallbackPriceFeedBDecimals, UPDATE_TIME_LIMIT_FALLBACK_B, false);
+        .withArgs(fallbackPriceFeedB.address, UPDATE_TIME_LIMIT_FALLBACK_B, false);
     });
   });
 
   describe("setPriceFeeds", function () {
-    it("updates all price feeds", async function () {
-      const newPriceFeedA = await SimplePriceFeed.deploy(exp(200, 8), 8n, underlyingToken.address);
+    it("updates all price feeds and scales", async function () {
+      const newPriceFeedA = await SimplePriceFeed.deploy(exp(6000, 8), 8n, underlyingToken.address);
       await newPriceFeedA.deployed();
 
       const newPriceFeedB = await SimplePriceFeed.deploy(exp(3000, 8), 8n, underlyingToken.address);
       await newPriceFeedB.deployed();
 
-      const newFallbackA = await SimplePriceFeed.deploy(exp(190, 18), 18n, underlyingToken.address);
+      const newFallbackA = await SimplePriceFeed.deploy(exp(5800, 18), 18n, underlyingToken.address);
       await newFallbackA.deployed();
 
-      const newFallbackB = await SimplePriceFeed.deploy(exp(29, 6), 6n, underlyingToken.address);
+      const newFallbackB = await SimplePriceFeed.deploy(exp(2900, 6), 6n, underlyingToken.address);
       await newFallbackB.deployed();
 
       await priceFeed.setPriceFeeds(
@@ -451,6 +462,11 @@ describe("Multiplicative Price Feed", function () {
       expect(await priceFeed.priceFeedB()).to.eq(newPriceFeedB.address);
       expect(await priceFeed.fallbackPriceFeedA()).to.eq(newFallbackA.address);
       expect(await priceFeed.fallbackPriceFeedB()).to.eq(newFallbackB.address);
+
+      expect(await priceFeed.priceFeedAScale()).to.eq(10n ** 8n);
+      expect(await priceFeed.priceFeedBScale()).to.eq(10n ** 8n);
+      expect(await priceFeed.fallbackPriceFeedAScale()).to.eq(10n ** 18n);
+      expect(await priceFeed.fallbackPriceFeedBScale()).to.eq(10n ** 6n);
     });
 
     it("updates update time limits", async function () {
@@ -492,10 +508,12 @@ describe("Multiplicative Price Feed", function () {
       expect(await priceFeed.fallbackPriceFeedB()).to.eq(ZERO_ADDRESS);
       expect(await priceFeed.updateTimeLimitFallbackA()).to.eq(0);
       expect(await priceFeed.updateTimeLimitFallbackB()).to.eq(0);
+      expect(await priceFeed.fallbackPriceFeedAScale()).to.eq(0);
+      expect(await priceFeed.fallbackPriceFeedBScale()).to.eq(0);
     });
 
     it("emits PriceFeedSet events", async function () {
-      const newPriceFeedA = await SimplePriceFeed.deploy(exp(200, 8), 8n, underlyingToken.address);
+      const newPriceFeedA = await SimplePriceFeed.deploy(exp(6000, 8), 8n, underlyingToken.address);
       await newPriceFeedA.deployed();
 
       const newPriceFeedB = await SimplePriceFeed.deploy(exp(3000, 8), 8n, underlyingToken.address);
@@ -514,53 +532,53 @@ describe("Multiplicative Price Feed", function () {
         )
       )
         .to.emit(priceFeed, "PriceFeedSet")
-        .withArgs(newPriceFeedA.address, 8n, UPDATE_TIME_LIMIT_A, true)
+        .withArgs(newPriceFeedA.address, 10n ** 8n, UPDATE_TIME_LIMIT_A, true)
         .to.emit(priceFeed, "PriceFeedSet")
-        .withArgs(newPriceFeedB.address, 8n, UPDATE_TIME_LIMIT_B, false);
+        .withArgs(newPriceFeedB.address, 10n ** 8n, UPDATE_TIME_LIMIT_B, false);
     });
 
     it("emits FallbackPriceFeedSet events", async function () {
-      const newFallbackA = await SimplePriceFeed.deploy(exp(190, 18), 18n, underlyingToken.address);
+      const newFallbackA = await SimplePriceFeed.deploy(exp(5800, 18), 18n, underlyingToken.address);
       await newFallbackA.deployed();
 
-      const newFallbackB = await SimplePriceFeed.deploy(exp(29, 6), 6n, underlyingToken.address);
+      const newFallbackB = await SimplePriceFeed.deploy(exp(2900, 6), 6n, underlyingToken.address);
       await newFallbackB.deployed();
 
-      await expect(
-        priceFeed.setPriceFeeds(
-          priceFeedA.address,
-          priceFeedB.address,
-          newFallbackA.address,
-          newFallbackB.address,
-          UPDATE_TIME_LIMIT_A,
-          UPDATE_TIME_LIMIT_B,
-          UPDATE_TIME_LIMIT_FALLBACK_A,
-          UPDATE_TIME_LIMIT_FALLBACK_B
-        )
-      )
+      const tx = priceFeed.setPriceFeeds(
+        priceFeedA.address,
+        priceFeedB.address,
+        newFallbackA.address,
+        newFallbackB.address,
+        UPDATE_TIME_LIMIT_A,
+        UPDATE_TIME_LIMIT_B,
+        UPDATE_TIME_LIMIT_FALLBACK_A,
+        UPDATE_TIME_LIMIT_FALLBACK_B
+      );
+
+      await expect(tx)
         .to.emit(priceFeed, "FallbackPriceFeedSet")
-        .withArgs(newFallbackA.address, 18n, UPDATE_TIME_LIMIT_FALLBACK_A, true)
+        .withArgs(newFallbackA.address, 10n ** 18n, UPDATE_TIME_LIMIT_FALLBACK_A, true);
+
+      await expect(tx)
         .to.emit(priceFeed, "FallbackPriceFeedSet")
-        .withArgs(newFallbackB.address, 6n, UPDATE_TIME_LIMIT_FALLBACK_B, false);
+        .withArgs(newFallbackB.address, 10n ** 6n, UPDATE_TIME_LIMIT_FALLBACK_B, false);
     });
 
     it("emits FallbackPriceFeedSet with zero address when removing fallbacks", async function () {
-      await expect(
-        priceFeed.setPriceFeeds(
-          priceFeedA.address,
-          priceFeedB.address,
-          ZERO_ADDRESS,
-          ZERO_ADDRESS,
-          UPDATE_TIME_LIMIT_A,
-          UPDATE_TIME_LIMIT_B,
-          0,
-          0
-        )
-      )
-        .to.emit(priceFeed, "FallbackPriceFeedSet")
-        .withArgs(ZERO_ADDRESS, 0, 0, true)
-        .to.emit(priceFeed, "FallbackPriceFeedSet")
-        .withArgs(ZERO_ADDRESS, 0, 0, false);
+      const tx = priceFeed.setPriceFeeds(
+        priceFeedA.address,
+        priceFeedB.address,
+        ZERO_ADDRESS,
+        ZERO_ADDRESS,
+        UPDATE_TIME_LIMIT_A,
+        UPDATE_TIME_LIMIT_B,
+        0,
+        0
+      );
+
+      await expect(tx).to.emit(priceFeed, "FallbackPriceFeedSet").withArgs(ZERO_ADDRESS, 0, 0, true);
+
+      await expect(tx).to.emit(priceFeed, "FallbackPriceFeedSet").withArgs(ZERO_ADDRESS, 0, 0, false);
     });
 
     it("reverts if price feed A is zero address", async function () {
@@ -691,7 +709,7 @@ describe("Multiplicative Price Feed", function () {
   describe("signed256 function", function () {
     it("converts valid uint256 to int256", async function () {
       // We can test this indirectly by ensuring no revert with valid decimals
-      const validDecimalPriceFeed = await MultiplicativePriceFeedFactory.deploy(
+      const validDecimalPriceFeed = await ReverseMultiplicativePriceFeedFactory.deploy(
         dao.address,
         priceFeedA.address,
         priceFeedB.address,
@@ -711,7 +729,7 @@ describe("Multiplicative Price Feed", function () {
     });
 
     it("should work with maximum valid decimals", async function () {
-      const maxDecimalPriceFeed = await MultiplicativePriceFeedFactory.deploy(
+      const maxDecimalPriceFeed = await ReverseMultiplicativePriceFeedFactory.deploy(
         dao.address,
         priceFeedA.address,
         priceFeedB.address,
@@ -739,9 +757,8 @@ describe("Multiplicative Price Feed", function () {
 
       const [roundId, answer, startedAt, updatedAt, answeredInRound] = await priceFeed.latestRoundData();
 
-      // Expected calculation: (priceA * priceB * priceFeedScale) / combinedScale
-      // combinedScale = 10^(decimalsA + decimalsB) = 10^(8+8) = 10^16
-      const expectedAnswer = (priceFeedAPrice * priceFeedBPrice * 10n ** DECIMALS) / 10n ** (priceFeedADecimals + priceFeedBDecimals);
+      // Expected calculation: (priceA * priceFeedBScale * priceFeedScale) / priceB / priceFeedAScale
+      const expectedAnswer = (priceFeedAPrice * 10n ** priceFeedBDecimals * 10n ** DECIMALS) / priceFeedBPrice / 10n ** priceFeedADecimals;
 
       expect(roundId).to.eq(2); // From price feed B
       expect(answer).to.eq(expectedAnswer);
@@ -753,20 +770,20 @@ describe("Multiplicative Price Feed", function () {
     it("uses fallback price feed A when primary price feed A has zero price", async function () {
       const currentTime = await time.latest();
       await priceFeedA.setRoundData(1, 0, currentTime, currentTime, 1);
-      await priceFeedB.setRoundData(2, priceFeedBPrice, currentTime, currentTime, 2);
+      await priceFeedB.setRoundData(4, priceFeedBPrice, currentTime, currentTime, 4);
       await fallbackPriceFeedA.setRoundData(3, fallbackPriceFeedAPrice, currentTime, currentTime, 3);
 
       const [roundId, answer, startedAt, updatedAt, answeredInRound] = await priceFeed.latestRoundData();
 
-      // Expected calculation using fallback A decimals
+      // Expected calculation using fallback A scale
       const expectedAnswer =
-        (fallbackPriceFeedAPrice * priceFeedBPrice * 10n ** DECIMALS) / 10n ** (fallbackPriceFeedADecimals + priceFeedBDecimals);
+        (fallbackPriceFeedAPrice * 10n ** priceFeedBDecimals * 10n ** DECIMALS) / priceFeedBPrice / 10n ** fallbackPriceFeedADecimals;
 
-      expect(roundId).to.eq(2);
+      expect(roundId).to.eq(4); // From price feed B
       expect(answer).to.eq(expectedAnswer);
       expect(startedAt).to.eq(currentTime);
       expect(updatedAt).to.eq(currentTime);
-      expect(answeredInRound).to.eq(2); // From price feed B
+      expect(answeredInRound).to.eq(4); // From price feed B
     });
 
     it("uses fallback price feed A when primary price feed A has negative price", async function () {
@@ -775,21 +792,17 @@ describe("Multiplicative Price Feed", function () {
       await priceFeedB.setRoundData(2, priceFeedBPrice, currentTime, currentTime, 2);
       await fallbackPriceFeedA.setRoundData(3, fallbackPriceFeedAPrice, currentTime, currentTime, 3);
 
-      const [roundId, answer, startedAt, updatedAt, answeredInRound] = await priceFeed.latestRoundData();
+      const [, answer, , ,] = await priceFeed.latestRoundData();
 
       const expectedAnswer =
-        (fallbackPriceFeedAPrice * priceFeedBPrice * 10n ** DECIMALS) / 10n ** (fallbackPriceFeedADecimals + priceFeedBDecimals);
+        (fallbackPriceFeedAPrice * 10n ** priceFeedBDecimals * 10n ** DECIMALS) / priceFeedBPrice / 10n ** fallbackPriceFeedADecimals;
 
       expect(answer).to.eq(expectedAnswer);
-      expect(roundId).to.eq(2);
-      expect(startedAt).to.eq(currentTime);
-      expect(updatedAt).to.eq(currentTime);
-      expect(answeredInRound).to.eq(2); // From price feed B
     });
 
     it("uses fallback price feed A when primary price feed A is stale", async function () {
       const currentTime = await time.latest();
-      const staleTime = currentTime - UPDATE_TIME_LIMIT_A + 2;
+      const staleTime = currentTime - UPDATE_TIME_LIMIT_A + 2; // 2 seconds additional because of 2 additional transactions
 
       await priceFeedA.setRoundData(1, priceFeedAPrice, staleTime, staleTime, 1);
       await priceFeedB.setRoundData(2, priceFeedBPrice, currentTime, currentTime, 2);
@@ -798,7 +811,7 @@ describe("Multiplicative Price Feed", function () {
       const [, answer, , ,] = await priceFeed.latestRoundData();
 
       const expectedAnswer =
-        (fallbackPriceFeedAPrice * priceFeedBPrice * 10n ** DECIMALS) / 10n ** (fallbackPriceFeedADecimals + priceFeedBDecimals);
+        (fallbackPriceFeedAPrice * 10n ** priceFeedBDecimals * 10n ** DECIMALS) / priceFeedBPrice / 10n ** fallbackPriceFeedADecimals;
 
       expect(answer).to.eq(expectedAnswer);
     });
@@ -811,15 +824,15 @@ describe("Multiplicative Price Feed", function () {
 
       const [roundId, answer, startedAt, updatedAt, answeredInRound] = await priceFeed.latestRoundData();
 
-      // Expected calculation using fallback B decimals
+      // Expected calculation using fallback B scale
       const expectedAnswer =
-        (priceFeedAPrice * fallbackPriceFeedBPrice * 10n ** DECIMALS) / 10n ** (priceFeedADecimals + fallbackPriceFeedBDecimals);
+        (priceFeedAPrice * 10n ** fallbackPriceFeedBDecimals * 10n ** DECIMALS) / fallbackPriceFeedBPrice / 10n ** priceFeedADecimals;
 
       expect(roundId).to.eq(4); // From fallback price feed B
       expect(answer).to.eq(expectedAnswer);
       expect(startedAt).to.eq(currentTime);
       expect(updatedAt).to.eq(currentTime);
-      expect(answeredInRound).to.eq(4);
+      expect(answeredInRound).to.eq(4); // From fallback price feed B
     });
 
     it("uses fallback price feed B when primary price feed B has negative price", async function () {
@@ -831,7 +844,7 @@ describe("Multiplicative Price Feed", function () {
       const [roundId, answer, , ,] = await priceFeed.latestRoundData();
 
       const expectedAnswer =
-        (priceFeedAPrice * fallbackPriceFeedBPrice * 10n ** DECIMALS) / 10n ** (priceFeedADecimals + fallbackPriceFeedBDecimals);
+        (priceFeedAPrice * 10n ** fallbackPriceFeedBDecimals * 10n ** DECIMALS) / fallbackPriceFeedBPrice / 10n ** priceFeedADecimals;
 
       expect(roundId).to.eq(4);
       expect(answer).to.eq(expectedAnswer);
@@ -839,16 +852,16 @@ describe("Multiplicative Price Feed", function () {
 
     it("uses fallback price feed B when primary price feed B is stale", async function () {
       const currentTime = await time.latest();
-      const staleTime = currentTime - UPDATE_TIME_LIMIT_B + 2;
+      const staleTime = currentTime - UPDATE_TIME_LIMIT_B + 2; // 2 seconds additional because of 2 additional transactions
 
       await priceFeedA.setRoundData(1, priceFeedAPrice, currentTime, currentTime, 1);
-      await priceFeedB.setRoundData(2, priceFeedBPrice, staleTime, staleTime, 2);
       await fallbackPriceFeedB.setRoundData(4, fallbackPriceFeedBPrice, currentTime, currentTime, 4);
+      await priceFeedB.setRoundData(2, priceFeedBPrice, staleTime, staleTime, 2);
 
       const [roundId, answer, , ,] = await priceFeed.latestRoundData();
 
       const expectedAnswer =
-        (priceFeedAPrice * fallbackPriceFeedBPrice * 10n ** DECIMALS) / 10n ** (priceFeedADecimals + fallbackPriceFeedBDecimals);
+        (priceFeedAPrice * 10n ** fallbackPriceFeedBDecimals * 10n ** DECIMALS) / fallbackPriceFeedBPrice / 10n ** priceFeedADecimals;
 
       expect(roundId).to.eq(4);
       expect(answer).to.eq(expectedAnswer);
@@ -863,17 +876,18 @@ describe("Multiplicative Price Feed", function () {
 
       const [roundId, answer, , ,] = await priceFeed.latestRoundData();
 
-      // Expected calculation using both fallback decimals
+      // Expected calculation using both fallback scales
       const expectedAnswer =
-        (fallbackPriceFeedAPrice * fallbackPriceFeedBPrice * 10n ** DECIMALS) /
-        10n ** (fallbackPriceFeedADecimals + fallbackPriceFeedBDecimals);
+        (fallbackPriceFeedAPrice * 10n ** fallbackPriceFeedBDecimals * 10n ** DECIMALS) /
+        fallbackPriceFeedBPrice /
+        10n ** fallbackPriceFeedADecimals;
 
       expect(roundId).to.eq(4);
       expect(answer).to.eq(expectedAnswer);
     });
 
     it("reverts when primary price feed A is invalid and no fallback A is set", async function () {
-      const priceFeedWithoutFallbackA = await MultiplicativePriceFeedFactory.deploy(
+      const priceFeedWithoutFallbackA = await ReverseMultiplicativePriceFeedFactory.deploy(
         dao.address,
         priceFeedA.address,
         priceFeedB.address,
@@ -900,7 +914,7 @@ describe("Multiplicative Price Feed", function () {
     });
 
     it("reverts when primary price feed B is invalid and no fallback B is set", async function () {
-      const priceFeedWithoutFallbackB = await MultiplicativePriceFeedFactory.deploy(
+      const priceFeedWithoutFallbackB = await ReverseMultiplicativePriceFeedFactory.deploy(
         dao.address,
         priceFeedA.address,
         priceFeedB.address,
@@ -957,7 +971,7 @@ describe("Multiplicative Price Feed", function () {
 
     it("reverts when fallback price feed B is stale", async function () {
       const currentTime = await time.latest();
-      const staleTime = currentTime - UPDATE_TIME_LIMIT_FALLBACK_B + 2;
+      const staleTime = currentTime - UPDATE_TIME_LIMIT_FALLBACK_B + 2; // 2 seconds additional because of 2 additional transactions
 
       await priceFeedA.setRoundData(1, priceFeedAPrice, currentTime, currentTime, 1);
       await priceFeedB.setRoundData(2, 0, currentTime, currentTime, 2);
@@ -966,89 +980,144 @@ describe("Multiplicative Price Feed", function () {
       await expect(priceFeed.latestRoundData()).to.be.revertedWithCustomError(priceFeed, "PriceNotAvailable");
     });
 
-    describe("mathematical calculations", function () {
-      const testCases = [
-        {
-          priceA: exp(1, 8),
-          priceB: exp(30000, 8),
-          decimalsA: 8,
-          decimalsB: 8,
-          expected: exp(30000, 8),
-        },
-        {
-          priceA: exp(2.123456, 8),
-          priceB: exp(31333.123, 8),
-          decimalsA: 8,
-          decimalsB: 8,
-          expected: 6653450803308n,
-        },
-        {
-          priceA: exp(100, 8),
-          priceB: exp(30000, 8),
-          decimalsA: 8,
-          decimalsB: 8,
-          expected: exp(3000000, 8),
-        },
-        {
-          priceA: exp(1, 18),
-          priceB: exp(1800, 8),
-          decimalsA: 18,
-          decimalsB: 8,
-          expected: exp(1800, 8),
-        },
-        {
-          priceA: exp(1.25, 18),
-          priceB: exp(1800, 8),
-          decimalsA: 18,
-          decimalsB: 8,
-          expected: exp(2250, 8),
-        },
-      ];
+    describe("18 decimal price feed tests", function () {
+      let eighteenDecimalPriceFeed: ReverseMultiplicativePriceFeed;
+      let priceFeedA18: SimplePriceFeed;
+      let priceFeedB18: SimplePriceFeed;
 
-      for (const testCase of testCases) {
-        it(`calculates ${testCase.priceA} (${testCase.decimalsA} decimals) * ${testCase.priceB} (${testCase.decimalsB} decimals) = ${testCase.expected}`, async function () {
-          const testPriceFeedA = await SimplePriceFeed.deploy(testCase.priceA, testCase.decimalsA, underlyingToken.address);
-          await testPriceFeedA.deployed();
+      beforeEach(async function () {
+        // Create 18 decimal price feeds
+        const priceFeedAPrice18 = exp(5000, 18); // $50.00 with 18 decimals
+        const priceFeedBPrice18 = exp(2500, 18); // $2500.00 with 18 decimals
 
-          const testPriceFeedB = await SimplePriceFeed.deploy(testCase.priceB, testCase.decimalsB, underlyingToken.address);
-          await testPriceFeedB.deployed();
+        priceFeedA18 = await SimplePriceFeed.deploy(priceFeedAPrice18, 18n, underlyingToken.address);
+        await priceFeedA18.deployed();
 
-          const testMultiplicativePriceFeed = await MultiplicativePriceFeedFactory.deploy(
-            dao.address,
-            testPriceFeedA.address,
-            testPriceFeedB.address,
-            ZERO_ADDRESS,
-            ZERO_ADDRESS,
-            underlyingToken.address,
-            UPDATE_TIME_LIMIT_A,
-            UPDATE_TIME_LIMIT_B,
-            0,
-            0,
-            DECIMALS,
-            DESCRIPTION
-          );
-          await testMultiplicativePriceFeed.deployed();
-
-          const currentTime = await time.latest();
-          await testPriceFeedA.setRoundData(1, testCase.priceA, currentTime, currentTime, 1);
-          await testPriceFeedB.setRoundData(2, testCase.priceB, currentTime, currentTime, 2);
-
-          const [, answer] = await testMultiplicativePriceFeed.latestRoundData();
-
-          expect(answer).to.eq(testCase.expected);
-        });
-      }
-    });
-
-    describe("different decimal configurations", function () {
-      it("handles mixed decimals: 6 and 18 decimal inputs with 8 decimal output", async function () {
-        const priceFeedA6 = await SimplePriceFeed.deploy(exp(2, 6), 6n, underlyingToken.address);
-        await priceFeedA6.deployed();
-
-        const priceFeedB18 = await SimplePriceFeed.deploy(exp(1500, 18), 18n, underlyingToken.address);
+        priceFeedB18 = await SimplePriceFeed.deploy(priceFeedBPrice18, 18n, underlyingToken.address);
         await priceFeedB18.deployed();
 
-        const mixedDecimalPriceFeed = await MultiplicativePriceFeedFactory.deploy(
+        eighteenDecimalPriceFeed = await ReverseMultiplicativePriceFeedFactory.deploy(
+          dao.address,
+          priceFeedA18.address,
+          priceFeedB18.address,
+          ZERO_ADDRESS,
+          ZERO_ADDRESS,
+          underlyingToken.address,
+          UPDATE_TIME_LIMIT_A,
+          UPDATE_TIME_LIMIT_B,
+          UPDATE_TIME_LIMIT_FALLBACK_A,
+          UPDATE_TIME_LIMIT_FALLBACK_B,
+          18, // 18 decimals for the price feed itself
+          DESCRIPTION
+        );
+        await eighteenDecimalPriceFeed.deployed();
+      });
+
+      it("calculates price correctly with 18 decimal inputs and 18 decimal output", async function () {
+        const currentTime = await time.latest();
+        const priceA18 = exp(5000, 18);
+        const priceB18 = exp(2500, 18);
+
+        await priceFeedA18.setRoundData(1, priceA18, currentTime, currentTime, 1);
+        await priceFeedB18.setRoundData(2, priceB18, currentTime, currentTime, 2);
+
+        const [roundId, answer, startedAt, updatedAt, answeredInRound] = await eighteenDecimalPriceFeed.latestRoundData();
+
+        // Expected: (priceA * 10^18 * 10^18) / priceB / 10^18 = (priceA * 10^18) / priceB
+        const expectedAnswer = (priceA18 * 10n ** 18n) / priceB18;
+
+        expect(answer).to.eq(expectedAnswer);
+        expect(await eighteenDecimalPriceFeed.decimals()).to.eq(18);
+        expect(roundId).to.eq(2); // From price feed B
+        expect(startedAt).to.eq(currentTime);
+        expect(updatedAt).to.eq(currentTime);
+        expect(answeredInRound).to.eq(2); // From price feed B
+      });
+
+      it("handles high precision calculations with 18 decimals", async function () {
+        const currentTime = await time.latest();
+        const priceA18 = exp(123456789, 18); // Very precise price
+        const priceB18 = exp(987654321, 18); // Very precise price
+
+        await priceFeedA18.setRoundData(1, priceA18, currentTime, currentTime, 1);
+        await priceFeedB18.setRoundData(2, priceB18, currentTime, currentTime, 2);
+
+        const [, answer, , ,] = await eighteenDecimalPriceFeed.latestRoundData();
+
+        const expectedAnswer = (priceA18 * 10n ** 18n) / priceB18;
+
+        expect(answer).to.eq(expectedAnswer);
+      });
+    });
+
+    describe("8 decimal price feed tests", function () {
+      let eightDecimalPriceFeed: ReverseMultiplicativePriceFeed;
+
+      beforeEach(async function () {
+        eightDecimalPriceFeed = await ReverseMultiplicativePriceFeedFactory.deploy(
+          dao.address,
+          priceFeedA.address,
+          priceFeedB.address,
+          fallbackPriceFeedA.address,
+          fallbackPriceFeedB.address,
+          underlyingToken.address,
+          UPDATE_TIME_LIMIT_A,
+          UPDATE_TIME_LIMIT_B,
+          UPDATE_TIME_LIMIT_FALLBACK_A,
+          UPDATE_TIME_LIMIT_FALLBACK_B,
+          8, // 8 decimals for the price feed itself
+          DESCRIPTION
+        );
+        await eightDecimalPriceFeed.deployed();
+      });
+
+      it("calculates price correctly with 8 decimal inputs and 8 decimal output", async function () {
+        const currentTime = await time.latest();
+        await priceFeedA.setRoundData(1, priceFeedAPrice, currentTime, currentTime, 1);
+        await priceFeedB.setRoundData(2, priceFeedBPrice, currentTime, currentTime, 2);
+
+        const [roundId, answer, startedAt, updatedAt, answeredInRound] = await eightDecimalPriceFeed.latestRoundData();
+
+        // Expected: (priceA * 10^8 * 10^8) / priceB / 10^8 = (priceA * 10^8) / priceB
+        const expectedAnswer = (priceFeedAPrice * 10n ** 8n) / priceFeedBPrice;
+
+        expect(answer).to.eq(expectedAnswer);
+        expect(await eightDecimalPriceFeed.decimals()).to.eq(8);
+        expect(roundId).to.eq(2); // From price feed B
+        expect(startedAt).to.eq(currentTime);
+        expect(updatedAt).to.eq(currentTime);
+        expect(answeredInRound).to.eq(2); // From price feed B
+      });
+
+      it("handles different price scenarios with 8 decimals", async function () {
+        const currentTime = await time.latest();
+        const priceA = exp(1000, 8); // $10.00
+        const priceB = exp(200000, 8); // $2000.00
+
+        await priceFeedA.setRoundData(1, priceA, currentTime, currentTime, 1);
+        await priceFeedB.setRoundData(2, priceB, currentTime, currentTime, 2);
+
+        const [roundId, answer, startedAt, updatedAt, answeredInRound] = await eightDecimalPriceFeed.latestRoundData();
+
+        const expectedAnswer = (priceA * 10n ** 8n) / priceB;
+
+        expect(answer).to.eq(expectedAnswer);
+        expect(roundId).to.eq(2); // From price feed B
+        expect(startedAt).to.eq(currentTime);
+        expect(updatedAt).to.eq(currentTime);
+        expect(answeredInRound).to.eq(2); // From price feed B
+      });
+    });
+
+    describe("mixed decimal configurations", function () {
+      it("handles mixed decimals: 6 and 18 decimal inputs with 12 decimal output", async function () {
+        const priceFeedA6 = await SimplePriceFeed.deploy(exp(50, 6), 6n, underlyingToken.address);
+        await priceFeedA6.deployed();
+
+        const priceFeedB18 = await SimplePriceFeed.deploy(exp(2500, 18), 18n, underlyingToken.address);
+        await priceFeedB18.deployed();
+
+        const mixedDecimalPriceFeed = await ReverseMultiplicativePriceFeedFactory.deploy(
           dao.address,
           priceFeedA6.address,
           priceFeedB18.address,
@@ -1059,64 +1128,71 @@ describe("Multiplicative Price Feed", function () {
           UPDATE_TIME_LIMIT_B,
           UPDATE_TIME_LIMIT_FALLBACK_A,
           UPDATE_TIME_LIMIT_FALLBACK_B,
-          8, // 8 decimals for output
+          12, // 12 decimals for output
           DESCRIPTION
         );
         await mixedDecimalPriceFeed.deployed();
 
         const currentTime = await time.latest();
-        const priceA = exp(2, 6);
-        const priceB = exp(1500, 18);
+        const priceA = exp(50, 6);
+        const priceB = exp(2500, 18);
 
         await priceFeedA6.setRoundData(1, priceA, currentTime, currentTime, 1);
         await priceFeedB18.setRoundData(2, priceB, currentTime, currentTime, 2);
 
         const [roundId, answer, startedAt, updatedAt, answeredInRound] = await mixedDecimalPriceFeed.latestRoundData();
 
-        // Expected: (priceA * priceB * 10^8) / 10^(6+18)
-        const expectedAnswer = (priceA * priceB * 10n ** 8n) / 10n ** (6n + 18n);
+        // Expected: (priceA * 10^18 * 10^12) / priceB / 10^6
+        const expectedAnswer = (priceA * 10n ** 18n * 10n ** 12n) / priceB / 10n ** 6n;
 
         expect(answer).to.eq(expectedAnswer);
+        expect(await mixedDecimalPriceFeed.decimals()).to.eq(12);
+        expect(roundId).to.eq(2); // From price feed B
         expect(startedAt).to.eq(currentTime);
         expect(updatedAt).to.eq(currentTime);
-        expect(answeredInRound).to.eq(2);
-        expect(roundId).to.eq(2); // From price feed B
+        expect(answeredInRound).to.eq(2); // From price feed B
       });
     });
 
     describe("edge cases", function () {
-      it("handles zero price from price feed A and price feed B", async function () {
+      it("handles very large price differences", async function () {
         const currentTime = await time.latest();
+        const smallPriceA = exp(1, 8); // $0.01
+        const largePriceB = exp(1000000, 8); // $10,000.00
 
-        await priceFeedA.setRoundData(1, 0, currentTime, currentTime, 1);
-        await priceFeedB.setRoundData(2, 0, currentTime, currentTime, 2);
-        await fallbackPriceFeedA.setRoundData(3, fallbackPriceFeedAPrice, currentTime, currentTime, 3);
-        await fallbackPriceFeedB.setRoundData(4, fallbackPriceFeedBPrice, currentTime, currentTime, 4);
-
-        const [, answer, , ,] = await priceFeed.latestRoundData();
-
-        const expectedAnswer =
-          (fallbackPriceFeedAPrice * fallbackPriceFeedBPrice * 10n ** DECIMALS) /
-          10n ** (fallbackPriceFeedADecimals + fallbackPriceFeedBDecimals);
-        expect(answer).to.eq(expectedAnswer);
-      });
-
-      it("handles very large price values", async function () {
-        const largePriceA = exp(10000000, 8); // $100,000.00
-        const largePriceB = exp(100000000, 8); // $1,000,000.00
-
-        const currentTime = await time.latest();
-
-        await priceFeedA.setRoundData(1, largePriceA, currentTime, currentTime, 1);
+        await priceFeedA.setRoundData(1, smallPriceA, currentTime, currentTime, 1);
         await priceFeedB.setRoundData(2, largePriceB, currentTime, currentTime, 2);
 
-        const [, answer, , ,] = await priceFeed.latestRoundData();
+        const [roundId, answer, startedAt, updatedAt, answeredInRound] = await priceFeed.latestRoundData();
 
-        const expectedAnswer = (largePriceA * largePriceB * 10n ** DECIMALS) / 10n ** (priceFeedADecimals + priceFeedBDecimals);
+        const expectedAnswer = (smallPriceA * 10n ** 8n * 10n ** 8n) / largePriceB / 10n ** 8n;
+
         expect(answer).to.eq(expectedAnswer);
+        expect(roundId).to.eq(2); // From price feed B
+        expect(startedAt).to.eq(currentTime);
+        expect(updatedAt).to.eq(currentTime);
+        expect(answeredInRound).to.eq(2); // From price feed B
       });
 
-      it("returns round data from active price feed B", async function () {
+      it("handles price at exact staleness threshold", async function () {
+        const currentTime = await time.latest();
+        const exactThresholdTime = currentTime - UPDATE_TIME_LIMIT_A + 2;
+
+        await priceFeedA.setRoundData(1, priceFeedAPrice, exactThresholdTime, exactThresholdTime, 1);
+        await priceFeedB.setRoundData(2, priceFeedBPrice, currentTime, currentTime, 2);
+
+        const [roundId, answer, startedAt, updatedAt, answeredInRound] = await priceFeed.latestRoundData();
+
+        const expectedAnswer = (priceFeedAPrice * 10n ** 8n * 10n ** 8n) / priceFeedBPrice / 10n ** 8n;
+
+        expect(answer).to.eq(expectedAnswer);
+        expect(roundId).to.eq(2); // From price feed B
+        expect(startedAt).to.eq(currentTime);
+        expect(updatedAt).to.eq(currentTime);
+        expect(answeredInRound).to.eq(2); // From price feed B
+      });
+
+      it("returns round data from the active price feed B", async function () {
         const currentTime = await time.latest();
         const testRoundId = 123;
         const testStartedAt = currentTime - 100;
