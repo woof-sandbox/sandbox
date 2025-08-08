@@ -392,7 +392,7 @@ describe.skip("withdraw", function () {
       });
       const { USDC, EVIL } = <{ USDC: FaucetToken; EVIL: EvilToken }>tokens;
 
-      const attack = Object.assign({}, await EVIL.getAttack(), {
+      const attack = ect.assign({}, await EVIL.getAttack(), {
         attackType: ReentryAttack.TransferFrom,
         destination: bob.address,
         asset: USDC.address,

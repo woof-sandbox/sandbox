@@ -10,9 +10,18 @@ import {
   SnapshotRestorer,
   takeSnapshot,
   getPrincipalChange,
+  defaultAssets,
 } from "./helper/helpers";
 
-import { SandboxComet, ConfigController, FaucetToken, ICometExtension, ISandboxController } from "../build/types";
+import {
+  SandboxComet,
+  ConfigController,
+  FaucetToken,
+  ICometExtension,
+  ISandboxController,
+  NonStandardFaucetFeeToken__factory,
+  NonStandardFaucetFeeToken,
+} from "../build/types";
 import { BigNumber } from "ethers";
 
 // Note: isolated supply functionality, withdraw and repay are tested in separate testsets
@@ -475,60 +484,226 @@ describe.only("5. supply", function () {
     });
   });
 
-  describe.skip("supply collateral flow", function () {
-    const chosenCollateral: FaucetToken = collaterals[0];
+  describe("supply collateral flow", function () {
+    before(async function () {
+      const collateralIndex = await comet.collateralAssetIndex(collaterals["COMP"].address);
+      const supplyCap = (await comet.collateralAssets(collateralIndex)).supplyCap;
+      await collaterals["COMP"].allocateTo(alice.address, supplyCap.add(exp(1, 18)));
+      await collaterals["COMP"].allocateTo(bob.address, exp(1e10, 18));
+    });
 
     describe("reverts for collaterals", function () {
       it("reverts for colalteral when supply is paused", async () => {
-        // WIP
+        await comet.connect(dao).pause(true, false, false, false, false);
+        expect(await comet.isSupplyPaused()).to.be.true;
+
+        await expect(comet.connect(alice).supply(collaterals["COMP"].address, 1)).to.be.revertedWithCustomError(comet, "Paused");
+        await comet.connect(dao).pause(false, false, false, false, false);
       });
 
       it("reverts for not enough collateral balance", async () => {
-        // WIP
+        const balanceBefore = await collaterals["COMP"].balanceOf(alice.address);
+
+        await collaterals["COMP"].connect(alice).approve(comet.address, balanceBefore.add(1));
+        await expect(comet.connect(alice).supply(collaterals["COMP"].address, balanceBefore.add(1))).to.be.reverted;
+        await collaterals["COMP"].connect(alice).approve(comet.address, 0);
       });
 
-      it("reverts for 0 colalteral amount", async () => {
-        // WIP
+      it("reverts for 0 collateral amount", async () => {
+        await expect(comet.connect(alice).supply(collaterals["COMP"].address, 0)).to.be.revertedWithCustomError(comet, "ZeroAmount");
       });
 
       it("reverts if supplying collateral exceeds the supply cap", async () => {
-        const collateralIndex = await comet.collateralAssetIndex(chosenCollateral.address);
+        const collateralIndex = await comet.collateralAssetIndex(collaterals["COMP"].address);
         const supplyCap = (await comet.collateralAssets(collateralIndex)).supplyCap;
 
-        expect(await chosenCollateral.balanceOf(alice.address)).is.greaterThan(supplyCap);
+        // health check
+        expect(await collaterals["COMP"].balanceOf(alice.address)).is.greaterThan(supplyCap);
 
-        await chosenCollateral.connect(alice).approve(comet.address, supplyCap.add(1));
-        await expect(comet.supplyTo(alice.address, chosenCollateral.address, supplyCap.add(1))).to.be.revertedWithCustomError(
+        await collaterals["COMP"].connect(alice).approve(comet.address, supplyCap.add(1));
+        await expect(comet.connect(alice).supply(collaterals["COMP"].address, supplyCap.add(1))).to.be.revertedWithCustomError(
           comet,
           "SupplyCapExceeded"
         );
-        await chosenCollateral.connect(alice).approve(comet.address, 0);
+        await collaterals["COMP"].connect(alice).approve(comet.address, 0);
       });
     });
 
     describe("supply collateral: happy cases", function () {
+      const ALICE_COLLATERAL_AMOUNT: BigNumber = BigNumber.from(exp(5, 17)); //0.5 of token
+      let aliceCollateralBalanceBefore: BigNumber;
+      let totalSupplyBefore: BigNumber;
+      let cometSupplyIndexBefore: BigNumber;
+      let cometSupplyRateBefore: BigNumber;
+      let alicePrincipalBefore: BigNumber;
+      let aliceDisplayBalanceBefore: BigNumber;
+      let cometUpdatedTimeBefore: number;
+
+      before(async function () {
+        const totals = await cometExtension.totalsBasic();
+        aliceCollateralBalanceBefore = await collaterals["COMP"].balanceOf(alice.address);
+
+        totalSupplyBefore = totals.totalSupplyBase;
+        cometSupplyIndexBefore = totals.baseSupplyIndex;
+        cometSupplyRateBefore = await comet.getSupplyRate(0);
+        alicePrincipalBefore = (await comet.userBasic(alice.address)).principal;
+        aliceDisplayBalanceBefore = await comet.balanceOf(alice.address);
+
+        cometUpdatedTimeBefore = totals.lastAccrualTime;
+
+        // wait for a while to have impact from accrual
+        await ethers.provider.send("evm_increaseTime", [60 * 60]); // 1 hr
+        await ethers.provider.send("evm_mine", []);
+      });
+
+      it("should not have collateral registered for a user", async () => {
+        const collateralIndex = (await comet.getAssetInfoByAddress(collaterals["COMP"].address))[1];
+        const userData = await comet.userBasic(alice.address);
+        const offset = 1 << collateralIndex;
+
+        expect(userData.assetsIn & offset).to.equal(0);
+      });
+
+      it("should not collateral in the storage", async () => {
+        expect(await comet.totalsCollateral(collaterals["COMP"].address)).to.equal(0);
+        expect(await comet.userCollateral(alice.address, collaterals["COMP"].address)).to.equal(0);
+      });
+
+      it("should not have collateral on the balance", async () => {
+        expect(await collaterals["COMP"].balanceOf(comet.address)).to.equal(0);
+      });
+
+      it("should emit event during 1st collateral deposit", async () => {
+        const snapshot: SnapshotRestorer = await takeSnapshot();
+
+        await collaterals["COMP"].connect(alice).approve(comet.address, ALICE_COLLATERAL_AMOUNT);
+        expect(await comet.connect(alice).supply(collaterals["COMP"].address, ALICE_COLLATERAL_AMOUNT))
+          .to.emit(comet, "SupplyCollateral")
+          .withArgs(alice.address, alice.address, collaterals["COMP"].address, ALICE_COLLATERAL_AMOUNT);
+
+        await snapshot.restore();
+      });
+
+      it("should allow collateral deposit", async () => {
+        await collaterals["COMP"].connect(alice).approve(comet.address, ALICE_COLLATERAL_AMOUNT);
+        await expect(comet.connect(alice).supply(collaterals["COMP"].address, ALICE_COLLATERAL_AMOUNT)).to.not.be.reverted;
+      });
+
       it("collateral is added to user's tokens", async () => {
-        // WIP
+        const collateralIndex = (await comet.getAssetInfoByAddress(collaterals["COMP"].address))[1];
+        const userData = await comet.userBasic(alice.address);
+        const offset = 1 << collateralIndex;
+
+        expect(userData.assetsIn & offset).to.equal(offset);
       });
 
       it("exact collateral token balance is supplied from alice", async () => {
-        // WIP
+        const aliceCollateralBalanceAfter = await collaterals["COMP"].balanceOf(alice.address);
+        expect(aliceCollateralBalanceBefore.sub(aliceCollateralBalanceAfter)).to.equal(ALICE_COLLATERAL_AMOUNT);
       });
 
       it("Comet's collateral token balance growths", async () => {
-        // WIP
+        expect(await collaterals["COMP"].balanceOf(comet.address)).to.equal(ALICE_COLLATERAL_AMOUNT);
       });
 
-      it("should correclty set alice's colalteral balance", async () => {
-        // WIP
+      it("should correctly set alice's collateral balance", async () => {
+        expect(await comet.userCollateral(alice.address, collaterals["COMP"].address)).to.equal(ALICE_COLLATERAL_AMOUNT);
+      });
+
+      it("should correctly set comet's total balance", async () => {
+        expect(await comet.totalsCollateral(collaterals["COMP"].address)).to.equal(ALICE_COLLATERAL_AMOUNT);
+      });
+
+      it("should accrue state during collateral supply", async () => {
+        const lastUpdated = (await cometExtension.totalsBasic()).lastAccrualTime;
+
+        expect(lastUpdated).to.be.greaterThan(cometUpdatedTimeBefore);
+        expect(lastUpdated).to.equal((await ethers.provider.getBlock("latest")).timestamp);
+      });
+
+      it("should not change alice principal after accrual (no collateral effect on principal)", async () => {
+        expect((await comet.userBasic(alice.address)).principal).to.equal(alicePrincipalBefore);
+      });
+
+      it("should have correct display of alice principal", async () => {
+        const curTime = (await ethers.provider.getBlock("latest")).timestamp;
+        const timeElapsed = curTime - cometUpdatedTimeBefore;
+        const accruedIndex = cometSupplyIndexBefore.add(cometSupplyIndexBefore.mul(cometSupplyRateBefore).mul(timeElapsed).div(exp(1, 18)));
+
+        // healthcheck than current index is re-calculated correctly
+        const index = (await cometExtension.totalsBasic()).baseSupplyIndex;
+        expect(index).to.equal(accruedIndex);
+
+        const newBalanceFromPrincipal = alicePrincipalBefore.mul(accruedIndex).div(exp(1, 15));
+
+        // current balance
+        const newBalance = await comet.balanceOf(alice.address);
+
+        expect(newBalance).to.equal(newBalanceFromPrincipal);
+        // check the invariant that lender's balance can only grow
+        expect(newBalance).to.be.greaterThan(aliceDisplayBalanceBefore);
+      });
+
+      it("should change comet's total supply correctly after accrual (no collateral effect on supply)", async () => {
+        expect((await cometExtension.totalsBasic()).totalSupplyBase).to.equal(totalSupplyBefore);
+      });
+
+      it("should have correct display of total supply", async () => {
+        const curTime = (await ethers.provider.getBlock("latest")).timestamp;
+        const timeElapsed = curTime - cometUpdatedTimeBefore;
+        const accruedIndex = cometSupplyIndexBefore.add(cometSupplyIndexBefore.mul(cometSupplyRateBefore).mul(timeElapsed).div(exp(1, 18)));
+
+        // healthcheck than current index is re-calculated correctly
+        const index = (await cometExtension.totalsBasic()).baseSupplyIndex;
+        expect(index).to.equal(accruedIndex);
+
+        const newExpectedTotalSupply = totalSupplyBefore.mul(accruedIndex).div(exp(1, 15));
+
+        // current displayed supply
+        const newSupply = await comet.totalSupply();
+
+        expect(newSupply).to.equal(newExpectedTotalSupply);
+        // check the invariant that lender's balance can only grow
+        expect(newSupply).to.be.greaterThan(totalSupplyBefore);
       });
 
       it("should allow deposit more of the same collateral", async () => {
-        // WIP
+        aliceCollateralBalanceBefore = await comet.userCollateral(alice.address, collaterals["COMP"].address);
+        await collaterals["COMP"].connect(alice).approve(comet.address, ALICE_COLLATERAL_AMOUNT);
+        await comet.connect(alice).supply(collaterals["COMP"].address, ALICE_COLLATERAL_AMOUNT);
+
+        expect(await comet.userCollateral(alice.address, collaterals["COMP"].address)).to.equal(
+          aliceCollateralBalanceBefore.add(ALICE_COLLATERAL_AMOUNT)
+        );
       });
 
       it("should allow deposit another collateral token", async () => {
-        // WIP
+        await collaterals["WETH"].allocateTo(alice.address, exp(1, 17)); //0.1 token
+
+        // health check
+        expect(await comet.userCollateral(alice.address, collaterals["WETH"].address)).to.equal(0);
+
+        await collaterals["WETH"].connect(alice).approve(comet.address, exp(1, 17));
+        await comet.connect(alice).supply(collaterals["WETH"].address, exp(1, 17));
+
+        expect(await comet.userCollateral(alice.address, collaterals["WETH"].address)).to.equal(exp(1, 17));
+      });
+
+      it("should have no impact on a previous collateral deposit", async () => {
+        expect(await comet.userCollateral(alice.address, collaterals["COMP"].address)).to.equal(
+          aliceCollateralBalanceBefore.add(ALICE_COLLATERAL_AMOUNT)
+        );
+      });
+
+      it("supply of collateral from Bob should not affect Alice", async () => {
+        const aliceBalanceBefore = await comet.userCollateral(alice.address, collaterals["COMP"].address);
+        const totalCollateralSupplyBefore = await comet.totalsCollateral(collaterals["COMP"].address);
+
+        await collaterals["COMP"].connect(bob).approve(comet.address, exp(1, 17));
+        await comet.connect(bob).supply(collaterals["COMP"].address, exp(1, 17));
+
+        expect(await comet.userCollateral(alice.address, collaterals["COMP"].address)).to.equal(aliceBalanceBefore);
+        expect(await comet.totalsCollateral(collaterals["COMP"].address)).to.equal(totalCollateralSupplyBefore.add(exp(1, 17)));
       });
     });
   });
@@ -538,144 +713,170 @@ describe.only("5. supply", function () {
     // supplyTo works for msg sender
   });
 
-  describe.skip("non-standard tokens", function () {
-    it("can supply base token - non-standard ERC20 (without return interface) e.g. USDT", async () => {
-      // WIP
+  describe("non-standard tokens", function () {
+    describe("USDT-like token", function () {
+      let nonStandardToken: NonStandardFaucetFeeToken;
+      let nonStandardComet: SandboxComet;
+      let collateralsNonStandard: { [symbol: string]: FaucetToken | NonStandardFaucetFeeToken } = {};
+      let curSeedReserve: BigNumber;
+
+      before(async function () {
+        const assets = defaultAssets();
+        assets["USDC"].factory = (await ethers.getContractFactory("NonStandardFaucetFeeToken")) as NonStandardFaucetFeeToken__factory;
+        assets["WETH"].factory = (await ethers.getContractFactory("NonStandardFaucetFeeToken")) as NonStandardFaucetFeeToken__factory;
+
+        const opts = await makeConfigController(
+          { owner: owner, dao: dao, treasury: treasury, curator: curator, guardian: guardian, assets: assets },
+          true
+        );
+        nonStandardToken = opts.baseToken as NonStandardFaucetFeeToken;
+
+        nonStandardComet = await createComet(
+          owner,
+          opts.opts.assets,
+          opts.configController,
+          opts.sandboxController,
+          opts.collaterals,
+          nonStandardToken
+        );
+        curSeedReserve = (await opts.sandboxController.config()).suggestedAmountOfSeedReserves;
+
+        for (let asset in opts.collaterals) {
+          collateralsNonStandard[asset] = opts.collaterals[asset] as FaucetToken | NonStandardFaucetFeeToken;
+        }
+
+        nonStandardToken.allocateTo(alice.address, exp(100, 18));
+        collateralsNonStandard["WETH"].allocateTo(alice.address, exp(100, 18));
+      });
+
+      it("can supply base token - non-standard ERC20 (without return interface) e.g. USDT", async () => {
+        await nonStandardToken.connect(alice).approve(nonStandardComet.address, exp(1, 18));
+        await expect(nonStandardComet.connect(alice).supply(nonStandardToken.address, exp(1, 18))).to.not.be.reverted;
+
+        // as per the initial test case, 1st deposit will end with the same principal
+        expect((await nonStandardComet.userBasic(alice.address)).principal).to.equal(exp(1, 18));
+        expect(await nonStandardToken.balanceOf(nonStandardComet.address)).to.equal(curSeedReserve.add(exp(1, 18)));
+      });
+
+      it("can supply colalteral - non-standard ERC20 (without return interface) e.g. USDT", async () => {
+        await collateralsNonStandard["WETH"].connect(alice).approve(nonStandardComet.address, exp(1, 18));
+        await expect(nonStandardComet.connect(alice).supply(collateralsNonStandard["WETH"].address, exp(1, 18))).to.not.be.reverted;
+
+        expect(await nonStandardComet.userCollateral(alice.address, collateralsNonStandard["WETH"].address)).to.equal(exp(1, 18));
+        expect(await collateralsNonStandard["WETH"].balanceOf(nonStandardComet.address)).to.equal(exp(1, 18));
+      });
     });
 
-    it("can supply colalteral - non-standard ERC20 (without return interface) e.g. USDT", async () => {
-      // WIP
-    });
+    describe("fee-on-transfer token", function () {
+      let feeToken: NonStandardFaucetFeeToken;
+      let feeComet: SandboxComet;
+      let feeCollaterals: { [symbol: string]: FaucetToken | NonStandardFaucetFeeToken } = {};
+      let curSeedReserve: BigNumber;
 
-    it("can supply base token - fee-on-transfer token", async () => {
-      /*
-      const assets = defaultAssets();
-      // Add USDT to assets on top of default assets
-      assets["USDT"] = {
-        initial: 1e6,
-        decimals: 6,
-        factory: (await ethers.getContractFactory("NonStandardFaucetFeeToken")) as NonStandardFaucetFeeToken__factory,
-      };
-      const protocol = await makeProtocol({ base: "USDT", assets: assets });
-      const {
-        comet,
-        tokens,
-        users: [alice, bob],
-      } = protocol;
-      const { USDT } = tokens;
+      before(async function () {
+        const assets = defaultAssets();
+        assets["USDC"].factory = (await ethers.getContractFactory("NonStandardFaucetFeeToken")) as NonStandardFaucetFeeToken__factory;
+        assets["WETH"].factory = (await ethers.getContractFactory("NonStandardFaucetFeeToken")) as NonStandardFaucetFeeToken__factory;
 
-      // Set fee to 0.1%
-      await (USDT as NonStandardFaucetFeeToken).setParams(10, 10);
+        const opts = await makeConfigController(
+          { owner: owner, dao: dao, treasury: treasury, curator: curator, guardian: guardian, assets: assets },
+          true
+        );
+        feeToken = opts.baseToken as NonStandardFaucetFeeToken;
 
-      const _i0 = await USDT.allocateTo(bob.address, 1000e6);
-      const baseAsB = USDT.connect(bob);
-      const cometAsB = comet.connect(bob);
+        feeComet = await createComet(owner, opts.opts.assets, opts.configController, opts.sandboxController, opts.collaterals, feeToken);
+        // Note: fee is not enabled yet, so reserves are transferred in full
+        curSeedReserve = (await opts.sandboxController.config()).suggestedAmountOfSeedReserves;
 
-      const p0 = await portfolio(protocol, alice.address);
-      const q0 = await portfolio(protocol, bob.address);
-      const _a0 = await wait(baseAsB.approve(comet.address, 1000e6));
-      const s0 = await wait(cometAsB.supplyTo(alice.address, USDT.address, 1000e6));
+        for (let asset in opts.collaterals) {
+          feeCollaterals[asset] = opts.collaterals[asset] as FaucetToken | NonStandardFaucetFeeToken;
+        }
 
-      const p1 = await portfolio(protocol, alice.address);
-      const q1 = await portfolio(protocol, bob.address);
+        feeToken.allocateTo(alice.address, exp(100, 18));
+        feeCollaterals["WETH"].allocateTo(alice.address, exp(100, 18));
 
-      expect(event(s0, 0)).to.be.deep.equal({
-        Transfer: {
-          from: bob.address,
-          to: comet.address,
-          amount: BigInt(999e6),
-        },
-      });
-      expect(event(s0, 1)).to.be.deep.equal({
-        Supply: {
-          from: bob.address,
-          dst: alice.address,
-          amount: BigInt(999e6),
-        },
-      });
-      expect(event(s0, 2)).to.be.deep.equal({
-        Transfer: {
-          from: ethers.constants.AddressZero,
-          to: alice.address,
-          amount: BigInt(999e6) - BigInt(1),
-        },
+        // Set fee to 0.1%
+        await (feeToken as NonStandardFaucetFeeToken).setParams(10, exp(100, 18));
+        await (feeCollaterals["WETH"] as NonStandardFaucetFeeToken).setParams(10, exp(100, 18));
       });
 
-      expect(p0.internal).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n, USDT: 0n });
-      expect(p0.external).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n, USDT: 0n });
-      expect(q0.internal).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n, USDT: 0n });
-      expect(q0.external).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n, USDT: exp(1000, 6) });
-      expect(p1.internal).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n, USDT: exp(999, 6) - BigInt(1) });
-      expect(p1.external).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n, USDT: 0n });
-      expect(q1.internal).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n, USDT: 0n });
-      expect(q1.external).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n, USDT: 0n });
-      // Fee Token logics will cost a bit more gas than standard ERC20 token with no fee calculation
-      expect(Number(s0.receipt.gasUsed)).to.be.lessThan(151000);
-      */
-    });
+      it("can supply base token - fee-on-transfer token", async () => {
+        const feeBalanceBefore = await feeToken.balanceOf(feeToken.address);
+        const userBalanceBefore = await feeToken.balanceOf(alice.address);
 
-    it("can supply collateral token - fee-on-transfer token", async () => {
-      /*
-      const assets = defaultAssets();
-      // Add FeeToken Collateral to assets on top of default assets
-      assets["FeeToken"] = {
-        initial: 1e8,
-        decimals: 18,
-        factory: (await ethers.getContractFactory("NonStandardFaucetFeeToken")) as NonStandardFaucetFeeToken__factory,
-      };
+        const amountDeposited: BigNumber = BigNumber.from(exp(1, 18));
+        const fee: BigNumber = amountDeposited.mul(10).div(10000);
+        const amountWithoutFee: BigNumber = amountDeposited.sub(fee);
 
-      const protocol = await makeProtocol({ base: "USDC", assets: assets });
-      const {
-        comet,
-        tokens,
-        users: [alice, bob],
-      } = protocol;
-      const { FeeToken } = tokens;
+        await feeToken.connect(alice).approve(feeComet.address, amountDeposited);
+        await expect(feeComet.connect(alice).supply(feeToken.address, amountDeposited)).to.not.be.reverted;
 
-      // Set fee to 0.1%
-      await (FeeToken as NonStandardFaucetFeeToken).setParams(10, 10);
+        const feeBalanceAfter = await feeToken.balanceOf(feeToken.address);
+        const userBalanceAfter = await feeToken.balanceOf(alice.address);
 
-      const _i0 = await FeeToken.allocateTo(bob.address, 2000e8);
-      const baseAsB = FeeToken.connect(bob);
-      const cometAsB = comet.connect(bob);
+        // as per the initial test case, 1st deposit will end with the same principal
+        // we are checking that the (amount - fee) is considered as deposit
+        expect((await feeComet.userBasic(alice.address)).principal).to.equal(amountWithoutFee);
+        expect(await feeToken.balanceOf(feeComet.address)).to.equal(curSeedReserve.add(amountWithoutFee));
 
-      const t0 = await comet.totalsCollateral(FeeToken.address);
-      const p0 = await portfolio(protocol, alice.address);
-      const q0 = await portfolio(protocol, bob.address);
-      const _a0 = await wait(baseAsB.approve(comet.address, 2000e8));
-      const s0 = await wait(cometAsB.supplyTo(alice.address, FeeToken.address, 2000e8));
-      const t1 = await comet.totalsCollateral(FeeToken.address);
-      const p1 = await portfolio(protocol, alice.address);
-      const q1 = await portfolio(protocol, bob.address);
+        // full amount is charged from user
+        expect(userBalanceBefore.sub(userBalanceAfter)).to.equal(amountDeposited);
 
-      expect(event(s0, 0)).to.be.deep.equal({
-        Transfer: {
-          from: bob.address,
-          to: comet.address,
-          amount: BigInt(1998e8),
-        },
-      });
-      expect(event(s0, 1)).to.be.deep.equal({
-        SupplyCollateral: {
-          from: bob.address,
-          dst: alice.address,
-          asset: FeeToken.address,
-          amount: BigInt(1998e8),
-        },
+        // commission is in right place
+        expect(feeBalanceAfter.sub(feeBalanceBefore)).to.equal(fee);
       });
 
-      expect(p0.internal).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n, FeeToken: 0n });
-      expect(p0.external).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n, FeeToken: 0n });
-      expect(q0.internal).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n, FeeToken: 0n });
-      expect(q0.external).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n, FeeToken: exp(2000, 8) });
-      expect(p1.internal).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n, FeeToken: exp(1998, 8) });
-      expect(p1.external).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n, FeeToken: 0n });
-      expect(q1.internal).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n, FeeToken: 0n });
-      expect(q1.external).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n, FeeToken: 0n });
-      expect(t1).to.be.equal(t0.add(1998e8));
-      // Fee Token logics will cost a bit more gas than standard ERC20 token with no fee calculation
-      expect(Number(s0.receipt.gasUsed)).to.be.lessThan(190000);
-      */
+      it("correct amount in the Supply event - fee-on-transfer token", async () => {
+        // event should contain amount without fee - the actual received on the contract
+
+        const amountDeposited: BigNumber = BigNumber.from(exp(1, 18));
+        const fee: BigNumber = amountDeposited.mul(10).div(10000);
+        const amountWithoutFee: BigNumber = amountDeposited.sub(fee);
+
+        await feeToken.connect(alice).approve(feeComet.address, amountDeposited);
+        expect(await feeComet.connect(alice).supply(feeToken.address, amountDeposited))
+          .to.emit(comet, "Supply")
+          .withArgs(alice.address, alice.address, amountWithoutFee.toString());
+
+        /// Note: since it was already tested that Transfer event contains amout calculated from principal, we can omit that case here
+      });
+
+      it("can supply collateral token - fee-on-transfer token", async () => {
+        const feeBalanceBefore = await feeCollaterals["WETH"].balanceOf(feeCollaterals["WETH"].address);
+        const userBalanceBefore = await feeCollaterals["WETH"].balanceOf(alice.address);
+        const amountDeposited: BigNumber = BigNumber.from(exp(0.5, 18));
+        const fee: BigNumber = amountDeposited.mul(10).div(10000);
+        const amountWithoutFee: BigNumber = amountDeposited.sub(fee);
+
+        await feeCollaterals["WETH"].connect(alice).approve(feeComet.address, amountDeposited);
+        await expect(feeComet.connect(alice).supply(feeCollaterals["WETH"].address, amountDeposited)).to.not.be.reverted;
+
+        const feeBalanceAfter = await feeCollaterals["WETH"].balanceOf(feeCollaterals["WETH"].address);
+        const userBalanceAfter = await feeCollaterals["WETH"].balanceOf(alice.address);
+
+        // we are checking that the (amount - fee) is considered as collateral deposit
+        expect(await feeComet.userCollateral(alice.address, feeCollaterals["WETH"].address)).to.equal(amountWithoutFee);
+        expect(await feeCollaterals["WETH"].balanceOf(feeComet.address)).to.equal(amountWithoutFee);
+
+        // full amount is charged from user
+        expect(userBalanceBefore.sub(userBalanceAfter)).to.equal(amountDeposited);
+
+        // commission is in right place
+        expect(feeBalanceAfter.sub(feeBalanceBefore)).to.equal(fee);
+      });
+
+      it("correct amount in the SupplyCollateral event - fee-on-transfer token", async () => {
+        // event should contain amount without fee - the actual received on the contract
+
+        const amountDeposited: BigNumber = BigNumber.from(exp(0.5, 18));
+        const fee: BigNumber = amountDeposited.mul(10).div(10000);
+        const amountWithoutFee: BigNumber = amountDeposited.sub(fee);
+
+        await feeCollaterals["WETH"].connect(alice).approve(feeComet.address, amountDeposited);
+        expect(await feeComet.connect(alice).supply(feeCollaterals["WETH"].address, amountDeposited))
+          .to.emit(comet, "SupplyCollateral")
+          .withArgs(alice.address, alice.address, feeCollaterals["WETH"].address, amountWithoutFee.toString());
+      });
     });
   });
 

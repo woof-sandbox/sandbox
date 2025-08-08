@@ -292,7 +292,7 @@ export async function makeSandboxController(opts: SandboxControllerOpts, factory
 
 export async function sandboxListBaseAsset(
   sandboxController: SandboxController,
-  baseAsset: FaucetToken,
+  baseAsset: FaucetToken | NonStandardFaucetFeeToken,
   priceFeed: string,
   baseBorrowMin?: BigNumberish,
   curve?: BaseAssetCurveStruct
@@ -358,10 +358,11 @@ async function makeCometFactory(cometImpl: string, configControllerFactory: stri
 export async function makeConfigController(opts: ProtocolOpts, acceptCurator?: boolean): Promise<Protocol> {
   const assets = opts.assets || defaultAssets();
   const baseTokenSymbol = opts.baseTokenSymbol || "USDC";
-  let baseToken: FaucetToken;
+  let baseToken: FaucetToken | NonStandardFaucetFeeToken;
 
   // --- deploy tokens ---
   const FaucetFactory = (await ethers.getContractFactory("FaucetToken")) as FaucetToken__factory;
+
   const collaterals = {};
   for (const symbol in assets) {
     const config = assets[symbol];
@@ -370,7 +371,9 @@ export async function makeConfigController(opts: ProtocolOpts, acceptCurator?: b
     const name = config.name || symbol;
     const factory = config.factory || FaucetFactory;
 
-    let token: FaucetToken = (await factory.deploy(initial, name, decimals, symbol)) as FaucetToken;
+    let token: FaucetToken | NonStandardFaucetFeeToken;
+    token = await factory.deploy(initial, name, decimals, symbol);
+
     await token.deployed();
 
     if (symbol == baseTokenSymbol) {

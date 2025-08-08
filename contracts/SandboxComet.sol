@@ -711,6 +711,7 @@ contract SandboxComet is CometCore, ISandboxComet {
      */
     function supplyCollateral(address from, address dst, address asset, uint256 amount) internal {
         amount = doTransferIn(asset, from, amount);
+        accrueInternal();
 
         (CollateralAsset memory assetInfo, uint8 index) = getAssetInfoByAddress(asset);
         uint256 totals = totalsCollateral[asset];
