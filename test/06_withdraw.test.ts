@@ -293,6 +293,15 @@ describe.skip("6. withdrawTo", function () {
     expect(await USDC.balanceOf(bob.address)).to.eq(1e6);
     */
   });
+
+  describe("edge-cases", function () {
+    it.skip("same block withdrawal may end up in 1 wei less because of the rounding error", async () => {
+      //await comet.setBasePrincipal(alice.address, 99999992291226);
+      // recreate conditions
+      // supply from alice
+      // catch the Supply event with 0 amount
+    });
+  });
 });
 
 describe.skip("withdraw", function () {

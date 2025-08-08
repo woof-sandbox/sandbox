@@ -267,8 +267,6 @@ contract SandboxComet is CometCore, ISandboxComet {
         /// No supply - no supply interest
         if (totalSupplyBase == 0) return 0;
 
-        /// No borrows - keep interest until the seed reserves exhaustion
-        if (utilization == 0 && totalSupply() >= IERC20(baseToken).balanceOf(address(this))) return 0;
         if (utilization <= supplyKink) {
             // interestRateBase + interestRateSlopeLow * utilization
             return safe64(supplyPerSecondInterestRateBase + mulFactor(supplyPerSecondInterestRateSlopeLow, utilization));
@@ -699,6 +697,10 @@ contract SandboxComet is CometCore, ISandboxComet {
 
         emit Supply(from, dst, amount);
 
+        /// Note: we use the present value from the principal delta instead of the token amount in the argument
+        /// principalValue() performs rounding down, thus it is possible to have post-supply present value
+        /// 1 wei lower than the actual supplied amount. Thus the present value of principal change is reported
+        /// The rounding error is small enough to be compensated from the supply interest in the next block.
         if (supplyAmount > 0) {
             emit Transfer(address(0), dst, presentValueSupply(baseSupplyIndex, supplyAmount));
         }
