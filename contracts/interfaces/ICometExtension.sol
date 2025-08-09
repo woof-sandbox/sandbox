@@ -53,6 +53,17 @@ abstract contract ICometExtension is CometCore {
         bytes32 s
     ) external virtual;
 
+    function allowAllBySig(
+        address owner,
+        address manager,
+        bool approved,
+        uint256 nonce,
+        uint256 expiry,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) external virtual;
+
     function baseTrackingAccrued(address account) external view virtual returns (uint64);
 
     function baseAccrualScale() external view virtual returns (uint64);

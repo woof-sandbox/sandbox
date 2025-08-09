@@ -140,7 +140,7 @@ contract SandboxComet is CometCore, ISandboxComet {
 
         /// Rewards are disabled by default
         trackingIndexScale = 1;
-        baseMinForRewards = type(uint256).max;
+        baseMinForRewards = type(uint104).max;
         /// to avoid explicit initialization
         /// baseTrackingSupplySpeed = 0;
         /// baseTrackingBorrowSpeed = 0;
@@ -1177,7 +1177,7 @@ contract SandboxComet is CometCore, ISandboxComet {
      * @dev Note: uses updated interest indices to calculate
      * @return The supply of tokens
      **/
-    function totalSupply() public view override returns (uint256) {
+    function totalSupply() external view returns (uint256) {
         (uint64 baseSupplyIndex_, ) = accruedInterestIndices(getNowInternal() - lastAccrualTime);
         return presentValueSupply(baseSupplyIndex_, totalSupplyBase);
     }
