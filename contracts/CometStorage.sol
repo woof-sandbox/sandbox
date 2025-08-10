@@ -199,4 +199,7 @@ contract CometStorage is ICometStructures {
 
     /// @notice The list of collateral assets that have been removed
     CollateralAsset[] public removedCollateralAssets;
+
+    /// @notice Whether a collateral removal process is in progress
+    bool public removalInProgress;
 }

@@ -48,6 +48,5 @@ interface ICometStructures {
         uint40 startTime;
         uint40 duration;
         uint8 collateralAssetIndex;
-        bool removalInProgress;
     }
 }

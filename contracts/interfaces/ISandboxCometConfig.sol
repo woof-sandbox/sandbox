@@ -59,4 +59,10 @@ interface ISandboxCometConfig {
      * @param collateralAsset The address of the collateral asset to remove
      */
     function initiateCollateralRemoval(address collateralAsset) external;
+
+    /**
+     * @notice Check if a collateral removal process is in progress
+     * @return True if a removal process is in progress, false otherwise
+     */
+    function removalInProgress() external view returns (bool);
 }

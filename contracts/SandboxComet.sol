@@ -232,7 +232,7 @@ contract SandboxComet is CometCore, ISandboxComet {
         uint40 now_ = getNowInternal();
         uint40 timeElapsed = now_ - lastAccrualTime;
 
-        if (_collateralRemovalState.removalInProgress) _prepareCollateralRemoval();
+        if (removalInProgress) _prepareCollateralRemoval();
 
         if (timeElapsed != 0) {
             (baseSupplyIndex, baseBorrowIndex) = accruedInterestIndices(timeElapsed);
@@ -415,7 +415,7 @@ contract SandboxComet is CometCore, ISandboxComet {
 
         CollateralRemovalState memory collateralRemovalState_ = _collateralRemovalState;
 
-        if (collateralRemovalState_.removalInProgress) {
+        if (removalInProgress) {
             revert CollateralRemovalInProgress(
                 collateralRemovalState_.collateralToken,
                 collateralRemovalState_.startTime,
@@ -435,9 +435,9 @@ contract SandboxComet is CometCore, ISandboxComet {
             startLiquidateCollateralFactor: asset.liquidateCollateralFactor,
             startTime: now_,
             duration: duration,
-            collateralAssetIndex: assetIndex,
-            removalInProgress: true
+            collateralAssetIndex: assetIndex
         });
+        removalInProgress = true;
 
         // Set the supply capitalization to 0, so that it is impossible to supply a collateral asset after initializing the removal process
         collateralAssets[assetIndex].supplyCap = 0;
@@ -520,17 +520,9 @@ contract SandboxComet is CometCore, ISandboxComet {
         delete collateralAssetIndex[collateralRemovalState.collateralToken];
 
         // Mark the end of a collateral removal process
-        _collateralRemovalState.removalInProgress = false;
+        removalInProgress = false;
 
         emit CollateralRemovalFinalized(removedAssetIndex, collateralRemovalState.collateralToken);
-    }
-
-    /**
-     * @notice Check whether a collateral removal process is in progress
-     * @return Whether a collateral removal process is currently ongoing
-     */
-    function isCollateralRemovalInProgress() public view override returns (bool) {
-        return _collateralRemovalState.removalInProgress;
     }
 
     /**

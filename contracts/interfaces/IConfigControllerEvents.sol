@@ -12,7 +12,7 @@ interface IConfigControllerEvents {
     event GuardianUpdated(address indexed oldGuardian, address indexed newGuardian);
     event CometFeeEnabled(address configController, address _comet, bool _enabled);
 
-    event ProposeNewCollateralToken(uint256 indexed proposalId, address indexed proposer, IConfigControllerStructs.CollateralTokenConfig collateralConfig);
+    event ProposeNewCollateralToken(uint256 indexed proposalId, address indexed proposer);
 
     event ProposalDurationsUpdated(
         uint oldCuratorDuration,
@@ -27,7 +27,7 @@ interface IConfigControllerEvents {
         bytes32 proposalData
     );
 
-    event ProposeNewCollateralTokenAccepted(uint256 indexed proposalId, address indexed proposer, IConfigControllerStructs.CollateralTokenConfig collateralConfig);
+    event ProposeNewCollateralTokenAccepted(uint256 indexed proposalId, address indexed proposer);
 
     event ProposalCanceled(uint256 indexed proposalId, address indexed canceler);
 

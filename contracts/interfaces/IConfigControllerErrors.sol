@@ -35,4 +35,5 @@ interface IConfigControllerErrors {
     error CometCallFailed();
     error MaxCollateralTokensReached();
     error CollateralTokenNotAdded();
+    error CollateralRemovalInProgress();
 }

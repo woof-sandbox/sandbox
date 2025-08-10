@@ -292,11 +292,11 @@ export async function makeConfigControllerFactory(
   return configControllerFactory;
 }
 
-export async function makeCometFactory(cometImpl: Contract, configController: Contract): Promise<SandboxCometFactory> {
+export async function makeCometFactory(cometImpl: Contract, configControllerFactory: Contract): Promise<SandboxCometFactory> {
   const CometFactory_factory: SandboxCometFactory__factory = (await ethers.getContractFactory(
     "SandboxCometFactory"
   )) as SandboxCometFactory__factory;
-  const cometFactory: SandboxCometFactory = await CometFactory_factory.deploy(cometImpl.address, configController.address);
+  const cometFactory: SandboxCometFactory = await CometFactory_factory.deploy(cometImpl.address, configControllerFactory.address);
   await cometFactory.deployed();
 
   return cometFactory;

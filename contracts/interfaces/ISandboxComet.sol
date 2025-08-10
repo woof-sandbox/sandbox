@@ -102,6 +102,4 @@ interface ISandboxComet {
     function getAssetInfoByAddress(address asset) external view returns (ICometStructures.CollateralAsset memory, uint8 index);
 
     function initiateCollateralRemoval(address removedAsset) external;
-
-    function isCollateralRemovalInProgress() external view virtual returns (bool);
 }

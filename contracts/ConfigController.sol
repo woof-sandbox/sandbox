@@ -241,7 +241,7 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
         uint256 proposalId = proposalCounter;
         
         if (_proposalType == uint8(ProposalType.ProposeNewCollateralToken)) {
-            if (msg.sender != owner) revert Unauthorized();
+            if (msg.sender != owner && msg.sender != curator) revert Unauthorized();
             /**
              * --- Before creating the proposal checks ---
              * - Check if the selector is valid.
@@ -279,7 +279,7 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
                 comet: _comet,
                 call: _calldata
             });
-            emit ProposeNewCollateralToken(proposalId, msg.sender, collateralConfig);
+            emit ProposeNewCollateralToken(proposalId, msg.sender);
         /// Propose curator.
         } else if (_proposalType == uint8(ProposalType.ProposeCurator)) {
             if (msg.sender != owner) revert Unauthorized();
@@ -291,15 +291,10 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
              * --- Before creating the proposal checks ---
              * - Check if the selector is valid.
              * - Check if the collateral is the part of the comet collateral list.
+             * Note: We don't check if the removal is already initiated, because it can be ended before the proposal is accepted.
              */
             bytes4 selector = bytes4(_calldata);
             if (selector != REMOVE_COLLATERAL_SELECTOR) revert InvalidSelector();
-            
-            /**
-             * --- Decode the collateral token from calldata ---
-             * calldata in bytes format is:
-             * [selector(4 bytes)][collateralToken(32 bytes)]
-             */
 
             address collateralToken = abi.decode(_calldata[4:], (address));
             /// Inside the comet, the function getAssetInfoByAddress will revert if the collateral token is not added.
@@ -384,7 +379,7 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
              * - Check if the comet is owned by the ConfigController. Before the proposal is executed the comet can be 
              *   transferred to the another ConfigController.
              */
-            if (msg.sender != owner) revert Unauthorized();
+            if (msg.sender != owner && msg.sender != curator) revert Unauthorized();
             if (!_isCometOwned(_proposal.comet)) revert UnknownComet();
             
             /**
@@ -417,7 +412,7 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
             if (comet.numAssets() >= comet.MAX_ASSETS()) revert MaxCollateralTokensReached();
             
             /// Add the collateral token to the comet.
-            (bool success, bytes memory result) = _proposal.comet.call(_proposal.call);
+            (bool success, ) = _proposal.comet.call(_proposal.call);
             if (!success) revert CometCallFailed();
             /**
              * --- After executing the proposal ---
@@ -427,7 +422,7 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
             _proposal.expirationTime = 0;   
             
             
-            emit ProposeNewCollateralTokenAccepted(_proposalId, msg.sender, collateralConfig);
+            emit ProposeNewCollateralTokenAccepted(_proposalId, msg.sender);
         } else if (_proposal.proposalType == ProposalType.ProposeCollateralRemoval) {
             /**
              * --- Significant checks ---
@@ -435,10 +430,11 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
              * - Check that the msg.sender is owner or curator.         
              * - Check if the comet is owned by the ConfigController. Before the proposal is executed the comet can be 
              *   transferred to the another ConfigController.
+             * - Check if the collateral removal is already initiated.
              */
             if (msg.sender != owner && msg.sender != curator) revert Unauthorized();
             if (!_isCometOwned(_proposal.comet)) revert UnknownComet();
-
+            if (ISandboxCometConfig(_proposal.comet).removalInProgress()) revert CollateralRemovalInProgress();
             /**
              * --- Before executing the proposal checks ---
              * - Check if the collateral token is stil the part of the comet collateral list.
@@ -458,9 +454,9 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
             catch {
                 revert CollateralTokenNotAdded();
             }
-
+            
             /// Execute the collateral removal
-            (bool success, bytes memory result) = _proposal.comet.call(_proposal.call);
+            (bool success, ) = _proposal.comet.call(_proposal.call);
             if (!success) revert CometCallFailed();
             /**
              * --- After executing the proposal ---
