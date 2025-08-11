@@ -63,6 +63,8 @@ interface ISandboxController is ISandboxErrors {
         uint40 suggestedLockTimeOfSeedReserves; // 5 bytes
         /// 2nd 256 bits (32 bytes)
         uint256 suggestedAmountOfSeedReserves; // 32 bytes
+        /// 3rd 256 bits (32 bytes)
+        uint40 transitionDuration; // 5 bytes
     }
 
     event BaseAssetWhitelisted(address indexed token, address indexed priceFeed, uint8 decimals);

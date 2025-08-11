@@ -111,17 +111,13 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
     /// @param _cometFactory The address of the cometFactory contract
     /// @param _curatorFee Initial curator fee in basis points (1% = 100)
     /// @param _name Name of the controller
-    /// @param _curatorProposalDuration Duration of curator proposals in seconds
-    /// @param _proposalDuration Duration of comet proposals in seconds
     function initialize(
         address _owner,
         address _curator,
         address _guardian,
         address _cometFactory,
         uint32 _curatorFee,
-        string memory _name,
-        uint40 _curatorProposalDuration,
-        uint40 _proposalDuration
+        string memory _name
     ) public override {
         if (configControllerFactory != address(0)) revert AlreadyInitialized();
         /// it is assumed that controller can be initialized only via factory - atomically after the deployment
@@ -136,21 +132,28 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
         /// So duplicating checks are omitted (as function relies on checks in the factory)
         unchecked {
             if (_curatorFee > FEE_DIVISOR) revert InvalidFeePercentage();
-
-            // aderyn-fp-next-line(reentrancy-state-change)
-            (uint40 minUpdateTime, uint40 maxUpdateTime) = ISandboxController(sandboxController).proposalBoundaries();
-            if (_curatorProposalDuration < minUpdateTime || _proposalDuration < minUpdateTime) revert ProposalDurationTooShort();
-            if (_curatorProposalDuration > maxUpdateTime || _proposalDuration > maxUpdateTime) revert ProposalDurationTooLong();
         }
-
-        /// Zero address is checked in Controller Factory
+        // Cant be zero because it is the msg.sender
         owner = _owner; // aderyn-fp(state-no-address-check)
+        // Can be zero.
         guardian = _guardian; // aderyn-fp(state-no-address-check)
 
         cometFactory = _cometFactory; // aderyn-fp(state-no-address-check)
         curatorFee = _curatorFee;
         name = _name;
-        _proposeCurator(abi.encode(_curator), proposalCounter);
+        if (_curator == address(0)) revert InvalidCurator();
+        bytes memory call = abi.encode(_curator);
+        // Create the proposal
+        proposals[0] = Proposal({
+            proposer: owner,
+            proposalType: ProposalType.ProposeCurator,
+            expirationTime: uint40(block.timestamp + PROPOSE_CURATOR_LIFETIME),
+            maturityTime: uint40(block.timestamp + PROPOSE_CURATOR_MATURITY),
+            timelock: uint40(block.timestamp + PROPOSE_CURATOR_TIMELOCK), 
+            comet: address(0),
+            call: call // Curator can be zero address.
+        });
+        emit CuratorProposed(0, address(0), _curator, block.timestamp + PROPOSE_CURATOR_LIFETIME);
     }
 
     struct Proposal {
@@ -172,30 +175,7 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
     }
 
     function _proposeCurator(bytes memory _calldata, uint256 _proposalId) internal {
-        // Decode the proposed curator address from calldata
-        address proposedCuratorAddress = abi.decode(_calldata, (address));
-        /**
-         *  --- Before creating the proposal checks ---
-         * - Check if the curator is the same as the c urrent curator.
-         * - Check if the curator is the same as the owner.
-         * - Check if the curator is the same as the guardian.      
-         */ 
-        if (proposedCuratorAddress == curator) revert InvalidCurator();
-        if (proposedCuratorAddress == owner) revert InvalidCurator();
-        if (proposedCuratorAddress == guardian) revert InvalidCurator();
-
-        // Create the proposal
-        proposals[_proposalId] = Proposal({
-            proposer: msg.sender,
-            proposalType: ProposalType.ProposeCurator,
-            expirationTime: uint40(block.timestamp + PROPOSE_CURATOR_LIFETIME),
-            maturityTime: uint40(block.timestamp + PROPOSE_CURATOR_MATURITY),
-            timelock: uint40(block.timestamp + PROPOSE_CURATOR_TIMELOCK), 
-            comet: address(0),
-            call: _calldata
-        });
-    
-        emit CuratorProposed(_proposalId, curator, proposedCuratorAddress, block.timestamp + PROPOSE_CURATOR_LIFETIME);
+        
     }
 
     // Hardcoded selector for addCollateralToken function
@@ -283,7 +263,32 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
         /// Propose curator.
         } else if (_proposalType == uint8(ProposalType.ProposeCurator)) {
             if (msg.sender != owner) revert Unauthorized();
-            _proposeCurator(_calldata, proposalId);
+            // Decode the proposed curator address from calldata
+            address proposedCuratorAddress = abi.decode(_calldata, (address));
+            /**
+            *  --- Before creating the proposal checks ---
+            * - Check if the proposed curator is not the zero address.
+            * - Check if the curator is the same as the c urrent curator.
+            * - Check if the curator is the same as the owner.
+            * - Check if the curator is the same as the guardian.      
+            */ 
+            if (proposedCuratorAddress == address(0)) revert InvalidCurator();
+            if (proposedCuratorAddress == curator) revert InvalidCurator();
+            if (proposedCuratorAddress == owner) revert InvalidCurator();
+            if (proposedCuratorAddress == guardian) revert InvalidCurator();
+
+            // Create the proposal
+            proposals[proposalId] = Proposal({
+                proposer: msg.sender,
+                proposalType: ProposalType.ProposeCurator,
+                expirationTime: uint40(block.timestamp + PROPOSE_CURATOR_LIFETIME),
+                maturityTime: uint40(block.timestamp + PROPOSE_CURATOR_MATURITY),
+                timelock: uint40(block.timestamp + PROPOSE_CURATOR_TIMELOCK), 
+                comet: address(0),
+                call: _calldata
+            });
+        
+            emit CuratorProposed(proposalId, curator, proposedCuratorAddress, block.timestamp + PROPOSE_CURATOR_LIFETIME);
         /// Propose collateral removal.
         } else if (_proposalType == uint8(ProposalType.ProposeCollateralRemoval)) {
             if (msg.sender != owner && msg.sender != curator) revert Unauthorized();
@@ -565,8 +570,9 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
         CometGlobalParamsConfig memory _globalConfig = CometGlobalParamsConfig(
             _sandboxConfig.targetPercent,
             _sandboxConfig.storeFrontPriceFactor,
+            _sandboxConfig.suggestedAmountOfSeedReserves,
             _sandboxConfig.suggestedLockTimeOfSeedReserves,
-            _sandboxConfig.suggestedAmountOfSeedReserves
+            _sandboxConfig.transitionDuration
         );
 
         address comet = ISandboxCometFactory(cometFactory).createComet(_cometConfig.name); // aderyn-fp(reentrancy-state-change)

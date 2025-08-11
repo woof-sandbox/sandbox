@@ -45,7 +45,6 @@ contract CometHarness is SandboxComet {
     function setCollateralBalance(address account, address asset, uint256 balance) external {
         uint256 oldBalance = userCollateral[account][asset];
         userCollateral[account][asset] = balance;
-
         (, uint8 index) = getAssetInfoByAddress(asset);
 
         updateAssetsIn(account, index, oldBalance, balance);

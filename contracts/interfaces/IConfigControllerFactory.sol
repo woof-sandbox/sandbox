@@ -17,8 +17,6 @@ abstract contract IConfigControllerFactory {
     /// @param marketFactory The address of the market factory
     /// @param curatorFee The curator fee in basis points
     /// @param name The name of the controller
-    /// @param curatorProposalDuration The duration of curator proposals in seconds
-    /// @param proposalDuration The duration of market proposals in seconds
     event ConfigControllerCreated(
         address indexed controller,
         address indexed owner,
@@ -27,8 +25,6 @@ abstract contract IConfigControllerFactory {
         address marketFactory,
         uint32 curatorFee,
         string name,
-        uint40 curatorProposalDuration,
-        uint40 proposalDuration,
         uint controllerId
     );
     error InvalidAddress();
@@ -61,17 +57,13 @@ abstract contract IConfigControllerFactory {
     /// @param _marketFactory The address of the MarketFactory contract
     /// @param _curatorFee Initial curator fee in basis points (1% = 100)
     /// @param _name Name of the controller
-    /// @param _curatorProposalDuration Duration of curator proposals in seconds
-    /// @param _proposalDuration Duration of market proposals in seconds
     /// @return The address of the newly created ConfigController
     function createConfigController(
         address _curator,
         address _guardian,
         address _marketFactory,
         uint32 _curatorFee,
-        string memory _name,
-        uint40 _curatorProposalDuration,
-        uint40 _proposalDuration
+        string memory _name
     ) external virtual returns (address);
 
     /// @notice Checks if an address is a valid controller

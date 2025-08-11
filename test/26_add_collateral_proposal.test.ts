@@ -84,7 +84,7 @@ describe("26. Create Add Collateral Proposal", () => {
 
         // Create SandboxController
         const sandboxControllerOpts = defaultSandboxControllerOpts({
-            admin: owner,
+            owner: owner,
             dao: dao,
             treasury: users[0]
         });
@@ -141,8 +141,8 @@ describe("26. Create Add Collateral Proposal", () => {
         await sandboxCometImpl.deployed();
 
         const cometFactory = await makeCometFactory(
-            sandboxCometImpl, // Use the deployed implementation contract
-            configControllerFactory // Use the configControllerFactory
+            sandboxCometImpl.address, // Use the deployed implementation contract
+            configControllerFactory.address // Use the configControllerFactory
         );
 
         // Create ConfigController
@@ -151,9 +151,7 @@ describe("26. Create Add Collateral Proposal", () => {
             guardian.address,
             cometFactory.address,
             1000, // curatorFee: 10%
-            "Test Config Controller",
-            3600, // curatorProposalDuration
-            3600  // proposalDuration
+            "Test Config Controller"
         );
         const receipt = await tx.wait();
         const event = receipt.events?.find(e => e.event === "ConfigControllerCreated");
@@ -907,7 +905,7 @@ describe("Check the proposal revert on the SandboxComet side.", () => {
         await priceFeed.deployed();
         // Create SandboxController
         const sandboxControllerOpts = defaultSandboxControllerOpts({
-            admin: owner,
+            owner: owner,
             dao: dao,
             treasury: ethers.Wallet.createRandom().address
         });
@@ -968,9 +966,7 @@ describe("Check the proposal revert on the SandboxComet side.", () => {
             guardian.address,
             cometFactory.address,
             1000, // curatorFee
-            "ConfigController",
-            7 * 24 * 60 * 60, // curatorProposalDuration
-            7 * 24 * 60 * 60  // proposalDuration
+            "ConfigController"
         );
         const receipt = await tx.wait();
         const [createConfigControllerEvent] = receipt.events?.filter(event => event.event === "ConfigControllerCreated");
@@ -1107,7 +1103,7 @@ describe("Check the proposal revert on the SandboxComet side.", () => {
         
         for (let i = 0; i < tokensToAdd; i++) {
             // Create a new token
-            const FaucetFactory: FaucetToken__factory = await ethers.getContractFactory("FaucetToken");
+            const FaucetFactory: FaucetToken__factory = await ethers.getContractFactory("FaucetToken") as FaucetToken__factory;
             const newToken = await FaucetFactory.deploy(
                 ethers.utils.parseEther("1000000"), 
                 `Additional Token ${i}`, 
@@ -1118,7 +1114,7 @@ describe("Check the proposal revert on the SandboxComet side.", () => {
             additionalTokens.push(newToken);
             
             // Create price feed for the new token
-            const PriceFeedFactory: SimplePriceFeed__factory = await ethers.getContractFactory("SimplePriceFeed");
+            const PriceFeedFactory: SimplePriceFeed__factory = await ethers.getContractFactory("SimplePriceFeed") as SimplePriceFeed__factory;
             const priceFeed: SimplePriceFeed = await PriceFeedFactory.deploy(
                 ethers.utils.parseUnits("100", 8), // $100 price
                 8, // 8 decimals
@@ -1168,7 +1164,7 @@ describe("Check the proposal revert on the SandboxComet side.", () => {
         expect(await comet.numAssets()).to.equal(MAX_ASSETS);
         
         // Now try to add one more token - this should fail
-        const FaucetFactory: FaucetToken__factory = await ethers.getContractFactory("FaucetToken");
+        const FaucetFactory: FaucetToken__factory = await ethers.getContractFactory("FaucetToken") as FaucetToken__factory;
         const extraToken = await FaucetFactory.deploy(
             ethers.utils.parseEther("1000000"), 
             "Extra Token", 
@@ -1178,7 +1174,7 @@ describe("Check the proposal revert on the SandboxComet side.", () => {
         await extraToken.deployed();
         
         // Create price feed for the extra token
-        const PriceFeedFactory: SimplePriceFeed__factory = await ethers.getContractFactory("SimplePriceFeed");
+        const PriceFeedFactory: SimplePriceFeed__factory = await ethers.getContractFactory("SimplePriceFeed") as SimplePriceFeed__factory;
         const extraPriceFeed: SimplePriceFeed = await PriceFeedFactory.deploy(
             ethers.utils.parseUnits("100", 8), // $100 price
             8, // 8 decimals

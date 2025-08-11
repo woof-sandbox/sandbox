@@ -35,7 +35,7 @@ describe("25. Curator Proposal", () => {
 
         // Create SandboxController
         const sandboxControllerOpts = defaultSandboxControllerOpts({
-            admin: owner,
+            owner: owner,
             dao: dao,
             treasury: users[0]
         });
@@ -57,7 +57,7 @@ describe("25. Curator Proposal", () => {
         const cometImpl = await SandboxCometImpl.deploy();
         await cometImpl.deployed();
 
-        const cometFactory = await makeCometFactory(cometImpl, configControllerFactory);
+        const cometFactory = await makeCometFactory(cometImpl.address, configControllerFactory.address);
 
         // Create ConfigController
         const createConfigControllerTx: ContractTransaction = await configControllerFactory.createConfigController(
@@ -65,9 +65,7 @@ describe("25. Curator Proposal", () => {
             guardian.address,
             cometFactory.address,
             1000, // curatorFee (10%)
-            "Test Config Controller",
-            3600, // curatorProposalDuration
-            3600 // proposalDuration
+            "Test Config Controller"
         );
         const createConfigControllerReceipt: ContractReceipt = await createConfigControllerTx.wait();
         const configControllerCreatedEvent: Event = createConfigControllerReceipt.events?.find(

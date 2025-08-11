@@ -27,6 +27,7 @@ import {
 import { CollateralTokenConfigStruct, CometConfigStruct } from "../build/types/ConfigController";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { parseEther } from "ethers/lib/utils";
+import { ContractReceipt, ContractTransaction } from "ethers";
 
 describe("1. System Initialization", function () {
   // Factories
@@ -75,7 +76,7 @@ describe("1. System Initialization", function () {
     dao = signers[3];
     treasury = signers[4];
     /// Options of the sandbox controller
-    opts = defaultSandboxControllerOpts({ admin: owner, dao: dao, treasury: treasury, feeEnabled: true });
+    opts = defaultSandboxControllerOpts({ owner: owner, dao: dao, treasury: treasury, feeEnabled: true });
   });
 
   describe("Config Controller Factory deployment", function () {
@@ -187,20 +188,16 @@ describe("1. System Initialization", function () {
         guardian.address,
         sandboxCometFactory.address,
         configControllerOpts._curatorFee,
-        configControllerOpts._name,
-        configControllerOpts._curatorProposalDuration,
-        configControllerOpts._proposalDuration
+        configControllerOpts._name
       );
 
       // deploy config controller
-      await configControllerFactory.createConfigController(
+      await configControllerFactory.connect(owner).createConfigController(
         curator.address,
         guardian.address,
         sandboxCometFactory.address,
         configControllerOpts._curatorFee,
-        configControllerOpts._name,
-        configControllerOpts._curatorProposalDuration,
-        configControllerOpts._proposalDuration
+        configControllerOpts._name
       );
 
       configControllersCount += 1;
@@ -215,9 +212,7 @@ describe("1. System Initialization", function () {
         guardian.address,
         sandboxCometFactory.address,
         configControllerOpts._curatorFee,
-        configControllerOpts._name,
-        configControllerOpts._curatorProposalDuration,
-        configControllerOpts._proposalDuration
+        configControllerOpts._name
       );
 
       // deploy config controller
@@ -227,9 +222,7 @@ describe("1. System Initialization", function () {
           guardian.address,
           sandboxCometFactory.address,
           configControllerOpts._curatorFee,
-          configControllerOpts._name,
-          configControllerOpts._curatorProposalDuration,
-          configControllerOpts._proposalDuration
+          configControllerOpts._name
         )
       )
         .to.emit(configControllerFactory, "ConfigControllerCreated")
@@ -241,8 +234,6 @@ describe("1. System Initialization", function () {
           sandboxCometFactory.address,
           configControllerOpts._curatorFee,
           configControllerOpts._name,
-          configControllerOpts._curatorProposalDuration,
-          configControllerOpts._proposalDuration,
           0
         );
       configControllersCount += 1;
@@ -255,11 +246,9 @@ describe("1. System Initialization", function () {
           guardian.address,
           sandboxCometFactory.address,
           configControllerOpts._curatorFee,
-          configControllerOpts._name,
-          configControllerOpts._curatorProposalDuration,
-          configControllerOpts._proposalDuration
+          configControllerOpts._name
         )
-      ).to.be.revertedWithCustomError(_ConfigController, "ZeroAddress");
+      ).to.be.revertedWithCustomError(_ConfigController, "InvalidCurator");
     });
 
     it("should revert on deployment with comet factory zero address", async function () {
@@ -269,9 +258,7 @@ describe("1. System Initialization", function () {
           guardian.address,
           ethers.constants.AddressZero,
           configControllerOpts._curatorFee,
-          configControllerOpts._name,
-          configControllerOpts._curatorProposalDuration,
-          configControllerOpts._proposalDuration
+          configControllerOpts._name
         )
       ).to.be.revertedWithCustomError(_ConfigControllerFactory, "ZeroAddress");
     });
@@ -282,18 +269,14 @@ describe("1. System Initialization", function () {
         ethers.constants.AddressZero,
         sandboxCometFactory.address,
         configControllerOpts._curatorFee,
-        configControllerOpts._name,
-        configControllerOpts._curatorProposalDuration,
-        configControllerOpts._proposalDuration
+        configControllerOpts._name
       );
       await configControllerFactory.createConfigController(
         curator.address,
         ethers.constants.AddressZero,
         sandboxCometFactory.address,
         configControllerOpts._curatorFee,
-        configControllerOpts._name,
-        configControllerOpts._curatorProposalDuration,
-        configControllerOpts._proposalDuration
+        configControllerOpts._name
       );
 
       configControllersCount += 1;
@@ -308,9 +291,7 @@ describe("1. System Initialization", function () {
           guardian.address,
           sandboxCometFactory.address,
           configControllerOpts._curatorFee,
-          configControllerOpts._name,
-          configControllerOpts._curatorProposalDuration,
-          configControllerOpts._proposalDuration
+          configControllerOpts._name
         )
       ).to.be.revertedWithCustomError(configControllerFactory, "InvalidAddress");
     });
@@ -322,9 +303,7 @@ describe("1. System Initialization", function () {
           owner.address,
           sandboxCometFactory.address,
           configControllerOpts._curatorFee,
-          configControllerOpts._name,
-          configControllerOpts._curatorProposalDuration,
-          configControllerOpts._proposalDuration
+          configControllerOpts._name
         )
       ).to.be.revertedWithCustomError(configControllerFactory, "InvalidAddress");
     });
@@ -336,9 +315,7 @@ describe("1. System Initialization", function () {
           curator.address,
           sandboxCometFactory.address,
           configControllerOpts._curatorFee,
-          configControllerOpts._name,
-          configControllerOpts._curatorProposalDuration,
-          configControllerOpts._proposalDuration
+          configControllerOpts._name
         )
       ).to.be.revertedWithCustomError(configControllerFactory, "InvalidAddress");
     });
@@ -355,9 +332,7 @@ describe("1. System Initialization", function () {
           guardian.address,
           sandboxCometFactoryForeign.address,
           configControllerOpts._curatorFee,
-          configControllerOpts._name,
-          configControllerOpts._curatorProposalDuration,
-          configControllerOpts._proposalDuration
+          configControllerOpts._name
         )
       ).to.be.revertedWithCustomError(configControllerFactory, "InvalidFactory");
     });
@@ -370,73 +345,15 @@ describe("1. System Initialization", function () {
           guardian.address,
           sandboxCometFactory.address,
           maxFee + 1,
-          configControllerOpts._name,
-          configControllerOpts._curatorProposalDuration,
-          configControllerOpts._proposalDuration
+          configControllerOpts._name
         )
       ).to.be.revertedWithCustomError(_ConfigController, "InvalidFeePercentage");
-    });
-
-    it("should revert on deployment with proposals duration is too short", async function () {
-      const { minUpdateTime } = await sandboxController.config();
-
-      await expect(
-        configControllerFactory.createConfigController(
-          curator.address,
-          guardian.address,
-          sandboxCometFactory.address,
-          configControllerOpts._curatorFee,
-          configControllerOpts._name,
-          minUpdateTime - 1,
-          configControllerOpts._proposalDuration
-        )
-      ).to.be.revertedWithCustomError(_ConfigController, "ProposalDurationTooShort");
-
-      await expect(
-        configControllerFactory.createConfigController(
-          curator.address,
-          guardian.address,
-          sandboxCometFactory.address,
-          configControllerOpts._curatorFee,
-          configControllerOpts._name,
-          configControllerOpts._curatorProposalDuration,
-          minUpdateTime - 1
-        )
-      ).to.be.revertedWithCustomError(_ConfigController, "ProposalDurationTooShort");
-    });
-
-    it("should revert on deployment with proposals duration is too long", async function () {
-      const minMaxParams = await sandboxController.proposalBoundaries();
-      const maxUpdateTime = minMaxParams[1];
-
-      await expect(
-        configControllerFactory.createConfigController(
-          curator.address,
-          guardian.address,
-          sandboxCometFactory.address,
-          configControllerOpts._curatorFee,
-          configControllerOpts._name,
-          maxUpdateTime + 1,
-          configControllerOpts._proposalDuration
-        )
-      ).to.be.revertedWithCustomError(_ConfigController, "ProposalDurationTooLong");
-
-      await expect(
-        configControllerFactory.createConfigController(
-          curator.address,
-          guardian.address,
-          sandboxCometFactory.address,
-          configControllerOpts._curatorFee,
-          configControllerOpts._name,
-          configControllerOpts._curatorProposalDuration,
-          maxUpdateTime + 1
-        )
-      ).to.be.revertedWithCustomError(_ConfigController, "ProposalDurationTooLong");
     });
 
     describe("storage check", function () {
       let configControllerAddress;
       let configController: ConfigController;
+      let receipt: ContractReceipt;
 
       before(async function () {
         configControllerAddress = await configControllerFactory.callStatic.createConfigController(
@@ -444,21 +361,18 @@ describe("1. System Initialization", function () {
           guardian.address,
           sandboxCometFactory.address,
           configControllerOpts._curatorFee,
-          configControllerOpts._name,
-          configControllerOpts._curatorProposalDuration,
-          configControllerOpts._proposalDuration
+          configControllerOpts._name
         );
 
         // deploy config controller
-        await configControllerFactory.createConfigController(
+        const tx: ContractTransaction = await configControllerFactory.connect(owner).createConfigController(
           curator.address,
           guardian.address,
           sandboxCometFactory.address,
           configControllerOpts._curatorFee,
-          configControllerOpts._name,
-          configControllerOpts._curatorProposalDuration,
-          configControllerOpts._proposalDuration
+          configControllerOpts._name
         );
+        receipt = await tx.wait();
         configController = (await ethers.getContractAt("ConfigController", configControllerAddress)) as ConfigController;
 
         configControllersCount += 1;
@@ -487,20 +401,33 @@ describe("1. System Initialization", function () {
       });
 
       it("should propose curator properly", async function () {
-        expect(await configController.proposedCurator()).to.eq(curator.address);
+        const decoded = ethers.utils.defaultAbiCoder.decode(["address"], (await configController.proposals(0)).call);
+        expect(decoded[0]).to.eq(curator.address);
         expect(await configController.curator()).to.eq(ethers.constants.AddressZero);
+      });
+
+      it("should increment the proposal count", async function () {
+        expect(await configController.proposalCounter()).to.eq(0);
+      });
+
+      it("should save the curator proposal", async function () {
+        const proposal = await configController.proposals(0);
+        // Use the same encoding method that Solidity uses to create the expected value
+        const expectedEncodedCurator = ethers.utils.defaultAbiCoder.encode(["address"], [curator.address]);
+        const blockTime = (await ethers.provider.getBlock(receipt.blockNumber)).timestamp;
+        
+        expect(proposal.call).to.eq(expectedEncodedCurator);
+        expect(proposal.proposer).to.eq(owner.address);
+        expect(proposal.proposalType).to.eq(0);
+        expect(proposal.expirationTime).to.eq(blockTime + (await configController.PROPOSE_CURATOR_LIFETIME()));
+        expect(proposal.maturityTime).to.eq(blockTime + (await configController.PROPOSE_CURATOR_MATURITY()));
+        expect(proposal.timelock).to.eq(blockTime + (await configController.PROPOSE_CURATOR_TIMELOCK()));
+        expect(proposal.comet).to.eq(ethers.constants.AddressZero);
       });
 
       it("should set factories", async function () {
         expect(await configController.cometFactory()).to.eq(sandboxCometFactory.address);
         expect(await configController.configControllerFactory()).to.eq(configControllerFactory.address);
-      });
-
-      it("should set parameters properly", async function () {
-        expect(await configController.curatorFee()).to.eq(configControllerOpts._curatorFee);
-        expect(await configController.name()).to.eq(configControllerOpts._name);
-        expect(await configController.curatorProposalDuration()).to.eq(configControllerOpts._curatorProposalDuration);
-        expect(await configController.proposalDuration()).to.eq(configControllerOpts._proposalDuration);
       });
 
       it("should revert if initialize twice", async function () {
@@ -511,9 +438,7 @@ describe("1. System Initialization", function () {
             guardian.address,
             sandboxCometFactory.address,
             configControllerOpts._curatorFee,
-            configControllerOpts._name,
-            configControllerOpts._curatorProposalDuration,
-            configControllerOpts._proposalDuration
+            configControllerOpts._name
           )
         ).to.be.revertedWithCustomError(_ConfigController, "AlreadyInitialized");
       });
@@ -551,9 +476,7 @@ describe("1. System Initialization", function () {
           guardian.address,
           sandboxCometFactory.address,
           configControllerOpts._curatorFee,
-          configControllerOpts._name,
-          configControllerOpts._curatorProposalDuration,
-          configControllerOpts._proposalDuration
+          configControllerOpts._name
         );
 
       // deploy config controller
@@ -564,9 +487,7 @@ describe("1. System Initialization", function () {
           guardian.address,
           sandboxCometFactory.address,
           configControllerOpts._curatorFee,
-          configControllerOpts._name,
-          configControllerOpts._curatorProposalDuration,
-          configControllerOpts._proposalDuration
+          configControllerOpts._name
         );
       configController = (await ethers.getContractAt(
         "ConfigControllerInitializeTest",
@@ -704,11 +625,11 @@ describe("1. System Initialization", function () {
     type DeployParams = Parameters<typeof _SandboxControllerFactory.deploy>;
 
     beforeEach(async function () {
-      opts = defaultSandboxControllerOpts({ dao: dao.address, admin: owner.address, treasury: treasury.address });
+      opts = defaultSandboxControllerOpts({ dao: dao.address, owner: owner.address, treasury: treasury.address });
     });
 
-    it("reverts if admin = 0", async function () {
-      opts.admin = ethers.constants.AddressZero;
+    it("reverts if owner = 0", async function () {
+      opts.owner = ethers.constants.AddressZero;
       await expect(_SandboxControllerFactory.connect(dao).deploy(...(Object.values(opts) as DeployParams))).to.be.revertedWithCustomError(
         _SandboxControllerFactory,
         "ZeroAddress"
@@ -724,7 +645,7 @@ describe("1. System Initialization", function () {
     });
 
     it("reverts if dao = owner", async function () {
-      opts.dao = opts.admin;
+      opts.dao = opts.owner;
       await expect(_SandboxControllerFactory.deploy(...(Object.values(opts) as DeployParams))).to.be.revertedWithCustomError(
         _SandboxControllerFactory,
         "IncorrectSetting"

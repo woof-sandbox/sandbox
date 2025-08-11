@@ -29,17 +29,6 @@ interface ISandboxComet {
     function withdraw(address asset, uint256 amount) external;
 
     function withdrawTo(address to, address asset, uint256 amount) external;
-
-    /// @notice Event emitted when a new collateral asset is added to the protocol
-    event CollateralAssetAdded(
-        address indexed collateralToken,
-        uint64 scale,
-        address priceFeed,
-        uint64 borrowCollateralFactor,
-        uint128 supplyCap,
-        uint64 liquidateCollateralFactor,
-        uint64 liquidationFactor
-    );
     
     function extractFees(address asset) external;
 
@@ -78,6 +67,8 @@ interface ISandboxComet {
     function getCollateralReserves(address asset) external view returns (uint);
         
     function getReserves() external view returns (int);
+
+    function startCurveTransition(uint8 curveId) external;
 
     function isTransferPaused() external view returns (bool);
 

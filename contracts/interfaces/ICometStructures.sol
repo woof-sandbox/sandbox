@@ -49,4 +49,23 @@ interface ICometStructures {
         uint40 duration;
         uint8 collateralAssetIndex;
     }
+
+    struct Curve {
+        uint64 supplyKink;
+        uint64 supplyPerSecondInterestRateSlopeLow;
+        uint64 supplyPerSecondInterestRateSlopeHigh;
+        uint64 supplyPerSecondInterestRateBase;
+        uint64 borrowKink;
+        uint64 borrowPerSecondInterestRateSlopeLow;
+        uint64 borrowPerSecondInterestRateSlopeHigh;
+        uint64 borrowPerSecondInterestRateBase;
+    }
+
+    struct Transition {
+        uint40 startTime;
+        uint40 endTime;
+        uint40 lastUpdateTime;
+        Curve startCurveParams;
+        Curve targetCurveParams;
+    }
 }

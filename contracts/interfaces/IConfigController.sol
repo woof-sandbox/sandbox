@@ -27,8 +27,9 @@ interface IConfigControllerStructs {
     struct CometGlobalParamsConfig {
         uint64 targetPercent;
         uint64 storeFrontPriceFactor;
-        uint40 suggestedLockTimeOfSeedReserves;
         uint256 suggestedAmountOfSeedReserves;
+        uint256 suggestedLockTimeOfSeedReserves;
+        uint40 transitionDuration;
     }
 
     struct CometRewardOptions {
@@ -92,17 +93,13 @@ interface IConfigController is IConfigControllerStructs {
     /// @param _cometFactory The address of the cometFactory contract
     /// @param _curatorFee Initial curator fee in basis points (1% = 100)
     /// @param _name Name of the controller
-    /// @param _curatorProposalDuration Duration of curator proposals in seconds
-    /// @param _proposalDuration Duration of comet proposals in seconds
     function initialize(
         address _owner,
         address _curator,
         address _guardian,
         address _cometFactory,
         uint32 _curatorFee,
-        string memory _name,
-        uint40 _curatorProposalDuration,
-        uint40 _proposalDuration
+        string memory _name
     ) external;
 
     /// @notice Returns the address of the ConfigControllerFactory

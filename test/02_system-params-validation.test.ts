@@ -81,9 +81,7 @@ describe("2. System Params Validation", function () {
       guardian.address,
       sandboxCometFactory.address,
       configControllerOpts._curatorFee,
-      configControllerOpts._name,
-      configControllerOpts._curatorProposalDuration,
-      configControllerOpts._proposalDuration
+      configControllerOpts._name
     );
 
     // deploy config controller
@@ -92,9 +90,7 @@ describe("2. System Params Validation", function () {
       guardian.address,
       sandboxCometFactory.address,
       configControllerOpts._curatorFee,
-      configControllerOpts._name,
-      configControllerOpts._curatorProposalDuration,
-      configControllerOpts._proposalDuration
+      configControllerOpts._name
     );
     configController = (await ethers.getContractAt("ConfigController", configControllerAddress)) as ConfigController;
 

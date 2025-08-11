@@ -28,7 +28,7 @@ contract ConfigControllerProposalTest is ConfigController {
                 call: _calldata
             });
 
-        emit ProposeNewCollateralToken(proposalId, msg.sender, collateralConfig);
+        emit ProposeNewCollateralToken(proposalId, msg.sender);
         
         return proposalId;
     }

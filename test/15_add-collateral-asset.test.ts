@@ -27,16 +27,12 @@ import {
     SimplePriceFeed__factory
 } from '../build/types';
 
-
 import { CollateralTokenConfigStruct, CometConfigStruct } from "../build/types/ConfigController";
-
-
+import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
 describe('15. addCollateralAsset', function () {
     let configControllerImpl: ConfigControllerCallerTest;
     let sandboxCometImpl: SandboxComet;
-
-    const _minUpdateTime = 7 * 24 * 60 * 60;
 
     const configControllerOpts = {
         _curatorFee: 1000,
@@ -45,7 +41,11 @@ describe('15. addCollateralAsset', function () {
         _proposalDuration: 7 * 24 * 60 * 60,
     };
 
-    let owner, curator, guardian, user, randomCaller;
+    let owner: SignerWithAddress;
+    let curator: SignerWithAddress;
+    let guardian: SignerWithAddress;
+    let user: SignerWithAddress;
+    let randomCaller: SignerWithAddress;
 
     let configControllerAddress;
     let configController: ConfigControllerCallerTest;
@@ -78,7 +78,7 @@ describe('15. addCollateralAsset', function () {
         )) as SandboxControllerNoCurvesTest__factory;
 
         sandboxController = (await makeSandboxController(
-            defaultSandboxControllerOpts({ minUpdateTime: _minUpdateTime }),
+            defaultSandboxControllerOpts(),
             SandboxControllerFactoryTest
         )
         ).sandboxController;
@@ -98,8 +98,6 @@ describe('15. addCollateralAsset', function () {
             sandboxCometFactory.address,
             configControllerOpts._curatorFee,
             configControllerOpts._name,
-            configControllerOpts._curatorProposalDuration,
-            configControllerOpts._proposalDuration
         );
 
         // deploy config controller
@@ -108,9 +106,7 @@ describe('15. addCollateralAsset', function () {
             guardian.address,
             sandboxCometFactory.address,
             configControllerOpts._curatorFee,
-            configControllerOpts._name,
-            configControllerOpts._curatorProposalDuration,
-            configControllerOpts._proposalDuration
+            configControllerOpts._name
         );
         configController = (await ethers.getContractAt(
             "ConfigControllerCallerTest",
@@ -180,6 +176,7 @@ describe('15. addCollateralAsset', function () {
                 baseToken: baseToken.address,
                 collateralTokens: collateralTokens.map(obj => ({ ...obj })),
                 baseTokenCurveId: 0n,
+                name: "Test Market"
             };
             // Create a new comet instance with the current market configuration
             const cometAddress = await configController.callStatic.createComet(marketConfig);
@@ -325,9 +322,7 @@ describe('15. addCollateralAsset', function () {
                 .to.equal(supplyAmount);
             // Check the liquidation status after adding new collateral
             expect(await comet.isLiquidatable(user.address)).to.be.false;
-
         });
-
     });
 
     context('Edge cases:', function () {
@@ -356,6 +351,7 @@ describe('15. addCollateralAsset', function () {
                 baseToken: baseToken.address,
                 collateralTokens: collateralTokens.map(obj => ({ ...obj })),
                 baseTokenCurveId: 0n,
+                name: "Test Market"
             };
 
             const cometAddress = await configController.callStatic.createComet(marketConfig);

@@ -18,6 +18,8 @@ contract SandboxController is ISandboxController {
     uint8 public constant MARKET_STATES = 3;
     uint40 public constant MIN_COLLATERAL_REMOVAL_DURATION = 7 days;
 
+    /// @notice Minimum transition duration for the controller configuration.
+    uint32 public constant MIN_TRANSITION_DURATION = 1 weeks; /// 1 week in seconds
     /// @notice treasury address. This is the address that will receive the fees.
     address public treasury; /// 20 bytes
     /// @notice owner address. This is the address that will be able to call the functions that require the owner role.
@@ -37,6 +39,7 @@ contract SandboxController is ISandboxController {
     /// suggestedAmountOfSeedReserves,
     /// suggestedLockTimeOfSeedReserves
     SandboxControllerConfiguration public _controllerConfiguration; /// 32 bytes
+    
     /// @notice token to price feed.
     mapping(address => address) public override tokenToPriceFeed;
 
@@ -98,9 +101,11 @@ contract SandboxController is ISandboxController {
      * _maxUpdateTime, reasonable time for the proposal duration
      * _suggestedAmountOfSeedReserves The suggested amount of seed reserves in $. Decimals are 6.
      * _suggestedLockTimeOfSeedReserves The suggested lock time of seed reserves in seconds.
+     * _transitionDuration The duration of the transition period for the controller configuration.
      * @dev The `_suggestedAmountOfSeedReserves` and `_suggestedLockTimeOfSeedReserves` must be greater than 0.
      * @param _reserveCommissions The reserve commission factors for each market state.
      * @param _protocolCommissions The protocol commission factors for each market state.
+     * @param _removalCollateralDuration The duration of the collateral removal process.
      * @dev The length of the `_reserveCommissions` and `_protocolCommissions` arrays must be 3.
      */
     constructor(

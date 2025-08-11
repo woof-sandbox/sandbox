@@ -92,7 +92,8 @@ contract SandboxComet is CometCore, ISandboxComet {
         /// It can be safely assumed, that reserve parameters are validated in Sandbox Controller
         targetPercent = config.targetPercent;
         seedReserves = config.suggestedAmountOfSeedReserves;
-        unlockTimestamp = safe64(block.timestamp + config.suggestedLockTimeOfSeedReserves);
+        unlockTimestamp = uint64(block.timestamp + config.suggestedLockTimeOfSeedReserves);
+        transitionDuration = config.transitionDuration;
 
         /// Interest rate curve
         ///
@@ -234,6 +235,8 @@ contract SandboxComet is CometCore, ISandboxComet {
 
         if (removalInProgress) _prepareCollateralRemoval();
 
+        if (isTransitionActive) progressTransition(now_);
+
         if (timeElapsed != 0) {
             (baseSupplyIndex, baseBorrowIndex) = accruedInterestIndices(timeElapsed);
             if (totalSupplyBase >= baseMinForRewards) {
@@ -244,6 +247,100 @@ contract SandboxComet is CometCore, ISandboxComet {
             }
             lastAccrualTime = now_;
         }
+    }
+
+    /**
+     * @notice Updates curve parameters according to the current transition progress.
+     * @dev
+     * This function linearly interpolates all curve parameters from their start values to their target values
+     * based on the elapsed time since the transition began. If the transition is complete, it sets all parameters
+     * to their target values and marks the transition as inactive.
+     * Called internally during interest accrual or when updating the curve.
+     * @param now_ The current timestamp to use for transition progress calculation.
+     */
+    function progressTransition(uint40 now_) internal {
+        if (now_ <= transition.lastUpdateTime) {
+            return; // no update needed
+        }
+        
+        Curve memory target = transition.targetCurveParams;
+
+        if (now_ >= transition.endTime) {
+            supplyKink = target.supplyKink;
+            supplyPerSecondInterestRateSlopeLow = target.supplyPerSecondInterestRateSlopeLow;
+            supplyPerSecondInterestRateSlopeHigh = target.supplyPerSecondInterestRateSlopeHigh;
+            supplyPerSecondInterestRateBase = target.supplyPerSecondInterestRateBase;
+            borrowKink = target.borrowKink;
+            borrowPerSecondInterestRateSlopeLow = target.borrowPerSecondInterestRateSlopeLow;
+            borrowPerSecondInterestRateSlopeHigh = target.borrowPerSecondInterestRateSlopeHigh;
+            borrowPerSecondInterestRateBase = target.borrowPerSecondInterestRateBase;
+
+            isTransitionActive = false;
+            return;
+        } else {
+            Curve memory start = transition.startCurveParams;
+            uint40 duration = transition.endTime - transition.startTime;
+            uint40 elapsed = now_ - transition.startTime;
+
+            supplyKink = interpolateValue(
+                start.supplyKink, 
+                target.supplyKink, 
+                supplyKink, 
+                elapsed, 
+                duration
+            );
+            supplyPerSecondInterestRateSlopeLow = interpolateValue(
+                start.supplyPerSecondInterestRateSlopeLow,
+                target.supplyPerSecondInterestRateSlopeLow,
+                supplyPerSecondInterestRateSlopeLow,
+                elapsed,
+                duration
+            );
+            supplyPerSecondInterestRateSlopeHigh = interpolateValue(
+                start.supplyPerSecondInterestRateSlopeHigh,
+                target.supplyPerSecondInterestRateSlopeHigh,
+                supplyPerSecondInterestRateSlopeHigh,
+                elapsed,
+                duration
+            );
+            supplyPerSecondInterestRateBase = interpolateValue(
+                start.supplyPerSecondInterestRateBase,
+                target.supplyPerSecondInterestRateBase,
+                supplyPerSecondInterestRateBase,
+                elapsed,
+                duration
+            );
+            borrowKink = interpolateValue(
+                start.borrowKink,
+                target.borrowKink,
+                borrowKink,
+                elapsed,
+                duration
+            );
+            borrowPerSecondInterestRateSlopeLow = interpolateValue(
+                start.borrowPerSecondInterestRateSlopeLow,
+                target.borrowPerSecondInterestRateSlopeLow,
+                borrowPerSecondInterestRateSlopeLow,
+                elapsed,
+                duration
+            );
+            borrowPerSecondInterestRateSlopeHigh = interpolateValue(
+                start.borrowPerSecondInterestRateSlopeHigh,
+                target.borrowPerSecondInterestRateSlopeHigh,
+                borrowPerSecondInterestRateSlopeHigh,
+                elapsed,
+                duration
+            );
+            borrowPerSecondInterestRateBase = interpolateValue(
+                start.borrowPerSecondInterestRateBase,
+                target.borrowPerSecondInterestRateBase,
+                borrowPerSecondInterestRateBase,
+                elapsed,
+                duration
+            );
+        }
+
+        transition.lastUpdateTime = now_; 
     }
 
     /**
@@ -326,17 +423,11 @@ contract SandboxComet is CometCore, ISandboxComet {
      * @param duration     The total duration of the transition, in seconds.
      * @return The interpolated value as a uint64, representing the parameter's value at the current elapsed time.
      */
-    function interpolateValue(
-        uint256 startValue,
-        uint256 targetValue,
-        uint256 currentValue,
-        uint40 elapsed,
-        uint40 duration
-    ) internal pure returns (uint64) {
+    function interpolateValue(uint256 startValue, uint256 targetValue, uint256 currentValue, uint40 elapsed, uint40 duration) internal pure returns (uint64) {
         if (targetValue > startValue) {
-            return safe64(currentValue + ((((targetValue - startValue) * elapsed) / duration) - (currentValue - startValue)));
+            return safe64(currentValue + (((targetValue - startValue) * elapsed / duration) - (currentValue - startValue)));
         } else {
-            return safe64(currentValue - ((((startValue - targetValue) * elapsed) / duration) - (startValue - currentValue)));
+            return safe64(currentValue - (((startValue - targetValue) * elapsed / duration) - (startValue - currentValue)));
         }
     }
 
@@ -370,7 +461,7 @@ contract SandboxComet is CometCore, ISandboxComet {
      *     - `duration`: Offboarding period, retrieved from `SandboxController`.
      *     - `collateralAssetIndex`: Index in the active collateral array.
      *     - `removalInProgress`: Flag set to `true`.
-     * - Sets the collateral’s `supplyCap` to zero to block new supply immediately.
+     * - Sets the collateral's `supplyCap` to zero to block new supply immediately.
      *
      * ---
      * Safety and User Experience:
@@ -1326,6 +1417,54 @@ contract SandboxComet is CometCore, ISandboxComet {
             emit Transfer(address(0), account, presentValueSupply(baseSupplyIndex, unsigned104(newPrincipal)));
         }
     }
+
+    function startCurveTransition(uint8 curveId) external override {
+        if (msg.sender != configController) revert Unauthorized();
+
+        ISandboxController.BaseAssetCurve memory targetCurve = ISandboxController(sandboxController).baseAssets(baseToken).baseAssetCurves[curveId];
+
+        Curve memory startCurveParams = Curve({
+            supplyKink: supplyKink,
+            supplyPerSecondInterestRateSlopeLow: supplyPerSecondInterestRateSlopeLow,
+            supplyPerSecondInterestRateSlopeHigh: supplyPerSecondInterestRateSlopeHigh,
+            supplyPerSecondInterestRateBase: supplyPerSecondInterestRateBase,
+            borrowKink: borrowKink,
+            borrowPerSecondInterestRateSlopeLow: borrowPerSecondInterestRateSlopeLow,
+            borrowPerSecondInterestRateSlopeHigh: borrowPerSecondInterestRateSlopeHigh,
+            borrowPerSecondInterestRateBase: borrowPerSecondInterestRateBase
+        });
+        
+        Curve memory targetCurveParams = Curve({
+            supplyKink: targetCurve.supplyKink,
+            supplyPerSecondInterestRateSlopeLow: targetCurve.supplyPerYearInterestRateSlopeLow / SECONDS_PER_YEAR,
+            supplyPerSecondInterestRateSlopeHigh: targetCurve.supplyPerYearInterestRateSlopeHigh / SECONDS_PER_YEAR,
+            supplyPerSecondInterestRateBase: targetCurve.supplyPerYearInterestRateBase / SECONDS_PER_YEAR,
+            borrowKink: targetCurve.borrowKink,
+            borrowPerSecondInterestRateSlopeLow: targetCurve.borrowPerYearInterestRateSlopeLow / SECONDS_PER_YEAR,
+            borrowPerSecondInterestRateSlopeHigh: targetCurve.borrowPerYearInterestRateSlopeHigh / SECONDS_PER_YEAR,
+            borrowPerSecondInterestRateBase: targetCurve.borrowPerYearInterestRateBase / SECONDS_PER_YEAR
+        });
+
+        uint40 timestamp = getNowInternal();
+
+        transition = Transition({
+            startTime: timestamp,
+            endTime: timestamp + transitionDuration,
+            lastUpdateTime: timestamp,
+            startCurveParams: startCurveParams,
+            targetCurveParams: targetCurveParams
+        });
+        isTransitionActive = true;
+
+        emit CurveTransitionStarted(
+            transition.startTime,
+            transition.endTime,
+            startCurveParams,
+            targetCurveParams
+        );
+    }
+
+    
 
     /**
      * @notice Buy collateral from the protocol using base tokens, increasing protocol reserves

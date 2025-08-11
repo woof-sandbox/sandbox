@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
-interface ICometEvents {
+import "./ICometStructures.sol";
+
+interface ICometEvents is ICometStructures {
     event Supply(address indexed from, address indexed dst, uint256 amount);
     event Transfer(address indexed from, address indexed to, uint256 amount);
     event Withdraw(address indexed src, address indexed to, uint256 amount);
@@ -22,6 +24,25 @@ interface ICometEvents {
         address indexed asset,
         uint256 collateralAbsorbed,
         uint256 usdValue
+    );
+
+    /// @notice Event emitted when a new collateral asset is added to the protocol
+    event CollateralAssetAdded(
+        address indexed collateralToken,
+        uint64 scale,
+        address priceFeed,
+        uint64 borrowCollateralFactor,
+        uint128 supplyCap,
+        uint64 liquidateCollateralFactor,
+        uint64 liquidationFactor
+    );
+
+    /// @notice Event emitted when a curve transition is started
+    event CurveTransitionStarted(
+        uint40 startTime,
+        uint40 endTime,
+        Curve startCurveParams,
+        Curve targetCurveParams
     );
 
     /// @notice Event emitted when a collateral asset is purchased from the protocol

@@ -146,6 +146,9 @@ contract CometStorage is ICometStructures {
     /// @notice Factor to divide by when accruing rewards in order to preserve 6 decimals (i.e. baseScale / 1e6)
     uint internal accrualDescaleFactor;
 
+    /// @notice transition duration. This is the duration of the transition period for the interest rate curve.
+    uint40 public transitionDuration;
+
     /// @dev Aggregate variables tracked for the entire market
     uint64 internal baseSupplyIndex;
     uint64 internal baseBorrowIndex;
@@ -164,6 +167,13 @@ contract CometStorage is ICometStructures {
 
     /// @notice The number of assets that have been removed
     uint8 public numRemovedAssets;
+    /// @notice Marker that the market is closed
+    bool internal _closed;
+    /// @notice Marker that the curve transition is active
+    bool public isTransitionActive;
+
+    /// @notice The curve transition parameters
+    Transition public transition;
 
     /// @notice Aggregate variables tracked for each collateral asset
     mapping(address => uint256) public totalsCollateral;

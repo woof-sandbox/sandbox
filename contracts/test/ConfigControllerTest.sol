@@ -1,13 +1,15 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
-import "../ConfigController.sol";
+import { ConfigController } from "contracts/ConfigController.sol";
+import { ISandboxComet } from "contracts/interfaces/ISandboxComet.sol";
 
-/**
- * @title ConfigController for testing purposes
- */
 contract ConfigControllerTest is ConfigController {
-    function initiateCollateralRemovalOnComet(address _comet, address _collateralAsset) external {
-        ISandboxCometConfig(_comet).initiateCollateralRemoval(_collateralAsset);
+    function startCurveTransitionOnComet(address comet, uint8 curveId) external {
+        ISandboxComet(comet).startCurveTransition(curveId);
+    }
+
+    function initiateCollateralRemovalOnComet(address comet, address collateralAsset) external {
+        ISandboxComet(comet).initiateCollateralRemoval(collateralAsset);
     }
 }

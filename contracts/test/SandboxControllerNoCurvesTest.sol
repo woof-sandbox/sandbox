@@ -26,8 +26,7 @@ contract SandboxControllerNoCurvesTest is SandboxController {
             _reserveCommissions,
             _protocolCommissions,
             _removalCollateralDuration
-        )
-    {}
+        ) {}
 
     function whitelistBaseAssetWithNoCurve(address token, address priceFeed) external {
         /// @dev this token is already whitelisted

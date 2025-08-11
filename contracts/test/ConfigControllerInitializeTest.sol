@@ -12,8 +12,9 @@ contract ConfigControllerInitializeTest is ConfigController {
         CometGlobalParamsConfig memory _globalConfig = CometGlobalParamsConfig(
             _sandboxConfig.targetPercent,
             _sandboxConfig.storeFrontPriceFactor,
+            _sandboxConfig.suggestedAmountOfSeedReserves,
             _sandboxConfig.suggestedLockTimeOfSeedReserves,
-            _sandboxConfig.suggestedAmountOfSeedReserves
+            _sandboxConfig.transitionDuration
         );
         ISandboxCometConfig(_comet).initialize(_cometConfig, _globalConfig);
     }

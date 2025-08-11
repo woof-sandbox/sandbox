@@ -32,7 +32,7 @@ describe("3. SandboxController", function () {
     [owner, dao, treasury, attacker, other] = await ethers.getSigners();
 
     opts = defaultSandboxControllerOpts({
-      admin: owner,
+      owner: owner,
       dao: dao,
       treasury: treasury,
     });
@@ -928,6 +928,7 @@ describe("3. SandboxController", function () {
         maxUpdateTime: 24 * 60 * 60,
         suggestedAmountOfSeedReserves: ethers.utils.parseEther("1").toString(),
         suggestedLockTimeOfSeedReserves: 1500,
+        transitionDuration: 1000,
       };
     });
 

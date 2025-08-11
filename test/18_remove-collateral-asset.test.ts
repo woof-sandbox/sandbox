@@ -9,6 +9,7 @@ import {
   sandboxListBaseAsset,
   sandboxListCollateralAsset,
   ZERO,
+  SandboxCometWithExtension,
 } from "./helper/helpers";
 import {
   SandboxController,
@@ -22,7 +23,6 @@ import {
   SandboxControllerNoCurvesTest__factory,
   FaucetToken,
   FaucetToken__factory,
-  CometHarness,
   CometHarness__factory,
 } from "../build/types";
 
@@ -52,9 +52,8 @@ describe("18. initiateCollateralRemoval", function () {
   let baseToken: FaucetToken;
   let marketConfig: CometConfigStruct;
 
-  let comet: CometHarness;
+  let comet: SandboxCometWithExtension;
 
-  const _minUpdateTime = 7 * 24 * 60 * 60;
 
   const configControllerOpts = {
     _curatorFee: 1000,
@@ -90,9 +89,7 @@ describe("18. initiateCollateralRemoval", function () {
       guardian.address,
       sandboxCometFactory.address,
       configControllerOpts._curatorFee,
-      configControllerOpts._name,
-      configControllerOpts._curatorProposalDuration,
-      configControllerOpts._proposalDuration
+      configControllerOpts._name
     );
 
     // deploy config controller
@@ -101,9 +98,7 @@ describe("18. initiateCollateralRemoval", function () {
       guardian.address,
       sandboxCometFactory.address,
       configControllerOpts._curatorFee,
-      configControllerOpts._name,
-      configControllerOpts._curatorProposalDuration,
-      configControllerOpts._proposalDuration
+      configControllerOpts._name
     );
     configController = (await ethers.getContractAt("ConfigControllerTest", configControllerAddress)) as ConfigControllerTest;
 
@@ -145,13 +140,13 @@ describe("18. initiateCollateralRemoval", function () {
     const cometAddress = await configController.callStatic.createComet(marketConfig);
     await configController.createComet(marketConfig);
     // Connect to the newly created comet instance
-    comet = CometHarness__factory.connect(cometAddress, provider) as CometHarness;
+    comet = CometHarness__factory.connect(cometAddress, provider) as unknown as SandboxCometWithExtension;
 
     await baseToken.allocateTo(comet.address, exp(100000, 18));
   }
 
   context("Initiating the removal of collateral assets:", function () {
-    // Global variables for the context of the tests
+    // Global variablesfor the context of the tests
     let removalDuration: number;
     let timestamp: number;
     let timestampOfNextTx: number;
@@ -165,7 +160,7 @@ describe("18. initiateCollateralRemoval", function () {
     });
 
     it("should initiate the process of collateral asset removal", async () => {
-      expect(await comet.isCollateralRemovalInProgress()).to.be.false;
+      expect(await comet.removalInProgress()).to.be.false;
       // Index of the collateral asset to be removed
       const assetIndex = 0;
       const removalCollateralToken = collateralTokens[assetIndex].collateralToken;
@@ -178,11 +173,11 @@ describe("18. initiateCollateralRemoval", function () {
 
       await expect(tx).to.emit(comet, "CollateralRemovalInitiated").withArgs(assetIndex, removalCollateralToken, startTime, endTime);
 
-      expect(await comet.isCollateralRemovalInProgress()).to.be.true;
+      expect(await comet.removalInProgress()).to.be.true;
     });
 
     it("should not change the number of assets when initiating collateral removal", async () => {
-      expect(await comet.isCollateralRemovalInProgress()).to.be.false;
+      expect(await comet.removalInProgress()).to.be.false;
       const numAssetsBefore = await comet.numAssets();
 
       // Index of the collateral asset to be removed
@@ -190,7 +185,7 @@ describe("18. initiateCollateralRemoval", function () {
       const removalCollateralToken = collateralTokens[assetIndex].collateralToken;
 
       await configController.initiateCollateralRemovalOnComet(comet.address, removalCollateralToken);
-      expect(await comet.isCollateralRemovalInProgress()).to.be.true;
+      expect(await comet.removalInProgress()).to.be.true;
 
       expect(await comet.numAssets()).to.equal(numAssetsBefore);
     });
@@ -201,7 +196,7 @@ describe("18. initiateCollateralRemoval", function () {
       const removalCollateralToken = collateralTokens[assetIndex].collateralToken;
 
       await configController.initiateCollateralRemovalOnComet(comet.address, removalCollateralToken);
-      expect(await comet.isCollateralRemovalInProgress()).to.be.true;
+      expect(await comet.removalInProgress()).to.be.true;
 
       const assetInfo = await comet.collateralAssets(assetIndex);
       expect(assetInfo.supplyCap).to.equal(ZERO);
@@ -251,7 +246,7 @@ describe("18. initiateCollateralRemoval", function () {
       const supplyAmount = await contractToken.balanceOf(firstUser.address);
 
       await configController.initiateCollateralRemovalOnComet(comet.address, removalCollateralToken);
-      expect(await comet.isCollateralRemovalInProgress()).to.be.true;
+      expect(await comet.removalInProgress()).to.be.true;
       // Expect the custom error to be reverted
       await expect(comet.connect(firstUser).supply(removalCollateralToken, supplyAmount)).to.be.revertedWithCustomError(
         comet,
@@ -288,7 +283,7 @@ describe("18. initiateCollateralRemoval", function () {
 
       await time.setNextBlockTimestamp(timestampOfNextTx);
       await configController.initiateCollateralRemovalOnComet(comet.address, removalCollateralTokenAddress);
-      expect(await comet.isCollateralRemovalInProgress()).to.be.true;
+      expect(await comet.removalInProgress()).to.be.true;
       // Get the base token address from the comet contract
       baseTokenAddress = await comet.baseToken();
       const contractToken = FaucetToken__factory.connect(baseTokenAddress, provider);
@@ -380,7 +375,7 @@ describe("18. initiateCollateralRemoval", function () {
 
       await time.setNextBlockTimestamp(timestampOfNextTx);
       await configController.initiateCollateralRemovalOnComet(comet.address, removalCollateralTokenAddress);
-      expect(await comet.isCollateralRemovalInProgress()).to.be.true;
+      expect(await comet.removalInProgress()).to.be.true;
       // Get the base token address from the comet contract
       baseTokenAddress = await comet.baseToken();
       contractToken = FaucetToken__factory.connect(baseTokenAddress, provider);
@@ -440,7 +435,7 @@ describe("18. initiateCollateralRemoval", function () {
       // Supply the base token to finalize the removal
       await comet.connect(firstUser).supply(baseTokenAddress, supplyAmount);
       // Check that the removal is not in progress anymore
-      expect(await comet.isCollateralRemovalInProgress()).to.be.false;
+      expect(await comet.removalInProgress()).to.be.false;
     });
 
     it("should be set the borrow collateral factor to 0% for the removed asset after finalization", async () => {
@@ -526,7 +521,7 @@ describe("18. initiateCollateralRemoval", function () {
       await time.setNextBlockTimestamp(timestampOfNextTx);
       // Initiate the collateral removal
       await configController.initiateCollateralRemovalOnComet(comet.address, removalCollateralTokenAddress);
-      expect(await comet.isCollateralRemovalInProgress()).to.be.true;
+      expect(await comet.removalInProgress()).to.be.true;
       // Check the user's collateral balance and borrow balance
       expect(await comet.collateralBalanceOf(firstUser.address, removalCollateralTokenAddress)).to.equal(supplyAmount);
       const tolerance = borrowAmount.div(1000); // 0.1% tolerance
