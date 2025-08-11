@@ -112,7 +112,7 @@ export type SandboxControllerOpts = {
 
 export type ProtocolOpts = {
   owner: SignerWithAddress;
-  treasury: SignerWithAddress;
+  treasury: string;
   curator: SignerWithAddress;
   guardian: SignerWithAddress;
   dao: SignerWithAddress;
@@ -400,7 +400,7 @@ export async function makeConfigController(opts: ProtocolOpts, acceptCurator?: b
   const sandboxControllerOpts = defaultSandboxControllerOpts({
     admin: opts.owner.address,
     dao: opts.dao.address,
-    treasury: opts.treasury.address,
+    treasury: opts.treasury,
     feeEnabled: false,
     config: opts.config,
     reserveCommissions: opts.reserveCommissions,
