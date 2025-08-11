@@ -266,7 +266,7 @@ Sets the global feeEnabled flag for the entire protocol.
 ### getCommissions
 
 ```solidity
-function getCommissions(uint256 _currentReserves, uint256 _seedReserves, uint256 _targetReserves) external view returns (uint64 _reserveCommission, uint64 _protocolCommission)
+function getCommissions(uint256 _currentReserves, uint256 _targetReserves) external view returns (uint64 _reserveCommission, uint64 _protocolCommission)
 ```
 
 Returns profit fee distribution based on the reserves
@@ -278,7 +278,6 @@ _THe function expects same denomination units for all 3 reserves parameters_
 | Name | Type | Description |
 | ---- | ---- | ----------- |
 | _currentReserves | uint256 | Current Comet reserves |
-| _seedReserves | uint256 | Amount of reserves transferred to the Comet during the initialization |
 | _targetReserves | uint256 | Expected target for the Comet |
 
 #### Return Values

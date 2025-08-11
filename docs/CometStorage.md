@@ -451,21 +451,21 @@ mapping(address => uint256) totalsCollateral
 
 Aggregate variables tracked for each collateral asset
 
-### assetFeesController
+### totalControllerFeesPerAsset
 
 ```solidity
-mapping(address => uint256) assetFeesController
+mapping(address => uint256) totalControllerFeesPerAsset
 ```
 
-Fees aggregation for the controller
+Total accrued controller fees per asset
 
-### assetFeesDAO
+### totalDaoFeesPerAsset
 
 ```solidity
-mapping(address => uint256) assetFeesDAO
+mapping(address => uint256) totalDaoFeesPerAsset
 ```
 
-Fees aggregation for the DAO
+Total accrued DAO fees per asset
 
 ### allowance
 
