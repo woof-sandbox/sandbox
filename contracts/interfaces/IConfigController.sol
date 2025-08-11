@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity 0.8.28;
 
 interface IConfigController {
@@ -19,7 +19,7 @@ interface IConfigController {
 
     struct CometConfig {
         address baseToken;
-        uint8 baseTokenCurveId;
+        uint256 baseTokenCurveId;
         CollateralTokenConfig[] collateralTokens;
         string name;
     }

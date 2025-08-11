@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity 0.8.28;
 
 import "../CometCore.sol";
@@ -53,6 +53,17 @@ abstract contract ICometExtension is CometCore {
         bytes32 s
     ) external virtual;
 
+    function allowAllBySig(
+        address owner,
+        address manager,
+        bool approved,
+        uint256 nonce,
+        uint256 expiry,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) external virtual;
+
     function collateralBalanceOf(address account, address asset) external view virtual returns (uint256);
 
     function baseTrackingAccrued(address account) external view virtual returns (uint64);
@@ -99,5 +110,12 @@ abstract contract ICometExtension is CometCore {
      * @param amounts The number of collateral tokens that are approved
      * @notice The order list of collateral assets must match the order of `collateralAssets`
      */
-    function approveAll(address spender, uint256 baseTokenAmount, uint256[] calldata amounts) external virtual;
+    function approveAllTokens(address spender, uint256 baseTokenAmount, uint256[] calldata amounts) external virtual;
+
+    /**
+     * @notice Single time approve for the whole balance of the base asset
+     * @param spender The spender of the baseToken balance
+     * @param approved Flag to set
+     */
+    function approveAll(address spender, bool approved) external virtual;
 }

