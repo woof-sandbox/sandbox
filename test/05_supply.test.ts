@@ -41,8 +41,16 @@ describe("5. supply", function () {
   before(async function () {
     [owner, dao, treasury, curator, guardian, alice, bob] = await ethers.getSigners();
 
-    const opts = await makeConfigController({
-      owner: owner, dao: dao, treasury: treasury.address, curator: curator, guardian: guardian }, true);
+    const opts = await makeConfigController(
+      {
+        owner: owner,
+        dao: dao,
+        treasury: treasury.address,
+        curator: curator,
+        guardian: guardian,
+      },
+      true
+    );
     configController = opts.configController;
     sandboxController = opts.sandboxController;
     baseToken = opts.baseToken as FaucetToken;
