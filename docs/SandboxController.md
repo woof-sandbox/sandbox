@@ -146,7 +146,7 @@ minLiquidationFactor, maxLiquidationFactor
 mapping(address => uint256) suggestedAmountOfSeedReserves
 ```
 
-Suggested amount of seed reserves for each base asset.
+Suggested amount of seed reserves for each base asset - in USD.
 
 ### suggestedLockTimeOfSeedReserves
 
@@ -259,7 +259,7 @@ function getCommissions(uint256 _currentReserves, uint256 _targetReserves, addre
 
 Returns profit fee distribution based on the reserves
 
-_The function expects same denomination units for all 3 reserves parameters_
+_The function expects same denomination units (in USD) for both reserves parameters_
 
 #### Parameters
 
@@ -421,7 +421,7 @@ Validates an interest rate curve configuration.
 function setConfiguration(struct ISandboxController.SandboxControllerConfiguration _config) external
 ```
 
-_Emitted when a base asset is whitelisted._
+_Configuration setter_
 
 #### Parameters
 
@@ -442,6 +442,37 @@ _Validates global config and reverts on incorrect values_
 | Name | Type | Description |
 | ---- | ---- | ----------- |
 | _config | struct ISandboxController.SandboxControllerConfiguration | Configuration of the sandbox controller. |
+
+### setSeedReserves
+
+```solidity
+function setSeedReserves(address _baseToken, uint256 _amount, uint40 _lockTime) external
+```
+
+_Seed reserves parameters setter. Dao only._
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| _baseToken | address | Base asset changes are applied to |
+| _amount | uint256 | Seed reserves suggested amount (in USD) |
+| _lockTime | uint40 | Seed reserves suggested lock time on the Comet |
+
+### _validateSeedReserves
+
+```solidity
+function _validateSeedReserves(uint256 _amount, uint40 _lockTime) internal pure
+```
+
+_Validates seed reserves parameters and revers on incorrect values_
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| _amount | uint256 | Suggested seed reserves amount |
+| _lockTime | uint40 | Suggested seed reserves lock time on the Comet |
 
 ### transferOwner
 
