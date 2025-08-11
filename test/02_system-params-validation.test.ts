@@ -332,8 +332,10 @@ describe("2. System Params Validation", function () {
     describe("Comet creation, happy cases", function () {
       it("should be possible to create two comets with the same configuration", async () => {
         baseToken = (await ethers.getContractAt("FaucetToken", marketConfig.baseToken)) as FaucetToken;
-        await baseToken.allocateTo(owner.address, (await sandboxController.config()).suggestedAmountOfSeedReserves);
-        await baseToken.allocateTo(owner.address, (await sandboxController.config()).suggestedAmountOfSeedReserves);
+        const seedReserves = (await sandboxController.config()).suggestedAmountOfSeedReserves;
+
+        await baseToken.allocateTo(owner.address, seedReserves.mul(2));
+        await baseToken.approve(configController.address, seedReserves.mul(2));
 
         const cometAddress1 = await configController.callStatic.createComet(marketConfig);
         await configController.createComet(marketConfig);
@@ -433,6 +435,11 @@ describe("2. System Params Validation", function () {
           baseTokenCurveId: 0n,
           name: "Comet",
         };
+
+        const seedReserves = (await sandboxController.config()).suggestedAmountOfSeedReserves;
+        await baseToken.allocateTo(owner.address, seedReserves);
+        await baseToken.approve(configController.address, seedReserves);
+
         const cometAddress = await configController.callStatic.createComet(marketConfig);
         await configController.createComet(marketConfig);
 

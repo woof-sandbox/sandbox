@@ -1254,7 +1254,6 @@ async function getPrincipalChange(
   const curTime = (await ethers.provider.getBlock("latest")).timestamp;
 
   const timeElapsed = curTime - lastUpdated;
-  console.log(timeElapsed.toString());
 
   const prevIndex = (await cometExtension.totalsBasic()).baseSupplyIndex;
   const accruedIndex = prevIndex.add(
@@ -1264,14 +1263,9 @@ async function getPrincipalChange(
       .div(exp(1, 18))
   );
 
-  console.log(2, prevIndex.toString());
-  console.log(2, accruedIndex.toString());
-
   const oldPrincipal = (await comet.userBasic(user)).principal;
   const oldBalance = oldPrincipal.mul(accruedIndex).div(1e15);
   const newPrincipal = oldBalance.add(amount).mul(1e15).div(accruedIndex);
-
-  console.log(4, newPrincipal.toString());
 
   return newPrincipal.sub(oldPrincipal);
 }

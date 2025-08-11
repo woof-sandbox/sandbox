@@ -3,6 +3,7 @@ import {
   exp,
   expect,
   defaultSandboxControllerOpts,
+  defaultCollateralConfig,
   makeSandboxController,
   makeMockERC20,
   makePriceFeed,
@@ -590,13 +591,15 @@ describe("1. System Initialization", function () {
       await sandboxListBaseAsset(sandboxController, baseToken, priceFeedBase.address);
       await sandboxListCollateralAsset(sandboxController, collateralToken, priceFeedCol.address);
 
+      const colConfig = defaultCollateralConfig();
+
       let collateralTokens: CollateralTokenConfigStruct[] = [];
       collateralTokens.push({
         collateralToken: collateralToken.address,
-        borrowCollateralFactor: exp(0.6, 18),
-        liquidateCollateralFactor: exp(0.7, 18),
-        liquidationFactor: exp(0.8, 18),
-        supplyCap: exp(1e9, 18),
+        borrowCollateralFactor: colConfig.borrowCF,
+        liquidateCollateralFactor: colConfig.liquidateCF,
+        liquidationFactor: colConfig.liquidationFactor,
+        supplyCap: colConfig.supplyCap,
       });
 
       marketConfig = {
@@ -605,6 +608,9 @@ describe("1. System Initialization", function () {
         baseTokenCurveId: 0n,
         name: "Comet",
       };
+
+      const seedReserves = (await sandboxController.config()).suggestedAmountOfSeedReserves;
+      await baseToken.approve(configController.address, seedReserves.mul(2));
 
       cometAddress = await configController.callStatic.createComet(marketConfig);
       await configController.createComet(marketConfig);
@@ -696,6 +702,8 @@ describe("1. System Initialization", function () {
     });
 
     it("should emit event on Comet deployment", async function () {
+      // approve is handled in the before function
+
       const _cometAddress = await configController.callStatic.createComet(marketConfig);
       const numOfComets = await configController.cometsLength();
       // deploy config controller

@@ -13,7 +13,7 @@ import {
 import { CometConfigStruct, CollateralTokenConfigStruct } from "../build/types/ConfigController";
 import { BigNumberish } from "ethers";
 
-describe("ConfigController", () => {
+describe("4. ConfigController", () => {
   let owner, dao, curator, other, treasury, guardian: SignerWithAddress;
   let curatorProposalDuration: BigNumberish;
   let configController: ConfigController;
