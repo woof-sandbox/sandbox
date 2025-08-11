@@ -136,39 +136,39 @@ contract CometStorage {
 
     /// @notice The scale for base token (must be less than 18 decimals)
     /// @dev uint64
-    uint public baseScale;
+    uint256 public baseScale;
 
     /// @notice The scale for reward tracking
     /// @dev uint64
-    uint public trackingIndexScale;
+    uint256 public trackingIndexScale;
 
     /// @notice The speed at which supply rewards are tracked (in trackingIndexScale)
     /// @dev uint64
-    uint public baseTrackingSupplySpeed;
+    uint256 public baseTrackingSupplySpeed;
 
     /// @notice The speed at which borrow rewards are tracked (in trackingIndexScale)
     /// @dev uint64
-    uint public baseTrackingBorrowSpeed;
+    uint256 public baseTrackingBorrowSpeed;
 
     /// @notice The minimum amount of base principal wei for rewards to accrue
     /// @dev This must be large enough so as to prevent division by base wei from overflowing the 64 bit indices
     /// @dev uint104
-    uint public baseMinForRewards;
+    uint256 public baseMinForRewards;
 
     /// @notice The minimum base amount required to initiate a borrow
-    uint public baseBorrowMin;
+    uint256 public baseBorrowMin;
 
     /// @notice The minimum base token reserves which must be held before collateral is hodled
     uint64 public targetPercent;
 
     /// @notice Seed reserves, initialized during the Comet creation
-    uint public seedReserves;
+    uint256 public seedReserves;
 
     /// @notice Unlock timestamp
     uint64 public unlockTimestamp;
 
     /// @notice Factor to divide by when accruing rewards in order to preserve 6 decimals (i.e. baseScale / 1e6)
-    uint internal accrualDescaleFactor;
+    uint256 internal accrualDescaleFactor;
 
     /// @dev Aggregate variables tracked for the entire market
     uint64 internal baseSupplyIndex;
@@ -186,23 +186,24 @@ contract CometStorage {
     /// @notice Aggregate variables tracked for each collateral asset
     mapping(address => uint256) public totalsCollateral;
 
-    /// @notice Fees aggregation for the controller
-    mapping(address => uint256) public assetFeesController;
-    /// @notice Fees aggregation for the DAO
-    mapping(address => uint256) public assetFeesDAO;
+    /// @notice Total accrued controller fees per asset
+    mapping(address => uint256) public totalControllerFeesPerAsset;
+
+    /// @notice Total accrued DAO fees per asset
+    mapping(address => uint256) public totalDaoFeesPerAsset;
 
     /// @notice Mapping of users to accounts which may be permitted to manage the user account
     /// @notice user => spender => asset (base or collateral) => amount
-    mapping(address => mapping(address => mapping(address => uint))) public allowance;
+    mapping(address => mapping(address => mapping(address => uint256))) public allowance;
 
     /// @notice The next expected nonce for an address, for validating authorizations via signature
-    mapping(address => uint) public userNonce;
+    mapping(address => uint256) public userNonce;
 
     /// @notice Mapping of users to base principal and other basic data
     mapping(address => UserBasic) public userBasic;
 
     /// @notice Mapping of users to collateral data per collateral asset
-    mapping(address => mapping(address => uint)) public userCollateral;
+    mapping(address => mapping(address => uint256)) public userCollateral;
 
     mapping(address => uint8) public collateralAssetIndex;
     CollateralAsset[] public collateralAssets;

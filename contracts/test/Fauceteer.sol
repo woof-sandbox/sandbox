@@ -6,7 +6,7 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 contract Fauceteer {
     /// @notice Mapping of user address -> asset address -> last time the user
     /// received that asset
-    mapping(address => mapping(address => uint)) public lastReceived;
+    mapping(address => mapping(address => uint256)) public lastReceived;
 
     /* errors */
     error BalanceTooLow();
@@ -14,7 +14,7 @@ contract Fauceteer {
     error TransferFailed();
 
     function drip(address token) public {
-        uint balance = ERC20(token).balanceOf(address(this));
+        uint256 balance = ERC20(token).balanceOf(address(this));
         if (balance <= 0) revert BalanceTooLow();
 
         if (block.timestamp - lastReceived[msg.sender][token] < 1 days) revert RequestedTooFrequently();

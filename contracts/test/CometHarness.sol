@@ -4,7 +4,7 @@ pragma solidity 0.8.28;
 import "../SandboxComet.sol";
 
 contract CometHarness is SandboxComet {
-    uint public nowOverride;
+    uint256 public nowOverride;
 
     constructor() {}
 
@@ -16,7 +16,7 @@ contract CometHarness is SandboxComet {
         return getNowInternal();
     }
 
-    function setNow(uint now_) external {
+    function setNow(uint256 now_) external {
         nowOverride = now_;
     }
 
@@ -77,7 +77,7 @@ contract CometHarness is SandboxComet {
 
         result = new address[](count);
 
-        uint j = 0;
+        uint256 j = 0;
         for (uint8 i = 0; i < numAssets; i++) {
             if (isInAsset(assetsIn, i)) {
                 result[j] = getAssetInfo(i).collateralToken;

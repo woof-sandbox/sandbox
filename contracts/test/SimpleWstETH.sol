@@ -4,9 +4,9 @@ pragma solidity 0.8.28;
 contract SimpleWstETH {
     uint8 public constant decimals = 18;
 
-    uint public immutable tokensPerStEth;
+    uint256 public immutable tokensPerStEth;
 
-    constructor(uint tokensPerStEth_) {
+    constructor(uint256 tokensPerStEth_) {
         tokensPerStEth = tokensPerStEth_;
     }
 }

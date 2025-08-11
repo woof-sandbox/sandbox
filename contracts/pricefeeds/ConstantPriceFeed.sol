@@ -10,7 +10,7 @@ import "../interfaces/IPriceFeed.sol";
  */
 contract ConstantPriceFeed is IPriceFeed {
     /// @notice Version of the price feed
-    uint public constant override version = 1;
+    uint256 public constant override version = 1;
 
     /// @notice Description of the price feed
     string public constant description = "Constant price feed";

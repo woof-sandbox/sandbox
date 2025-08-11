@@ -57,7 +57,7 @@ contract DeployProtocol is Script {
         vm.stopBroadcast();
 
         // Supply collateral tokens
-        for (uint i = 0; i < collateralTokens.length; i++) {
+        for (uint256 i = 0; i < collateralTokens.length; i++) {
             ManagedFaucetToken collateralToken = ManagedFaucetToken(collateralTokens[i]);
             uint256 collateralAmount = 1e24; // 1,000,000 collateral tokens
             vm.startBroadcast(ownerPrivateKey);

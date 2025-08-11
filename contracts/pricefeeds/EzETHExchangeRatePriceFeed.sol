@@ -16,7 +16,7 @@ contract EzETHExchangeRatePriceFeed is IPriceFeed {
     error BadDecimals();
 
     /// @notice Version of the price feed
-    uint public constant VERSION = 1;
+    uint256 public constant VERSION = 1;
 
     /// @notice Description of the price feed
     string public description;

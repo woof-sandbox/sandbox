@@ -40,15 +40,15 @@ abstract contract ISandboxComet is CometCore {
 
     function absorb(address absorber, address[] calldata accounts) external virtual;
 
-    function buyCollateral(address asset, uint minAmount, uint baseAmount, address recipient) external virtual;
+    function buyCollateral(address asset, uint256 minAmount, uint256 baseAmount, address recipient) external virtual;
 
-    function quoteCollateral(address asset, uint baseAmount) public view virtual returns (uint, uint, uint, uint);
+    function quoteCollateral(address asset, uint256 baseAmount) public view virtual returns (uint256, uint256, uint256);
 
-    function getCollateralReserves(address asset) public view virtual returns (uint);
+    function getCollateralReserves(address asset) public view virtual returns (uint256);
 
     function getReserves() public view virtual returns (int);
 
-    function getPrice(address priceFeed) public view virtual returns (uint);
+    function getPrice(address priceFeed) public view virtual returns (uint256);
 
     function isBorrowCollateralized(address account) public view virtual returns (bool);
 
@@ -76,11 +76,11 @@ abstract contract ISandboxComet is CometCore {
 
     function accrueAccount(address account) external virtual;
 
-    function getSupplyRate(uint utilization) public view virtual returns (uint64);
+    function getSupplyRate(uint256 utilization) public view virtual returns (uint64);
 
-    function getBorrowRate(uint utilization) public view virtual returns (uint64);
+    function getBorrowRate(uint256 utilization) public view virtual returns (uint64);
 
-    function getUtilization() public view virtual returns (uint);
+    function getUtilization() public view virtual returns (uint256);
 
-    function targetReserves() external view virtual returns (uint);
+    function targetReserves() external view virtual returns (uint256);
 }

@@ -20,11 +20,11 @@ contract NonStandardFeeToken is IERC20NonStandard {
     mapping(address => uint256) public balanceOf;
     event Approval(address indexed owner, address indexed spender, uint256 value);
     event Transfer(address indexed from, address indexed to, uint256 value);
-    event Params(uint feeBasisPoints, uint maxFee);
+    event Params(uint256 feeBasisPoints, uint256 maxFee);
 
     // additional variables for use if transaction fees ever became necessary
-    uint public basisPointsRate = 0;
-    uint public maximumFee = 0;
+    uint256 public basisPointsRate = 0;
+    uint256 public maximumFee = 0;
 
     constructor(uint256 _initialAmount, string memory _tokenName, uint8 _decimalUnits, string memory _tokenSymbol) {
         totalSupply = _initialAmount;

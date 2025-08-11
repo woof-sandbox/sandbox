@@ -654,11 +654,11 @@ Return the positive principal supply balance if positive or the negative borrow 
 * **Else**:
   * **Return** $\PrincipalValueBorrow{\Param{PresentValue}}$
 
-#### PrincipalValue<sub>Supply</sub>(uint PresentValue): uint [Internal]
+#### PrincipalValue<sub>Supply</sub>(uint256 PresentValue): uint256 [Internal]
 Return the amount projected backward by the supply index.
 * **Read and Return** $\frac{\Param{PresentValue}}{\BaseSupplyIndex}$
 
-#### PrincipalValue<sub>Borrow</sub>(uint PresentValue): uint [Internal]
+#### PrincipalValue<sub>Borrow</sub>(uint256 PresentValue): uint256 [Internal]
 Return the amount projected backward by the borrow index.
 
 * **Read and Return** $\frac{\Param{PresentValue}}{\BaseBorrowIndex}$
@@ -671,23 +671,23 @@ Return the positive present supply balance if positive or the negative borrow ba
 * **Else**:
   * **Return** $\PresentValueBorrow{\Param{PrincipalValue}}$
 
-#### PresentValue<sub>Supply</sub>(uint PrincipalValue): uint [Internal]
+#### PresentValue<sub>Supply</sub>(uint256 PrincipalValue): uint256 [Internal]
 Return the principal amount projected forward by the supply index.
 
 * **Read and Return** $\Param{PrincipalValue} \cdot \BaseSupplyIndex$
 
-#### PresentValue<sub>Borrow</sub>(uint PrincipalValue): uint [Internal]
+#### PresentValue<sub>Borrow</sub>(uint256 PrincipalValue): uint256 [Internal]
 Return the principal amount projected forward by the borrow index.
 
 * **Read and Return** $\Param{PrincipalValue} \cdot \BaseBorrowIndex$
 
-#### RepayAndSupplyAmount(int Balance, uint Amount): (uint, uint) [Internal]
+#### RepayAndSupplyAmount(int Balance, uint256 Amount): (uint256, uint256) [Internal]
 
 * **Let** $\var{repayAmount} = max(min(-\Param{Balance}, \Amount), 0)$
 * **Let** $\var{supplyAmount} = \Amount - \var{repayAmount}$
 * **Return** $\{\var{repay}=\var{repayAmount}, \var{supply}=\var{supplyAmount}\}$
 
-#### WithdrawAndBorrowAmount(int Balance, uint Amount): (uint, uint) [Internal]
+#### WithdrawAndBorrowAmount(int Balance, uint256 Amount): (uint256, uint256) [Internal]
 
 * **Let** $\var{withdrawAmount} = max(min(\Param{Balance}, \Amount), 0)$
 * **Let** $\var{borrowAmount} = \Amount - \var{withdrawAmount}$
@@ -774,15 +774,15 @@ struct Command {
 #### handleCommand(Command cmd) [Internal]
 * When $cmd.name$
     * SUPPLY
-        * Let (from, dst, asset, amount) = abi.decode(cmd.args, (address, address, address, uint))
+        * Let (from, dst, asset, amount) = abi.decode(cmd.args, (address, address, address, uint256))
         * Require $from = \Sender$
         * Supply(from, dst, asset, amount)
     * TRANSFER
-        * Let (src, dst, asset, amount) = abi.decode(cmd.args, (address, address, address, uint))
+        * Let (src, dst, asset, amount) = abi.decode(cmd.args, (address, address, address, uint256))
         * Require $src = \Sender$
         * Transfer(src, dst, asset, amount)
     * WITHDRAW
-        * Let (src, to, asset, amount) = abi.decode(cmd.args, (address, address, address, uint))
+        * Let (src, to, asset, amount) = abi.decode(cmd.args, (address, address, address, uint256))
         * Require $src = \Sender$
         * Withdraw(src, to, asset, amount)
 

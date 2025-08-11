@@ -14,7 +14,7 @@ contract ScalingPriceFeed is IPriceFeed {
     error InvalidInt256();
 
     /// @notice Version of the price feed
-    uint public constant override version = 1;
+    uint256 public constant override version = 1;
 
     /// @notice Description of the price feed
     string public description;

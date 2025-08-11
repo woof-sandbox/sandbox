@@ -306,7 +306,7 @@ contract DeployProtocol is Script {
             collateralTokens.length
         );
 
-        for (uint i = 0; i < collateralTokens.length; i++) {
+        for (uint256 i = 0; i < collateralTokens.length; i++) {
             collateralConfigs[i] = IConfigController.CollateralTokenConfig({
                 collateralToken: collateralTokens[i],
                 supplyCap: 1e24, // 1,000,000 tokens

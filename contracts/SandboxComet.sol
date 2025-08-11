@@ -179,7 +179,6 @@ contract SandboxComet is ISandboxComet {
      */
     function nonReentrantAfter() internal {
         bytes32 slot = REENTRANCY_GUARD_FLAG_SLOT;
-        uint256 status;
         assembly ("memory-safe") {
             sstore(slot, REENTRANCY_GUARD_NOT_ENTERED)
         }
@@ -221,7 +220,7 @@ contract SandboxComet is ISandboxComet {
         uint64 baseSupplyIndex_ = baseSupplyIndex;
         uint64 baseBorrowIndex_ = baseBorrowIndex;
         if (timeElapsed > 0) {
-            uint utilization = getUtilization();
+            uint256 utilization = getUtilization();
             uint64 supplyRate = getSupplyRate(utilization);
             uint64 borrowRate = getBorrowRate(utilization);
             baseSupplyIndex_ += safe64(mulFactor(baseSupplyIndex_, supplyRate * timeElapsed));
@@ -262,7 +261,7 @@ contract SandboxComet is ISandboxComet {
      * @param utilization The utilization to check the supply rate for
      * @return The per second supply rate at `utilization`
      */
-    function getSupplyRate(uint utilization) public view override returns (uint64) {
+    function getSupplyRate(uint256 utilization) public view override returns (uint64) {
         if (utilization <= supplyKink) {
             // interestRateBase + interestRateSlopeLow * utilization
             return safe64(supplyPerSecondInterestRateBase + mulFactor(supplyPerSecondInterestRateSlopeLow, utilization));
@@ -282,7 +281,7 @@ contract SandboxComet is ISandboxComet {
      * @param utilization The utilization to check the borrow rate for
      * @return The per second borrow rate at `utilization`
      */
-    function getBorrowRate(uint utilization) public view override returns (uint64) {
+    function getBorrowRate(uint256 utilization) public view override returns (uint64) {
         if (utilization <= borrowKink) {
             // interestRateBase + interestRateSlopeLow * utilization
             return safe64(borrowPerSecondInterestRateBase + mulFactor(borrowPerSecondInterestRateSlopeLow, utilization));
@@ -301,9 +300,9 @@ contract SandboxComet is ISandboxComet {
      * @dev Note: Does not accrue interest first
      * @return The utilization rate of the base asset
      */
-    function getUtilization() public view override returns (uint) {
-        uint totalSupply_ = presentValueSupply(baseSupplyIndex, totalSupplyBase);
-        uint totalBorrow_ = presentValueBorrow(baseBorrowIndex, totalBorrowBase);
+    function getUtilization() public view override returns (uint256) {
+        uint256 totalSupply_ = presentValueSupply(baseSupplyIndex, totalSupplyBase);
+        uint256 totalBorrow_ = presentValueBorrow(baseBorrowIndex, totalBorrowBase);
         if (totalSupply_ == 0) {
             return 0;
         } else {
@@ -317,7 +316,7 @@ contract SandboxComet is ISandboxComet {
      * @return The price, scaled by price feed decimals
      */
     function getPrice(address priceFeed) public view override returns (uint256) {
-        (, int price, , , ) = IPriceFeed(priceFeed).latestRoundData();
+        (, int256 price, , , ) = IPriceFeed(priceFeed).latestRoundData();
         if (price <= 0) revert BadPrice();
         return uint256(price);
     }
@@ -327,18 +326,22 @@ contract SandboxComet is ISandboxComet {
      * @dev Note: Reverts if collateral reserves are somehow negative, which should not be possible
      * @param asset The collateral asset
      */
-    function getCollateralReserves(address asset) public view override returns (uint) {
-        return IERC20(asset).balanceOf(address(this)) - totalsCollateral[asset] - assetFeesController[asset] - assetFeesDAO[asset];
+    function getCollateralReserves(address asset) public view override returns (uint256) {
+        return
+            IERC20(asset).balanceOf(address(this)) -
+            totalsCollateral[asset] -
+            totalControllerFeesPerAsset[asset] -
+            totalDaoFeesPerAsset[asset];
     }
 
     /**
      * @notice Gets the total amount of protocol reserves of the base asset
      */
-    function getReserves() public view override returns (int) {
+    function getReserves() public view override returns (int256) {
         (uint64 baseSupplyIndex_, uint64 baseBorrowIndex_) = accruedInterestIndices(getNowInternal() - lastAccrualTime);
         uint256 balance = IERC20(baseToken).balanceOf(address(this));
-        uint totalSupply_ = presentValueSupply(baseSupplyIndex_, totalSupplyBase);
-        uint totalBorrow_ = presentValueBorrow(baseBorrowIndex_, totalBorrowBase);
+        uint256 totalSupply_ = presentValueSupply(baseSupplyIndex_, totalSupplyBase);
+        uint256 totalBorrow_ = presentValueBorrow(baseBorrowIndex_, totalBorrowBase);
         return signed256(balance) - signed256(totalSupply_) + signed256(totalBorrow_);
     }
 
@@ -352,7 +355,7 @@ contract SandboxComet is ISandboxComet {
         if (principal >= 0) return true;
 
         uint24 assetsIn = userBasic[account].assetsIn;
-        int liquidity = signedMulPrice(presentValue(principal), getPrice(baseTokenPriceFeed), uint64(baseScale));
+        int256 liquidity = signedMulPrice(presentValue(principal), getPrice(baseTokenPriceFeed), uint64(baseScale));
 
         uint8 nAssets = numAssets;
         for (uint8 i = 0; i < nAssets; ) {
@@ -360,7 +363,7 @@ contract SandboxComet is ISandboxComet {
                 if (liquidity >= 0) break;
 
                 CollateralAsset memory asset = getAssetInfo(i);
-                uint newAmount = mulPrice(userCollateral[account][asset.collateralToken], getPrice(asset.priceFeed), asset.scale);
+                uint256 newAmount = mulPrice(userCollateral[account][asset.collateralToken], getPrice(asset.priceFeed), asset.scale);
                 liquidity += signed256(mulFactor(newAmount, asset.borrowCollateralFactor));
             }
             unchecked {
@@ -381,7 +384,7 @@ contract SandboxComet is ISandboxComet {
         if (principal >= 0) return false;
 
         uint24 assetsIn = userBasic[account].assetsIn;
-        int liquidity = signedMulPrice(presentValue(principal), getPrice(baseTokenPriceFeed), uint64(baseScale));
+        int256 liquidity = signedMulPrice(presentValue(principal), getPrice(baseTokenPriceFeed), uint64(baseScale));
 
         uint8 nAssets = numAssets;
         for (uint8 i = 0; i < nAssets; ) {
@@ -389,7 +392,7 @@ contract SandboxComet is ISandboxComet {
                 if (liquidity >= 0) break;
 
                 CollateralAsset memory asset = getAssetInfo(i);
-                uint newAmount = mulPrice(userCollateral[account][asset.collateralToken], getPrice(asset.priceFeed), asset.scale);
+                uint256 newAmount = mulPrice(userCollateral[account][asset.collateralToken], getPrice(asset.priceFeed), asset.scale);
                 liquidity += signed256(mulFactor(newAmount, asset.liquidateCollateralFactor));
             }
             unchecked {
@@ -472,11 +475,11 @@ contract SandboxComet is ISandboxComet {
         address dao = ISandboxController(sandboxController).dao(); // aderyn-fp(reentrancy-state-change)
 
         if (msg.sender == dao) {
-            amount = assetFeesDAO[asset];
-            assetFeesDAO[asset] = 0;
+            amount = totalDaoFeesPerAsset[asset];
+            totalDaoFeesPerAsset[asset] = 0;
         } else if (msg.sender == configController) {
-            amount = assetFeesController[asset];
-            assetFeesController[asset] = 0;
+            amount = totalControllerFeesPerAsset[asset];
+            totalControllerFeesPerAsset[asset] = 0;
         } else revert Unauthorized();
 
         if (amount == 0) revert AmountTooSmall();
@@ -523,35 +526,35 @@ contract SandboxComet is ISandboxComet {
     /**
      * @dev Multiply a number by a factor
      */
-    function mulFactor(uint n, uint factor) internal pure returns (uint) {
+    function mulFactor(uint256 n, uint256 factor) internal pure returns (uint256) {
         return (n * factor) / FACTOR_SCALE;
     }
 
     /**
      * @dev Divide a number by an amount of base
      */
-    function divBaseWei(uint n, uint baseWei) internal view returns (uint) {
+    function divBaseWei(uint256 n, uint256 baseWei) internal view returns (uint256) {
         return (n * baseScale) / baseWei;
     }
 
     /**
      * @dev Multiply a `fromScale` quantity by a price, returning a common price quantity
      */
-    function mulPrice(uint n, uint price, uint64 fromScale) internal pure returns (uint) {
+    function mulPrice(uint256 n, uint256 price, uint64 fromScale) internal pure returns (uint256) {
         return (n * price) / fromScale;
     }
 
     /**
      * @dev Multiply a signed `fromScale` quantity by a price, returning a common price quantity
      */
-    function signedMulPrice(int n, uint price, uint64 fromScale) internal pure returns (int) {
+    function signedMulPrice(int256 n, uint256 price, uint64 fromScale) internal pure returns (int256) {
         return (n * signed256(price)) / int256(uint256(fromScale));
     }
 
     /**
      * @dev Divide a common price quantity by a price, returning a `toScale` quantity
      */
-    function divPrice(uint n, uint price, uint64 toScale) internal pure returns (uint) {
+    function divPrice(uint256 n, uint256 price, uint64 toScale) internal pure returns (uint256) {
         return (n * toScale) / price;
     }
 
@@ -580,7 +583,7 @@ contract SandboxComet is ISandboxComet {
         int104 principal = basic.principal;
         basic.principal = principalNew;
 
-        uint indexDelta;
+        uint256 indexDelta;
 
         if (principal >= 0) {
             indexDelta = uint256(trackingSupplyIndex - basic.baseTrackingIndex);
@@ -677,45 +680,32 @@ contract SandboxComet is ISandboxComet {
         int104 dstPrincipalNew = principalValue(dstBalance);
         // We must to detect if the user is repaying debt.
         if (dstPrincipal < 0) {
+            uint256 deltaValue;
+
             // If the user is repaying not the all debt, we can take the delta value from the amount.
             if (dstPrincipalNew < 0) {
                 // Get the delta value from the amount. The delta is the difference betwenn the borrow rate and the supply rate.
-                uint256 deltaValue = amount;
-                
-                // Split the delta into three parts:
-                (, uint256 daoFee, uint256 controllerFee) = _distributeProfit(deltaValue);
-                // 1. The reserve commission. get the percentage from the SandboxController.getCommissions
-                // 2. The protocol commission. get the percentage from the SandboxController.getCommissions
-                // 3. The config controller commission. The rest of the amount.
-                // Save the protocol commisison to assetFeesDAO[asset] if the fee is enabled.
-                // The reserves commission is not needed to save, because it is already in the reserves.
-                if (daoFee > 0) {
-                    assetFeesDAO[baseToken] += daoFee;
-                }
-                // Save the config controller commission to assetFeesController[asset]. if the config controller is enabled.
-                if (controllerFee > 0) {
-                    assetFeesController[baseToken] += controllerFee;
-                }
+                deltaValue = amount;
             } else {
                 // If the user is repaying the all debt, we must to calcualte the amount of the debt.
                 // Get the delta value from the amount. The delta is the difference betwenn the borrow rate and the supply rate.
                 // Calculate the actual debt amount by converting principal value to present value
-                uint256 deltaValue = presentValueBorrow(baseBorrowIndex, uint104(-dstPrincipal));
-                
-                // Split the delta into three parts:
-                (, uint256 daoFee, uint256 controllerFee) = _distributeProfit(deltaValue);
-                // 1. The reserve commission. get the percentage from the SandboxController.getCommissions
-                // 2. The protocol commission. get the percentage from the SandboxController.getCommissions
-                // 3. The config controller commission. The rest of the amount.
-                // Save the protocol commisison to assetFeesDAO[asset] if the fee is enabled.
-                // The reserves commission is not needed to save, because it is already in the reserves.
-                if (daoFee > 0) {
-                    assetFeesDAO[baseToken] += daoFee;
-                }
-                // Save the config controller commission to assetFeesController[asset]. if the config controller is enabled.
-                if (controllerFee > 0) {
-                    assetFeesController[baseToken] += controllerFee;
-                }
+                deltaValue = presentValueBorrow(baseBorrowIndex, uint104(-dstPrincipal));
+            }
+
+            // Split the delta into three parts:
+            (uint256 daoFee, uint256 controllerFee) = _distributeProfit(deltaValue);
+            // 1. The reserve commission. get the percentage from the SandboxController.getCommissions
+            // 2. The protocol commission. get the percentage from the SandboxController.getCommissions
+            // 3. The config controller commission. The rest of the amount.
+            // Save the protocol commisison to totalDaoFeesPerAsset[asset] if the fee is enabled.
+            // The reserves commission is not needed to save, because it is already in the reserves.
+            if (daoFee > 0) {
+                totalDaoFeesPerAsset[baseToken] += daoFee;
+            }
+            // Save the config controller commission to totalControllerFeesPerAsset[asset]. if the config controller is enabled.
+            if (controllerFee > 0) {
+                totalControllerFeesPerAsset[baseToken] += controllerFee;
             }
         }
 
@@ -1072,11 +1062,11 @@ contract SandboxComet is ISandboxComet {
      * @param baseAmount The amount of base tokens used to buy the collateral
      * @param recipient The recipient address
      */
-    function buyCollateral(address asset, uint minAmount, uint baseAmount, address recipient) external override nonReentrant {
+    function buyCollateral(address asset, uint256 minAmount, uint256 baseAmount, address recipient) external override nonReentrant {
         if (isBuyPaused()) revert Paused();
         baseAmount = doTransferIn(baseToken, msg.sender, baseAmount);
 
-        (uint256 amountOut, , uint256 feeProtocol, uint256 feeController) = quoteCollateral(asset, baseAmount);
+        (uint256 amountOut, uint256 feeProtocol, uint256 feeController) = quoteCollateral(asset, baseAmount);
 
         // Note: Re-entrancy can skip the reserves check above on a second buyCollateral call.
 
@@ -1086,11 +1076,10 @@ contract SandboxComet is ISandboxComet {
         if (amountOut + feeProtocol + feeController > getCollateralReserves(asset)) revert InsufficientReserves();
 
         if (feeProtocol > 0) {
-            // TODO: Fix the feeController to feeProtocol
-            assetFeesDAO[asset] += feeController;
+            totalControllerFeesPerAsset[asset] += feeController;
         }
         if (feeController > 0) {
-            assetFeesController[asset] += feeController;
+            totalControllerFeesPerAsset[asset] += feeController;
         }
 
         // Note: Pre-transfer hook can re-enter buyCollateral with a stale collateral ERC20 balance.
@@ -1108,7 +1097,7 @@ contract SandboxComet is ISandboxComet {
     function quoteCollateral(
         address asset,
         uint256 baseAmount
-    ) public view override returns (uint256 amountOut, uint256 feeReserve, uint256 feeProtocol, uint256 feeController) {
+    ) public view override returns (uint256 amountOut, uint256 feeProtocol, uint256 feeController) {
         (CollateralAsset memory assetInfo, ) = getAssetInfoByAddress(asset);
         uint256 assetPrice = getPrice(assetInfo.priceFeed);
         // Store front discount is derived from the collateral asset's liquidationFactor and storeFrontPriceFactor
@@ -1174,9 +1163,8 @@ contract SandboxComet is ISandboxComet {
         uint256 scaledBaseAmount = mulFactor(baseAmount, 2 * FACTOR_SCALE - assetInfo.liquidationFactor);
         uint256 scaledCollateralValue = (scaledBaseAmount * basePrice * assetInfo.scale) / assetPrice / baseScale;
         uint256 profit = scaledCollateralValue - amountOut;
-        // TODO: Maybe delete the feeReserve
         // function guarantees that reserve+protocol+controller == profit
-        (feeReserve, feeProtocol, feeController) = _distributeProfit(profit);
+        (feeProtocol, feeController) = _distributeProfit(profit);
     }
 
     /**
@@ -1225,27 +1213,22 @@ contract SandboxComet is ISandboxComet {
     /// @notice Calculates fees distribution (reserves % and dao fees %)
     /// @dev Internal function for calculation over the liquidation profit or interest profit
     /// @param profitAmount The amount to calculate fees from - it is expected to be denominated in USD already
-    /// @return _reserveFee Profit accumulated in Comet's reserves
     /// @return _daoFee Fee on profit in favour of DAO
     /// @return _controllerFee Fee on profit in favour of Config Controller
-    function _distributeProfit(uint256 profitAmount) internal view returns (uint256 _reserveFee, uint256 _daoFee, uint256 _controllerFee) {
+    function _distributeProfit(uint256 profitAmount) internal view returns (uint256 _daoFee, uint256 _controllerFee) {
         int256 _reserves = getReserves();
         uint256 reserves = _reserves > 0 ? uint256(_reserves) : 0;
 
         uint256 basePrice = getPrice(baseTokenPriceFeed);
         uint256 reservesUsd = (reserves * basePrice) / baseScale;
-        uint256 seedUsd = (seedReserves * basePrice) / baseScale;
         uint256 targetUsd = (targetReserves() * basePrice) / baseScale;
 
         (uint64 reservePct, uint64 protocolPct) = ISandboxController(sandboxController).getCommissions(reservesUsd, targetUsd);
 
-        _reserveFee = mulFactor(profitAmount, uint256(reservePct));
+        uint256 _reserveFee = mulFactor(profitAmount, uint256(reservePct));
+
         _daoFee = mulFactor(profitAmount, uint256(protocolPct));
         _controllerFee = IConfigController(configController).cometFeeEnabled(address(this)) ? profitAmount - _reserveFee - _daoFee : 0;
-
-        if (_controllerFee == 0) {
-            _reserveFee = profitAmount - _daoFee;
-        }
     }
 
     /**
