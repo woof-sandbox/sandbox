@@ -1,9 +1,10 @@
-import { expect, exp, fastForward, makeProtocol, setTotalsBasic, toYears } from "./helper/helpers";
-import { BigNumber } from "ethers";
+//import { expect, exp } from "./helper/helpers";
+//import { BigNumber } from "ethers";
 
 describe.skip("total tracking index bounds", function () {
   describe("base scale of 6", function () {
     it("upper bound hit on tracking supply index", async () => {
+      /*
       const baseMinForRewards = exp(10_000, 6); // 10k USDC
       const params = {
         trackingIndexScale: exp(1, 15),
@@ -35,9 +36,11 @@ describe.skip("total tracking index bounds", function () {
       await expect(comet.accrue()).to.be.revertedWith(
         "code 0x11 (Arithmetic operation underflowed or overflowed outside of an unchecked block)"
       );
+      */
     });
 
     it("upper bound hit on tracking borrow index", async () => {
+      /*
       const baseMinForRewards = exp(10_000, 6); // 10k USDC
       const params = {
         trackingIndexScale: exp(1, 15),
@@ -69,9 +72,11 @@ describe.skip("total tracking index bounds", function () {
       await expect(comet.accrue()).to.be.revertedWith(
         "code 0x11 (Arithmetic operation underflowed or overflowed outside of an unchecked block)"
       );
+      */
     });
 
     it("lower bound hit on tracking supply index", async () => {
+      /*
       const params = {
         trackingIndexScale: exp(1, 15),
         baseTrackingSupplySpeed: exp(1, 15),
@@ -101,9 +106,11 @@ describe.skip("total tracking index bounds", function () {
 
       // Lower bound has hit and tracking index no longer accrues
       expect(t3.trackingSupplyIndex).to.be.equal(t2.trackingSupplyIndex);
+      */
     });
 
     it("lower bound hit on tracking borrow index", async () => {
+      /*
       const params = {
         trackingIndexScale: exp(1, 15),
         baseTrackingSupplySpeed: exp(1, 15),
@@ -133,11 +140,13 @@ describe.skip("total tracking index bounds", function () {
 
       // Lower bound has hit and tracking index no longer accrues
       expect(t3.trackingBorrowIndex).to.be.equal(t2.trackingBorrowIndex);
+      */
     });
   });
 
   describe("base scale of 18", function () {
     it("upper bound hit on tracking supply index", async () => {
+      /*
       const baseMinForRewards = exp(100, 18); // 100 WETH
       const params = {
         base: "WETH",
@@ -170,9 +179,11 @@ describe.skip("total tracking index bounds", function () {
       await expect(comet.accrue()).to.be.revertedWith(
         "code 0x11 (Arithmetic operation underflowed or overflowed outside of an unchecked block)"
       );
+      */
     });
 
     it("upper bound hit on tracking borrow index", async () => {
+      /*
       const baseMinForRewards = exp(100, 18); // 100 WETH
       const params = {
         base: "WETH",
@@ -205,9 +216,11 @@ describe.skip("total tracking index bounds", function () {
       await expect(comet.accrue()).to.be.revertedWith(
         "code 0x11 (Arithmetic operation underflowed or overflowed outside of an unchecked block)"
       );
+      */
     });
 
     it("lower bound hit on tracking supply index", async () => {
+      /*
       const params = {
         base: "WETH",
         trackingIndexScale: exp(1, 15),
@@ -236,9 +249,11 @@ describe.skip("total tracking index bounds", function () {
 
       // Lower bound has hit and tracking index no longer accrues
       expect(t3.trackingSupplyIndex).to.be.equal(t2.trackingSupplyIndex);
+      */
     });
 
     it("lower bound hit on tracking borrow index", async () => {
+      /*
       const params = {
         base: "WETH",
         trackingIndexScale: exp(1, 15),
@@ -267,6 +282,7 @@ describe.skip("total tracking index bounds", function () {
 
       // Lower bound has hit and tracking index no longer accrues
       expect(t3.trackingBorrowIndex).to.be.equal(t2.trackingBorrowIndex);
+      */
     });
   });
 });
