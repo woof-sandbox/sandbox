@@ -127,7 +127,7 @@ mapping(address => struct ISandboxController.CollateralAssetConfiguration) _coll
 collateral asset configurations.
 Holds:
 priceFeed,
-decimals,
+whitelisted, wether the collateral asset is whitelisted
 maxBorrowCollateralFactor,
 minBorrowCollateralFactor,
 minLiquidateCollateralFactor,
@@ -272,6 +272,24 @@ Whitelists a new base asset with its price feed and curve configuration.
 | baseAssetCurve | struct ISandboxController.BaseAssetCurve | The initial interest rate curve configuration. |
 | minBorrow | uint256 | The minimal borrow amount for this asset. |
 
+### delistBaseAsset
+
+```solidity
+function delistBaseAsset(address _baseAsset) external
+```
+
+Delists a base asset.
+Reverts if the base asset is not whitelisted.
+
+_This function can only be called by the DAO.
+Emits a BaseAssetDelisted event._
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| _baseAsset | address | The address of the base asset to delist. |
+
 ### whitelistCollateralAsset
 
 ```solidity
@@ -297,6 +315,23 @@ _Validates that all collateral factor parameters are within allowed ranges and m
 | maxLiquidateCollateralFactor | uint64 | The maximum liquidate collateral factor (scaled by 1e18). |
 | minLiquidationFactor | uint64 | The minimum liquidation factor (scaled by 1e18). |
 | maxLiquidationFactor | uint64 | The maximum liquidation factor (scaled by 1e18). |
+
+### delistCollateralAsset
+
+```solidity
+function delistCollateralAsset(address _collateralAsset) external
+```
+
+Delists a collateral asset.
+Reverts if the collateral asset is not whitelisted.
+
+_This function can only be called by the DAO._
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| _collateralAsset | address | The address of the collateral asset to delist. |
 
 ### isBaseTokenWhitelisted
 
