@@ -9,6 +9,11 @@ interface ISandboxErrors {
     error CollateralTokenAlreadyWhitelisted();
     error BaseTokenNotWhitelisted();
 
+    /**
+     * @notice Thrown when trying to delist a collateral token that is already delisted or not whitelisted at all.
+     */
+    error CollateralTokenNotWhitelisted();
+
     error InvalidCurveConfiguration();
     error InvalidPriceFeed();
     error DifferentPriceFeedAlreadyUsedForToken();

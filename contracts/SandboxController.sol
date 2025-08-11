@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
-import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
-
 import { IPriceFeed } from "./interfaces/IPriceFeed.sol";
 import { ISandboxController } from "./interfaces/ISandboxController.sol";
 
@@ -47,7 +45,7 @@ contract SandboxController is ISandboxController {
     /// @notice collateral asset configurations.
     /// Holds:
     /// priceFeed,
-    /// decimals,
+    /// whitelisted, wether the collateral asset is whitelisted
     /// maxBorrowCollateralFactor,
     /// minBorrowCollateralFactor,
     /// minLiquidateCollateralFactor,
@@ -136,9 +134,9 @@ contract SandboxController is ISandboxController {
         _controllerConfiguration = _config;
     }
 
-    ///
-    /// COMMISSIONS SEGMENT
-    ///
+    /*//////////////////////////////////////////////////////////////
+                          COMMISSIONS SEGMENT
+    //////////////////////////////////////////////////////////////*/
 
     /**
      * @notice Sets commission factors for the chosen market state.
@@ -220,9 +218,9 @@ contract SandboxController is ISandboxController {
         _protocolCommission = feeEnabled ? protocolCommission[uint(state)] : 0;
     }
 
-    ///
-    /// ASSETS LISTING SEGMENT
-    ///
+    /*//////////////////////////////////////////////////////////////
+                         ASSETS LISTING SEGMENT
+    //////////////////////////////////////////////////////////////*/
 
     /**
      * @notice Whitelists a new base asset with its price feed and curve configuration.
@@ -259,14 +257,28 @@ contract SandboxController is ISandboxController {
         if (!isCurveConfigurationValid(baseAssetCurve)) revert InvalidCurveConfiguration();
 
         tokenToPriceFeed[token] = priceFeed;
-        uint8 decimals = IERC20Metadata(token).decimals(); // aderyn-fp(reentrancy-state-change)
 
         _baseAssets[token].priceFeed = priceFeed;
-        _baseAssets[token].decimals = decimals;
         _baseAssets[token].minBorrow = minBorrow;
+        _baseAssets[token].whitelisted = true;
         _baseAssets[token].baseAssetCurves.push(baseAssetCurve);
 
-        emit BaseAssetWhitelisted(token, priceFeed, decimals);
+        emit BaseAssetWhitelisted(token, priceFeed);
+    }
+
+    /**
+     * @notice Delists a base asset.
+     * @param _baseAsset The address of the base asset to delist.
+     * @notice Reverts if the base asset is not whitelisted.
+     * @dev This function can only be called by the DAO.
+     * @dev Emits a BaseAssetDelisted event.
+     */
+    function delistBaseAsset(address _baseAsset) external onlyDao {
+        if (!isBaseTokenWhitelisted(_baseAsset)) revert BaseTokenNotWhitelisted();
+
+        _baseAssets[_baseAsset].whitelisted = false;
+
+        emit BaseAssetDelisted(_baseAsset);
     }
 
     /**
@@ -329,11 +341,9 @@ contract SandboxController is ISandboxController {
 
         tokenToPriceFeed[token] = priceFeed;
 
-        uint8 decimals = IERC20Metadata(token).decimals(); // aderyn-fp(reentrancy-state-change)
-
         _collateralAssets[token].collateralToken = token;
         _collateralAssets[token].priceFeed = priceFeed;
-        _collateralAssets[token].decimals = decimals;
+        _collateralAssets[token].whitelisted = true;
         _collateralAssets[token].maxBorrowCollateralFactor = maxBorrowCollateralFactor;
         _collateralAssets[token].minBorrowCollateralFactor = minBorrowCollateralFactor;
         _collateralAssets[token].minLiquidateCollateralFactor = minLiquidateCollateralFactor;
@@ -341,7 +351,21 @@ contract SandboxController is ISandboxController {
         _collateralAssets[token].minLiquidationFactor = minLiquidationFactor;
         _collateralAssets[token].maxLiquidationFactor = maxLiquidationFactor;
 
-        emit CollateralAssetWhitelisted(token, priceFeed, decimals);
+        emit CollateralAssetWhitelisted(token, priceFeed);
+    }
+
+    /**
+     * @notice Delists a collateral asset.
+     * @param _collateralAsset The address of the collateral asset to delist.
+     * @notice Reverts if the collateral asset is not whitelisted.
+     * @dev This function can only be called by the DAO.
+     */
+    function delistCollateralAsset(address _collateralAsset) external onlyDao {
+        if (!isCollateralTokenWhitelisted(_collateralAsset)) revert CollateralTokenNotWhitelisted();
+
+        _collateralAssets[_collateralAsset].whitelisted = false;
+
+        emit CollateralAssetDelisted(_collateralAsset);
     }
 
     /**
@@ -350,7 +374,7 @@ contract SandboxController is ISandboxController {
      * @return True if the token is whitelisted, otherwise false.
      */
     function isBaseTokenWhitelisted(address token) public view override returns (bool) {
-        return _baseAssets[token].priceFeed != address(0);
+        return _baseAssets[token].whitelisted;
     }
 
     /**
@@ -359,12 +383,12 @@ contract SandboxController is ISandboxController {
      * @return True if the token is whitelisted, otherwise false.
      */
     function isCollateralTokenWhitelisted(address token) public view override returns (bool) {
-        return _collateralAssets[token].priceFeed != address(0);
+        return _collateralAssets[token].whitelisted;
     }
 
-    ///
-    /// INITEREST CURVES SEGMENT
-    ///
+    /*//////////////////////////////////////////////////////////////
+                        INITEREST CURVES SEGMENT
+    //////////////////////////////////////////////////////////////*/
 
     /**
      * @notice Adds a new interest rate curve for an existing base asset.
@@ -419,9 +443,9 @@ contract SandboxController is ISandboxController {
         return true;
     }
 
-    ///
-    /// ADMIN SEGMENT
-    ///
+    /*//////////////////////////////////////////////////////////////
+                             ADMIN SEGMENT
+    //////////////////////////////////////////////////////////////*/
 
     /**
      * @dev Emitted when a base asset is whitelisted.
@@ -478,9 +502,9 @@ contract SandboxController is ISandboxController {
         dao = newDao;
     }
 
-    ///
-    /// GETTERS SEGMENT
-    ///
+    /*//////////////////////////////////////////////////////////////
+                            GETTERS SEGMENT
+    //////////////////////////////////////////////////////////////*/
 
     /**
      * @notice Returns base asset configuration for a given token.

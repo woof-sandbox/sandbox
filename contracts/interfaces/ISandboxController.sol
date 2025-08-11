@@ -26,7 +26,7 @@ interface ISandboxController is ISandboxErrors {
     struct BaseAssetConfiguration {
         /// First 256 bits (32 bytes)
         address priceFeed; // 20 bytes
-        uint8 decimals; // 1 byte
+        bool whitelisted; // 1 byte
         /// Wasted space 11 bytes
         /// Second 256 bits (32 bytes)
         /// TODO: Probarly wasted space.
@@ -41,7 +41,7 @@ interface ISandboxController is ISandboxErrors {
         /// Wasted space 12 bytes
         /// Second 256 bits (32 bytes)
         address priceFeed; // 20 bytes
-        uint8 decimals; // 1 byte
+        bool whitelisted; // 1 byte
         /// Wasted space 11 bytes
         /// Third 256 bits (32 bytes)
         uint64 maxBorrowCollateralFactor; // 8 bytes
@@ -65,11 +65,24 @@ interface ISandboxController is ISandboxErrors {
         uint256 suggestedAmountOfSeedReserves; // 32 bytes
     }
 
-    event BaseAssetWhitelisted(address indexed token, address indexed priceFeed, uint8 decimals);
+    event BaseAssetWhitelisted(address indexed token, address indexed priceFeed);
+
+    /**
+     * @notice Emitted when a base asset is delisted.
+     * @param token The address of the base asset token.
+     */
+    event BaseAssetDelisted(address indexed token);
 
     event BaseAssetCurveAdded(address indexed token, BaseAssetCurve baseAssetCurve, uint256 curveIndex);
     event BaseAssetCurveChanged(address indexed token, BaseAssetCurve oldCurve, BaseAssetCurve newCurve, uint256 curveIndex);
-    event CollateralAssetWhitelisted(address indexed token, address indexed priceFeed, uint256 decimals);
+
+    event CollateralAssetWhitelisted(address indexed token, address indexed priceFeed);
+
+    /**
+     * @notice Emitted when a collateral asset is delisted.
+     * @param token The address of the collateral asset token.
+     */
+    event CollateralAssetDelisted(address indexed token);
 
     event CommissionChanged(MarketState state, uint64 oldReserve, uint64 newReserve, uint64 oldProtocol, uint64 newProtocol);
     event TreasuryChanged(address oldTreasury, address newTreasury);
