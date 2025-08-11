@@ -9,6 +9,7 @@ import {
   sandboxListBaseAsset,
   sandboxListCollateralAsset,
   DEFAULT_UPDATE_TIME,
+  DEFAULT_LOCK_TIME,
 } from "./helper/helpers";
 import {
   ConfigController,
@@ -25,7 +26,6 @@ import {
 } from "../build/types";
 import { CollateralTokenConfigStruct, CometConfigStruct } from "../build/types/ConfigController";
 import { BigNumber } from "ethers";
-import { time } from "@nomicfoundation/hardhat-network-helpers";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
 describe("2. System Params Validation", function () {
@@ -46,7 +46,7 @@ describe("2. System Params Validation", function () {
   };
 
   const suggestedAmountOfSeedReserves = 100000000n;
-  const suggestedLockTimeOfSeedReserves = time.duration.weeks(1);
+  const suggestedLockTimeOfSeedReserves = DEFAULT_LOCK_TIME;
 
   let signers: SignerWithAddress[];
   let owner: SignerWithAddress;

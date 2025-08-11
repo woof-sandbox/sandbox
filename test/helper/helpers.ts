@@ -31,7 +31,6 @@ import { BigNumber, Contract, ContractReceipt, ContractTransaction } from "ether
 import { TransactionReceipt, TransactionResponse } from "@ethersproject/abstract-provider";
 import { CometHarness, TotalsBasicStructOutput } from "../../build/types/CometHarness";
 import { CometConfigStruct } from "../../build/types/ConfigController";
-import { time } from "@nomicfoundation/hardhat-network-helpers";
 
 // Snapshot
 export type { SnapshotRestorer } from "@nomicfoundation/hardhat-network-helpers";
@@ -262,6 +261,7 @@ export const ZERO = factor(0);
 
 export const DEFAULT_UPDATE_TIME = 7 * 24 * 60 * 60;
 export const MIN_UPDATE_TIME = 300;
+export const DEFAULT_LOCK_TIME = 7 * 24 * 60 * 60;
 
 export async function getBlock(n?: number, ethers_ = ethers): Promise<Block> {
   const blockNumber = n == undefined ? await ethers_.provider.getBlockNumber() : n;
@@ -353,8 +353,8 @@ export async function makeConfigController(opts: ProtocolOpts = {}): Promise<Par
   const borrowPerYearInterestRateSlopeHigh = dfn(opts.borrowInterestRateSlopeHigh, exp(3, 18));
   const baseBorrowMin = dfn(opts.baseBorrowMin, exp(1, assets[base].decimals));
   const baseToken: FaucetToken = tokens[base];
-  const suggestedAmountOfSeedReserves = dfn(opts.suggestedAmountOfSeedReserves, 100000000n);
-  const suggestedLockTimeOfSeedReserves = dfn(opts.suggestedLockTimeOfSeedReserves, time.duration.weeks(1));
+  const suggestedAmountOfSeedReserves = dfn(opts.suggestedAmountOfSeedReserves, exp(1e5, 6)); //10k$
+  const suggestedLockTimeOfSeedReserves = dfn(opts.suggestedLockTimeOfSeedReserves, DEFAULT_LOCK_TIME);
 
   const sandboxControllerOpts = defaultSandboxControllerOpts({
     admin: owner,
@@ -602,8 +602,8 @@ export async function sandboxListBaseAsset(
   sandboxController: SandboxController,
   baseAsset: FaucetToken,
   priceFeed: string,
-  suggestedAmountOfSeedReserves: number | bigint,
-  suggestedLockTimeOfSeedReserves: number | bigint
+  suggestedAmountOfSeedReserves?: number | bigint,
+  suggestedLockTimeOfSeedReserves?: number | bigint
 ) {
   const baseBorrowMin = exp(1, await baseAsset.decimals());
 
@@ -613,8 +613,8 @@ export async function sandboxListBaseAsset(
     priceFeed,
     makeValidCurve(),
     baseBorrowMin,
-    suggestedAmountOfSeedReserves,
-    suggestedLockTimeOfSeedReserves
+    suggestedAmountOfSeedReserves || exp(1e5, 6), // 10k$ in USDC
+    suggestedLockTimeOfSeedReserves || DEFAULT_LOCK_TIME
   );
 }
 

@@ -27,7 +27,6 @@ import {
 import { CollateralTokenConfigStruct, CometConfigStruct } from "../build/types/ConfigController";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { parseEther } from "ethers/lib/utils";
-import { time } from "@nomicfoundation/hardhat-network-helpers";
 
 describe("1. System Initialization", function () {
   // Factories
@@ -582,16 +581,8 @@ describe("1. System Initialization", function () {
       const collateralToken = await makeToken({ symbol: "COL" });
       const priceFeedBase = await makePriceFeed(baseToken.address);
       const priceFeedCol = await makePriceFeed(collateralToken.address);
-      const suggestedAmountOfSeedReserves = 100000000n;
-      const suggestedLockTimeOfSeedReserves = time.duration.weeks(1);
 
-      await sandboxListBaseAsset(
-        sandboxController,
-        baseToken,
-        priceFeedBase.address,
-        suggestedAmountOfSeedReserves,
-        suggestedLockTimeOfSeedReserves
-      );
+      await sandboxListBaseAsset(sandboxController, baseToken, priceFeedBase.address);
       await sandboxListCollateralAsset(sandboxController, collateralToken, priceFeedCol.address);
 
       let collateralTokens: CollateralTokenConfigStruct[] = [];

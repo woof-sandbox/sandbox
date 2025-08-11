@@ -8,6 +8,7 @@ import {
   exp,
   MIN_UPDATE_TIME,
   DEFAULT_UPDATE_TIME,
+  DEFAULT_LOCK_TIME,
   makeValidCurve,
   SnapshotRestorer,
   takeSnapshot,
@@ -18,7 +19,6 @@ import { FaucetToken, SandboxController, SimplePriceFeed } from "../build/types"
 import { BaseAssetCurveStruct, SandboxControllerConfigurationStruct } from "../build/types/SandboxController";
 
 import { parseEther } from "ethers/lib/utils";
-import { time } from "@nomicfoundation/hardhat-network-helpers";
 import { BigNumber } from "ethers";
 
 describe("3. SandboxController", function () {
@@ -32,7 +32,7 @@ describe("3. SandboxController", function () {
 
   // reserves parameters
   const suggestedAmountOfSeedReserves = 100000000n;
-  const suggestedLockTimeOfSeedReserves = time.duration.weeks(1);
+  const suggestedLockTimeOfSeedReserves = DEFAULT_LOCK_TIME;
 
   before(async function () {
     [owner, dao, treasury, attacker, other] = await ethers.getSigners();
@@ -259,14 +259,7 @@ describe("3. SandboxController", function () {
       await expect(
         sandboxController
           .connect(dao)
-          .whitelistBaseAsset(
-            tokenTest.address,
-            priceFeedTest.address,
-            curve,
-            10,
-            suggestedAmountOfSeedReserves,
-            time.duration.weeks(1) - 1
-          )
+          .whitelistBaseAsset(tokenTest.address, priceFeedTest.address, curve, 10, suggestedAmountOfSeedReserves, DEFAULT_LOCK_TIME - 1)
       ).to.be.revertedWithCustomError(sandboxController, "InvalidLockTimeOfSeedReserves");
     });
 
@@ -446,6 +439,12 @@ describe("3. SandboxController", function () {
     before(async function () {
       tokenTest = await makeMockERC20({ name: "TestToken2", symbol: "TT2" });
       priceFeedTest = await makePriceFeed(tokenTest.address);
+    });
+
+    it("baseTokenSuggestedSeedReserves getter returns 0,0 for non-listed asset", async function () {
+      const data = await sandboxController.baseTokenSuggestedSeedReserves(tokenTest.address);
+      expect(data[0]).to.equal(0);
+      expect(data[1]).to.equal(0);
     });
 
     it("whitelists asset", async function () {
