@@ -71,6 +71,7 @@ interface ISandboxController is ISandboxErrors {
     event CommissionChanged(MarketState state, uint64 oldReserve, uint64 newReserve, uint64 oldProtocol, uint64 newProtocol);
     event TreasuryChanged(address oldTreasury, address newTreasury);
     event ConfigurationChanged(SandboxControllerConfiguration oldConfig, SandboxControllerConfiguration newConfig);
+    event SeedReservesSet(address baseToken, uint256 suggestedAmount, uint40 lockTime);
     event FeeEnabledSet(bool feeEnabled);
     event OwnerTransferred(address oldOwner, address newOwner);
     event DaoTransferred(address oldDao, address newDao);
@@ -120,8 +121,6 @@ interface ISandboxController is ISandboxErrors {
     function setMarketStateCommissions(uint8 _index, uint64 _reserveCommission, uint64 _protocolCommission) external;
 
     function setTreasury(address _treasury) external;
-
-    function setConfiguration(SandboxControllerConfiguration memory _config) external;
 
     function setFeeEnabled(bool _feeEnabled) external;
 

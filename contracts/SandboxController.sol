@@ -56,7 +56,7 @@ contract SandboxController is ISandboxController {
     /// minLiquidationFactor, maxLiquidationFactor
     mapping(address => CollateralAssetConfiguration) internal _collateralAssets;
 
-    /// @notice Suggested amount of seed reserves for each base asset.
+    /// @notice Suggested amount of seed reserves for each base asset - in USD.
     mapping(address => uint256) public suggestedAmountOfSeedReserves;
 
     /// @notice Suggested lock time of seed reserves for each base asset.
@@ -199,7 +199,7 @@ contract SandboxController is ISandboxController {
 
     /**
      * @notice Returns profit fee distribution based on the reserves
-     * @dev The function expects same denomination units for all 3 reserves parameters
+     * @dev The function expects same denomination units (in USD) for both reserves parameters
      * @param _currentReserves Current Comet reserves
      * @param _targetReserves Expected target for the Comet
      * @param _baseToken The address of the base asset of the Comet
@@ -265,14 +265,10 @@ contract SandboxController is ISandboxController {
         (, int256 answer, , , ) = IPriceFeed(priceFeed).latestRoundData(); // aderyn-fp(reentrancy-state-change)
         if (answer <= 0) revert InvalidPriceFeed();
 
-        /// @dev the curve configuration is invalid
         if (!isCurveConfigurationValid(baseAssetCurve)) revert InvalidCurveConfiguration();
 
-        /// @dev Suggested amount of seed reserves must be greater than 0
-        if (amountOfSeedReserves == 0) revert InvalidAmountOfSeedReserves();
-
-        /// @dev Suggested lock time of seed reserves must be greater or equal than minimum lock time
-        if (lockTimeOfSeedReserves < MIN_LOCK_TIME) revert InvalidLockTimeOfSeedReserves();
+        /// Function will revert on incorrect setting
+        _validateSeedReserves(amountOfSeedReserves, lockTimeOfSeedReserves);
 
         tokenToPriceFeed[token] = priceFeed;
         uint8 decimals = IERC20Metadata(token).decimals(); // aderyn-fp(reentrancy-state-change)
@@ -442,10 +438,10 @@ contract SandboxController is ISandboxController {
     ///
 
     /**
-     * @dev Emitted when a base asset is whitelisted.
+     * @dev Configuration setter
      * @param _config Configuration of the sandbox controller.
      */
-    function setConfiguration(SandboxControllerConfiguration calldata _config) external override onlyOwner {
+    function setConfiguration(SandboxControllerConfiguration calldata _config) external onlyOwner {
         _validateConfig(_config);
 
         emit ConfigurationChanged(_controllerConfiguration, _config);
@@ -464,6 +460,38 @@ contract SandboxController is ISandboxController {
 
         /// TODO: min and max update time will be moved to config controller
         if (_config.minUpdateTime == 0 || _config.maxUpdateTime < _config.minUpdateTime) revert IncorrectSetting();
+    }
+
+    /**
+     * @dev Seed reserves parameters setter. Dao only.
+     * @param _baseToken Base asset changes are applied to
+     * @param _amount Seed reserves suggested amount (in USD)
+     * @param _lockTime Seed reserves suggested lock time on the Comet
+     */
+    function setSeedReserves(address _baseToken, uint256 _amount, uint40 _lockTime) external onlyDao {
+        if (_baseToken == address(0)) revert ZeroAddress();
+        if (!isBaseTokenWhitelisted(_baseToken)) revert BaseTokenNotWhitelisted();
+
+        _validateSeedReserves(_amount, _lockTime);
+
+        if (_amount == suggestedAmountOfSeedReserves[_baseToken] && _lockTime == suggestedLockTimeOfSeedReserves[_baseToken]) {
+            revert IncorrectSetting();
+        }
+
+        emit SeedReservesSet(_baseToken, _amount, _lockTime);
+        suggestedAmountOfSeedReserves[_baseToken] = _amount;
+        suggestedLockTimeOfSeedReserves[_baseToken] = _lockTime;
+    }
+
+    /**
+     * @dev Validates seed reserves parameters and revers on incorrect values
+     * @param _amount Suggested seed reserves amount
+     * @param _lockTime Suggested seed reserves lock time on the Comet
+     */
+    function _validateSeedReserves(uint256 _amount, uint40 _lockTime) internal pure {
+        if (_amount == 0) revert InvalidAmountOfSeedReserves();
+
+        if (_lockTime < MIN_LOCK_TIME) revert InvalidLockTimeOfSeedReserves();
     }
 
     /**

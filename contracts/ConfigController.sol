@@ -207,7 +207,9 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
         address comet = ISandboxCometFactory(cometFactory).createComet(_cometConfig.name); // aderyn-fp(reentrancy-state-change)
         ISandboxComet(comet).initialize(_cometConfig, _globalConfig); // aderyn-fp(reentrancy-state-change)
 
+        // TODO: currently suggestedAmountOfSeedReserves is set in USD, token amount is expected in separate PR
         uint256 suggestedAmountOfSeedReserves = ISandboxController(sandboxController).suggestedAmountOfSeedReserves(baseToken);
+        // TODO: optional amount of reserves (with validation on 0 reserves) is expected to be added in separate PR
         IERC20(baseToken).safeTransferFrom(msg.sender, comet, suggestedAmountOfSeedReserves);
 
         uint256 cometsNum = comets.length;
