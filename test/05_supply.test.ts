@@ -41,7 +41,8 @@ describe("5. supply", function () {
   before(async function () {
     [owner, dao, treasury, curator, guardian, alice, bob] = await ethers.getSigners();
 
-    const opts = await makeConfigController({ owner: owner, dao: dao, treasury: treasury, curator: curator, guardian: guardian }, true);
+    const opts = await makeConfigController({
+      owner: owner, dao: dao, treasury: treasury.address, curator: curator, guardian: guardian }, true);
     configController = opts.configController;
     sandboxController = opts.sandboxController;
     baseToken = opts.baseToken as FaucetToken;
@@ -1032,7 +1033,7 @@ describe("5. supply", function () {
       assets["WETH"].factory = (await ethers.getContractFactory("EvilToken")) as EvilToken__factory;
 
       const opts = await makeConfigController(
-        { owner: owner, dao: dao, treasury: treasury, curator: curator, guardian: guardian, assets: assets },
+        { owner: owner, dao: dao, treasury: treasury.address, curator: curator, guardian: guardian, assets: assets },
         true
       );
 
@@ -1088,7 +1089,7 @@ describe("5. supply", function () {
         assets["WETH"].factory = (await ethers.getContractFactory("NonStandardFaucetFeeToken")) as NonStandardFaucetFeeToken__factory;
 
         const opts = await makeConfigController(
-          { owner: owner, dao: dao, treasury: treasury, curator: curator, guardian: guardian, assets: assets },
+          { owner: owner, dao: dao, treasury: treasury.address, curator: curator, guardian: guardian, assets: assets },
           true
         );
         nonStandardToken = opts.baseToken as NonStandardFaucetFeeToken;
@@ -1141,7 +1142,7 @@ describe("5. supply", function () {
         assets["WETH"].factory = (await ethers.getContractFactory("NonStandardFaucetFeeToken")) as NonStandardFaucetFeeToken__factory;
 
         const opts = await makeConfigController(
-          { owner: owner, dao: dao, treasury: treasury, curator: curator, guardian: guardian, assets: assets },
+          { owner: owner, dao: dao, treasury: treasury.address, curator: curator, guardian: guardian, assets: assets },
           true
         );
         feeToken = opts.baseToken as NonStandardFaucetFeeToken;

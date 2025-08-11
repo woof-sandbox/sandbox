@@ -15,7 +15,8 @@ describe.skip("18. asset info — SandboxComet", () => {
   before(async function () {
     [owner, dao, treasury, curator, guardian] = await ethers.getSigners();
 
-    const opts = await makeConfigController({ owner: owner, dao: dao, treasury: treasury, curator: curator, guardian: guardian }, true);
+    const opts = await makeConfigController({
+      owner: owner, dao: dao, treasury: treasury.address, curator: curator, guardian: guardian }, true);
     baseToken = opts.baseToken as FaucetToken;
 
     comet = await createComet(owner, opts.opts.assets, opts.configController, opts.sandboxController, opts.collaterals, baseToken);

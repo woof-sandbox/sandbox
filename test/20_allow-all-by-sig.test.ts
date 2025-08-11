@@ -40,7 +40,8 @@ describe("20. allowAllBySig — SandboxComet / CometExtension", function () {
   before(async function () {
     [owner, dao, treasury, curator, guardian, signer, manager] = await ethers.getSigners();
 
-    const opts = await makeConfigController({ owner: owner, dao: dao, treasury: treasury, curator: curator, guardian: guardian }, true);
+    const opts = await makeConfigController({
+      owner: owner, dao: dao, treasury: treasury.address, curator: curator, guardian: guardian }, true);
     baseToken = opts.baseToken as FaucetToken;
 
     comet = await createComet(owner, opts.opts.assets, opts.configController, opts.sandboxController, opts.collaterals, baseToken);

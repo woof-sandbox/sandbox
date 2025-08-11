@@ -17,7 +17,8 @@ describe.skip("19. allowance", function () {
   before(async () => {
     [owner, dao, treasury, curator, guardian, alice, user] = await ethers.getSigners();
 
-    const opts = await makeConfigController({ owner: owner, dao: dao, treasury: treasury, curator: curator, guardian: guardian }, true);
+    const opts = await makeConfigController({
+      owner: owner, dao: dao, treasury: treasury.address, curator: curator, guardian: guardian }, true);
     baseToken = opts.baseToken;
     collateral = opts.collaterals["COMP"];
     for (let asset in opts.collaterals) {
