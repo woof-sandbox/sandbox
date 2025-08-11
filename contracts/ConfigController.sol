@@ -80,18 +80,6 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
         _;
     }
 
-    /// @notice Modifier to restrict access to owner or curator
-    modifier onlyOwnerOrCurator() {
-        if (msg.sender != owner && msg.sender != curator) revert Unauthorized();
-        _;
-    }
-
-    /// @notice Modifier to restrict access to guardian only
-    modifier onlyGuardian() {
-        if (msg.sender != guardian) revert Unauthorized();
-        _;
-    }
-
     /// @notice Initializes the ConfigController contract
     /// @param _owner The address of the protocol owner
     /// @param _guardian The address of the protocol guardian
@@ -149,7 +137,7 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
     /// @return The address of the newly created comet
     function createComet(CometConfig memory _cometConfig) external override onlyOwner returns (address) {
         address baseToken = _cometConfig.baseToken;
-        uint8 baseTokenCurveId = _cometConfig.baseTokenCurveId;
+        uint256 baseTokenCurveId = _cometConfig.baseTokenCurveId;
         /// Check base token
         ///
         if (baseToken == address(0)) revert ZeroAddress();
@@ -257,6 +245,8 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
     function grantOwnership(address _newOwner) external onlyOwner {
         if (_newOwner == address(0)) revert ZeroAddress();
         address oldOwner = owner;
+
+        if (_newOwner == oldOwner) revert IncorrectValue();
         owner = _newOwner;
 
         emit OwnershipGranted(oldOwner, _newOwner);
@@ -392,4 +382,3 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
         return comets[cometId[comet]] == comet;
     }
 }
-// Test comment
