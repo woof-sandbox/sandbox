@@ -6,7 +6,7 @@ import {
   NonStandardFaucetFeeToken,
   SandboxComet,
 } from "../build/types";
-import { ethers, event, expect, exp, portfolio, ReentryAttack, wait, hre } from "./helper/helpers";
+import { ethers, event, expect, exp, portfolio, wait, hre } from "./helper/helpers";
 // TODO: Fix this.
 describe.skip("16. buyCollateral", function () {
   async function mintUserCollateral(comet: SandboxComet, token: FaucetToken, user: string, amount: bigint) {
@@ -390,7 +390,7 @@ describe.skip("16. buyCollateral", function () {
       const { WETH: evilWETH, EVIL } = <{ WETH: FaucetToken; EVIL: EvilToken }>evilTokens;
       // add attack to EVIL token
       const attack = Object.assign({}, await EVIL.getAttack(), {
-        attackType: ReentryAttack.SupplyFrom,
+        attackType: 2, // supplyFrom
         source: evilAlice.address,
         destination: evilBob.address,
         asset: EVIL.address,
@@ -517,7 +517,7 @@ describe.skip("16. buyCollateral", function () {
 
       // add attack to EVIL token
       const attack = Object.assign({}, await EVIL.getAttack(), {
-        attackType: ReentryAttack.BuyCollateral,
+        attackType: 3, //ReentryAttack.BuyCollateral,
         source: evilAlice.address,
         destination: evilBob.address,
         asset: evilWETH.address,

@@ -19,7 +19,6 @@ import {
   SandboxComet,
   SandboxComet__factory,
   ISandboxComet,
-  ICometExtension,
 } from "../../build/types";
 
 import { SandboxCometFactory } from "../../build/types/SandboxCometFactory";
@@ -38,12 +37,6 @@ export { ethers, expect, hre };
 
 export type Numeric = number | bigint;
 
-export enum ReentryAttack {
-  TransferFrom = 0,
-  WithdrawFrom = 1,
-  SupplyFrom = 2,
-  BuyCollateral = 3,
-}
 export function exp(i: number, d: Numeric = 0, r: Numeric = 6): bigint {
   return (BigInt(Math.floor(i * 10 ** Number(r))) * 10n ** BigInt(d)) / 10n ** BigInt(r);
 }
@@ -521,33 +514,6 @@ export async function createComet(
 /// ---------------------
 
 /// Balance helpers --------------
-
-export async function getPrincipalChange(
-  comet: SandboxComet,
-  lastUpdated: number,
-  utilization: number,
-  user: string,
-  amount: BigNumberish
-): Promise<BigNumber> {
-  const cometExtension: ICometExtension = (await ethers.getContractAt("CometExtension", comet.address)) as ICometExtension;
-  const curTime = (await ethers.provider.getBlock("latest")).timestamp;
-
-  const timeElapsed = curTime - lastUpdated;
-
-  const prevIndex = (await cometExtension.totalsBasic()).baseSupplyIndex;
-  const accruedIndex = prevIndex.add(
-    prevIndex
-      .mul(await comet.getSupplyRate(utilization))
-      .mul(timeElapsed)
-      .div(exp(1, 18))
-  );
-
-  const oldPrincipal = (await comet.userBasic(user)).principal;
-  const oldBalance = oldPrincipal.mul(accruedIndex).div(1e15);
-  const newPrincipal = oldBalance.add(amount).mul(1e15).div(accruedIndex);
-
-  return newPrincipal.sub(oldPrincipal);
-}
 
 export async function baseBalanceOf(comet: ISandboxComet, account: string): Promise<bigint> {
   const balanceOf = await comet.balanceOf(account);

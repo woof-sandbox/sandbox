@@ -9,7 +9,6 @@ import {
   makeMockERC20,
   SnapshotRestorer,
   takeSnapshot,
-  getPrincipalChange,
   defaultAssets,
 } from "./helper/helpers";
 
@@ -21,11 +20,14 @@ import {
   ISandboxController,
   NonStandardFaucetFeeToken__factory,
   NonStandardFaucetFeeToken,
+  EvilToken,
+  EvilToken__factory,
 } from "../build/types";
+
 import { BigNumber } from "ethers";
 
 // Note: isolated supply functionality, withdraw and repay are tested in separate testsets
-describe.only("5. supply", function () {
+describe("5. supply", function () {
   let owner, dao, curator, treasury, guardian, alice, bob: SignerWithAddress;
   let comet: SandboxComet;
   let cometExtension: ICometExtension;
@@ -53,8 +55,8 @@ describe.only("5. supply", function () {
       collaterals[asset] = opts.collaterals[asset] as FaucetToken;
     }
 
-    baseToken.allocateTo(alice.address, exp(1e10, 18));
-    baseToken.allocateTo(bob.address, exp(1e10, 18));
+    await baseToken.allocateTo(alice.address, exp(1e10, 18));
+    await baseToken.allocateTo(bob.address, exp(1e10, 18));
   });
 
   describe("supply base asset", function () {
@@ -99,6 +101,7 @@ describe.only("5. supply", function () {
         await comet.connect(dao).pause(true, false, false, false, false);
         expect(await comet.isSupplyPaused()).to.be.true;
 
+        await baseToken.connect(alice).approve(comet.address, 1);
         await expect(comet.connect(alice).supply(baseToken.address, 1)).to.be.revertedWithCustomError(comet, "Paused");
         await comet.connect(dao).pause(false, false, false, false, false);
       });
@@ -271,7 +274,7 @@ describe.only("5. supply", function () {
           .withArgs(
             ethers.constants.AddressZero,
             alice.address,
-            await getPrincipalChange(comet, lastUpdated, 0, alice.address, SUPPLIED_AMOUNT_ALICE)
+            await getPrincipalChange(comet, lastUpdated, 0, alice.address, BigNumber.from(SUPPLIED_AMOUNT_ALICE))
           );
 
         await snapshot.restore();
@@ -385,7 +388,7 @@ describe.only("5. supply", function () {
           .withArgs(
             ethers.constants.AddressZero,
             bob.address,
-            await getPrincipalChange(comet, lastUpdated, 0, bob.address, SUPPLIED_AMOUNT_BOB)
+            await getPrincipalChange(comet, lastUpdated, 0, bob.address, BigNumber.from(SUPPLIED_AMOUNT_BOB))
           );
 
         await snapshot.restore();
@@ -708,9 +711,368 @@ describe.only("5. supply", function () {
     });
   });
 
-  describe.skip("supply flows variations (from/to)", function () {
-    // wip
-    // supplyTo works for msg sender
+  describe("supply flows variations (from/to)", function () {
+    const ALICE_BASE_AMOUNT: BigNumber = BigNumber.from(exp(1, 17)); //0.1 of token
+    const ALICE_COLLATERAL_AMOUNT: BigNumber = BigNumber.from(exp(2, 17)); //0.2 of token
+    let cometBaseBalanceBefore: BigNumber;
+    let aliceBaseBalanceBefore: BigNumber;
+    let cometCollateralBalanceBefore: BigNumber;
+    let aliceCollateralBalanceBefore: BigNumber;
+    let aliceCollateralBefore: BigNumber;
+    let bobCollateralBefore: BigNumber;
+
+    let alicePrincipalBefore: BigNumber;
+    let bobPrincipalBefore: BigNumber;
+    let cometSupplyIndexBefore: BigNumber;
+
+    before(async function () {
+      const totals = await cometExtension.totalsBasic();
+      cometBaseBalanceBefore = await baseToken.balanceOf(comet.address);
+      aliceBaseBalanceBefore = await baseToken.balanceOf(alice.address);
+      cometCollateralBalanceBefore = await collaterals["COMP"].balanceOf(comet.address);
+      aliceCollateralBalanceBefore = await collaterals["COMP"].balanceOf(alice.address);
+
+      aliceCollateralBefore = await comet.userCollateral(alice.address, collaterals["COMP"].address);
+      bobCollateralBefore = await comet.userCollateral(bob.address, collaterals["COMP"].address);
+
+      cometSupplyIndexBefore = totals.baseSupplyIndex;
+      alicePrincipalBefore = (await comet.userBasic(alice.address)).principal;
+      bobPrincipalBefore = (await comet.userBasic(bob.address)).principal;
+
+      // wait for a while to have impact from accrual
+      await ethers.provider.send("evm_increaseTime", [60 * 60]); // 1 hr
+      await ethers.provider.send("evm_mine", []);
+    });
+
+    describe("supplyTo", function () {
+      // Note: tests assume, that supplyTo() is a clone of supply(), thus only key cases are checked
+      it("reverts for dst = 0", async () => {
+        await baseToken.connect(alice).approve(comet.address, 1);
+        await expect(comet.connect(alice).supplyTo(ethers.constants.AddressZero, baseToken.address, 1)).to.be.revertedWithCustomError(
+          comet,
+          "ZeroAddress"
+        );
+      });
+
+      it("reverts for asset = 0", async () => {
+        await baseToken.connect(alice).approve(comet.address, 1);
+        await expect(comet.connect(alice).supplyTo(bob.address, ethers.constants.AddressZero, 1)).to.be.revertedWithCustomError(
+          comet,
+          "ZeroAddress"
+        );
+      });
+
+      it("reverts for amount = 0", async () => {
+        await expect(comet.connect(alice).supplyTo(bob.address, baseToken.address, 0)).to.be.revertedWithCustomError(comet, "ZeroAmount");
+      });
+
+      it("reverts for asset other than base of collateral", async () => {
+        const newToken = await makeMockERC20({ name: "T1", symbol: "T1" });
+        await newToken.allocateTo(alice.address, exp(1, 18));
+
+        await newToken.connect(alice).approve(comet.address, exp(1, 18));
+        await expect(comet.connect(alice).supplyTo(bob.address, newToken.address, 1)).to.be.revertedWithCustomError(comet, "BadAsset");
+      });
+
+      it("reverts when protocol paused", async () => {
+        await comet.connect(dao).pause(true, false, false, false, false);
+        expect(await comet.isSupplyPaused()).to.be.true;
+
+        await baseToken.connect(alice).approve(comet.address, 1);
+        await expect(comet.connect(alice).supplyTo(bob.address, baseToken.address, 1)).to.be.revertedWithCustomError(comet, "Paused");
+        await comet.connect(dao).pause(false, false, false, false, false);
+      });
+
+      it("should accrue state (same as supply())", async () => {
+        const snapshot: SnapshotRestorer = await takeSnapshot();
+
+        await baseToken.connect(alice).approve(comet.address, ALICE_BASE_AMOUNT);
+        await comet.connect(alice).supplyTo(bob.address, baseToken.address, ALICE_BASE_AMOUNT);
+
+        expect((await cometExtension.totalsBasic()).lastAccrualTime).to.equal((await ethers.provider.getBlock("latest")).timestamp);
+        // correctness of index calculation is already checked in previous testcases
+        expect((await cometExtension.totalsBasic()).baseSupplyIndex).to.be.greaterThan(cometSupplyIndexBefore);
+
+        await snapshot.restore();
+      });
+
+      it("should supply base asset to the dst", async () => {
+        const snapshot: SnapshotRestorer = await takeSnapshot();
+
+        await baseToken.connect(alice).approve(comet.address, ALICE_BASE_AMOUNT);
+        await comet.connect(alice).supplyTo(bob.address, baseToken.address, ALICE_BASE_AMOUNT);
+
+        // token is transferred
+        expect(aliceBaseBalanceBefore.sub(await baseToken.balanceOf(alice.address))).to.equal(ALICE_BASE_AMOUNT);
+        expect((await baseToken.balanceOf(comet.address)).sub(cometBaseBalanceBefore)).to.equal(ALICE_BASE_AMOUNT);
+
+        // alice principal is unchanged
+        const alicePrincipalAfter = (await comet.userBasic(alice.address)).principal;
+        expect(alicePrincipalBefore.sub(alicePrincipalAfter)).to.equal(0);
+
+        // bob's princiapl grows
+        // correctness of principal calculation is already checked in previous testcases
+        expect((await comet.userBasic(bob.address)).principal).to.be.greaterThan(bobPrincipalBefore);
+
+        await snapshot.restore();
+      });
+
+      it("should supply base asset if dst == msg.sender", async () => {
+        const snapshot: SnapshotRestorer = await takeSnapshot();
+
+        await baseToken.connect(alice).approve(comet.address, ALICE_BASE_AMOUNT);
+        await comet.connect(alice).supplyTo(alice.address, baseToken.address, ALICE_BASE_AMOUNT);
+
+        // token is transferred
+        expect(aliceBaseBalanceBefore.sub(await baseToken.balanceOf(alice.address))).to.equal(ALICE_BASE_AMOUNT);
+        expect((await baseToken.balanceOf(comet.address)).sub(cometBaseBalanceBefore)).to.equal(ALICE_BASE_AMOUNT);
+
+        // alice principal is grows
+        // correctness of principal calculation is already checked in previous testcases
+        expect((await comet.userBasic(alice.address)).principal).to.be.greaterThan(alicePrincipalBefore);
+
+        await snapshot.restore();
+      });
+
+      it("should supply collateral asset to the dst", async () => {
+        const snapshot: SnapshotRestorer = await takeSnapshot();
+
+        await collaterals["COMP"].connect(alice).approve(comet.address, ALICE_COLLATERAL_AMOUNT);
+        await comet.connect(alice).supplyTo(bob.address, collaterals["COMP"].address, ALICE_COLLATERAL_AMOUNT);
+
+        // token is transferred
+        expect(aliceCollateralBalanceBefore.sub(await collaterals["COMP"].balanceOf(alice.address))).to.equal(ALICE_COLLATERAL_AMOUNT);
+        expect((await collaterals["COMP"].balanceOf(comet.address)).sub(cometCollateralBalanceBefore)).to.equal(ALICE_COLLATERAL_AMOUNT);
+
+        // alice collateral balance is unchanged
+        const aliceCollateralAfter = await comet.userCollateral(alice.address, collaterals["COMP"].address);
+        expect(aliceCollateralBefore.sub(aliceCollateralAfter)).to.equal(0);
+
+        // bob's collateral balance grows
+        const bobCollateralAfter = await comet.userCollateral(bob.address, collaterals["COMP"].address);
+        expect(bobCollateralAfter.sub(bobCollateralBefore)).to.equal(ALICE_COLLATERAL_AMOUNT);
+
+        await snapshot.restore();
+      });
+
+      it("should supply collateral asset if dst == msg.sender", async () => {
+        const snapshot: SnapshotRestorer = await takeSnapshot();
+
+        await collaterals["COMP"].connect(alice).approve(comet.address, ALICE_COLLATERAL_AMOUNT);
+        await comet.connect(alice).supplyTo(alice.address, collaterals["COMP"].address, ALICE_COLLATERAL_AMOUNT);
+
+        // token is transferred
+        expect(aliceCollateralBalanceBefore.sub(await collaterals["COMP"].balanceOf(alice.address))).to.equal(ALICE_COLLATERAL_AMOUNT);
+        expect((await collaterals["COMP"].balanceOf(comet.address)).sub(cometCollateralBalanceBefore)).to.equal(ALICE_COLLATERAL_AMOUNT);
+
+        // alice's collateral balance grows
+        const aliceCollateralAfter = await comet.userCollateral(alice.address, collaterals["COMP"].address);
+        expect(aliceCollateralAfter.sub(aliceCollateralBefore)).to.equal(ALICE_COLLATERAL_AMOUNT);
+
+        await snapshot.restore();
+      });
+    });
+
+    describe("supplyFrom", function () {
+      // Note: tests assume, that supplyFrom() is a clone of supply(), thus only key cases are checked
+
+      it("reverts for from = 0", async () => {
+        await baseToken.connect(alice).approve(comet.address, 1);
+        await expect(
+          comet.connect(alice).supplyFrom(ethers.constants.AddressZero, alice.address, baseToken.address, 1)
+        ).to.be.revertedWithCustomError(comet, "ZeroAddress");
+      });
+
+      it("reverts for dst = 0", async () => {
+        await baseToken.connect(alice).approve(comet.address, 1);
+        await expect(
+          comet.connect(alice).supplyFrom(alice.address, ethers.constants.AddressZero, baseToken.address, 1)
+        ).to.be.revertedWithCustomError(comet, "ZeroAddress");
+      });
+
+      it("reverts for asset = 0", async () => {
+        await baseToken.connect(alice).approve(comet.address, 1);
+        await expect(
+          comet.connect(alice).supplyFrom(alice.address, bob.address, ethers.constants.AddressZero, 1)
+        ).to.be.revertedWithCustomError(comet, "ZeroAddress");
+      });
+
+      it("reverts for amount = 0", async () => {
+        await expect(comet.connect(alice).supplyFrom(alice.address, bob.address, baseToken.address, 0)).to.be.revertedWithCustomError(
+          comet,
+          "ZeroAmount"
+        );
+      });
+
+      it("reverts for asset other than base of collateral", async () => {
+        const newToken = await makeMockERC20({ name: "T1", symbol: "T1" });
+        await newToken.allocateTo(alice.address, exp(1, 18));
+
+        await newToken.connect(alice).approve(comet.address, exp(1, 18));
+        await expect(comet.connect(alice).supplyFrom(alice.address, bob.address, newToken.address, 1)).to.be.revertedWithCustomError(
+          comet,
+          "BadAsset"
+        );
+      });
+
+      it("reverts when protocol paused", async () => {
+        await comet.connect(dao).pause(true, false, false, false, false);
+        expect(await comet.isSupplyPaused()).to.be.true;
+
+        await baseToken.connect(alice).approve(comet.address, 1);
+        await expect(comet.connect(alice).supplyFrom(alice.address, bob.address, baseToken.address, 1)).to.be.revertedWithCustomError(
+          comet,
+          "Paused"
+        );
+        await comet.connect(dao).pause(false, false, false, false, false);
+      });
+
+      it("should accrue state (same as supply())", async () => {
+        const snapshot: SnapshotRestorer = await takeSnapshot();
+
+        await baseToken.connect(alice).approve(comet.address, ALICE_BASE_AMOUNT);
+        await comet.connect(alice).supplyFrom(alice.address, bob.address, baseToken.address, ALICE_BASE_AMOUNT);
+
+        expect((await cometExtension.totalsBasic()).lastAccrualTime).to.equal((await ethers.provider.getBlock("latest")).timestamp);
+        // correctness of index calculation is already checked in previous testcases
+        expect((await cometExtension.totalsBasic()).baseSupplyIndex).to.be.greaterThan(cometSupplyIndexBefore);
+
+        await snapshot.restore();
+      });
+
+      it("should supply base asset to the dst", async () => {
+        const snapshot: SnapshotRestorer = await takeSnapshot();
+
+        await baseToken.connect(alice).approve(comet.address, ALICE_BASE_AMOUNT);
+        await comet.connect(alice).supplyFrom(alice.address, bob.address, baseToken.address, ALICE_BASE_AMOUNT);
+
+        // token is transferred
+        expect(aliceBaseBalanceBefore.sub(await baseToken.balanceOf(alice.address))).to.equal(ALICE_BASE_AMOUNT);
+        expect((await baseToken.balanceOf(comet.address)).sub(cometBaseBalanceBefore)).to.equal(ALICE_BASE_AMOUNT);
+
+        // alice principal is unchanged
+        const alicePrincipalAfter = (await comet.userBasic(alice.address)).principal;
+        expect(alicePrincipalBefore.sub(alicePrincipalAfter)).to.equal(0);
+
+        // bob's princiapl grows
+        // correctness of principal calculation is already checked in previous testcases
+        expect((await comet.userBasic(bob.address)).principal).to.be.greaterThan(bobPrincipalBefore);
+
+        await snapshot.restore();
+      });
+
+      it("should supply base asset if dst == msg.sender", async () => {
+        const snapshot: SnapshotRestorer = await takeSnapshot();
+
+        await baseToken.connect(alice).approve(comet.address, ALICE_BASE_AMOUNT);
+        await comet.connect(alice).supplyFrom(alice.address, alice.address, baseToken.address, ALICE_BASE_AMOUNT);
+
+        // token is transferred
+        expect(aliceBaseBalanceBefore.sub(await baseToken.balanceOf(alice.address))).to.equal(ALICE_BASE_AMOUNT);
+        expect((await baseToken.balanceOf(comet.address)).sub(cometBaseBalanceBefore)).to.equal(ALICE_BASE_AMOUNT);
+
+        // alice principal is grows
+        // correctness of principal calculation is already checked in previous testcases
+        expect((await comet.userBasic(alice.address)).principal).to.be.greaterThan(alicePrincipalBefore);
+
+        await snapshot.restore();
+      });
+
+      it("should supply collateral asset to the dst", async () => {
+        const snapshot: SnapshotRestorer = await takeSnapshot();
+
+        await collaterals["COMP"].connect(alice).approve(comet.address, ALICE_COLLATERAL_AMOUNT);
+        await comet.connect(alice).supplyFrom(alice.address, bob.address, collaterals["COMP"].address, ALICE_COLLATERAL_AMOUNT);
+
+        // token is transferred
+        expect(aliceCollateralBalanceBefore.sub(await collaterals["COMP"].balanceOf(alice.address))).to.equal(ALICE_COLLATERAL_AMOUNT);
+        expect((await collaterals["COMP"].balanceOf(comet.address)).sub(cometCollateralBalanceBefore)).to.equal(ALICE_COLLATERAL_AMOUNT);
+
+        // alice collateral balance is unchanged
+        const aliceCollateralAfter = await comet.userCollateral(alice.address, collaterals["COMP"].address);
+        expect(aliceCollateralBefore.sub(aliceCollateralAfter)).to.equal(0);
+
+        // bob's collateral balance grows
+        const bobCollateralAfter = await comet.userCollateral(bob.address, collaterals["COMP"].address);
+        expect(bobCollateralAfter.sub(bobCollateralBefore)).to.equal(ALICE_COLLATERAL_AMOUNT);
+
+        await snapshot.restore();
+      });
+
+      it("should supply collateral asset if dst == msg.sender", async () => {
+        const snapshot: SnapshotRestorer = await takeSnapshot();
+
+        await collaterals["COMP"].connect(alice).approve(comet.address, ALICE_COLLATERAL_AMOUNT);
+        await comet.connect(alice).supplyFrom(alice.address, alice.address, collaterals["COMP"].address, ALICE_COLLATERAL_AMOUNT);
+
+        // token is transferred
+        expect(aliceCollateralBalanceBefore.sub(await collaterals["COMP"].balanceOf(alice.address))).to.equal(ALICE_COLLATERAL_AMOUNT);
+        expect((await collaterals["COMP"].balanceOf(comet.address)).sub(cometCollateralBalanceBefore)).to.equal(ALICE_COLLATERAL_AMOUNT);
+
+        // alice's collateral balance grows
+        const aliceCollateralAfter = await comet.userCollateral(alice.address, collaterals["COMP"].address);
+        expect(aliceCollateralAfter.sub(aliceCollateralBefore)).to.equal(ALICE_COLLATERAL_AMOUNT);
+
+        await snapshot.restore();
+      });
+
+      // Note: supplyFrom() with different operator is tested in allowance tests.
+    });
+  });
+
+  describe("reentrancy test", function () {
+    let evilComet: SandboxComet;
+    let evilCollaterals: { [symbol: string]: FaucetToken | EvilToken } = {};
+    let evilSupplyCap: BigNumber;
+    let fullAmount: BigNumber;
+    let attackAmount: BigNumber;
+
+    before(async function () {
+      const assets = defaultAssets();
+      assets["WETH"].factory = (await ethers.getContractFactory("EvilToken")) as EvilToken__factory;
+
+      const opts = await makeConfigController(
+        { owner: owner, dao: dao, treasury: treasury, curator: curator, guardian: guardian, assets: assets },
+        true
+      );
+
+      evilComet = await createComet(
+        owner,
+        opts.opts.assets,
+        opts.configController,
+        opts.sandboxController,
+        opts.collaterals,
+        opts.baseToken
+      );
+
+      for (let asset in opts.collaterals) {
+        evilCollaterals[asset] = opts.collaterals[asset] as FaucetToken | EvilToken;
+      }
+
+      evilSupplyCap = (await evilComet.getAssetInfoByAddress(evilCollaterals["WETH"].address))[0].supplyCap;
+
+      fullAmount = evilSupplyCap.add(2);
+      attackAmount = fullAmount.div(2);
+
+      evilCollaterals["WETH"].allocateTo(alice.address, fullAmount);
+    });
+
+    it("blocks reentrancy from exceeding the collateral supply cap", async () => {
+      await (evilCollaterals["WETH"] as EvilToken).setAttack({
+        attackType: 2, // supply attack
+        source: alice.address,
+        destination: alice.address,
+        asset: evilCollaterals["WETH"].address,
+        amount: attackAmount,
+        maxCalls: 1, // 1 direct supply, 1 supply via hook
+      });
+
+      await evilCollaterals["WETH"].connect(alice).approve(evilComet.address, fullAmount);
+      await expect(evilComet.connect(alice).supply(evilCollaterals["WETH"].address, attackAmount)).to.be.revertedWithCustomError(
+        comet,
+        "ReentrantCallBlocked"
+      );
+    });
   });
 
   describe("non-standard tokens", function () {
@@ -879,41 +1241,37 @@ describe.only("5. supply", function () {
       });
     });
   });
-
-  describe.skip("edge-cases", function () {
-    // This is an edge-case that can occur when a user supplies 0 base.
-    // Rare case (e.g. for 1 wei), when in `supplyBase`, `dstPrincipalNew = principalValue(presentValue(dstPrincipal))`
-    // In some cases, `dstPrincipalNew` can actually be less than `dstPrincipal` due to the fact
-    // that the principal value and present value functions round down. This breaks our assumption
-    // in `repayAndSupplyAmount` that `newPrincipal >= oldPrincipal` MUST be true. The new code now explicitly checks
-    // this assumption and sets both `repayAmount` and `supplyAmount` to 0 if the assumption is violated.
-    it.skip("supplies 1 wei and does not revert when dstPrincipalNew < dstPrincipal", async () => {
-      //await comet.setBasePrincipal(alice.address, 99999992291226);
-      // recreate conditions
-      // supply from alice
-      // catch the Supply event with 0 amount
-    });
-
-    it("blocks reentrancy from exceeding the collateral supply cap", async () => {
-      // create comet with evil token
-      // (await ethers.getContractFactory("EvilToken")) as EvilToken__factory,
-      // const { EVIL } = <{ EVIL: EvilToken }>tokens;
-      // recreate the attack
-      /*
-      const attack = Object.assign({}, await EVIL.getAttack(), {
-        attackType: ReentryAttack.SupplyFrom,
-        source: alice.address,
-        destination: bob.address,
-        asset: EVIL.address,
-        amount: 75e6,
-        maxCalls: 1,
-      });
-      await EVIL.setAttack(attack);
-      */
-      // await expect(comet.connect(alice).supplyTo(bob.address, EVIL.address, 75e6)).to.be.revertedWithCustomError(
-      //   comet,
-      //   "ReentrantCallBlocked"
-      // );
-    });
-  });
 });
+
+async function getPrincipalChange(
+  comet: SandboxComet,
+  lastUpdated: number,
+  utilization: number,
+  user: string,
+  amount: BigNumber
+): Promise<BigNumber> {
+  const cometExtension: ICometExtension = (await ethers.getContractAt("CometExtension", comet.address)) as ICometExtension;
+  const curTime = (await ethers.provider.getBlock("latest")).timestamp;
+
+  const timeElapsed = curTime - lastUpdated;
+  console.log(timeElapsed.toString());
+
+  const prevIndex = (await cometExtension.totalsBasic()).baseSupplyIndex;
+  const accruedIndex = prevIndex.add(
+    prevIndex
+      .mul(await comet.getSupplyRate(utilization))
+      .mul(timeElapsed)
+      .div(exp(1, 18))
+  );
+
+  console.log(2, prevIndex.toString());
+  console.log(2, accruedIndex.toString());
+
+  const oldPrincipal = (await comet.userBasic(user)).principal;
+  const oldBalance = oldPrincipal.mul(accruedIndex).div(1e15);
+  const newPrincipal = oldBalance.add(amount).mul(1e15).div(accruedIndex);
+
+  console.log(4, newPrincipal.toString());
+
+  return newPrincipal.sub(oldPrincipal);
+}
