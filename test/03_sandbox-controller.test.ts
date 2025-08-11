@@ -1182,80 +1182,105 @@ describe("3. SandboxController", function () {
   });
 
   describe("setSeedReserves", function () {
-    let newConfig: SandboxControllerConfigurationStruct;
+    const newSeedReserves: BigNumber = BigNumber.from(exp(2e5, 6));
+    const newLockTime: number = 2 * 7 * 24 * 60 * 60;
 
-    beforeEach(async function () {
-      newConfig = {
-        targetPercent: ethers.utils.parseEther("0.45").toString(),
-        storeFrontPriceFactor: ethers.utils.parseEther("0.65").toString(),
-        minUpdateTime: 1000,
-        maxUpdateTime: 24 * 60 * 60,
-      };
+    let testToken: FaucetToken;
+
+    before(async function () {
+      testToken = await makeMockERC20({ name: "TT", symbol: "TT" });
+      const feed = await makePriceFeed(testToken.address);
+      await sandboxController
+        .connect(owner)
+        .whitelistBaseAsset(
+          testToken.address,
+          feed.address,
+          makeValidCurve(),
+          100,
+          suggestedAmountOfSeedReserves,
+          suggestedLockTimeOfSeedReserves
+        );
     });
 
-    it("reverts if caller is not owner", async function () {
-      await expect(sandboxController.connect(attacker).setConfiguration(newConfig)).to.be.revertedWithCustomError(
+    it("reverts if caller is not dao", async function () {
+      await expect(
+        sandboxController.connect(attacker).setSeedReserves(testToken.address, newSeedReserves, newLockTime)
+      ).to.be.revertedWithCustomError(sandboxController, "NotDao");
+    });
+
+    it("reverts for owner (if caller is not dao)", async function () {
+      await expect(
+        sandboxController.connect(owner).setSeedReserves(testToken.address, newSeedReserves, newLockTime)
+      ).to.be.revertedWithCustomError(sandboxController, "NotDao");
+    });
+
+    it("reverts if base token = 0", async function () {
+      await expect(
+        sandboxController.connect(dao).setSeedReserves(ethers.constants.AddressZero, newSeedReserves, newLockTime)
+      ).to.be.revertedWithCustomError(sandboxController, "ZeroAddress");
+    });
+
+    it("reverts if base token is not whitelisted", async function () {
+      const testToken2 = await makeMockERC20({ name: "TT2", symbol: "TT2" });
+      await expect(
+        sandboxController.connect(dao).setSeedReserves(testToken2.address, newSeedReserves, newLockTime)
+      ).to.be.revertedWithCustomError(sandboxController, "BaseTokenNotWhitelisted");
+    });
+
+    it("reverts if seed reserves = 0", async function () {
+      await expect(sandboxController.connect(dao).setSeedReserves(testToken.address, 0, newLockTime)).to.be.revertedWithCustomError(
         sandboxController,
-        "NotOwner"
+        "InvalidAmountOfSeedReserves"
       );
     });
 
-    it("reverts for dao (if caller is not owner)", async function () {
-      await expect(sandboxController.connect(dao).setConfiguration(newConfig)).to.be.revertedWithCustomError(sandboxController, "NotOwner");
+    it("reverts if lock time < min lock time", async function () {
+      const minLockTime = await sandboxController.MIN_LOCK_TIME();
+      await expect(
+        sandboxController.connect(dao).setSeedReserves(testToken.address, newSeedReserves, minLockTime - 1)
+      ).to.be.revertedWithCustomError(sandboxController, "InvalidLockTimeOfSeedReserves");
     });
 
-    it("reverts if storeFrontPriceFactor > 1e18", async function () {
-      newConfig.storeFrontPriceFactor = ethers.utils.parseEther("1").add(1).toString();
-
-      await expect(sandboxController.setConfiguration(newConfig)).to.be.revertedWithCustomError(sandboxController, "InvalidFactors");
-    });
-
-    it("reverts if targetPercent > 50%", async function () {
-      newConfig.targetPercent = ethers.utils.parseEther("0.5").add(1).toString();
-
-      await expect(sandboxController.setConfiguration(newConfig)).to.be.revertedWithCustomError(sandboxController, "InvalidFactors");
-    });
-
-    it("reverts if minUpdateTime = 0", async function () {
-      newConfig.minUpdateTime = 0;
-      await expect(sandboxController.setConfiguration(newConfig)).to.be.revertedWithCustomError(sandboxController, "IncorrectSetting");
-    });
-
-    it("reverts if minUpdateTime > maxUpdateTime", async function () {
-      newConfig.minUpdateTime = 24 * 60 * 60 + 1;
-      await expect(sandboxController.setConfiguration(newConfig)).to.be.revertedWithCustomError(sandboxController, "IncorrectSetting");
+    it("reverts for the same setting", async function () {
+      const curSeedReserve = await sandboxController.suggestedAmountOfSeedReserves(testToken.address);
+      const curLockTime = await sandboxController.suggestedLockTimeOfSeedReserves(testToken.address);
+      await expect(
+        sandboxController.connect(dao).setSeedReserves(testToken.address, curSeedReserve, curLockTime)
+      ).to.be.revertedWithCustomError(sandboxController, "IncorrectSetting");
     });
 
     it("updates configuration with valid values", async function () {
       const snapshot: SnapshotRestorer = await takeSnapshot();
-      await sandboxController.setConfiguration(newConfig);
+      await sandboxController.connect(dao).setSeedReserves(testToken.address, newSeedReserves, newLockTime);
 
-      const data = await sandboxController.config();
+      const data = await sandboxController.baseTokenSuggestedSeedReserves(testToken.address);
 
-      expect(data.targetPercent).to.equal(ethers.utils.parseEther("0.45").toString());
-      expect(data.storeFrontPriceFactor).to.equal(ethers.utils.parseEther("0.65").toString());
-      expect(data.minUpdateTime).to.equal(1000);
-      expect(data.maxUpdateTime).to.equal(24 * 60 * 60);
+      expect(data[0]).to.equal(newSeedReserves);
+      expect(data[1]).to.equal(newLockTime);
 
       await snapshot.restore();
     });
 
     it("emits event", async function () {
-      const tx = await sandboxController.setConfiguration(newConfig);
+      const snapshot: SnapshotRestorer = await takeSnapshot();
+      expect(await sandboxController.connect(dao).setSeedReserves(testToken.address, newSeedReserves, newLockTime))
+        .to.emit(sandboxController, "SeedReservesSet")
+        .withArgs(testToken.address, newSeedReserves, newLockTime);
+      await snapshot.restore();
+    });
 
-      const rcpt = await tx.wait();
-      const ev = rcpt.events?.find((e: any) => e.event === "ConfigurationChanged");
+    it("should set new lock time with old seed reserve", async function () {
+      const snapshot: SnapshotRestorer = await takeSnapshot();
+      const curSeedReserve = await sandboxController.suggestedAmountOfSeedReserves(testToken.address);
+      await expect(sandboxController.connect(dao).setSeedReserves(testToken.address, curSeedReserve, newLockTime)).to.not.be.reverted;
+      await snapshot.restore();
+    });
 
-      /// old config
-      expect(ev.args.oldConfig.targetPercent).to.equal(ethers.utils.parseEther("0.5").toString());
-      expect(ev.args.oldConfig.storeFrontPriceFactor).to.equal(parseEther("0.6").toString());
-      expect(ev.args.oldConfig.minUpdateTime).to.equal(MIN_UPDATE_TIME);
-      expect(ev.args.oldConfig.maxUpdateTime).to.equal(DEFAULT_UPDATE_TIME);
-      /// new config
-      expect(ev.args.newConfig.targetPercent).to.equal(ethers.utils.parseEther("0.45").toString());
-      expect(ev.args.newConfig.storeFrontPriceFactor).to.equal(parseEther("0.65").toString());
-      expect(ev.args.newConfig.minUpdateTime).to.equal(1000);
-      expect(ev.args.newConfig.maxUpdateTime).to.equal(24 * 60 * 60);
+    it("should set new seed reserve with old lock time", async function () {
+      const snapshot: SnapshotRestorer = await takeSnapshot();
+      const curLockTime = await sandboxController.suggestedLockTimeOfSeedReserves(testToken.address);
+      await expect(sandboxController.connect(dao).setSeedReserves(testToken.address, newSeedReserves, curLockTime)).to.not.be.reverted;
+      await snapshot.restore();
     });
   });
 
