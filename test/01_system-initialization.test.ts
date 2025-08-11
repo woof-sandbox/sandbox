@@ -24,6 +24,7 @@ import {
   SandboxComet__factory,
   SandboxCometFactory__factory,
   SandboxController__factory,
+  SandboxController,
 } from "../build/types";
 import { CollateralTokenConfigStruct, CometConfigStruct } from "../build/types/ConfigController";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
@@ -166,13 +167,11 @@ describe("1. System Initialization", function () {
   describe("Config Controller deployment", function () {
     let configControllerFactory: ConfigControllerFactory;
     let sandboxCometFactory: SandboxCometFactory;
-    let sandboxController;
+    let sandboxController: SandboxController;
     let configControllersCount = 0;
 
     before(async function () {
-      sandboxController = await makeSandboxController(
-        defaultSandboxControllerOpts({ admin: owner.address, dao: dao.address, treasury: treasury.address })
-      );
+      sandboxController = await makeSandboxController(opts);
       configControllerFactory = await _ConfigControllerFactory.deploy(sandboxController.address, configControllerImpl.address);
       sandboxCometFactory = await _SandboxCometFactory.deploy(sandboxCometImpl.address, configControllerFactory.address);
     });

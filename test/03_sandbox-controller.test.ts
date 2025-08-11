@@ -6,6 +6,7 @@ import {
   makeMockERC20,
   makePriceFeed,
   defaultAssetLimits,
+  SandboxControllerOpts,
   AssetLimits,
   exp,
   MIN_UPDATE_TIME,
@@ -30,7 +31,7 @@ describe("3. SandboxController", function () {
   let attacker: SignerWithAddress;
   let other: SignerWithAddress;
   let treasury: SignerWithAddress;
-  let opts: any;
+  let opts: SandboxControllerOpts;
   let sandboxController: SandboxController;
 
   // reserves parameters
