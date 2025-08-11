@@ -13,7 +13,7 @@ import {
   takeSnapshot,
 } from "./helper/helpers";
 
-import { SandboxController } from "../build/types";
+import { FaucetToken, SandboxController, SimplePriceFeed } from "../build/types";
 
 import { BaseAssetCurveStruct, SandboxControllerConfigurationStruct } from "../build/types/SandboxController";
 
@@ -298,7 +298,7 @@ describe("3. SandboxController", function () {
       const data = await sandboxController.baseAssets(tokenTest.address);
 
       expect(data.priceFeed).to.equal(priceFeedTest.address);
-      expect(data.decimals).to.equal(18);
+      expect(data.whitelisted).to.be.true;
       expect(data.minBorrow).to.equal(minBorrow);
     });
 
@@ -771,7 +771,7 @@ describe("3. SandboxController", function () {
       const data = await sandboxController.collateralAssets(tokenCollateralTest.address);
       expect(data.collateralToken).to.equal(tokenCollateralTest.address);
       expect(data.priceFeed).to.equal(priceFeedCollateralTest.address);
-      expect(data.decimals).to.equal(18);
+      expect(data.whitelisted).to.be.true;
     });
 
     it("should record collateral token factors", async function () {
@@ -914,6 +914,261 @@ describe("3. SandboxController", function () {
           ethers.utils.parseEther("0.1")
         )
       ).to.not.be.reverted;
+    });
+  });
+
+  describe("delistCollateralAsset", function () {
+    let tokenTest: FaucetToken;
+    let priceFeedTest: SimplePriceFeed;
+
+    const collateralConfig = {
+      minBorrowColF: ethers.utils.parseEther("0.5").toString(),
+      maxBorrowColF: ethers.utils.parseEther("0.8").toString(),
+      minLiqColF: ethers.utils.parseEther("0.6").toString(),
+      maxLiqColF: ethers.utils.parseEther("0.9").toString(),
+      minLiqF: ethers.utils.parseEther("0.7").toString(),
+      maxLiqF: ethers.utils.parseEther("0.95").toString(),
+    };
+
+    before(async function () {
+      tokenTest = await makeMockERC20({ name: "DelistCollateralAsset", symbol: "DCA" });
+      priceFeedTest = await makePriceFeed(tokenTest.address);
+
+      await sandboxController.whitelistCollateralAsset(
+        tokenTest.address,
+        priceFeedTest.address,
+        collateralConfig.minBorrowColF,
+        collateralConfig.maxBorrowColF,
+        collateralConfig.minLiqColF,
+        collateralConfig.maxLiqColF,
+        collateralConfig.minLiqF,
+        collateralConfig.maxLiqF
+      );
+    });
+
+    it("whitelisted must be true before delisting", async function () {
+      expect(await sandboxController.isCollateralTokenWhitelisted(tokenTest.address)).to.be.true;
+    });
+
+    it("delist collateral asset", async function () {
+      await expect(sandboxController.connect(dao).delistCollateralAsset(tokenTest.address)).to.not.be.reverted;
+    });
+
+    it("should show that token is not whitelisted", async function () {
+      expect(await sandboxController.isCollateralTokenWhitelisted(tokenTest.address)).to.be.false;
+      expect((await sandboxController.collateralAssets(tokenTest.address)).whitelisted).to.be.false;
+    });
+
+    it("saves all data configuration after delisting", async function () {
+      const collateralAsset = await sandboxController.collateralAssets(tokenTest.address);
+
+      expect(collateralAsset.whitelisted).to.be.false;
+      expect(collateralAsset.collateralToken).to.be.equal(tokenTest.address);
+      expect(collateralAsset.priceFeed).to.be.equal(priceFeedTest.address);
+      expect(collateralAsset.minBorrowCollateralFactor).to.be.equal(collateralConfig.minBorrowColF);
+      expect(collateralAsset.maxBorrowCollateralFactor).to.be.equal(collateralConfig.maxBorrowColF);
+      expect(collateralAsset.minLiquidateCollateralFactor).to.be.equal(collateralConfig.minLiqColF);
+      expect(collateralAsset.maxLiquidateCollateralFactor).to.be.equal(collateralConfig.maxLiqColF);
+      expect(collateralAsset.minLiquidationFactor).to.be.equal(collateralConfig.minLiqF);
+      expect(collateralAsset.maxLiquidationFactor).to.be.equal(collateralConfig.maxLiqF);
+    });
+
+    it('should emit event "CollateralAssetDelisted"', async function () {
+      const tokenTest = await makeMockERC20({ name: "DelistCollateralAsset2", symbol: "DCA2" });
+      const priceFeedTest = await makePriceFeed(tokenTest.address);
+
+      await sandboxController.whitelistCollateralAsset(
+        tokenTest.address,
+        priceFeedTest.address,
+        collateralConfig.minBorrowColF,
+        collateralConfig.maxBorrowColF,
+        collateralConfig.minLiqColF,
+        collateralConfig.maxLiqColF,
+        collateralConfig.minLiqF,
+        collateralConfig.maxLiqF
+      );
+
+      const tx = await sandboxController.connect(dao).delistCollateralAsset(tokenTest.address);
+
+      await expect(tx).to.emit(sandboxController, "CollateralAssetDelisted").withArgs(tokenTest.address);
+    });
+
+    it("should revert if caller is not dao", async function () {
+      await expect(sandboxController.connect(attacker).delistCollateralAsset(tokenTest.address)).to.be.revertedWithCustomError(
+        sandboxController,
+        "NotDao"
+      );
+    });
+
+    it("dao can do it, owner can not", async function () {
+      const tokenTest = await makeMockERC20({ name: "DelistCollateralAsset3", symbol: "DCA3" });
+      const priceFeedTest = await makePriceFeed(tokenTest.address);
+
+      await sandboxController.whitelistCollateralAsset(
+        tokenTest.address,
+        priceFeedTest.address,
+        collateralConfig.minBorrowColF,
+        collateralConfig.maxBorrowColF,
+        collateralConfig.minLiqColF,
+        collateralConfig.maxLiqColF,
+        collateralConfig.minLiqF,
+        collateralConfig.maxLiqF
+      );
+
+      await expect(sandboxController.connect(owner).delistCollateralAsset(tokenTest.address)).to.be.revertedWithCustomError(
+        sandboxController,
+        "NotDao"
+      );
+
+      await expect(sandboxController.connect(dao).delistCollateralAsset(tokenTest.address)).to.not.be.reverted;
+    });
+
+    it("reverts if collateral token is not whitelisted (already delisted)", async function () {
+      await expect(sandboxController.connect(dao).delistCollateralAsset(tokenTest.address)).to.be.revertedWithCustomError(
+        sandboxController,
+        "CollateralTokenNotWhitelisted"
+      );
+    });
+
+    it("reverts if collateral token is not whitelisted (never whitelisted)", async function () {
+      const randomToken = await makeMockERC20({ name: "RandomCollateralToken", symbol: "RCT" });
+      await expect(sandboxController.connect(dao).delistCollateralAsset(randomToken.address)).to.be.revertedWithCustomError(
+        sandboxController,
+        "CollateralTokenNotWhitelisted"
+      );
+    });
+
+    it("should preserve price feed mapping after delisting", async function () {
+      // Create a new token for this test
+      const tokenTest = await makeMockERC20({ name: "DelistCollateralAsset4", symbol: "DCA4" });
+      const priceFeedTest = await makePriceFeed(tokenTest.address);
+
+      await sandboxController.whitelistCollateralAsset(
+        tokenTest.address,
+        priceFeedTest.address,
+        collateralConfig.minBorrowColF,
+        collateralConfig.maxBorrowColF,
+        collateralConfig.minLiqColF,
+        collateralConfig.maxLiqColF,
+        collateralConfig.minLiqF,
+        collateralConfig.maxLiqF
+      );
+
+      // Verify price feed mapping exists before delisting
+      expect(await sandboxController.tokenToPriceFeed(tokenTest.address)).to.equal(priceFeedTest.address);
+
+      // Delist the collateral asset
+      await sandboxController.connect(dao).delistCollateralAsset(tokenTest.address);
+
+      // Verify price feed mapping is still preserved after delisting
+      expect(await sandboxController.tokenToPriceFeed(tokenTest.address)).to.equal(priceFeedTest.address);
+    });
+  });
+
+  describe("delistBaseAsset", function () {
+    let tokenTest: FaucetToken;
+    let priceFeedTest: SimplePriceFeed;
+    const curve: BaseAssetCurveStruct = makeValidCurve();
+    const minBorrow = 777;
+
+    before(async function () {
+      tokenTest = await makeMockERC20({ name: "DelistBaseAsset", symbol: "DBA" });
+      priceFeedTest = await makePriceFeed(tokenTest.address);
+
+      expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.true;
+      await sandboxController.whitelistBaseAsset(tokenTest.address, priceFeedTest.address, curve, minBorrow);
+    });
+
+    it("whitelisted must be true before delisting", async function () {
+      expect(await sandboxController.isBaseTokenWhitelisted(tokenTest.address)).to.be.true;
+    });
+
+    it("delist base asset", async function () {
+      await expect(sandboxController.connect(dao).delistBaseAsset(tokenTest.address)).to.not.be.reverted;
+    });
+
+    it("should shown that token is not whitelisted", async function () {
+      expect(await sandboxController.isBaseTokenWhitelisted(tokenTest.address)).to.be.false;
+      expect((await sandboxController.baseAssets(tokenTest.address)).whitelisted).to.be.false;
+    });
+
+    it("saves all data configuration after delisting", async function () {
+      const baseAsset = await sandboxController.baseAssets(tokenTest.address);
+      const baseAssetCurve = baseAsset.baseAssetCurves[0];
+
+      expect(baseAsset.whitelisted).to.be.false;
+      expect(baseAsset.priceFeed).to.be.equal(priceFeedTest.address);
+      expect(baseAsset.minBorrow).to.be.equal(minBorrow);
+
+      // Compare individual curve properties
+      expect(baseAssetCurve.supplyKink).to.be.equal(curve.supplyKink);
+      expect(baseAssetCurve.supplyPerYearInterestRateSlopeLow).to.be.equal(curve.supplyPerYearInterestRateSlopeLow);
+      expect(baseAssetCurve.supplyPerYearInterestRateSlopeHigh).to.be.equal(curve.supplyPerYearInterestRateSlopeHigh);
+      expect(baseAssetCurve.supplyPerYearInterestRateBase).to.be.equal(curve.supplyPerYearInterestRateBase);
+      expect(baseAssetCurve.borrowKink).to.be.equal(curve.borrowKink);
+      expect(baseAssetCurve.borrowPerYearInterestRateSlopeLow).to.be.equal(curve.borrowPerYearInterestRateSlopeLow);
+      expect(baseAssetCurve.borrowPerYearInterestRateSlopeHigh).to.be.equal(curve.borrowPerYearInterestRateSlopeHigh);
+      expect(baseAssetCurve.borrowPerYearInterestRateBase).to.be.equal(curve.borrowPerYearInterestRateBase);
+    });
+
+    it('should emit event "BaseAssetDelisted"', async function () {
+      const tokenTest = await makeMockERC20({ name: "DelistBaseAsset", symbol: "DBA" });
+      const priceFeedTest = await makePriceFeed(tokenTest.address);
+      await sandboxController.whitelistBaseAsset(tokenTest.address, priceFeedTest.address, curve, minBorrow);
+
+      const tx = await sandboxController.connect(dao).delistBaseAsset(tokenTest.address);
+
+      await expect(tx).to.emit(sandboxController, "BaseAssetDelisted").withArgs(tokenTest.address);
+    });
+
+    it("should revert if caller is not dao", async function () {
+      await expect(sandboxController.connect(attacker).delistBaseAsset(tokenTest.address)).to.be.revertedWithCustomError(
+        sandboxController,
+        "NotDao"
+      );
+    });
+
+    it("dao can do it, owner can not", async function () {
+      const tokenTest = await makeMockERC20({ name: "DelistBaseAsset", symbol: "DBA" });
+      const priceFeedTest = await makePriceFeed(tokenTest.address);
+      await sandboxController.whitelistBaseAsset(tokenTest.address, priceFeedTest.address, curve, minBorrow);
+
+      await expect(sandboxController.connect(owner).delistBaseAsset(tokenTest.address)).to.be.revertedWithCustomError(
+        sandboxController,
+        "NotDao"
+      );
+
+      await expect(sandboxController.connect(dao).delistBaseAsset(tokenTest.address)).to.not.be.reverted;
+    });
+
+    it("reverts if base token is not whitelisted (already delisted)", async function () {
+      await expect(sandboxController.connect(dao).delistBaseAsset(tokenTest.address)).to.be.revertedWithCustomError(
+        sandboxController,
+        "BaseTokenNotWhitelisted"
+      );
+    });
+
+    it("reverts if base token is not whitelisted (never whitelisted)", async function () {
+      const randomToken = await makeMockERC20({ name: "RandomToken", symbol: "RTK" });
+      await expect(sandboxController.connect(dao).delistBaseAsset(randomToken.address)).to.be.revertedWithCustomError(
+        sandboxController,
+        "BaseTokenNotWhitelisted"
+      );
+    });
+
+    it("should preserve price feed mapping after delisting", async function () {
+      const tokenTest = await makeMockERC20({ name: "DelistBaseAsset", symbol: "DBA" });
+      const priceFeedTest = await makePriceFeed(tokenTest.address);
+      await sandboxController.whitelistBaseAsset(tokenTest.address, priceFeedTest.address, curve, minBorrow);
+
+      // Verify price feed mapping exists before delisting
+      expect(await sandboxController.tokenToPriceFeed(tokenTest.address)).to.equal(priceFeedTest.address);
+
+      // Delist the base asset
+      await sandboxController.connect(dao).delistBaseAsset(tokenTest.address);
+
+      // Verify price feed mapping is still preserved after delisting
+      expect(await sandboxController.tokenToPriceFeed(tokenTest.address)).to.equal(priceFeedTest.address);
     });
   });
 
