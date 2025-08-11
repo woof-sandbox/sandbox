@@ -101,7 +101,9 @@ describe("19. allowance", function () {
       const amount = 100;
       const spender = alice.address;
 
-      await expect(comet.connect(user).approve(spender, asset, amount)).to.be.revertedWithCustomError(comet, "WrongToken").withArgs(asset);
+      await expect(comet.connect(user).approve(spender, asset, amount))
+        .to.be.revertedWithCustomError(comet, "WrongToken")
+        .withArgs(asset);
     });
 
     it("should revert if owner is zero address", async () => {
