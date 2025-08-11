@@ -510,7 +510,7 @@ Repay the whole debt in base asset to the protocol from `from` to dst, if allowe
 ### supplyInternal
 
 ```solidity
-function supplyInternal(address operator, address from, address dst, address asset, uint256 amount, bool isAll) internal
+function supplyInternal(address from, address dst, address asset, uint256 amount, bool isAll) internal
 ```
 
 _Supply either collateral or base asset, depending on the asset, if operator is allowed_

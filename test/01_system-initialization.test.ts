@@ -3,8 +3,9 @@ import {
   exp,
   expect,
   defaultSandboxControllerOpts,
+  defaultCollateralConfig,
   makeSandboxController,
-  makeToken,
+  makeMockERC20,
   makePriceFeed,
   sandboxListBaseAsset,
   sandboxListCollateralAsset,
@@ -23,6 +24,7 @@ import {
   SandboxComet__factory,
   SandboxCometFactory__factory,
   SandboxController__factory,
+  SandboxController,
 } from "../build/types";
 import { CollateralTokenConfigStruct, CometConfigStruct } from "../build/types/ConfigController";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
@@ -53,7 +55,7 @@ describe("1. System Initialization", function () {
     _proposalDuration: DEFAULT_UPDATE_TIME,
   };
 
-  let opts: SandboxControllerOpts = {};
+  let opts: SandboxControllerOpts;
 
   before(async function () {
     _ConfigControllerFactory = (await ethers.getContractFactory("ConfigControllerFactory")) as ConfigControllerFactory__factory;
@@ -75,7 +77,7 @@ describe("1. System Initialization", function () {
     dao = signers[3];
     treasury = signers[4];
     /// Options of the sandbox controller
-    opts = defaultSandboxControllerOpts({ admin: owner, dao: dao, treasury: treasury, feeEnabled: true });
+    opts = defaultSandboxControllerOpts({ admin: owner.address, dao: dao.address, treasury: treasury.address, feeEnabled: true });
   });
 
   describe("Config Controller Factory deployment", function () {
@@ -165,11 +167,11 @@ describe("1. System Initialization", function () {
   describe("Config Controller deployment", function () {
     let configControllerFactory: ConfigControllerFactory;
     let sandboxCometFactory: SandboxCometFactory;
-    let sandboxController;
+    let sandboxController: SandboxController;
     let configControllersCount = 0;
 
     before(async function () {
-      sandboxController = (await makeSandboxController(defaultSandboxControllerOpts())).sandboxController;
+      sandboxController = await makeSandboxController(opts);
       configControllerFactory = await _ConfigControllerFactory.deploy(sandboxController.address, configControllerImpl.address);
       sandboxCometFactory = await _SandboxCometFactory.deploy(sandboxCometImpl.address, configControllerFactory.address);
     });
@@ -539,7 +541,9 @@ describe("1. System Initialization", function () {
     let marketConfig: CometConfigStruct;
 
     before(async function () {
-      sandboxController = (await makeSandboxController(defaultSandboxControllerOpts())).sandboxController;
+      sandboxController = await makeSandboxController(
+        defaultSandboxControllerOpts({ admin: owner.address, dao: dao.address, treasury: treasury.address })
+      );
 
       const configControllerFactory = await _ConfigControllerFactory.deploy(sandboxController.address, configControllerImpl.address);
       sandboxCometFactory = await _SandboxCometFactory.deploy(sandboxCometImpl.address, configControllerFactory.address);
@@ -574,24 +578,27 @@ describe("1. System Initialization", function () {
       )) as ConfigControllerInitializeTest;
 
       // deploy comet
-      const baseToken = await makeToken({
+      const baseToken = await makeMockERC20({
+        name: "Base",
         symbol: "BASE",
-        initialMint: ethers.utils.parseEther("50000").toString(),
+        supply: ethers.utils.parseEther("50000").toString(),
       });
-      const collateralToken = await makeToken({ symbol: "COL" });
+      const collateralToken = await makeMockERC20({ name: "Collateral", symbol: "COL" });
       const priceFeedBase = await makePriceFeed(baseToken.address);
       const priceFeedCol = await makePriceFeed(collateralToken.address);
 
       await sandboxListBaseAsset(sandboxController, baseToken, priceFeedBase.address);
       await sandboxListCollateralAsset(sandboxController, collateralToken, priceFeedCol.address);
 
+      const colConfig = defaultCollateralConfig();
+
       let collateralTokens: CollateralTokenConfigStruct[] = [];
       collateralTokens.push({
         collateralToken: collateralToken.address,
-        borrowCollateralFactor: exp(0.6, 18),
-        liquidateCollateralFactor: exp(0.7, 18),
-        liquidationFactor: exp(0.8, 18),
-        supplyCap: exp(1e9, 18),
+        borrowCollateralFactor: colConfig.borrowCF,
+        liquidateCollateralFactor: colConfig.liquidateCF,
+        liquidationFactor: colConfig.liquidationFactor,
+        supplyCap: colConfig.supplyCap,
       });
 
       marketConfig = {
@@ -600,6 +607,9 @@ describe("1. System Initialization", function () {
         baseTokenCurveId: 0n,
         name: "Comet",
       };
+
+      const seedReserves = (await sandboxController.config()).suggestedAmountOfSeedReserves;
+      await baseToken.approve(configController.address, seedReserves.mul(2));
 
       cometAddress = await configController.callStatic.createComet(marketConfig);
       await configController.createComet(marketConfig);
@@ -691,6 +701,8 @@ describe("1. System Initialization", function () {
     });
 
     it("should emit event on Comet deployment", async function () {
+      // approve is handled in the before function
+
       const _cometAddress = await configController.callStatic.createComet(marketConfig);
       const numOfComets = await configController.cometsLength();
       // deploy config controller
@@ -829,7 +841,7 @@ describe("1. System Initialization", function () {
     });
 
     it("initializes state with correct values", async function () {
-      const { sandboxController } = await makeSandboxController(opts);
+      const sandboxController = await makeSandboxController(opts);
       expect(await sandboxController.owner()).to.equal(owner.address);
       expect(await sandboxController.dao()).to.equal(dao.address);
       expect(await sandboxController.treasury()).to.equal(treasury.address);
