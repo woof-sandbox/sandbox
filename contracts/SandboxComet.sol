@@ -1186,104 +1186,124 @@ contract SandboxComet is ISandboxComet {
 
         UserBasic memory accountUser = userBasic[account];
         int104 oldPrincipal = accountUser.principal;
-        console.logString("oldPrincipal:");
-        console.logInt(oldPrincipal);
         int256 oldBalance = presentValue(oldPrincipal);
-        console.logString("oldBalance:");
-        console.logInt(oldBalance);
-        console.logString("oldBalance to UINT:");
-        console.logUint(unsigned256(-oldBalance));
         uint24 assetsIn = accountUser.assetsIn;
-        console.logString("assetsIn:");
-        console.logUint(assetsIn);
         uint256 basePrice = getPrice(baseTokenPriceFeed);
-        uint256 deltaValue = 0;
 
-        uint256 targetValue = mulPrice(unsigned256(-oldBalance), basePrice, uint64(baseScale));
-        console.logString("targetValue:");
-        console.logUint(targetValue);
-
-        uint8 nAssets = numAssets;
+        uint256 deltaValue;
         if (deprecationStatus == DeprecationStatus.Finalized) {
-            for (uint8 i = 0; i < nAssets; ) {
-                // @todo
-                if (isInAsset(assetsIn, i)) {
-                    CollateralAsset memory assetInfo = getAssetInfo(i);
-                    address asset = assetInfo.collateralToken;
-                    uint256 seizeAmount = userCollateral[account][asset];
-                    console.logString("seizeAmount:");
-                    console.logUint(seizeAmount);
-
-                    uint256 value = mulPrice(seizeAmount, getPrice(assetInfo.priceFeed), assetInfo.scale);
-                    console.logString("value:");
-                    console.logUint(value);
-                    if (value <= targetValue) {
-                        targetValue -= value;
-                        deltaValue += mulFactor(value, assetInfo.liquidationFactor);
-                        userCollateral[account][asset] = 0;
-                        totalsCollateral[asset] -= seizeAmount;
-                    } else {
-                        deltaValue += mulFactor(targetValue, assetInfo.liquidationFactor);
-                        uint256 newSeizeAmount = divPrice((value - targetValue), getPrice(assetInfo.priceFeed), assetInfo.scale);
-                        console.logString("newSeizeAmount:");
-                        console.logUint(newSeizeAmount);
-                        userCollateral[account][asset] = newSeizeAmount;
-                        totalsCollateral[asset] -= seizeAmount - newSeizeAmount;
-                        targetValue = 0;
-                    }
-                    console.logString("deltaValue:");
-                    console.logUint(deltaValue);
-
-                    emit AbsorbCollateral(absorber, account, asset, seizeAmount, value);
-                }
-                if (targetValue == 0) {
-                    // No need to continue if we have already seized enough collateral
-                    break;
-                } else {
-                    unchecked {
-                        ++i;
-                    }
-                }
-            }
+            deltaValue = _absorbCollateralPartial(absorber, account, assetsIn, oldBalance, basePrice);
         } else {
-            for (uint8 i = 0; i < nAssets; ) {
-                // @todo temporary solution to such an expansion of logic
-                if (isInAsset(assetsIn, i)) {
-                    CollateralAsset memory assetInfo = getAssetInfo(i);
-                    address asset = assetInfo.collateralToken;
-                    uint256 seizeAmount = userCollateral[account][asset];
-                    console.logString("seizeAmount:");
-                    console.logUint(seizeAmount);
-                    userCollateral[account][asset] = 0;
-                    totalsCollateral[asset] -= seizeAmount;
-
-                    uint256 value = mulPrice(seizeAmount, getPrice(assetInfo.priceFeed), assetInfo.scale);
-                    console.logString("value:");
-                    console.logUint(value);
-                    deltaValue += mulFactor(value, assetInfo.liquidationFactor);
-                    console.logString("deltaValue:");
-                    console.logUint(deltaValue);
-
-                    emit AbsorbCollateral(absorber, account, asset, seizeAmount, value);
-                }
-                unchecked {
-                    ++i;
-                }
-            }
+            deltaValue = _absorbCollateralFull(absorber, account, assetsIn);
         }
 
+        _processAbsorption(absorber, account, accountUser, oldPrincipal, oldBalance, deltaValue, basePrice);
+    }
+
+    /**
+     * @dev Absorb collateral with partial seizure (when market is finalized)
+     * @param absorber The absorber address
+     * @param account The account to absorb
+     * @param assetsIn The assets bitmap
+     * @param oldBalance The old balance of the account
+     * @param basePrice The base token price
+     * @return deltaValue The total value absorbed
+     */
+    function _absorbCollateralPartial(
+        address absorber,
+        address account,
+        uint24 assetsIn,
+        int256 oldBalance,
+        uint256 basePrice
+    ) internal returns (uint256 deltaValue) {
+        uint256 targetValue = mulPrice(unsigned256(-oldBalance), basePrice, uint64(baseScale));
+        uint8 nAssets = numAssets;
+
+        for (uint8 i = 0; i < nAssets; ) {
+            if (isInAsset(assetsIn, i)) {
+                CollateralAsset memory assetInfo = getAssetInfo(i);
+                address asset = assetInfo.collateralToken;
+                uint256 seizeAmount = userCollateral[account][asset];
+
+                uint256 value = mulPrice(seizeAmount, getPrice(assetInfo.priceFeed), assetInfo.scale);
+                uint256 newSeizeAmount = 0;
+
+                if (value <= targetValue) {
+                    targetValue -= value;
+                    deltaValue += mulFactor(value, assetInfo.liquidationFactor);
+                    userCollateral[account][asset] = 0;
+                    totalsCollateral[asset] -= seizeAmount;
+                } else {
+                    deltaValue += mulFactor(targetValue, assetInfo.liquidationFactor);
+                    newSeizeAmount = divPrice((value - targetValue), getPrice(assetInfo.priceFeed), assetInfo.scale);
+                    userCollateral[account][asset] = newSeizeAmount;
+                    totalsCollateral[asset] -= seizeAmount - newSeizeAmount;
+                    targetValue = 0;
+                }
+
+                emit AbsorbCollateral(absorber, account, asset, (seizeAmount - newSeizeAmount), value);
+
+                if (targetValue == 0) {
+                    break; // Early exit optimization
+                }
+            }
+            unchecked {
+                ++i;
+            }
+        }
+    }
+
+    /**
+     * @dev Absorb collateral with full seizure (normal liquidation)
+     * @param absorber The absorber address
+     * @param account The account to absorb
+     * @param assetsIn The assets bitmap
+     * @return deltaValue The total value absorbed
+     */
+    function _absorbCollateralFull(address absorber, address account, uint24 assetsIn) internal returns (uint256 deltaValue) {
+        uint8 nAssets = numAssets;
+
+        for (uint8 i = 0; i < nAssets; ) {
+            if (isInAsset(assetsIn, i)) {
+                CollateralAsset memory assetInfo = getAssetInfo(i);
+                address asset = assetInfo.collateralToken;
+                uint256 seizeAmount = userCollateral[account][asset];
+
+                userCollateral[account][asset] = 0;
+                totalsCollateral[asset] -= seizeAmount;
+
+                uint256 value = mulPrice(seizeAmount, getPrice(assetInfo.priceFeed), assetInfo.scale);
+                deltaValue += mulFactor(value, assetInfo.liquidationFactor);
+
+                emit AbsorbCollateral(absorber, account, asset, seizeAmount, value);
+            }
+            unchecked {
+                ++i;
+            }
+        }
+    }
+
+    /**
+     * @dev Process the final steps of absorption
+     */
+    function _processAbsorption(
+        address absorber,
+        address account,
+        UserBasic memory accountUser,
+        int104 oldPrincipal,
+        int256 oldBalance,
+        uint256 deltaValue,
+        uint256 basePrice
+    ) internal {
         uint256 deltaBalance = divPrice(deltaValue, basePrice, uint64(baseScale));
         int256 newBalance = oldBalance + signed256(deltaBalance);
-        console.logString("newBalance:");
-        console.logInt(newBalance);
+
         // New balance will not be negative, all excess debt absorbed by reserves
         if (newBalance < 0) {
             newBalance = 0;
         }
 
         int104 newPrincipal = principalValue(newBalance);
-        console.logString("newPrincipal:");
-        console.logInt(newPrincipal);
         updateBasePrincipal(account, accountUser, newPrincipal);
 
         // reset assetsIn
@@ -1297,8 +1317,8 @@ contract SandboxComet is ISandboxComet {
         totalBorrowBase -= repayAmount;
 
         uint256 basePaidOut = unsigned256(newBalance - oldBalance);
-
         uint256 valueOfBasePaidOut = mulPrice(basePaidOut, basePrice, uint64(baseScale));
+
         emit AbsorbDebt(absorber, account, basePaidOut, valueOfBasePaidOut);
 
         if (newPrincipal > 0) {
@@ -1355,8 +1375,10 @@ contract SandboxComet is ISandboxComet {
         // Store front discount is derived from the collateral asset's liquidationFactor and storeFrontPriceFactor
         // discount = storeFrontPriceFactor * (1e18 - liquidationFactor)
         uint256 discountFactor = mulFactor(storeFrontPriceFactor, FACTOR_SCALE - assetInfo.liquidationFactor);
-
+        console.log("discountFactor", discountFactor);
         uint256 assetPriceDiscounted = mulFactor(assetPrice, FACTOR_SCALE - discountFactor);
+        console.log("assetPrice", assetPrice);
+        console.log("assetPriceDiscounted", assetPriceDiscounted);
         uint256 basePrice = getPrice(baseTokenPriceFeed);
         // # of collateral assets
         // = (TotalValueOfBaseAmount / DiscountedPriceOfCollateralAsset) * assetScale
@@ -1411,10 +1433,29 @@ contract SandboxComet is ISandboxComet {
             profit = collateral value * (1 - 0.9 - 2 * 0.06 + 0.9 * 0.06) / (1 - 0.06) = collateral value * 0.036
         3.6% of the base asset value supplied during purchase can be extracted from the collateral reserves as a profit
         */
+        uint256 calculateFactorScale = (2 * FACTOR_SCALE - assetInfo.liquidationFactor);
+        console.log("FACTOR_SCALE", FACTOR_SCALE);
+        uint256 liquidationFactor = assetInfo.liquidationFactor;
+        console.log("liquidationFactor", liquidationFactor);
+        console.log("calculateFactorScale", calculateFactorScale);
 
+        // @todo testing
+        // uint256 scaledBaseAmount = mulFactor(baseAmount, assetInfo.liquidationFactor);
         uint256 scaledBaseAmount = mulFactor(baseAmount, 2 * FACTOR_SCALE - assetInfo.liquidationFactor);
+        console.log("scaledBaseAmount", scaledBaseAmount);
+
+        // @note amountOut = (baseAmount * basePrice * assetInfo.scale) / assetPriceDiscounted / baseScale;
         uint256 scaledCollateralValue = (scaledBaseAmount * basePrice * assetInfo.scale) / assetPrice / baseScale;
-        uint256 profit = scaledCollateralValue - amountOut;
+        // @todo testing
+        // uint256 scaledCollateralValue = (scaledBaseAmount * basePrice * assetInfo.scale) / assetPriceDiscounted / baseScale;
+        console.log("scaledCollateralValue", scaledCollateralValue);
+        console.log("amountOut", amountOut);
+
+        // @todo testing
+        // uint256 profit = amountOut - scaledCollateralValue;
+        uint256 profit = scaledCollateralValue - amountOut; // << overflow
+        console.log("Profit", profit);
+        console.logString("----------------------");
 
         // function guarantees that reserve+protocol+controller == profit
         (feeReserve, feeProtocol, feeController) = _distributeProfit(profit);
