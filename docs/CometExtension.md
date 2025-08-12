@@ -119,7 +119,6 @@ Get the name of the SandboxComet
 | ---- | ---- | ----------- |
 | [0] | string | The name as a string |
 
-
 ### approve
 
 ```solidity
