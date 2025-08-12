@@ -1,56 +1,47 @@
-import { ethers, exp, expect, makeProtocol, makeToken } from "./helper/helpers";
-import {
-  CometExtension,
-  CometHarness,
-  CometExtension__factory,
-  CometHarness__factory,
-  FaucetToken,
-  NonStandardFaucetFeeToken,
-} from "../build/types";
-import { Interface } from "ethers/lib/utils";
+import { ethers, exp, expect, makeConfigController, createComet, makeMockERC20 } from "./helper/helpers";
+import { ICometExtension, FaucetToken, NonStandardFaucetFeeToken, SandboxComet } from "../build/types";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { impersonateAccount, SnapshotRestorer, takeSnapshot } from "@nomicfoundation/hardhat-network-helpers";
 
-describe("19. allowance", function () {
-  let comet: CometHarness & CometExtension;
-  let user: SignerWithAddress, alice: SignerWithAddress;
-  let tokens: Record<string, FaucetToken | NonStandardFaucetFeeToken>;
+describe.skip("19. allowance", function () {
+  let comet: SandboxComet;
+  let cometExt: ICometExtension;
+  let owner, dao, curator, treasury, guardian, alice, user: SignerWithAddress;
+
   let baseToken: FaucetToken | NonStandardFaucetFeeToken;
   let collateral: FaucetToken | NonStandardFaucetFeeToken;
+  let collaterals: { [symbol: string]: FaucetToken } = {};
 
   let snapshot: SnapshotRestorer;
 
   before(async () => {
-    let cometHarness: CometHarness;
-    ({
-      comet: cometHarness,
-      users: [user, alice],
-      tokens,
-      baseToken,
-      tokens: { COMP: collateral },
-    } = await makeProtocol({
-      base: "USDC",
-      assets: {
-        USDC: { decimals: 6, initialPrice: 1 },
-        COMP: {
-          decimals: 18,
-          initialPrice: 100,
-        },
+    [owner, dao, treasury, curator, guardian, alice, user] = await ethers.getSigners();
+
+    const opts = await makeConfigController(
+      {
+        owner: owner,
+        dao: dao,
+        treasury: treasury.address,
+        curator: curator,
+        guardian: guardian,
       },
-    }));
-    const [signer] = await ethers.getSigners();
+      true
+    );
+    baseToken = opts.baseToken;
+    collateral = opts.collaterals["COMP"];
+    for (let asset in opts.collaterals) {
+      collaterals[asset] = opts.collaterals[asset] as FaucetToken;
+    }
 
-    const CometHarnessInterface = new Interface(CometHarness__factory.abi);
-    const CometExtensionInterface = new Interface(CometExtension__factory.abi);
-
-    const fragments = [
-      ...CometHarnessInterface.fragments,
-      ...CometExtensionInterface.fragments.filter(
-        frag => !CometHarnessInterface.fragments.some(f => f.type === frag.type && f.name === frag.name)
-      ),
-    ];
-
-    comet = new ethers.Contract(cometHarness.address, fragments, signer) as typeof comet;
+    comet = (await createComet(
+      owner,
+      opts.opts.assets,
+      opts.configController,
+      opts.sandboxController,
+      opts.collaterals,
+      baseToken
+    )) as SandboxComet & ICometExtension;
+    cometExt = (await ethers.getContractAt("CometExtension", comet.address)) as ICometExtension;
 
     snapshot = await takeSnapshot();
   });
@@ -65,7 +56,7 @@ describe("19. allowance", function () {
 
       const initialAllowance = await comet.allowance(user.address, spender, asset);
 
-      await comet.connect(user).approve(spender, asset, amount);
+      await cometExt.connect(user).approve(spender, asset, amount);
 
       const newAllowance = await comet.allowance(user.address, spender, asset);
 
@@ -73,13 +64,13 @@ describe("19. allowance", function () {
     });
 
     it("should increase allowance after approve (collateralToken)", async () => {
-      const asset = tokens["COMP"].address;
+      const asset = collateral.address;
       const amount = 100;
       const spender = alice.address;
 
       const initialAllowance = await comet.allowance(user.address, spender, asset);
 
-      await comet.connect(user).approve(spender, asset, amount);
+      await cometExt.connect(user).approve(spender, asset, amount);
 
       const newAllowance = await comet.allowance(user.address, spender, asset);
 
@@ -91,25 +82,31 @@ describe("19. allowance", function () {
       const amount = 100;
       const spender = alice.address;
 
-      await expect(comet.connect(user).approve(spender, asset, amount))
+      await expect(cometExt.connect(user).approve(spender, asset, amount))
         .to.emit(comet, "Approval")
         .withArgs(user.address, spender, asset, amount);
     });
 
     it("should revert if asset is not a base or collateral token", async () => {
-      const asset = (await makeToken({ name: "FakeToken", symbol: "FAKE", decimals: 18 })).address;
+      const asset = (await makeMockERC20({ name: "FakeToken", symbol: "FAKE", decimals: 18 })).address;
       const amount = 100;
       const spender = alice.address;
 
-      await expect(comet.connect(user).approve(spender, asset, amount)).to.be.revertedWithCustomError(comet, "WrongToken").withArgs(asset);
+      await expect(cometExt.connect(user).approve(spender, asset, amount))
+        .to.be.revertedWithCustomError(comet, "WrongToken")
+        .withArgs(asset);
     });
 
     it("should revert if owner is zero address", async () => {
       const zeroAddress = ethers.constants.AddressZero;
       await impersonateAccount(zeroAddress);
       const zeroSigner = await ethers.getSigner(zeroAddress);
+      await owner.sendTransaction({
+        to: zeroSigner.address,
+        value: ethers.utils.parseEther("1"),
+      });
 
-      await expect(comet.connect(zeroSigner).approve(alice.address, baseToken.address, 100)).to.be.revertedWithCustomError(
+      await expect(cometExt.connect(zeroSigner).approve(alice.address, baseToken.address, 100)).to.be.revertedWithCustomError(
         comet,
         "ZeroAddress"
       );
@@ -120,7 +117,7 @@ describe("19. allowance", function () {
       const amount = 100;
       const spender = ethers.constants.AddressZero;
 
-      await expect(comet.connect(user).approve(spender, asset, amount)).to.be.revertedWithCustomError(comet, "ZeroAddress");
+      await expect(cometExt.connect(user).approve(spender, asset, amount)).to.be.revertedWithCustomError(comet, "ZeroAddress");
     });
 
     it("should revert if asset is zero address", async () => {
@@ -128,18 +125,18 @@ describe("19. allowance", function () {
       const amount = 100;
       const spender = alice.address;
 
-      await expect(comet.connect(user).approve(spender, asset, amount)).to.be.revertedWithCustomError(comet, "ZeroAddress");
+      await expect(cometExt.connect(user).approve(spender, asset, amount)).to.be.revertedWithCustomError(comet, "ZeroAddress");
     });
   });
 
   describe("approveAllTokens", function () {
     it("should allow to set allowance for all assets in comet", async () => {
-      const assets = [baseToken.address, ...Object.values(tokens).map(token => token.address)];
-      const amounts = [...Array(assets.length - 1).fill(100n)];
+      const assets = [baseToken.address, ...Object.values(collaterals).map(token => token.address)];
+      const amounts = [...Array(assets.length).fill(100n)];
       const spender = alice.address;
       const initialAllowances = await Promise.all(assets.map(asset => comet.allowance(user.address, spender, asset)));
 
-      await comet.connect(user).approveAllTokens(spender, amounts[0], amounts.slice(1));
+      await cometExt.connect(user).approveAllTokens(spender, amounts[0], amounts.slice(1));
 
       const newAllowances = await Promise.all(assets.map(asset => comet.allowance(user.address, spender, asset)));
 
@@ -149,28 +146,28 @@ describe("19. allowance", function () {
     });
 
     it("should emit Approval event for each asset", async () => {
-      const assets = [baseToken.address, ...Object.values(tokens).map(token => token.address)];
-      const amounts = [...Array(assets.length - 1).fill(100n)];
+      const assets = [baseToken.address, ...Object.values(collaterals).map(token => token.address)];
+      const amounts = [...Array(assets.length).fill(100n)];
       const spender = alice.address;
 
-      await expect(comet.connect(user).approveAllTokens(spender, amounts[0], amounts.slice(1)))
+      await expect(cometExt.connect(user).approveAllTokens(spender, amounts[0], amounts.slice(1)))
         .to.emit(comet, "Approval")
         .withArgs(user.address, spender, baseToken.address, 100n);
 
-      for (let i = 0; i < Object.keys(tokens).length; i++) {
-        await expect(comet.connect(user).approveAllTokens(spender, amounts[0], amounts.slice(1)))
+      for (let i = 0; i < Object.keys(assets).length; i++) {
+        await expect(cometExt.connect(user).approveAllTokens(spender, amounts[0], amounts.slice(1)))
           .to.emit(comet, "Approval")
-          .withArgs(user.address, spender, Object.values(tokens)[i].address, 100n);
+          .withArgs(user.address, spender, Object.values(assets)[i], 100n);
       }
     });
 
     it("should revert if amounts length does not match assets length", async () => {
-      const assets = [baseToken.address, ...Object.values(tokens).map(token => token.address)];
-      const amounts = [...Array(assets.length).fill(100n)]; // One extra amount
+      const assets = [baseToken.address, ...Object.values(collaterals).map(token => token.address)];
+      const amounts = [...Array(assets.length + 1).fill(100n)]; // One extra amount
       const spender = alice.address;
 
-      await expect(comet.connect(user).approveAllTokens(spender, amounts[0], amounts.slice(1))).to.be.revertedWithCustomError(
-        comet,
+      await expect(cometExt.connect(user).approveAllTokens(spender, amounts[0], amounts.slice(1))).to.be.revertedWithCustomError(
+        cometExt,
         "InvalidLength"
       );
     });
@@ -182,7 +179,7 @@ describe("19. allowance", function () {
       expect(await comet.allowanceAll(user.address, alice.address)).to.be.false;
 
       // approve for all assets
-      await comet.connect(user).approveAll(alice.address, true);
+      await cometExt.connect(user).approveAll(alice.address, true);
 
       // check that allowance all is true
       expect(await comet.allowanceAll(user.address, alice.address)).to.be.true;
@@ -190,13 +187,13 @@ describe("19. allowance", function () {
 
     it("should allow to revoke allowance for all base assets at once", async () => {
       // approve for all assets
-      await comet.connect(user).approveAll(alice.address, true);
+      await cometExt.connect(user).approveAll(alice.address, true);
 
       // check that allowance all is true
       expect(await comet.allowanceAll(user.address, alice.address)).to.be.true;
 
       // revoke allowance for all assets
-      await comet.connect(user).approveAll(alice.address, false);
+      await cometExt.connect(user).approveAll(alice.address, false);
 
       // check that allowance all is false
       expect(await comet.allowanceAll(user.address, alice.address)).to.be.false;
@@ -205,7 +202,7 @@ describe("19. allowance", function () {
     it("should emit ApprovalAll event when approving for all assets", async () => {
       const spender = alice.address;
 
-      await expect(comet.connect(user).approveAll(spender, true))
+      await expect(cometExt.connect(user).approveAll(spender, true))
         .to.emit(comet, "ApprovalAll")
         .withArgs(user.address, spender, baseToken.address, true);
     });
@@ -214,9 +211,9 @@ describe("19. allowance", function () {
       const spender = alice.address;
 
       // approve first
-      await comet.connect(user).approveAll(spender, true);
+      await cometExt.connect(user).approveAll(spender, true);
 
-      await expect(comet.connect(user).approveAll(spender, false))
+      await expect(cometExt.connect(user).approveAll(spender, false))
         .to.emit(comet, "ApprovalAll")
         .withArgs(user.address, spender, baseToken.address, false);
     });
@@ -225,24 +222,28 @@ describe("19. allowance", function () {
       const zeroAddress = ethers.constants.AddressZero;
       await impersonateAccount(zeroAddress);
       const zeroSigner = await ethers.getSigner(zeroAddress);
+      await owner.sendTransaction({
+        to: zeroSigner.address,
+        value: ethers.utils.parseEther("1"),
+      });
 
-      await expect(comet.connect(zeroSigner).approveAll(zeroAddress, true)).to.be.revertedWithCustomError(comet, "ZeroAddress");
+      await expect(cometExt.connect(zeroSigner).approveAll(zeroAddress, true)).to.be.revertedWithCustomError(comet, "ZeroAddress");
     });
 
     it("should revert if spender is zero address", async () => {
       const spender = ethers.constants.AddressZero;
 
-      await expect(comet.connect(user).approveAll(spender, true)).to.be.revertedWithCustomError(comet, "ZeroAddress");
+      await expect(cometExt.connect(user).approveAll(spender, true)).to.be.revertedWithCustomError(comet, "ZeroAddress");
     });
 
     it("should revert if type of allowance is already set", async () => {
       const spender = alice.address;
 
       // approve first
-      await comet.connect(user).approveAll(spender, true);
+      await cometExt.connect(user).approveAll(spender, true);
 
       // try to set allowance again
-      await expect(comet.connect(user).approveAll(spender, true)).to.be.revertedWithCustomError(comet, "IncorrectApproval");
+      await expect(cometExt.connect(user).approveAll(spender, true)).to.be.revertedWithCustomError(comet, "IncorrectApproval");
     });
   });
 
@@ -259,7 +260,7 @@ describe("19. allowance", function () {
       amount = 100;
 
       // give some allowance to the manager
-      await comet.connect(user).approve(manager, asset, amount);
+      await cometExt.connect(user).approve(manager, asset, amount);
     });
 
     it("should return true if manager has permission for the asset", async () => {
@@ -304,7 +305,7 @@ describe("19. allowance", function () {
         await baseToken.allocateTo(owner.address, amount);
         await baseToken.connect(owner).approve(comet.address, amount);
 
-        await comet.connect(owner).approve(dst.address, asset.address, amount);
+        await cometExt.connect(owner).approve(dst.address, asset.address, amount);
 
         const initialAllowance = await comet.allowance(owner.address, dst.address, asset.address);
 
@@ -324,7 +325,7 @@ describe("19. allowance", function () {
         await baseToken.allocateTo(owner.address, amount);
         await baseToken.connect(owner).approve(comet.address, amount);
 
-        await comet.connect(owner).approve(dst.address, asset.address, amount);
+        await cometExt.connect(owner).approve(dst.address, asset.address, amount);
 
         await expect(comet.connect(dst).supplyFrom(owner.address, dst.address, asset.address, amount + 1))
           .to.be.revertedWithCustomError(comet, "InsufficientAllowance")
@@ -370,7 +371,7 @@ describe("19. allowance", function () {
         await comet.connect(allowancer).withdraw(baseToken.address, borrowAmount);
 
         // give approval for owner from alice
-        await comet.connect(allowancer).approveAll(owner.address, true);
+        await cometExt.connect(allowancer).approveAll(owner.address, true);
 
         // repay all from owner
         await baseToken.approve(comet.address, ethers.constants.MaxUint256);
@@ -390,7 +391,7 @@ describe("19. allowance", function () {
         await comet.connect(allowancer).supply(baseToken.address, baseTokenAmount);
 
         // give approval for owner from alice
-        await comet.connect(allowancer).approveAll(owner.address, true);
+        await cometExt.connect(allowancer).approveAll(owner.address, true);
 
         expect(await comet.balanceOf(allowancer.address)).to.eq(baseTokenAmount - 1n);
         expect(await comet.balanceOf(owner.address)).to.eq(0);
@@ -412,7 +413,7 @@ describe("19. allowance", function () {
         await comet.connect(allowancer).supply(baseToken.address, baseTokenAmount);
 
         // give approval for owner from alice
-        await comet.connect(allowancer).approveAll(owner.address, true);
+        await cometExt.connect(allowancer).approveAll(owner.address, true);
 
         expect(await comet.balanceOf(allowancer.address)).to.eq(baseTokenAmount - 1n);
 

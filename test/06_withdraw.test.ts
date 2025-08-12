@@ -1,55 +1,18 @@
-import { CometExtension, EvilToken, EvilToken__factory, FaucetToken } from "../build/types";
-import {
-  baseBalanceOf,
-  ethers,
-  expect,
-  exp,
-  makeProtocol,
-  portfolio,
-  ReentryAttack,
-  wait,
-  fastForward,
-  hre,
-  setTotalsBasic,
-} from "./helper/helpers";
+//import { CometExtension, EvilToken, EvilToken__factory, FaucetToken } from "../build/types";
+//import { baseBalanceOf, ethers, expect, exp, portfolio, ReentryAttack, wait, hre } from "./helper/helpers";
+//import { ethers, expect } from "./helper/helpers";
 
 // TODO: fix, test is next in line
 describe.skip("6. withdrawTo", function () {
+  // TODO: extend into testcase assuming no illiquidity from over-utilization
+  it("user can withdraw non-less than supplied", async () => {
+    // wip
+  });
+
   it("withdraws base from sender if the asset is base", async () => {
-    const protocol = await makeProtocol({
-      base: "USDC",
-      assets: {
-        USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
-        COMP: {
-          initial: 1e7,
-          decimals: 18,
-          initialPrice: 1,
-          liquidationFactor: exp(0.8, 18),
-        },
-        WETH: {
-          initial: 1e7,
-          decimals: 18,
-          initialPrice: 1,
-          liquidationFactor: exp(0.8, 18),
-        },
-        WBTC: {
-          initial: 1e7,
-          decimals: 18,
-          initialPrice: 1,
-          liquidationFactor: exp(0.8, 18),
-        },
-      },
-    });
-    const {
-      comet,
-      tokens,
-      users: [alice, bob],
-    } = protocol;
-    const { USDC } = tokens;
-    await setTotalsBasic(comet, {
-      totalSupplyBase: 100e6,
-    });
-    const _i0 = await USDC.allocateTo(comet.address, 100e6);
+    // get some supply
+    // get some interest
+    /*    const _i0 = await USDC.allocateTo(comet.address, 100e6);
     const _i1 = await comet.setBasePrincipal(bob.address, 100e6);
     const cometAsB = comet.connect(bob);
 
@@ -73,47 +36,15 @@ describe.skip("6. withdrawTo", function () {
     expect(bob1.internal).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n });
     expect(bob1.external).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n });
     expect(Number(s0.receipt.gasUsed)).to.be.lessThan(180000);
+    */
   });
 
   it("does not emit Transfer for 0 burn", async () => {
-    const protocol = await makeProtocol({
-      base: "USDC",
-      assets: {
-        USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
-        COMP: {
-          initial: 1e7,
-          decimals: 18,
-          initialPrice: 1,
-          liquidationFactor: exp(0.8, 18),
-        },
-        WETH: {
-          initial: 1e7,
-          decimals: 18,
-          initialPrice: 1,
-          liquidationFactor: exp(0.8, 18),
-        },
-        WBTC: {
-          initial: 1e7,
-          decimals: 18,
-          initialPrice: 1,
-          liquidationFactor: exp(0.8, 18),
-        },
-      },
-    });
-    const {
-      comet,
-      tokens,
-      users: [alice, bob],
-    } = protocol;
-    const { USDC, WETH } = tokens;
-    await setTotalsBasic(comet, {
-      baseSupplyIndex: 1_000_000_000_000_000n,
-      baseBorrowIndex: 1_000_000_000_000_000n,
-      totalSupplyBase: 110e6,
-      totalBorrowBase: 0n,
-    });
-    await USDC.allocateTo(comet.address, 110e6);
-    await comet.setCollateralBalance(bob.address, WETH.address, exp(2, 18));
+    // get some supply
+    // get some interest
+    //await USDC.allocateTo(comet.address, 110e6);
+    // supply some collateral
+    /*
     const cometAsB = comet.connect(bob);
 
     const s0 = await wait(cometAsB.withdrawTo(alice.address, USDC.address, exp(1, 6)));
@@ -123,41 +54,11 @@ describe.skip("6. withdrawTo", function () {
     expectWithdraw(events, bob.address, alice.address, exp(1, 6));
     // Ensure no burn Transfer for 0 amount
     expectNoBurn(events, bob.address);
+    */
   });
 
   it("withdraws max base balance (including accrued) from sender if the asset is base", async () => {
-    const protocol = await makeProtocol({
-      base: "USDC",
-      assets: {
-        USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
-        COMP: {
-          initial: 1e7,
-          decimals: 18,
-          initialPrice: 1,
-          liquidationFactor: exp(0.8, 18),
-        },
-        WETH: {
-          initial: 1e7,
-          decimals: 18,
-          initialPrice: 1,
-          liquidationFactor: exp(0.8, 18),
-        },
-        WBTC: {
-          initial: 1e7,
-          decimals: 18,
-          initialPrice: 1,
-          liquidationFactor: exp(0.8, 18),
-        },
-      },
-    });
-    const {
-      comet,
-      tokens,
-      users: [alice, bob],
-    } = protocol;
-    const { USDC } = tokens;
-
-    await USDC.allocateTo(comet.address, 110e6);
+    /*    await USDC.allocateTo(comet.address, 110e6);
     await setTotalsBasic(comet, { totalSupplyBase: 110e6 });
     await comet.setBasePrincipal(alice.address, 100e6);
     const cometAsB = comet.connect(bob);
@@ -190,27 +91,11 @@ describe.skip("6. withdrawTo", function () {
     expect(b1.internal).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n });
     expect(b1.external).to.be.deep.equal({ USDC: 100000273n, COMP: 0n, WETH: 0n, WBTC: 0n });
     expect(Number(s0.receipt.gasUsed)).to.be.lessThan(180000);
+    */
   });
 
   it("withdraw max base should revert if user has a borrow position", async () => {
-    const protocol = await makeProtocol({
-      base: "USDC",
-      assets: {
-        USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
-        COMP: { initial: 1e7, decimals: 18, initialPrice: 1, liquidationFactor: exp(0.8, 18) },
-        WETH: { initial: 1e7, decimals: 18, initialPrice: 1, liquidationFactor: exp(0.8, 18) },
-        WBTC: { initial: 1e7, decimals: 18, initialPrice: 1, liquidationFactor: exp(0.8, 18) },
-      },
-    });
-
-    const {
-      comet,
-      tokens,
-      users: [alice, bob],
-    } = protocol;
-    const { WETH } = tokens;
-
-    await setTotalsBasic(comet, {
+    /*    await setTotalsBasic(comet, {
       baseSupplyIndex: 1_000_000_000_000_000n,
       baseBorrowIndex: 1_000_000_000_000_000n,
       totalSupplyBase: 1_000_000n,
@@ -227,11 +112,13 @@ describe.skip("6. withdrawTo", function () {
     await portfolio(protocol, bob.address);
 
     await expect(cometAsB.withdrawAllFrom(alice.address, bob.address)).to.be.revertedWithCustomError(comet, "ZeroAmount");
+    */
   });
 
   // TODO: recreate scenario with new conditions
   // This demonstrates a weird quirk of the present value/principal value rounding down math.
   it.skip("withdraws 0 but Comet Transfer event amount is 1", async () => {
+    /*
     const protocol = await makeProtocol({
       base: "USDC",
       assets: {
@@ -276,40 +163,11 @@ describe.skip("6. withdrawTo", function () {
     // Weird quirk of round down behavior where `withdrawAmount` is 1 even though
     // `amount` is 0. So no base leaves Comet (which is expected)
     expectBurn(events, alice.address, 1n);
+    */
   });
 
   it("withdraws collateral from sender if the asset is collateral", async () => {
-    const protocol = await makeProtocol({
-      base: "USDC",
-      assets: {
-        USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
-        COMP: {
-          initial: 1e7,
-          decimals: 18,
-          initialPrice: 1,
-          liquidationFactor: exp(0.8, 18),
-        },
-        WETH: {
-          initial: 1e7,
-          decimals: 18,
-          initialPrice: 1,
-          liquidationFactor: exp(0.8, 18),
-        },
-        WBTC: {
-          initial: 1e7,
-          decimals: 18,
-          initialPrice: 1,
-          liquidationFactor: exp(0.8, 18),
-        },
-      },
-    });
-    const {
-      comet,
-      tokens,
-      users: [alice, bob],
-    } = protocol;
-    const { COMP } = tokens;
-
+    /*
     const _i0 = await COMP.allocateTo(comet.address, 8e8);
     const t0 = Object.assign({}, await comet.totalsCollateral(COMP.address), {
       totalSupplyAsset: 8e8,
@@ -346,40 +204,11 @@ describe.skip("6. withdrawTo", function () {
     expect(q1.external).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n });
     expect(t1).to.be.equal(0n);
     expect(Number(s0.receipt.gasUsed)).to.be.lessThan(100000);
+    */
   });
 
   it("calculates base principal correctly", async () => {
-    const protocol = await makeProtocol({
-      base: "USDC",
-      assets: {
-        USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
-        COMP: {
-          initial: 1e7,
-          decimals: 18,
-          initialPrice: 1,
-          liquidationFactor: exp(0.8, 18),
-        },
-        WETH: {
-          initial: 1e7,
-          decimals: 18,
-          initialPrice: 1,
-          liquidationFactor: exp(0.8, 18),
-        },
-        WBTC: {
-          initial: 1e7,
-          decimals: 18,
-          initialPrice: 1,
-          liquidationFactor: exp(0.8, 18),
-        },
-      },
-    });
-    const {
-      comet,
-      tokens,
-      users: [alice, bob],
-    } = protocol;
-    const { USDC } = tokens;
-
+    /*
     await USDC.allocateTo(comet.address, 100e6);
     await setTotalsBasic(comet, { baseSupplyIndex: 2e15, totalSupplyBase: 100e6 });
     await comet.setBasePrincipal(bob.address, 100e6);
@@ -405,156 +234,40 @@ describe.skip("6. withdrawTo", function () {
     expect(alice1.external).to.be.deep.equal({ USDC: exp(100, 6), COMP: 0n, WETH: 0n, WBTC: 0n });
     expect(bob1.internal).to.be.deep.equal({ USDC: 99_999_998n, COMP: 0n, WETH: 0n, WBTC: 0n });
     expect(bob1.external).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n });
+    */
   });
 
   it("reverts if withdrawing base exceeds the total supply", async () => {
-    const protocol = await makeProtocol({
-      base: "USDC",
-      assets: {
-        USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
-        COMP: {
-          initial: 1e7,
-          decimals: 18,
-          initialPrice: 1,
-          liquidationFactor: exp(0.8, 18),
-        },
-        WETH: {
-          initial: 1e7,
-          decimals: 18,
-          initialPrice: 1,
-          liquidationFactor: exp(0.8, 18),
-        },
-        WBTC: {
-          initial: 1e7,
-          decimals: 18,
-          initialPrice: 1,
-          liquidationFactor: exp(0.8, 18),
-        },
-      },
-    });
-    const {
-      comet,
-      tokens,
-      users: [alice, bob],
-    } = protocol;
-    const { USDC } = tokens;
-
+    /*
     const _i0 = await USDC.allocateTo(comet.address, exp(100e6, 18));
     const _i1 = await comet.setBasePrincipal(bob.address, exp(100e6, 18));
     const cometAsB = comet.connect(bob);
 
     await expect(cometAsB.withdrawTo(alice.address, USDC.address, exp(100e6, 18))).to.be.reverted;
+    */
   });
 
   it("reverts if withdrawing collateral exceeds the total supply", async () => {
-    const protocol = await makeProtocol({
-      base: "USDC",
-      assets: {
-        USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
-        COMP: {
-          initial: 1e7,
-          decimals: 18,
-          initialPrice: 1,
-          liquidationFactor: exp(0.8, 18),
-        },
-        WETH: {
-          initial: 1e7,
-          decimals: 18,
-          initialPrice: 1,
-          liquidationFactor: exp(0.8, 18),
-        },
-        WBTC: {
-          initial: 1e7,
-          decimals: 18,
-          initialPrice: 1,
-          liquidationFactor: exp(0.8, 18),
-        },
-      },
-    });
-    const {
-      comet,
-      tokens,
-      users: [alice, bob],
-    } = protocol;
-    const { COMP } = tokens;
-
+    /*
     const _i0 = await COMP.allocateTo(comet.address, 8e8);
     const _i1 = await comet.setCollateralBalance(bob.address, COMP.address, 8e8);
     const cometAsB = comet.connect(bob);
 
     await expect(cometAsB.withdrawTo(alice.address, COMP.address, 8e8)).to.be.reverted;
+    */
   });
 
   it("reverts if the asset is neither collateral nor base", async () => {
-    const protocol = await makeProtocol({
-      base: "USDC",
-      assets: {
-        USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
-        COMP: {
-          initial: 1e7,
-          decimals: 18,
-          initialPrice: 1,
-          liquidationFactor: exp(0.8, 18),
-        },
-        WETH: {
-          initial: 1e7,
-          decimals: 18,
-          initialPrice: 1,
-          liquidationFactor: exp(0.8, 18),
-        },
-        WBTC: {
-          initial: 1e7,
-          decimals: 18,
-          initialPrice: 1,
-          liquidationFactor: exp(0.8, 18),
-        },
-      },
-    });
-    const {
-      comet,
-      users: [alice, bob],
-      unsupportedToken: USUP,
-    } = protocol;
-
+    /*
     const _i0 = await USUP.allocateTo(comet.address, 1);
     const cometAsB = comet.connect(bob);
 
     await expect(cometAsB.withdrawTo(alice.address, USUP.address, 1)).to.be.reverted;
+    */
   });
 
   it("reverts if withdraw is paused", async () => {
-    const protocol = await makeProtocol({
-      base: "USDC",
-      assets: {
-        USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
-        COMP: {
-          initial: 1e7,
-          decimals: 18,
-          initialPrice: 1,
-          liquidationFactor: exp(0.8, 18),
-        },
-        WETH: {
-          initial: 1e7,
-          decimals: 18,
-          initialPrice: 1,
-          liquidationFactor: exp(0.8, 18),
-        },
-        WBTC: {
-          initial: 1e7,
-          decimals: 18,
-          initialPrice: 1,
-          liquidationFactor: exp(0.8, 18),
-        },
-      },
-    });
-    const {
-      comet,
-      tokens,
-      configController,
-      users: [alice, bob],
-    } = protocol;
-    const { USDC } = tokens;
-
+    /*
     await USDC.allocateTo(comet.address, 1);
     const cometAsB = comet.connect(bob);
 
@@ -566,21 +279,11 @@ describe.skip("6. withdrawTo", function () {
     expect(await comet.isWithdrawPaused()).to.be.true;
 
     await expect(cometAsB.withdrawTo(alice.address, USDC.address, 1)).to.be.revertedWith("custom error 'Paused()'");
+    */
   });
 
   it("borrows to withdraw if necessary/possible", async () => {
-    const {
-      comet,
-      tokens,
-      users: [alice, bob],
-    } = await makeProtocol({
-      base: "USDC",
-      assets: {
-        USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
-        WETH: { initial: 1e7, decimals: 18, initialPrice: 1, liquidationFactor: exp(0.8, 18) },
-      },
-    });
-
+    /*
     const { USDC, WETH } = tokens;
     await USDC.allocateTo(comet.address, 1e6);
     await comet.setCollateralBalance(alice.address, WETH.address, exp(2_000_000, 18));
@@ -588,42 +291,22 @@ describe.skip("6. withdrawTo", function () {
 
     expect(await baseBalanceOf(comet, alice.address)).to.eq(BigInt(-1e6));
     expect(await USDC.balanceOf(bob.address)).to.eq(1e6);
+    */
+  });
+
+  describe("edge-cases", function () {
+    it.skip("same block withdrawal may end up in 1 wei less because of the rounding error", async () => {
+      //await comet.setBasePrincipal(alice.address, 99999992291226);
+      // recreate conditions
+      // supply from alice
+      // catch the Supply event with 0 amount
+    });
   });
 });
 
 describe.skip("withdraw", function () {
   it("withdraws to sender by default", async () => {
-    const protocol = await makeProtocol({
-      base: "USDC",
-      assets: {
-        USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
-        COMP: {
-          initial: 1e7,
-          decimals: 18,
-          initialPrice: 1,
-          liquidationFactor: exp(0.8, 18),
-        },
-        WETH: {
-          initial: 1e7,
-          decimals: 18,
-          initialPrice: 1,
-          liquidationFactor: exp(0.8, 18),
-        },
-        WBTC: {
-          initial: 1e7,
-          decimals: 18,
-          initialPrice: 1,
-          liquidationFactor: exp(0.8, 18),
-        },
-      },
-    });
-    const {
-      comet,
-      tokens,
-      users: [bob],
-    } = protocol;
-    const { USDC } = tokens;
-
+    /*
     const _i0 = await USDC.allocateTo(comet.address, 100e6);
     await setTotalsBasic(comet, {
       baseSupplyIndex: 1_000_000_000_000_000n,
@@ -644,41 +327,11 @@ describe.skip("withdraw", function () {
     expect(q0.external).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n });
     expect(q1.internal).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n });
     expect(q1.external).to.be.deep.equal({ USDC: exp(100, 6), COMP: 0n, WETH: 0n, WBTC: 0n });
+    */
   });
 
   it("reverts if withdraw is paused", async () => {
-    const protocol = await makeProtocol({
-      base: "USDC",
-      assets: {
-        USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
-        COMP: {
-          initial: 1e7,
-          decimals: 18,
-          initialPrice: 1,
-          liquidationFactor: exp(0.8, 18),
-        },
-        WETH: {
-          initial: 1e7,
-          decimals: 18,
-          initialPrice: 1,
-          liquidationFactor: exp(0.8, 18),
-        },
-        WBTC: {
-          initial: 1e7,
-          decimals: 18,
-          initialPrice: 1,
-          liquidationFactor: exp(0.8, 18),
-        },
-      },
-    });
-    const {
-      comet,
-      tokens,
-      configController,
-      users: [bob],
-    } = protocol;
-    const { USDC } = tokens;
-
+    /*
     await USDC.allocateTo(comet.address, 100e6);
     const cometAsB = comet.connect(bob);
 
@@ -690,107 +343,23 @@ describe.skip("withdraw", function () {
     expect(await comet.isWithdrawPaused()).to.be.true;
 
     await expect(cometAsB.withdraw(USDC.address, 100e6)).to.be.revertedWith("custom error 'Paused()'");
+    */
   });
 
   it("reverts if withdraw amount is less than baseBorrowMin", async () => {
-    const {
-      comet,
-      tokens,
-      users: [alice],
-    } = await makeProtocol({
-      base: "USDC",
-      assets: {
-        USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
-        COMP: {
-          initial: 1e7,
-          decimals: 18,
-          initialPrice: 1,
-          liquidationFactor: exp(0.8, 18),
-        },
-        WETH: {
-          initial: 1e7,
-          decimals: 18,
-          initialPrice: 1,
-          liquidationFactor: exp(0.8, 18),
-        },
-        WBTC: {
-          initial: 1e7,
-          decimals: 18,
-          initialPrice: 1,
-          liquidationFactor: exp(0.8, 18),
-        },
-      },
-    });
-    const { USDC } = tokens;
-
+    /*
     await expect(comet.connect(alice).withdraw(USDC.address, exp(0.5, 6))).to.be.revertedWith("custom error 'BorrowTooSmall()'");
+    */
   });
 
   it("reverts if base withdraw amount is not collateralzed", async () => {
-    const {
-      comet,
-      tokens,
-      users: [alice],
-    } = await makeProtocol({
-      base: "USDC",
-      assets: {
-        USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
-        COMP: {
-          initial: 1e7,
-          decimals: 18,
-          initialPrice: 1,
-          liquidationFactor: exp(0.8, 18),
-        },
-        WETH: {
-          initial: 1e7,
-          decimals: 18,
-          initialPrice: 1,
-          liquidationFactor: exp(0.8, 18),
-        },
-        WBTC: {
-          initial: 1e7,
-          decimals: 18,
-          initialPrice: 1,
-          liquidationFactor: exp(0.8, 18),
-        },
-      },
-    });
-    const { USDC } = tokens;
-
+    /*
     await expect(comet.connect(alice).withdraw(USDC.address, exp(1, 6))).to.be.revertedWith("custom error 'NotCollateralized()'");
+    */
   });
 
   it("reverts if collateral withdraw amount is not collateralized", async () => {
-    const {
-      comet,
-      tokens,
-      users: [alice],
-    } = await makeProtocol({
-      base: "USDC",
-      assets: {
-        USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
-        COMP: {
-          initial: 1e7,
-          decimals: 18,
-          initialPrice: 1,
-          liquidationFactor: exp(0.8, 18),
-        },
-        WETH: {
-          initial: 1e7,
-          decimals: 18,
-          initialPrice: 1,
-          liquidationFactor: exp(0.8, 18),
-        },
-        WBTC: {
-          initial: 1e7,
-          decimals: 18,
-          initialPrice: 1,
-          liquidationFactor: exp(0.8, 18),
-        },
-      },
-    });
-    const { WETH } = tokens;
-
+    /*
     await comet.setTotalsCollateral(WETH.address, exp(1, 18));
 
     // user has a borrow, but with collateral to cover
@@ -799,10 +368,12 @@ describe.skip("withdraw", function () {
 
     // reverts if withdraw would leave borrow uncollateralized
     await expect(comet.connect(alice).withdraw(WETH.address, exp(1, 18))).to.be.revertedWith("custom error 'NotCollateralized()'");
+    */
   });
 
   describe("reentrancy", function () {
     it("blocks malicious reentrant transferFrom", async () => {
+      /*
       const {
         comet,
         tokens,
@@ -821,7 +392,7 @@ describe.skip("withdraw", function () {
       });
       const { USDC, EVIL } = <{ USDC: FaucetToken; EVIL: EvilToken }>tokens;
 
-      const attack = Object.assign({}, await EVIL.getAttack(), {
+      const attack = ect.assign({}, await EVIL.getAttack(), {
         attackType: ReentryAttack.TransferFrom,
         destination: bob.address,
         asset: USDC.address,
@@ -845,9 +416,11 @@ describe.skip("withdraw", function () {
       expect(await USDC.balanceOf(alice.address)).to.eq(0);
       expect(await baseBalanceOf(comet, bob.address)).to.eq(0n);
       expect(await USDC.balanceOf(bob.address)).to.eq(0);
+      */
     });
 
     it("blocks malicious reentrant withdrawFrom", async () => {
+      /*
       const {
         comet,
         tokens,
@@ -890,43 +463,14 @@ describe.skip("withdraw", function () {
       expect(await USDC.balanceOf(alice.address)).to.eq(0);
       expect(await baseBalanceOf(comet, bob.address)).to.eq(0n);
       expect(await USDC.balanceOf(bob.address)).to.eq(0);
+      */
     });
   });
 });
 
 describe.skip("withdrawFrom", function () {
   it("withdraws from src if specified and sender has permission", async () => {
-    const protocol = await makeProtocol({
-      base: "USDC",
-      assets: {
-        USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
-        COMP: {
-          initial: 1e7,
-          decimals: 18,
-          initialPrice: 1,
-          liquidationFactor: exp(0.8, 18),
-        },
-        WETH: {
-          initial: 1e7,
-          decimals: 18,
-          initialPrice: 1,
-          liquidationFactor: exp(0.8, 18),
-        },
-        WBTC: {
-          initial: 1e7,
-          decimals: 18,
-          initialPrice: 1,
-          liquidationFactor: exp(0.8, 18),
-        },
-      },
-    });
-    const {
-      comet,
-      tokens,
-      users: [alice, bob, charlie],
-    } = protocol;
-    const { COMP } = tokens;
-
+    /*
     await COMP.allocateTo(comet.address, 7);
     const t0 = Object.assign({}, await comet.totalsCollateral(COMP.address), {
       totalSupplyAsset: 7,
@@ -953,78 +497,19 @@ describe.skip("withdrawFrom", function () {
     expect(p1.external).to.be.deep.equal({ USDC: 0n, COMP: 7n, WETH: 0n, WBTC: 0n });
     expect(q1.internal).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n });
     expect(q1.external).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n });
+    */
   });
 
   it("reverts if src is specified and sender does not have permission", async () => {
-    const protocol = await makeProtocol({
-      base: "USDC",
-      assets: {
-        USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
-        COMP: {
-          initial: 1e7,
-          decimals: 18,
-          initialPrice: 1,
-          liquidationFactor: exp(0.8, 18),
-        },
-        WETH: {
-          initial: 1e7,
-          decimals: 18,
-          initialPrice: 1,
-          liquidationFactor: exp(0.8, 18),
-        },
-        WBTC: {
-          initial: 1e7,
-          decimals: 18,
-          initialPrice: 1,
-          liquidationFactor: exp(0.8, 18),
-        },
-      },
-    });
-    const {
-      comet,
-      tokens,
-      users: [alice, bob, charlie],
-    } = protocol;
-    const { COMP } = tokens;
-
+    /*
     await expect(comet.connect(charlie).withdrawFrom(bob.address, alice.address, COMP.address, 7))
       .to.be.revertedWithCustomError(comet, "InsufficientAllowance")
       .withArgs(COMP.address, bob.address, charlie.address);
+      */
   });
 
   it("reverts if withdraw is paused", async () => {
-    const protocol = await makeProtocol({
-      base: "USDC",
-      assets: {
-        USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
-        COMP: {
-          initial: 1e7,
-          decimals: 18,
-          initialPrice: 1,
-          liquidationFactor: exp(0.8, 18),
-        },
-        WETH: {
-          initial: 1e7,
-          decimals: 18,
-          initialPrice: 1,
-          liquidationFactor: exp(0.8, 18),
-        },
-        WBTC: {
-          initial: 1e7,
-          decimals: 18,
-          initialPrice: 1,
-          liquidationFactor: exp(0.8, 18),
-        },
-      },
-    });
-    const {
-      comet,
-      tokens,
-      configController,
-      users: [alice, bob, charlie],
-    } = protocol;
-    const { COMP } = tokens;
-
+    /*
     await COMP.allocateTo(comet.address, 7);
     const cometAsC = comet.connect(charlie);
 
@@ -1036,9 +521,11 @@ describe.skip("withdrawFrom", function () {
     expect(await comet.isWithdrawPaused()).to.be.true;
 
     await expect(cometAsC.withdrawFrom(bob.address, alice.address, COMP.address, 7)).to.be.revertedWith("custom error 'Paused()'");
+    */
   });
 });
 
+/*
 // Helper utilities for flexible event matching (avoids depending on exact log ordering)
 function getEvents(tx: any) {
   return (tx.receipt?.events || []).map((ev: any) => ({ name: ev.event, args: ev.args }));
@@ -1076,3 +563,4 @@ function expectWithdraw(events: any[], src: string, to: string, amount: bigint) 
 
   expect(ev, "expected Withdraw[Collateral] event not found").to.not.be.undefined;
 }
+  */

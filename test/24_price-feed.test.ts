@@ -1,6 +1,7 @@
-import { expect, makeProtocol } from "./helper/helpers";
+//import { expect } from "./helper/helpers";
 
 describe.skip("getPrice", function () {
+  /*
   it("returns price data for assets, with 8 decimals", async () => {
     const { comet, priceFeeds } = await makeProtocol({
       assets: {
@@ -41,4 +42,5 @@ describe.skip("getPrice", function () {
 
     await expect(comet.getPrice(priceFeeds.COMP.address)).to.be.revertedWith("custom error 'BadPrice()'");
   });
+  */
 });

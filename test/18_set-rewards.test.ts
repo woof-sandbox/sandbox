@@ -1,16 +1,39 @@
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
-import { CometHarness, ConfigController } from "../build/types";
-import { ethers, expect, makeProtocol, SnapshotRestorer, takeSnapshot } from "./helper/helpers";
+import { ConfigController, SandboxComet } from "../build/types";
+import { ethers, expect, makeConfigController, createComet, SnapshotRestorer, takeSnapshot } from "./helper/helpers";
 
 describe("18. Set rewards on Comet", () => {
   let snapshot: SnapshotRestorer;
 
   let configController: ConfigController;
-  let users: SignerWithAddress[];
-  let comet: CometHarness;
+
+  let rewardsContract: SignerWithAddress;
+  let newRewards: SignerWithAddress;
+
+  let owner: SignerWithAddress;
+  let dao: SignerWithAddress;
+  let curator: SignerWithAddress;
+  let treasury: SignerWithAddress;
+  let guardian: SignerWithAddress;
+  let other: SignerWithAddress;
+
+  let comet: SandboxComet;
 
   before(async () => {
-    ({ configController, users, comet } = await makeProtocol());
+    [owner, dao, treasury, curator, guardian, rewardsContract, newRewards, other] = await ethers.getSigners();
+
+    const opts = await makeConfigController(
+      {
+        owner: owner,
+        dao: dao,
+        treasury: treasury.address,
+        curator: curator,
+        guardian: guardian,
+      },
+      true
+    );
+    configController = opts.configController;
+    comet = await createComet(owner, opts.opts.assets, configController, opts.sandboxController, opts.collaterals, opts.baseToken);
 
     snapshot = await takeSnapshot();
   });
@@ -19,9 +42,7 @@ describe("18. Set rewards on Comet", () => {
 
   describe("setRewards Config Controller", function () {
     it("should allow to set rewards contract", async function () {
-      const rewardsContract = users[4].address;
-
-      await configController.setRewards(comet.address, rewardsContract);
+      await configController.setRewards(comet.address, rewardsContract.address);
 
       expect(await comet.rewardAddress()).to.equal(rewardsContract);
     });
@@ -33,35 +54,27 @@ describe("18. Set rewards on Comet", () => {
     });
 
     it("should emit 'RewardsSet' event", async function () {
-      const rewardsContract = users[4].address;
-
-      await expect(configController.setRewards(comet.address, rewardsContract))
+      await expect(configController.setRewards(comet.address, rewardsContract.address))
         .to.emit(configController, "RewardsSet")
         .withArgs(comet.address, rewardsContract);
     });
 
     it("should revert if called by non-owner", async function () {
-      const rewardsContract = users[4].address;
-
-      await expect(configController.connect(users[4]).setRewards(comet.address, rewardsContract)).to.be.revertedWithCustomError(
+      await expect(configController.connect(other).setRewards(comet.address, rewardsContract.address)).to.be.revertedWithCustomError(
         configController,
         "Unauthorized"
       );
     });
 
     it("should revert if comet is zero address", async function () {
-      const rewardsContract = users[4].address;
-
-      await expect(configController.setRewards(ethers.constants.AddressZero, rewardsContract)).to.be.revertedWithCustomError(
+      await expect(configController.setRewards(ethers.constants.AddressZero, rewardsContract.address)).to.be.revertedWithCustomError(
         configController,
         "ZeroAddress"
       );
     });
 
     it("should revert if comet is unknown", async function () {
-      const rewardsContract = users[4].address;
-
-      await expect(configController.setRewards(users[5].address, rewardsContract)).to.be.revertedWithCustomError(
+      await expect(configController.setRewards(other.address, rewardsContract.address)).to.be.revertedWithCustomError(
         configController,
         "UnknownComet"
       );
@@ -70,19 +83,17 @@ describe("18. Set rewards on Comet", () => {
 
   describe("setRewards Comet", () => {
     it("allows to set rewards contract on Comet", async () => {
-      const rewards = users[8].address;
+      await configController.setRewards(comet.address, rewardsContract.address);
 
-      await configController.setRewards(comet.address, rewards);
-
-      expect(await comet.rewardAddress()).to.eq(rewards);
+      expect(await comet.rewardAddress()).to.eq(rewardsContract.address);
     });
 
     it("emits an event when rewards are set", async () => {
-      const rewards = users[8].address;
+      await expect(configController.setRewards(comet.address, newRewards.address))
+        .to.emit(comet, "RewardsSet")
+        .withArgs(newRewards.address);
 
-      await expect(configController.setRewards(comet.address, rewards)).to.emit(comet, "RewardsSet").withArgs(rewards);
-
-      expect(await comet.rewardAddress()).to.eq(rewards);
+      expect(await comet.rewardAddress()).to.eq(newRewards.address);
     });
 
     it("allows to set rewards as zero address", async () => {
@@ -92,11 +103,9 @@ describe("18. Set rewards on Comet", () => {
     });
 
     it("reverts if the caller is not config controller", async () => {
-      const rewards = users[8].address;
+      await expect(comet.connect(other).setRewards(newRewards.address)).to.be.revertedWithCustomError(comet, "Unauthorized");
 
-      await expect(comet.connect(users[0]).setRewards(rewards)).to.be.revertedWithCustomError(comet, "Unauthorized");
-
-      expect(await comet.rewardAddress()).to.not.eq(rewards);
+      expect(await comet.rewardAddress()).to.not.eq(newRewards.address);
     });
   });
 });

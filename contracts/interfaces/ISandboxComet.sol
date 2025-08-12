@@ -54,6 +54,8 @@ interface ISandboxComet {
 
     function totalBorrow() external view returns (uint256);
 
+    function totalSupply() external view returns (uint256);
+
     function balanceOf(address owner) external view returns (uint256);
 
     function borrowBalanceOf(address account) external view returns (uint256);

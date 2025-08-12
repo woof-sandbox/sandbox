@@ -93,16 +93,6 @@ contract CometExtension is ICometExtension {
     }
 
     /**
-     * @notice Query the current collateral balance of an account
-     * @param account The account whose balance to query
-     * @param asset The collateral asset to check the balance for
-     * @return The collateral balance of the account
-     */
-    function collateralBalanceOf(address account, address asset) external view override returns (uint256) {
-        return userCollateral[account][asset];
-    }
-
-    /**
      * @notice Approve or disallow `spender` to transfer on sender's behalf
      * @dev Note: this binary approval is unlike most other ERC20 tokens
      * @dev Note: this grants full approval for spender to manage *all* the owner's assets

@@ -1,60 +1,18 @@
 import { ContractReceipt, ContractTransaction, ethers } from "ethers";
-import { event, expect, exp, makeProtocol, mulPrice, portfolio, wait, bumpTotalsCollateral, setTotalsBasic, hre } from "./helper/helpers";
+import { event, expect, exp, mulPrice, portfolio, wait, hre } from "./helper/helpers";
 
 // todo: fix, next in line
-describe.skip("7. absorb", function () {
+describe.skip("9. absorb", function () {
   it("reverts if total borrows underflows", async () => {
-    const {
-      comet,
-      users: [absorber, underwater],
-    } = await makeProtocol({
-      base: "USDC",
-      assets: {
-        USDC: {
-          initial: 1e6,
-          decimals: 6,
-          initialPrice: 1,
-        },
-        COMP: {
-          initial: 1e7,
-          decimals: 18,
-          initialPrice: 1,
-        },
-      },
-    });
-
-    await comet.setBasePrincipal(underwater.address, -100);
-    await expect(comet.absorb(absorber.address, [underwater.address])).to.be.revertedWith(
-      "code 0x11 (Arithmetic operation underflowed or overflowed outside of an unchecked block)"
-    );
+    //   await comet.setBasePrincipal(underwater.address, -100);
+    //   await expect(comet.absorb(absorber.address, [underwater.address])).to.be.revertedWith(
+    //     "code 0x11 (Arithmetic operation underflowed or overflowed outside of an unchecked block)"
+    //   );
   });
 
   it("absorbs 1 account and pays out the absorber", async () => {
-    const protocol = await makeProtocol({
-      base: "USDC",
-      assets: {
-        USDC: {
-          initial: 1e6,
-          decimals: 6,
-          initialPrice: 1,
-        },
-        COMP: {
-          initial: 1e7,
-          decimals: 18,
-          initialPrice: 1,
-        },
-        WBTC: {
-          initial: 1e7,
-          decimals: 8,
-          initialPrice: 1,
-        },
-        WETH: {
-          initial: 1e7,
-          decimals: 18,
-          initialPrice: 1,
-        },
-      },
-    });
+    let protocol;
+
     const {
       comet,
       priceFeeds,
@@ -62,10 +20,10 @@ describe.skip("7. absorb", function () {
       seedReserves,
     } = protocol;
 
-    await setTotalsBasic(comet, {
-      totalSupplyBase: 0n,
-      totalBorrowBase: 100n,
-    });
+    //await setTotalsBasic(comet, {
+    //  totalSupplyBase: 0n,
+    //  totalBorrowBase: 100n,
+    //});
 
     await comet.setBasePrincipal(underwater.address, -100);
 
@@ -111,31 +69,7 @@ describe.skip("7. absorb", function () {
   });
 
   it("absorbs 2 accounts and pays out the absorber", async () => {
-    const protocol = await makeProtocol({
-      base: "USDC",
-      assets: {
-        USDC: {
-          initial: 1e6,
-          decimals: 6,
-          initialPrice: 1,
-        },
-        COMP: {
-          initial: 1e7,
-          decimals: 18,
-          initialPrice: 1,
-        },
-        WBTC: {
-          initial: 1e7,
-          decimals: 8,
-          initialPrice: 1,
-        },
-        WETH: {
-          initial: 1e7,
-          decimals: 18,
-          initialPrice: 1,
-        },
-      },
-    });
+    let protocol;
     const {
       comet,
       priceFeeds,
@@ -143,7 +77,7 @@ describe.skip("7. absorb", function () {
       seedReserves,
     } = protocol;
 
-    await setTotalsBasic(comet, { totalBorrowBase: 2000n, totalSupplyBase: 0n });
+    //await setTotalsBasic(comet, { totalBorrowBase: 2000n, totalSupplyBase: 0n });
 
     const r0 = await comet.getReserves();
 
@@ -201,8 +135,9 @@ describe.skip("7. absorb", function () {
   });
 
   it("absorbs 3 accounts with collateral and pays out the absorber", async () => {
-    const protocol = await makeProtocol({
-      base: "USDC",
+    let protocol;
+    /*
+    base: "USDC",
       assets: {
         USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
 
@@ -250,7 +185,7 @@ describe.skip("7. absorb", function () {
         },
       },
     });
-
+*/
     const {
       comet,
       tokens,
@@ -258,16 +193,16 @@ describe.skip("7. absorb", function () {
     } = protocol;
     const { COMP, WETH, WBTC } = tokens;
 
-    await setTotalsBasic(comet, {
-      totalBorrowBase: exp(3e15, 6),
-      totalSupplyBase: exp(4e15, 6),
-    });
-    await bumpTotalsCollateral(comet, COMP, exp(1e-6, 18) + exp(10, 18) + exp(10, 18));
-    await bumpTotalsCollateral(comet, WETH, exp(1, 18) + exp(50, 18));
-    await bumpTotalsCollateral(comet, WBTC, exp(50, 8));
+    //await setTotalsBasic(comet, {
+    //  totalBorrowBase: exp(3e15, 6),
+    //  totalSupplyBase: exp(4e15, 6),
+    //});
+    //await bumpTotalsCollateral(comet, COMP, exp(1e-6, 18) + exp(10, 18) + exp(10, 18));
+    //await bumpTotalsCollateral(comet, WETH, exp(1, 18) + exp(50, 18));
+    //await bumpTotalsCollateral(comet, WBTC, exp(50, 8));
 
-    await comet.setBasePrincipal(u1.address, -exp(1_000, 6));
-    await comet.setCollateralBalance(u1.address, COMP.address, exp(5, 8));
+    //await comet.setBasePrincipal(u1.address, -exp(1_000, 6));
+    //await comet.setCollateralBalance(u1.address, COMP.address, exp(5, 8));
 
     await comet.setBasePrincipal(u2.address, -exp(100_000, 6));
     await comet.setCollateralBalance(u2.address, COMP.address, exp(1, 10));
@@ -301,8 +236,8 @@ describe.skip("7. absorb", function () {
   });
 
   it("absorbs an account with more than enough collateral to still cover debt", async () => {
-    const BORROW_CF = exp(0.5, 18);
-    const LIQ_CF = exp(2 / 3, 18);
+    //const BORROW_CF = exp(0.5, 18);
+    //const LIQ_CF = exp(2 / 3, 18);
 
     const COMP_BAL = 100_000n;
     const WETH_BAL = 100_000n;
@@ -313,7 +248,8 @@ describe.skip("7. absorb", function () {
     const FINAL_DEBT = 0n;
     const START_DEBT = -TOTAL_LIQ;
 
-    const protocol = await makeProtocol({
+    let protocol;
+    /*
       base: "USDC",
       assets: {
         USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
@@ -361,7 +297,7 @@ describe.skip("7. absorb", function () {
         },
       },
     });
-
+*/
     const {
       comet,
       tokens,
@@ -369,10 +305,10 @@ describe.skip("7. absorb", function () {
     } = protocol;
     const { COMP, WETH, WBTC } = tokens;
 
-    await setTotalsBasic(comet, { totalBorrowBase: -START_DEBT });
-    await bumpTotalsCollateral(comet, COMP, COMP_BAL);
-    await bumpTotalsCollateral(comet, WETH, WETH_BAL);
-    await bumpTotalsCollateral(comet, WBTC, WBTC_BAL);
+    //await setTotalsBasic(comet, { totalBorrowBase: -START_DEBT });
+    //await bumpTotalsCollateral(comet, COMP, COMP_BAL);
+    //await bumpTotalsCollateral(comet, WETH, WETH_BAL);
+    //await bumpTotalsCollateral(comet, WBTC, WBTC_BAL);
 
     await comet.setBasePrincipal(borrower.address, START_DEBT);
     await comet.setCollateralBalance(borrower.address, COMP.address, COMP_BAL);
@@ -407,6 +343,7 @@ describe.skip("7. absorb", function () {
   });
 
   it("reverts if an account is not underwater", async () => {
+    /*
     const {
       comet,
       users: [alice, bob],
@@ -427,34 +364,11 @@ describe.skip("7. absorb", function () {
     });
 
     await expect(comet.absorb(alice.address, [bob.address])).to.be.revertedWith("custom error 'NotLiquidatable()'");
+    */
   });
 
   it("reverts if absorb is paused", async () => {
-    const protocol = await makeProtocol({
-      base: "USDC",
-      assets: {
-        USDC: {
-          initial: 1e6,
-          decimals: 6,
-          initialPrice: 1,
-        },
-        COMP: {
-          initial: 1e7,
-          decimals: 18,
-          initialPrice: 1,
-        },
-        WBTC: {
-          initial: 1e7,
-          decimals: 8,
-          initialPrice: 1,
-        },
-        WETH: {
-          initial: 1e7,
-          decimals: 18,
-          initialPrice: 1,
-        },
-      },
-    });
+    let protocol;
     const {
       comet,
       configController,
@@ -479,10 +393,11 @@ describe.skip("7. absorb", function () {
   });
 
   it("updates assetsIn for liquidated account", async () => {
-    const BORROW_CF = exp(0.5, 18);
-    const LIQ_CF = exp(2 / 3, 18);
+    //const BORROW_CF = exp(0.5, 18);
+    //const LIQ_CF = exp(2 / 3, 18);
 
-    const protocol = await makeProtocol({
+    let protocol;
+    /*
       base: "USDC",
       assets: {
         USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
@@ -517,7 +432,7 @@ describe.skip("7. absorb", function () {
         },
       },
     });
-
+*/
     const {
       comet,
       users: [absorber, underwater],
@@ -528,15 +443,15 @@ describe.skip("7. absorb", function () {
     const COMP_BAL = 200_000n;
     const WETH_BAL = 200_000n;
 
-    await bumpTotalsCollateral(comet, COMP, COMP_BAL);
-    await bumpTotalsCollateral(comet, WETH, WETH_BAL);
+    //await bumpTotalsCollateral(comet, COMP, COMP_BAL);
+    //await bumpTotalsCollateral(comet, WETH, WETH_BAL);
 
     await comet.setCollateralBalance(underwater.address, COMP.address, COMP_BAL);
     await comet.setCollateralBalance(underwater.address, WETH.address, WETH_BAL);
 
     const borrowAmount = exp(1_000_000, 6);
     await comet.setBasePrincipal(underwater.address, -borrowAmount);
-    await setTotalsBasic(comet, { totalBorrowBase: borrowAmount });
+    //await setTotalsBasic(comet, { totalBorrowBase: borrowAmount });
 
     expect(await comet.isLiquidatable(underwater.address)).to.equal(true);
 
@@ -566,7 +481,8 @@ describe.skip("7. absorb", function () {
     }, {});
 
     /* deploy protocol */
-    const protocol = await makeProtocol({
+    let protocol;
+    /*
       base: "USDC",
       assets: {
         USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
@@ -598,6 +514,7 @@ describe.skip("7. absorb", function () {
       },
     });
 
+    */
     /* handles */
     const {
       comet,
@@ -608,14 +525,14 @@ describe.skip("7. absorb", function () {
     /* put **1 wei** of every collateral token into protocol & borrower */
     const ONE_WEI = 1n;
 
-    await bumpTotalsCollateral(comet, COMP, ONE_WEI);
-    await bumpTotalsCollateral(comet, WETH, ONE_WEI);
+    //await bumpTotalsCollateral(comet, COMP, ONE_WEI);
+    //await bumpTotalsCollateral(comet, WETH, ONE_WEI);
     await comet.setCollateralBalance(borrower.address, COMP.address, ONE_WEI);
     await comet.setCollateralBalance(borrower.address, WETH.address, ONE_WEI);
 
     for (const sym of Object.keys(extraAssets)) {
       const tok = rest[sym];
-      await bumpTotalsCollateral(comet, tok, ONE_WEI);
+      //  await bumpTotalsCollateral(comet, tok, ONE_WEI);
       await comet.setCollateralBalance(borrower.address, tok.address, ONE_WEI);
     }
 
@@ -625,7 +542,7 @@ describe.skip("7. absorb", function () {
     /* make borrower vastly underwater with a 4 000 USDC loan */
     const borrow = exp(4_000, 6);
     await comet.setBasePrincipal(borrower.address, -borrow);
-    await setTotalsBasic(comet, { totalBorrowBase: borrow });
+    //await setTotalsBasic(comet, { totalBorrowBase: borrow });
 
     expect(await comet.isLiquidatable(borrower.address)).to.equal(true);
 

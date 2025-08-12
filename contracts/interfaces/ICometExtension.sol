@@ -73,8 +73,6 @@ abstract contract ICometExtension is CometCore {
         bytes32 s
     ) external virtual;
 
-    function collateralBalanceOf(address account, address asset) external view virtual returns (uint256);
-
     function baseAccrualScale() external view virtual returns (uint64);
 
     function baseIndexScale() external view virtual returns (uint64);

@@ -27,8 +27,6 @@ interface IConfigController {
     struct CometGlobalParamsConfig {
         uint64 targetPercent;
         uint64 storeFrontPriceFactor;
-        uint40 suggestedLockTimeOfSeedReserves;
-        uint256 suggestedAmountOfSeedReserves;
     }
 
     /// @notice Returns the current curator fee in basis points (1% = 100)
