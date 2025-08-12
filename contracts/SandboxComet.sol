@@ -106,8 +106,12 @@ contract SandboxComet is CometCore, ISandboxComet {
 
         /// It can be safely assumed, that reserve parameters are validated in Sandbox Controller
         targetPercent = config.targetPercent;
-        seedReserves = config.suggestedAmountOfSeedReserves;
-        unlockTimestamp = safe64(block.timestamp + config.suggestedLockTimeOfSeedReserves);
+        (uint256 amountOfSeedReserves, uint40 lockTimeOfSeedReserves) = ISandboxController(sandboxController)
+            .baseTokenSuggestedSeedReserves(comet.baseToken);
+
+        /// TODO: currently never used, behavior will be adjusted in close market PR
+        seedReserves = amountOfSeedReserves;
+        unlockTimestamp = safe64(block.timestamp + lockTimeOfSeedReserves);
 
         /// Interest rate curve
         ///
@@ -1244,10 +1248,9 @@ contract SandboxComet is CometCore, ISandboxComet {
 
         uint256 basePrice = getPrice(baseTokenPriceFeed);
         uint256 reservesUsd = (reserves * basePrice) / baseScale;
-        uint256 seedUsd = (seedReserves * basePrice) / baseScale;
         uint256 targetUsd = (targetReserves() * basePrice) / baseScale;
 
-        (uint64 reservePct, uint64 protocolPct) = ISandboxController(sandboxController).getCommissions(reservesUsd, seedUsd, targetUsd);
+        (uint64 reservePct, uint64 protocolPct) = ISandboxController(sandboxController).getCommissions(reservesUsd, targetUsd, baseToken);
 
         _reserveFee = mulFactor(profitAmount, uint256(reservePct));
         _daoFee = mulFactor(profitAmount, uint256(protocolPct));

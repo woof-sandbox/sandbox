@@ -61,6 +61,7 @@ function toBigInt(f: bigint | BigNumber): bigint {
 export const DEFAULT_UPDATE_TIME = 7 * 24 * 60 * 60;
 export const MIN_UPDATE_TIME = 300;
 export const ZERO_ADDRESS = ethers.constants.AddressZero;
+export const DEFAULT_LOCK_TIME = 7 * 24 * 60 * 60;
 
 /// ---------------------
 
@@ -131,6 +132,8 @@ export type ProtocolOpts = {
   curve?: BaseAssetCurveStruct;
   baseBorrowMin?: Numeric;
 
+  suggestedAmountOfSeedReserves?: number | bigint;
+  suggestedLockTimeOfSeedReserves?: number | bigint;
   config?: SandboxControllerConfigurationStruct;
   reserveCommissions?: [bigint, bigint, bigint];
   protocolCommissions?: [bigint, bigint, bigint];
@@ -258,8 +261,6 @@ export function defaultSandboxControllerOpts(partial?: Partial<SandboxController
       storeFrontPriceFactor: partial?.config?.storeFrontPriceFactor ?? ethers.utils.parseEther("0.6").toString(),
       minUpdateTime: partial?.config?.minUpdateTime ?? MIN_UPDATE_TIME,
       maxUpdateTime: partial?.config?.maxUpdateTime ?? DEFAULT_UPDATE_TIME,
-      suggestedAmountOfSeedReserves: partial?.config?.suggestedAmountOfSeedReserves ?? ethers.utils.parseEther("500").toString(),
-      suggestedLockTimeOfSeedReserves: partial?.config?.suggestedLockTimeOfSeedReserves ?? 86400,
     },
     reserveCommissions: partial?.reserveCommissions ?? [exp(0.01, 18), exp(0.02, 18), exp(0.03, 18)],
     protocolCommissions: partial?.protocolCommissions ?? [exp(0.01, 18), exp(0.02, 18), exp(0.03, 18)],
@@ -293,13 +294,17 @@ export async function sandboxListBaseAsset(
   baseAsset: FaucetToken | NonStandardFaucetFeeToken,
   priceFeed: string,
   baseBorrowMin?: BigNumberish,
-  curve?: BaseAssetCurveStruct
+  curve?: BaseAssetCurveStruct,
+  suggestedReserves?: BigNumberish,
+  lockTime?: BigNumberish
 ) {
   const baseBorrowMin_ = baseBorrowMin || exp(1, await baseAsset.decimals());
   const curve_ = curve || makeValidCurve();
+  const suggestedReserves_ = suggestedReserves || exp(1e5, 6); //100$ in USDC
+  const lockTime_ = lockTime || DEFAULT_LOCK_TIME;
 
   // --- Whitelist the base token ---
-  await sandboxController.whitelistBaseAsset(baseAsset.address, priceFeed, curve_, baseBorrowMin_);
+  await sandboxController.whitelistBaseAsset(baseAsset.address, priceFeed, curve_, baseBorrowMin_, suggestedReserves_, lockTime_);
 }
 
 export async function sandboxListCollateralAsset(
@@ -415,7 +420,15 @@ export async function makeConfigController(opts: ProtocolOpts, acceptCurator?: b
   const sandboxController = await makeSandboxController(sandboxControllerOpts);
 
   // --- Whitelist the base token ---
-  await sandboxListBaseAsset(sandboxController, baseToken, priceFeeds[baseTokenSymbol].address, opts.baseBorrowMin, opts.curve);
+  await sandboxListBaseAsset(
+    sandboxController,
+    baseToken,
+    priceFeeds[baseTokenSymbol].address,
+    opts.baseBorrowMin,
+    opts.curve,
+    opts.suggestedAmountOfSeedReserves,
+    opts.suggestedLockTimeOfSeedReserves
+  );
 
   // --- Whitelist the collateral assets ---
   for (const symbol in assets) {
@@ -504,7 +517,7 @@ export async function createComet(
     name: name || "Comet",
   };
 
-  const amount = (await sandboxController.config()).suggestedAmountOfSeedReserves;
+  const amount = await sandboxController.suggestedAmountOfSeedReserves(baseToken.address);
   await baseToken.connect(owner).allocateTo(owner.address, amount);
   await baseToken.connect(owner).approve(configController.address, amount);
 

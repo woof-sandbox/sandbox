@@ -439,7 +439,7 @@ describe("4. ConfigController", () => {
     });
 
     it("should have disabled controller fee for new Comet ", async function () {
-      const amount = (await sandboxController.config()).suggestedAmountOfSeedReserves;
+      const amount = await sandboxController.suggestedAmountOfSeedReserves(baseToken.address);
       await baseToken.allocateTo(owner.address, amount);
       await baseToken.approve(configController.address, amount);
 
