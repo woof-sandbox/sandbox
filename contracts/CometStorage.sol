@@ -121,9 +121,6 @@ contract CometStorage is ICometStructures {
     /// @notice Unlock timestamp
     uint64 public unlockTimestamp;
 
-    /// @notice Suggested reserves
-    uint public suggestedReserves;
-
     /// @dev Aggregate variables tracked for the entire market
     uint64 internal baseSupplyIndex;
     uint64 internal baseBorrowIndex;
@@ -134,9 +131,6 @@ contract CometStorage is ICometStructures {
 
     /// @notice The number of assets this contract actually supports
     uint8 public numAssets;
-
-    /// @notice Marker that controller fees are disabled
-    bool public controllerFeeDisabled;
 
     /// @notice Aggregate variables tracked for each collateral asset
     mapping(address => uint256) public totalsCollateral;

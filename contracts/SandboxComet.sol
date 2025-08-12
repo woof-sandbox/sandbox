@@ -24,7 +24,7 @@ contract SandboxComet is CometCore, ISandboxComet {
     /// @param _configController legal address of the config controller which triggered the factory
     /// @param _ext extension deployed by the same factory
     // aderyn-fp-next-line(state-change-without-event)
-    function factoryInit(address _configController, address _ext) external override {
+    function factoryInit(address _configController, address _ext) external {
         if (factory != address(0) || configController != address(0)) revert AlreadyInitialized();
         if (_configController == address(0) || _ext == address(0)) revert IncorrectInitialization();
 
@@ -41,10 +41,7 @@ contract SandboxComet is CometCore, ISandboxComet {
     /// @param comet Base token, interest rate curve, collaterals
     /// @param config Global Comet reserve parameters
     // aderyn-fp-next-line(state-change-without-event)
-    function initialize(
-        IConfigController.CometConfig calldata comet,
-        IConfigController.CometGlobalParamsConfig calldata config
-    ) external override {
+    function initialize(IConfigController.CometConfig calldata comet, IConfigController.CometGlobalParamsConfig calldata config) external {
         /// Relies on fact that factory provides correct controller and that it is set by the time of this call
         if (msg.sender != configController) revert IncorrectInitialization();
         // aderyn-fp-next-line(reentrancy-state-change)
@@ -211,20 +208,6 @@ contract SandboxComet is CometCore, ISandboxComet {
     }
 
     /**
-     * @notice Sets the rewards contract for a comet
-     * @param _rewards The address of the rewards contract to set
-     * @dev Can be set as zero address to disable rewards
-     * @dev Only callable by the config controller, which is set during initialization
-     */
-    function setRewards(address _rewards) external override {
-        if (msg.sender != configController) revert Unauthorized();
-
-        rewardAddress = _rewards;
-
-        emit RewardsSet(_rewards);
-    }
-
-    /**
      * @dev Calculate accrued interest indices for base token supply and borrows
      **/
     function accruedInterestIndices(uint40 timeElapsed) internal view returns (uint64, uint64) {
@@ -259,8 +242,7 @@ contract SandboxComet is CometCore, ISandboxComet {
     function accrueAccount(address account) external override {
         accrueInternal();
 
-        UserBasic memory basic = userBasic[account];
-        updateBasePrincipal(account, basic, basic.principal);
+        updateUserRewards(account);
     }
 
     /**
@@ -478,7 +460,7 @@ contract SandboxComet is CometCore, ISandboxComet {
      * @dev access control check is within the function and restricts it to dao and controller only
      * @param asset Asset (collateral or base) to extract
      */
-    function extractFees(address asset) external override {
+    function extractFees(address asset) external {
         if (asset == address(0)) revert ZeroAddress();
         // Note: we do not check if asset is registered, as it might be already delisted collateral
         // and there is no difference between base asset or collateral
@@ -589,13 +571,11 @@ contract SandboxComet is CometCore, ISandboxComet {
     }
 
     /**
-     * @dev Write updated principal to store and tracking participation
+     * @dev Encapsulation of user's rewards update
      */
-    function updateBasePrincipal(address account, UserBasic memory basic, int104 principalNew) internal {
-        basic.principal = principalNew;
-        userBasic[account] = basic;
-
-        if (rewardAddress != address(0)) IRewardsV2(rewardAddress).accrue();
+    function updateUserRewards(address account) internal {
+        /// @dev: rewards contract will get all necessary values
+        if (rewardAddress != address(0)) IRewardsV2(rewardAddress).accrue(account);
     }
 
     /**
@@ -685,7 +665,9 @@ contract SandboxComet is CometCore, ISandboxComet {
         totalSupplyBase += supplyAmount;
         totalBorrowBase -= repayAmount;
 
-        updateBasePrincipal(dst, dstUser, dstPrincipalNew);
+        /// @dev rewards should be updated with previous principal
+        updateUserRewards(dst);
+        userBasic[dst].principal = dstPrincipalNew;
 
         emit Supply(from, dst, amount);
 
@@ -805,8 +787,13 @@ contract SandboxComet is CometCore, ISandboxComet {
         totalSupplyBase = totalSupplyBase + supplyAmount - withdrawAmount;
         totalBorrowBase = totalBorrowBase + borrowAmount - repayAmount;
 
-        updateBasePrincipal(src, srcUser, srcPrincipalNew);
-        updateBasePrincipal(dst, dstUser, dstPrincipalNew);
+        /// @dev rewards should be updated with previous principal
+        updateUserRewards(src);
+        userBasic[src].principal = srcPrincipalNew;
+
+        /// @dev rewards should be updated with previous principal
+        updateUserRewards(dst);
+        userBasic[dst].principal = dstPrincipalNew;
 
         if (srcBalance < 0) {
             if (uint256(-srcBalance) < baseBorrowMin) revert BorrowTooSmall();
@@ -916,7 +903,9 @@ contract SandboxComet is CometCore, ISandboxComet {
         totalSupplyBase -= withdrawAmount;
         totalBorrowBase += borrowAmount;
 
-        updateBasePrincipal(src, srcUser, srcPrincipalNew);
+        /// @dev rewards should be updated with previous principal
+        updateUserRewards(src);
+        userBasic[src].principal = srcPrincipalNew;
 
         if (srcBalance < 0) {
             if (uint256(-srcBalance) < baseBorrowMin) revert BorrowTooSmall();
@@ -1028,7 +1017,10 @@ contract SandboxComet is CometCore, ISandboxComet {
         }
 
         int104 newPrincipal = principalValue(newBalance);
-        updateBasePrincipal(account, accountUser, newPrincipal);
+
+        /// @dev rewards should be updated with previous principal
+        updateUserRewards(account);
+        userBasic[account].principal = newPrincipal;
 
         // reset assetsIn
         userBasic[account].assetsIn = 0;

@@ -33,8 +33,6 @@ interface ICometEvents {
     /// @notice Event emitted when an action is paused/unpaused
     event PauseAction(bool supplyPaused, bool transferPaused, bool withdrawPaused, bool absorbPaused, bool buyPaused);
 
-    event ControllerFeeDisabled(bool disabled);
-
     /// @notice Event emitted when the rewards contract is set
     event RewardsSet(address indexed rewards);
 }

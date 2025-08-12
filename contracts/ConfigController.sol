@@ -9,7 +9,7 @@ import "./interfaces/IConfigControllerEvents.sol";
 
 import "./interfaces/IConfigControllerFactory.sol";
 import "./interfaces/ISandboxController.sol";
-import "./interfaces/ISandboxComet.sol";
+import "./interfaces/ICometForController.sol";
 import "./interfaces/ISandboxCometFactory.sol";
 
 /**
@@ -192,7 +192,7 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
         );
 
         address comet = ISandboxCometFactory(cometFactory).createComet(_cometConfig.name); // aderyn-fp(reentrancy-state-change)
-        ISandboxComet(comet).initialize(_cometConfig, _globalConfig); // aderyn-fp(reentrancy-state-change)
+        ICometForController(comet).initialize(_cometConfig, _globalConfig); // aderyn-fp(reentrancy-state-change)
 
         // TODO: currently suggestedAmountOfSeedReserves is set in USD, token amount is expected in separate PR
         uint256 suggestedAmountOfSeedReserves = ISandboxController(sandboxController).suggestedAmountOfSeedReserves(baseToken);
@@ -228,12 +228,12 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
     /// @notice Sets the rewards contract for a specific comet
     /// @param _comet Comet which should be registered in Controller
     /// @param _rewards The address of the rewards contract
-    /// @dev Only callable by the owner
     function setRewards(address _comet, address _rewards) external onlyOwner {
+        /// Note: rewards can be set to address(0), meaning rewards are disabled for that comet
         if (_comet == address(0)) revert ZeroAddress();
         if (!_isCometOwned(_comet)) revert UnknownComet();
 
-        ISandboxComet(_comet).setRewards(_rewards);
+        ICometForController(_comet).setRewards(_rewards);
 
         emit RewardsSet(_comet, _rewards);
     }
@@ -245,7 +245,7 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
         if (comet == address(0)) revert ZeroAddress();
         if (!_isCometOwned(comet)) revert UnknownComet();
 
-        ISandboxComet(comet).extractFees(asset);
+        ICometForController(comet).extractFees(asset);
         /// Note: Comet emits the respective event
 
         /// TODO: extend method once fee distribution is finished

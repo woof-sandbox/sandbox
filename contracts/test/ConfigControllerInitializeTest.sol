@@ -13,6 +13,6 @@ contract ConfigControllerInitializeTest is ConfigController {
             _sandboxConfig.targetPercent,
             _sandboxConfig.storeFrontPriceFactor
         );
-        ISandboxComet(_comet).initialize(_cometConfig, _globalConfig);
+        ICometForController(_comet).initialize(_cometConfig, _globalConfig);
     }
 }

@@ -61,12 +61,12 @@ contract CometExtension is ICometExtension {
     function totalsBasic() public view override returns (TotalsBasic memory) {
         return
             TotalsBasic({
-                baseSupplyIndex: baseSupplyIndex,
-                baseBorrowIndex: baseBorrowIndex,
                 totalSupplyBase: totalSupplyBase,
                 totalBorrowBase: totalBorrowBase,
                 lastAccrualTime: lastAccrualTime,
-                pauseFlags: pauseFlags
+                pauseFlags: pauseFlags,
+                baseSupplyIndex: baseSupplyIndex,
+                baseBorrowIndex: baseBorrowIndex
             });
     }
 
@@ -207,6 +207,20 @@ contract CometExtension is ICometExtension {
         if (nonce != userNonce[signatory]++) revert BadNonce();
         if (block.timestamp >= expiry) revert SignatureExpired();
         allowAllInternal(signatory, manager, approved);
+    }
+
+    /**
+     * @notice Sets the rewards contract for a comet
+     * @param _rewards The address of the rewards contract to set
+     */
+    // aderyn-fp-next-line(state-change-without-event)
+    function setRewards(address _rewards) external {
+        if (msg.sender != configController) revert Unauthorized();
+
+        /// @dev: Can be set as zero address to disable rewards
+        rewardAddress = _rewards; // aderyn-fp(state-no-address-check)
+
+        /// @dev: event is emitted in config controller
     }
 
     /// @notice Returns the current configuration of the market
