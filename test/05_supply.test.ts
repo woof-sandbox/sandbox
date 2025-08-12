@@ -58,7 +58,7 @@ describe("5. supply", function () {
     comet = await createComet(owner, opts.opts.assets, configController, sandboxController, opts.collaterals, baseToken);
     cometExtension = (await ethers.getContractAt("CometExtension", comet.address)) as ICometExtension;
 
-    seedReserve = (await sandboxController.config()).suggestedAmountOfSeedReserves;
+    seedReserve = await sandboxController.suggestedAmountOfSeedReserves(baseToken.address);
 
     for (let asset in opts.collaterals) {
       collaterals[asset] = opts.collaterals[asset] as FaucetToken;
@@ -1110,7 +1110,7 @@ describe("5. supply", function () {
           opts.collaterals,
           nonStandardToken
         );
-        curSeedReserve = (await opts.sandboxController.config()).suggestedAmountOfSeedReserves;
+        curSeedReserve = await opts.sandboxController.suggestedAmountOfSeedReserves(nonStandardToken.address);
 
         for (let asset in opts.collaterals) {
           collateralsNonStandard[asset] = opts.collaterals[asset] as FaucetToken | NonStandardFaucetFeeToken;
@@ -1157,7 +1157,7 @@ describe("5. supply", function () {
 
         feeComet = await createComet(owner, opts.opts.assets, opts.configController, opts.sandboxController, opts.collaterals, feeToken);
         // Note: fee is not enabled yet, so reserves are transferred in full
-        curSeedReserve = (await opts.sandboxController.config()).suggestedAmountOfSeedReserves;
+        curSeedReserve = await opts.sandboxController.suggestedAmountOfSeedReserves(feeToken.address);
 
         for (let asset in opts.collaterals) {
           feeCollaterals[asset] = opts.collaterals[asset] as FaucetToken | NonStandardFaucetFeeToken;

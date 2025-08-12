@@ -608,7 +608,7 @@ describe("1. System Initialization", function () {
         name: "Comet",
       };
 
-      const seedReserves = (await sandboxController.config()).suggestedAmountOfSeedReserves;
+      const seedReserves = await sandboxController.suggestedAmountOfSeedReserves(baseToken.address);
       await baseToken.approve(configController.address, seedReserves.mul(2));
 
       cometAddress = await configController.callStatic.createComet(marketConfig);
@@ -824,22 +824,6 @@ describe("1. System Initialization", function () {
       );
     });
 
-    it("reverts if suggestedAmountOfSeedReserves = 0", async function () {
-      opts.config.suggestedAmountOfSeedReserves = "0";
-      await expect(_SandboxControllerFactory.deploy(...(Object.values(opts) as DeployParams))).to.be.revertedWithCustomError(
-        _SandboxControllerFactory,
-        "IncorrectSetting"
-      );
-    });
-
-    it("reverts if suggestedLockTimeOfSeedReserves = 0", async function () {
-      opts.config.suggestedLockTimeOfSeedReserves = 0;
-      await expect(_SandboxControllerFactory.deploy(...(Object.values(opts) as DeployParams))).to.be.revertedWithCustomError(
-        _SandboxControllerFactory,
-        "IncorrectSetting"
-      );
-    });
-
     it("initializes state with correct values", async function () {
       const sandboxController = await makeSandboxController(opts);
       expect(await sandboxController.owner()).to.equal(owner.address);
@@ -856,8 +840,6 @@ describe("1. System Initialization", function () {
       expect((await sandboxController.config()).storeFrontPriceFactor).to.equal(parseEther("0.6").toString());
       expect((await sandboxController.config()).minUpdateTime).to.equal(MIN_UPDATE_TIME);
       expect((await sandboxController.config()).maxUpdateTime).to.equal(DEFAULT_UPDATE_TIME);
-      expect((await sandboxController.config()).suggestedAmountOfSeedReserves).to.equal(ethers.utils.parseEther("500").toString());
-      expect((await sandboxController.config()).suggestedLockTimeOfSeedReserves).to.equal(86400);
     });
   });
 });

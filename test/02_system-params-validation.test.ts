@@ -23,6 +23,7 @@ import {
   SandboxControllerNoCurvesTest__factory,
   SandboxControllerNoCurvesTest,
   FaucetToken,
+  SandboxController,
 } from "../build/types";
 import { CollateralTokenConfigStruct, CometConfigStruct } from "../build/types/ConfigController";
 import { BigNumber } from "ethers";
@@ -45,16 +46,20 @@ describe("2. System Params Validation", function () {
     _proposalDuration: DEFAULT_UPDATE_TIME,
   };
 
-  let signers;
-  let owner, curator, guardian, dao, treasury: SignerWithAddress;
+  let signers: SignerWithAddress[];
+  let owner: SignerWithAddress;
+  let curator: SignerWithAddress;
+  let guardian: SignerWithAddress;
+  let dao: SignerWithAddress;
+  let treasury: SignerWithAddress;
 
   let configControllerAddress;
   let configController: ConfigController;
   let sandboxCometFactory: SandboxCometFactory;
-  let sandboxController;
+  let sandboxController: SandboxController;
 
   let collateralTokens: CollateralTokenConfigStruct[] = [];
-  let baseToken;
+  let baseToken: FaucetToken;
   let marketConfig: CometConfigStruct;
 
   before(async function () {
@@ -332,7 +337,7 @@ describe("2. System Params Validation", function () {
     describe("Comet creation, happy cases", function () {
       it("should be possible to create two comets with the same configuration", async () => {
         baseToken = (await ethers.getContractAt("FaucetToken", marketConfig.baseToken)) as FaucetToken;
-        const seedReserves = (await sandboxController.config()).suggestedAmountOfSeedReserves;
+        const seedReserves = await sandboxController.suggestedAmountOfSeedReserves(baseToken.address);
 
         await baseToken.allocateTo(owner.address, seedReserves.mul(2));
         await baseToken.approve(configController.address, seedReserves.mul(2));
@@ -436,7 +441,7 @@ describe("2. System Params Validation", function () {
           name: "Comet",
         };
 
-        const seedReserves = (await sandboxController.config()).suggestedAmountOfSeedReserves;
+        const seedReserves = await sandboxController.suggestedAmountOfSeedReserves(baseToken.address);
         await baseToken.allocateTo(owner.address, seedReserves);
         await baseToken.approve(configController.address, seedReserves);
 
@@ -445,6 +450,7 @@ describe("2. System Params Validation", function () {
 
         comet = (await ethers.getContractAt("SandboxComet", cometAddress)) as SandboxComet;
       });
+
       it("should set storage properly after deploment and initialization", async function () {
         const currentBlock = await ethers.provider.getBlock("latest");
         const currentTimestamp = BigNumber.from(currentBlock.timestamp);
@@ -455,9 +461,9 @@ describe("2. System Params Validation", function () {
         expect(await comet.storeFrontPriceFactor()).to.eq((await sandboxController.config()).storeFrontPriceFactor);
         expect(await comet.baseBorrowMin()).to.eq((await sandboxController.baseAssets(marketConfig.baseToken)).minBorrow);
         expect(await comet.targetPercent()).to.eq((await sandboxController.config()).targetPercent);
-        expect(await comet.seedReserves()).to.eq((await sandboxController.config()).suggestedAmountOfSeedReserves);
+        expect(await comet.seedReserves()).to.eq(await sandboxController.suggestedAmountOfSeedReserves(baseToken.address));
         expect(await comet.unlockTimestamp()).to.be.closeTo(
-          currentTimestamp.add((await sandboxController.config()).suggestedLockTimeOfSeedReserves),
+          currentTimestamp.add(await sandboxController.suggestedLockTimeOfSeedReserves(baseToken.address)),
           10
         );
       });

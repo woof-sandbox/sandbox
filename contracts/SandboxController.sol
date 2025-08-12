@@ -15,6 +15,7 @@ contract SandboxController is ISandboxController {
     uint64 public constant MAX_TARGET_PERCENT = 5e17; //50%
     uint64 public constant MAX_COMMISSIONS = 8e17; //80%
     uint64 public constant MIN_FACTOR = 1e17; //10%
+    uint40 public constant MIN_LOCK_TIME = 1 weeks; // The minimum lock time for seed reserves
     uint8 public constant MARKET_STATES = 3;
 
     /// @notice treasury address. This is the address that will receive the fees.
@@ -55,6 +56,12 @@ contract SandboxController is ISandboxController {
     /// minLiquidationFactor, maxLiquidationFactor
     mapping(address => CollateralAssetConfiguration) internal _collateralAssets;
 
+    /// @notice Suggested amount of seed reserves for each base asset - in USD.
+    mapping(address => uint256) public suggestedAmountOfSeedReserves;
+
+    /// @notice Suggested lock time of seed reserves for each base asset.
+    mapping(address => uint40) public suggestedLockTimeOfSeedReserves;
+
     /**
      * @dev Modifier to check if the caller is the owner.
      */
@@ -93,9 +100,6 @@ contract SandboxController is ISandboxController {
      * _storeFrontPriceFactor, < 1e18
      * _minUpdateTime, > 0
      * _maxUpdateTime, reasonable time for the proposal duration
-     * _suggestedAmountOfSeedReserves The suggested amount of seed reserves in $. Decimals are 6.
-     * _suggestedLockTimeOfSeedReserves The suggested lock time of seed reserves in seconds.
-     * @dev The `_suggestedAmountOfSeedReserves` and `_suggestedLockTimeOfSeedReserves` must be greater than 0.
      * @param _reserveCommissions The reserve commission factors for each market state.
      * @param _protocolCommissions The protocol commission factors for each market state.
      * @dev The length of the `_reserveCommissions` and `_protocolCommissions` arrays must be 3.
@@ -195,20 +199,20 @@ contract SandboxController is ISandboxController {
 
     /**
      * @notice Returns profit fee distribution based on the reserves
-     * @dev The function expects same denomination units for all 3 reserves parameters
+     * @dev The function expects same denomination units (in USD) for both reserves parameters
      * @param _currentReserves Current Comet reserves
-     * @param _seedReserves Amount of reserves transferred to the Comet during the initialization
      * @param _targetReserves Expected target for the Comet
+     * @param _baseToken The address of the base asset of the Comet
      * @return _reserveCommission Part of profit to be left in reserves
      * @return _protocolCommission Part of profit for the DAO
      */
     function getCommissions(
         uint256 _currentReserves,
-        uint256 _seedReserves,
-        uint256 _targetReserves
+        uint256 _targetReserves,
+        address _baseToken
     ) external view override returns (uint64 _reserveCommission, uint64 _protocolCommission) {
         MarketState state;
-        if (_currentReserves < _seedReserves) {
+        if (_currentReserves < suggestedAmountOfSeedReserves[_baseToken]) {
             state = MarketState.High;
         } else if (_currentReserves < _targetReserves) {
             state = MarketState.Medium;
@@ -230,12 +234,18 @@ contract SandboxController is ISandboxController {
      * @param priceFeed The associated price feed contract address.
      * @param baseAssetCurve The initial interest rate curve configuration.
      * @param minBorrow The minimal borrow amount for this asset.
+     * @param amountOfSeedReserves The suggested amount of seed reserves in $. Decimals are 6.
+     * @param lockTimeOfSeedReserves The suggested lock time of seed reserves in seconds.
+     * @dev The `amountOfSeedReserves` must be greater than 0.
+     * @dev The `lockTimeOfSeedReserves` must be greater than or equal to the minimum lock time.
      */
     function whitelistBaseAsset(
         address token,
         address priceFeed,
         BaseAssetCurve memory baseAssetCurve,
-        uint256 minBorrow
+        uint256 minBorrow,
+        uint256 amountOfSeedReserves,
+        uint40 lockTimeOfSeedReserves
     ) external override onlyAuthorized {
         /// @dev token and priceFeed are not zero address
         if (token == address(0) || priceFeed == address(0)) revert ZeroAddress();
@@ -255,8 +265,10 @@ contract SandboxController is ISandboxController {
         (, int256 answer, , , ) = IPriceFeed(priceFeed).latestRoundData(); // aderyn-fp(reentrancy-state-change)
         if (answer <= 0) revert InvalidPriceFeed();
 
-        /// @dev the curve configuration is invalid
         if (!isCurveConfigurationValid(baseAssetCurve)) revert InvalidCurveConfiguration();
+
+        /// Function will revert on incorrect setting
+        _validateSeedReserves(amountOfSeedReserves, lockTimeOfSeedReserves);
 
         tokenToPriceFeed[token] = priceFeed;
         uint8 decimals = IERC20Metadata(token).decimals(); // aderyn-fp(reentrancy-state-change)
@@ -265,6 +277,8 @@ contract SandboxController is ISandboxController {
         _baseAssets[token].decimals = decimals;
         _baseAssets[token].minBorrow = minBorrow;
         _baseAssets[token].baseAssetCurves.push(baseAssetCurve);
+        suggestedAmountOfSeedReserves[token] = amountOfSeedReserves;
+        suggestedLockTimeOfSeedReserves[token] = lockTimeOfSeedReserves;
 
         emit BaseAssetWhitelisted(token, priceFeed, decimals);
     }
@@ -424,10 +438,10 @@ contract SandboxController is ISandboxController {
     ///
 
     /**
-     * @dev Emitted when a base asset is whitelisted.
+     * @dev Configuration setter
      * @param _config Configuration of the sandbox controller.
      */
-    function setConfiguration(SandboxControllerConfiguration calldata _config) external override onlyOwner {
+    function setConfiguration(SandboxControllerConfiguration calldata _config) external onlyOwner {
         _validateConfig(_config);
 
         emit ConfigurationChanged(_controllerConfiguration, _config);
@@ -438,20 +452,46 @@ contract SandboxController is ISandboxController {
      * @dev Validates global config and reverts on incorrect values
      * @param _config Configuration of the sandbox controller.
      */
-    function _validateConfig(SandboxControllerConfiguration memory _config) internal {
+    function _validateConfig(SandboxControllerConfiguration memory _config) internal pure {
         if (
             _config.targetPercent > MAX_TARGET_PERCENT || /// not bigger than 50%.
             _config.storeFrontPriceFactor > PARAMETERS_SCALE /// not bigger than 100%.
         ) revert InvalidFactors();
 
         /// TODO: min and max update time will be moved to config controller
-        if (
-            _config.minUpdateTime == 0 ||
-            _config.maxUpdateTime < _config.minUpdateTime ||
-            _config.suggestedAmountOfSeedReserves == 0 ||
-            /// TODO: add validation from above in PR with changes to it
-            _config.suggestedLockTimeOfSeedReserves == 0
-        ) revert IncorrectSetting();
+        if (_config.minUpdateTime == 0 || _config.maxUpdateTime < _config.minUpdateTime) revert IncorrectSetting();
+    }
+
+    /**
+     * @dev Seed reserves parameters setter. Dao only.
+     * @param _baseToken Base asset changes are applied to
+     * @param _amount Seed reserves suggested amount (in USD)
+     * @param _lockTime Seed reserves suggested lock time on the Comet
+     */
+    function setSeedReserves(address _baseToken, uint256 _amount, uint40 _lockTime) external onlyDao {
+        if (_baseToken == address(0)) revert ZeroAddress();
+        if (!isBaseTokenWhitelisted(_baseToken)) revert BaseTokenNotWhitelisted();
+
+        _validateSeedReserves(_amount, _lockTime);
+
+        if (_amount == suggestedAmountOfSeedReserves[_baseToken] && _lockTime == suggestedLockTimeOfSeedReserves[_baseToken]) {
+            revert IncorrectSetting();
+        }
+
+        emit SeedReservesSet(_baseToken, _amount, _lockTime);
+        suggestedAmountOfSeedReserves[_baseToken] = _amount;
+        suggestedLockTimeOfSeedReserves[_baseToken] = _lockTime;
+    }
+
+    /**
+     * @dev Validates seed reserves parameters and revers on incorrect values
+     * @param _amount Suggested seed reserves amount
+     * @param _lockTime Suggested seed reserves lock time on the Comet
+     */
+    function _validateSeedReserves(uint256 _amount, uint40 _lockTime) internal pure {
+        if (_amount == 0) revert InvalidAmountOfSeedReserves();
+
+        if (_lockTime < MIN_LOCK_TIME) revert InvalidLockTimeOfSeedReserves();
     }
 
     /**
@@ -533,5 +573,14 @@ contract SandboxController is ISandboxController {
      */
     function config() external view override returns (SandboxControllerConfiguration memory) {
         return _controllerConfiguration;
+    }
+
+    /**
+     * @notice Returns the suggested amount of seed reserves and lock time for a base asset.
+     * @param token The address of the whitelisted base asset token.
+     * @return The suggested amount of seed reserves and lock time for the base asset.
+     */
+    function baseTokenSuggestedSeedReserves(address token) external view returns (uint256, uint40) {
+        return (suggestedAmountOfSeedReserves[token], suggestedLockTimeOfSeedReserves[token]);
     }
 }
