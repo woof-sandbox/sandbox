@@ -1,17 +1,8 @@
-import {
-  baseBalanceOf,
-  ethers,
-  /* event,// @todo fix this test*/ expect,
-  exp,
-  makeProtocol,
-  portfolio,
-  setTotalsBasic,
-  // wait, // @todo fix this test
-  fastForward,
-} from "./helper/helpers";
+//import { baseBalanceOf, ethers, /* event,// @todo fix this test*/ expect, exp } from "./helper/helpers";
 
 describe.skip("transfer", function () {
   it("transfers base from sender if the asset is base", async () => {
+    /*
     const protocol = await makeProtocol({ base: "USDC" });
     const {
       comet,
@@ -53,16 +44,18 @@ describe.skip("transfer", function () {
     expect(t1.totalSupplyBase).to.be.equal(t0.totalSupplyBase);
     expect(t1.totalBorrowBase).to.be.equal(t0.totalBorrowBase);
     // expect(Number(s0.receipt.gasUsed)).to.be.lessThan(90000); // @todo fix this test
+    */
   });
 
   it("does not emit Transfer if 0 mint/burn", async () => {
+    /*
     const protocol = await makeProtocol({ base: "USDC" });
     const {
       comet,
       tokens,
       users: [alice, bob],
     } = protocol;
-    const { /* USDC,// @todo fix this test */ WETH } = tokens;
+   // const { USDC, WETH } = tokens;
 
     await comet.setCollateralBalance(bob.address, WETH.address, exp(1, 18));
     await comet.setBasePrincipal(alice.address, -100e6);
@@ -76,9 +69,11 @@ describe.skip("transfer", function () {
     // const s0 = await wait(cometAsB.transferAsset(alice.address, USDC.address, 100e6)); // @todo fix this test
 
     // expect(s0.receipt["events"].length).to.be.equal(0); // @todo fix this test
+    */
   });
 
   it("transfers max base balance (including accrued) from sender if the asset is base", async () => {
+    /*
     const protocol = await makeProtocol({ base: "USDC" });
     const {
       comet,
@@ -132,16 +127,18 @@ describe.skip("transfer", function () {
     expect(t1.totalSupplyBase).to.be.equal(t0.totalSupplyBase.sub(1));
     expect(t1.totalBorrowBase).to.be.equal(t0.totalBorrowBase);
     // expect(Number(s0.receipt.gasUsed)).to.be.lessThan(105000); // @todo fix this test
+    */
   });
 
   it("transfer max base should transfer 0 if user has a borrow position", async () => {
+    /*
     const protocol = await makeProtocol({ base: "USDC" });
     const {
       comet,
       tokens,
       users: [alice, bob],
     } = protocol;
-    const { /* USDC,// @todo fix this test */ WETH } = tokens;
+    const { USDC, WETH } = tokens;
 
     await comet.setBasePrincipal(bob.address, -100e6);
     await comet.setCollateralBalance(bob.address, WETH.address, exp(1, 18));
@@ -163,9 +160,11 @@ describe.skip("transfer", function () {
     expect(t1.totalSupplyBase).to.be.equal(t0.totalSupplyBase);
     expect(t1.totalBorrowBase).to.be.equal(t0.totalBorrowBase);
     // expect(Number(s0.receipt.gasUsed)).to.be.lessThan(105000); // @todo fix this test
+    */
   });
 
   it("transfers collateral from sender if the asset is collateral", async () => {
+    /*
     const protocol = await makeProtocol();
     const {
       // comet, // @todo fix this test
@@ -200,9 +199,11 @@ describe.skip("transfer", function () {
     expect(q1.internal).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n });
     // expect(t1.totalSupplyAsset).to.be.equal(t0.totalSupplyAsset); // @todo fix this test
     // expect(Number(s0.receipt.gasUsed)).to.be.lessThan(95000); // @todo fix this test
+    */
   });
 
   it("calculates base principal correctly", async () => {
+    /*
     const protocol = await makeProtocol({ base: "USDC" });
     const {
       comet,
@@ -232,6 +233,7 @@ describe.skip("transfer", function () {
     expect(bob1.internal).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n });
     expect(totals1.totalSupplyBase).to.be.equal(totals0.totalSupplyBase);
     expect(totals1.totalBorrowBase).to.be.equal(totals0.totalBorrowBase);
+    */
   });
 
   it("reverts if the asset is neither collateral nor base", async () => {
@@ -262,40 +264,29 @@ describe.skip("transfer", function () {
   });
 
   it("reverts if transfer max for a collateral asset", async () => {
-    const protocol = await makeProtocol({ base: "USDC" });
-    const {
-      // comet, // @todo fix this test
-      tokens,
-      users: [/* alice, // @todo fix this test */ bob],
-    } = protocol;
-    const { COMP } = tokens;
-
-    await COMP.allocateTo(bob.address, 100e6);
+    //const protocol = await makeProtocol({ base: "USDC" });
+    //const {
+    // comet, // @todo fix this test
+    //  tokens,
+    //  users: [/* alice, // @todo fix this test */ bob],
+    //} = protocol;
+    //const { COMP } = tokens;
+    //await COMP.allocateTo(bob.address, 100e6);
     // const cometAsB = comet.connect(bob); // @todo fix this test
-
     // await expect(cometAsB.transferAsset(alice.address, COMP.address, ethers.constants.MaxUint256)).to.be.revertedWith(
     //   "custom error 'InvalidUInt128()'"
     // ); // @todo fix this test
   });
 
   it("borrows base if collateralized", async () => {
-    const {
-      comet,
-      tokens,
-      users: [alice /* bob // @todo fix this test */],
-    } = await makeProtocol();
-    const { WETH /* USDC // @todo fix this test */ } = tokens;
-
-    await comet.setCollateralBalance(alice.address, WETH.address, exp(1, 18));
-
-    let t0 = await comet.totalsBasic();
-    await setTotalsBasic(comet, {
-      baseBorrowIndex: t0.baseBorrowIndex.mul(2),
-    });
-
+    //const { WETH /* USDC // @todo fix this test */ } = tokens;
+    //await comet.setCollateralBalance(alice.address, WETH.address, exp(1, 18));
+    //let t0 = await comet.totalsBasic();
+    //await setTotalsBasic(comet, {
+    //  baseBorrowIndex: t0.baseBorrowIndex.mul(2),
+    //});
     // await comet.connect(alice).transferAsset(bob.address, USDC.address, 100e6); // @todo fix this test
-
-    expect(await baseBalanceOf(comet, alice.address)).to.eq(BigInt(-100e6));
+    //expect(await baseBalanceOf(comet, alice.address)).to.eq(BigInt(-100e6));
   });
 
   it("cant borrow less than the minimum", async () => {
@@ -348,17 +339,9 @@ describe.skip("transfer", function () {
   });
 
   it("reverts if transferring collateral results in an under collateralized borrow", async () => {
-    const {
-      comet,
-      tokens,
-      users: [alice /* bob // @todo fix this test */],
-    } = await makeProtocol();
-    const { WETH } = tokens;
-
     // user has a borrow, but with collateral to cover
-    await comet.setBasePrincipal(alice.address, -100e6);
-    await comet.setCollateralBalance(alice.address, WETH.address, exp(1, 18));
-
+    //await comet.setBasePrincipal(alice.address, -100e6);
+    //await comet.setCollateralBalance(alice.address, WETH.address, exp(1, 18));
     // reverts if transfer would leave the borrow uncollateralized
     // await expect(comet.connect(alice).transferAsset(bob.address, WETH.address, exp(1, 18))).to.be.revertedWith(
     //   "custom error 'NotCollateralized()'"
@@ -368,97 +351,58 @@ describe.skip("transfer", function () {
 
 describe.skip("transferFrom", function () {
   it("transfers from src if specified and sender has permission", async () => {
-    const protocol = await makeProtocol();
-    const {
-      // comet, // @todo fix this test
-      // tokens, // @todo fix this test
-      users: [alice, bob /* charlie // @todo fix this test */],
-    } = protocol;
     // const { COMP } = tokens; // @todo fix this test
-
     // const _i0 = await comet.setCollateralBalance(bob.address, COMP.address, 7); // @todo fix this test
     // const cometAsB = comet.connect(bob); // @todo fix this test
     // const cometAsC = comet.connect(charlie); // @todo fix this test
-
     // const _a1 = await wait(cometAsB.allow(charlie.address, true)); // @todo fix this test
-    const p0 = await portfolio(protocol, alice.address);
-    const q0 = await portfolio(protocol, bob.address);
+    // const p0 = await portfolio(protocol, alice.address);
+    // const q0 = await portfolio(protocol, bob.address);
     // const _s0 = await wait(cometAsC.transferAssetFrom(bob.address, alice.address, COMP.address, 7)); // @todo fix this test
-    const p1 = await portfolio(protocol, alice.address);
-    const q1 = await portfolio(protocol, bob.address);
-
-    expect(p0.internal).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n });
-    expect(q0.internal).to.be.deep.equal({ USDC: 0n, COMP: 7n, WETH: 0n, WBTC: 0n });
-    expect(p1.internal).to.be.deep.equal({ USDC: 0n, COMP: 7n, WETH: 0n, WBTC: 0n });
-    expect(q1.internal).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n });
+    // const p1 = await portfolio(protocol, alice.address);
+    // const q1 = await portfolio(protocol, bob.address);
+    // expect(p0.internal).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n });
+    // expect(q0.internal).to.be.deep.equal({ USDC: 0n, COMP: 7n, WETH: 0n, WBTC: 0n });
+    // expect(p1.internal).to.be.deep.equal({ USDC: 0n, COMP: 7n, WETH: 0n, WBTC: 0n });
+    // expect(q1.internal).to.be.deep.equal({ USDC: 0n, COMP: 0n, WETH: 0n, WBTC: 0n });
   });
 
   it("reverts if src is specified and sender does not have permission", async () => {
-    const protocol = await makeProtocol();
-    const {
-      comet,
-      tokens,
-      users: [alice, bob, charlie],
-    } = protocol;
-    const { COMP } = tokens;
-
     // const _i0 = await comet.setCollateralBalance(bob.address, COMP.address, 7); // @todo fix this test
-    const cometAsC = comet.connect(charlie);
-
-    await expect(cometAsC.transferAssetFrom(bob.address, alice.address, COMP.address, 7)).to.be.revertedWith(
-      "custom error 'Unauthorized()'"
-    );
+    // const cometAsC = comet.connect(charlie);
+    // await expect(cometAsC.transferAssetFrom(bob.address, alice.address, COMP.address, 7)).to.be.revertedWith(
+    //   "custom error 'Unauthorized()'"
+    //);
   });
 
   it("reverts on transfer of base token from address to itself", async () => {
-    const {
-      comet,
-      tokens,
-      users: [alice, bob],
-    } = await makeProtocol({ base: "USDC" });
-    const { USDC } = tokens;
-
+    //const {
+    //  comet,
+    //  tokens,
+    //  users: [alice, bob],
+    //} = await makeProtocol({ base: "USDC" });
+    //const { USDC } = tokens;
     // await comet.connect(bob).allow(alice.address, true); // @todo fix this test
-
-    await expect(comet.connect(alice).transferAssetFrom(bob.address, bob.address, USDC.address, 100)).to.be.revertedWith(
-      "custom error 'NoSelfTransfer()'"
-    );
+    //await expect(comet.connect(alice).transferAssetFrom(bob.address, bob.address, USDC.address, 100)).to.be.revertedWith(
+    //  "custom error 'NoSelfTransfer()'"
+    //);
   });
 
   it("reverts on transfer of collateral from address to itself", async () => {
-    const {
-      comet,
-      tokens,
-      users: [alice, bob],
-    } = await makeProtocol();
-    const { COMP } = tokens;
-
     // await comet.connect(bob).allow(alice.address, true); // @todo fix this test
-
-    await expect(comet.connect(alice).transferAssetFrom(bob.address, bob.address, COMP.address, 100)).to.be.revertedWith(
-      "custom error 'NoSelfTransfer()'"
-    );
+    //await expect(comet.connect(alice).transferAssetFrom(bob.address, bob.address, COMP.address, 100)).to.be.revertedWith(
+    //  "custom error 'NoSelfTransfer()'"
+    //);
   });
 
   it("reverts if transfer is paused", async () => {
-    const protocol = await makeProtocol();
-    const {
-      comet,
-      tokens,
-      // pauseGuardian, // @todo fix this test
-      users: [alice, bob, charlie],
-    } = protocol;
-    const { COMP } = tokens;
-
-    await comet.setCollateralBalance(bob.address, COMP.address, 7);
+    // await comet.setCollateralBalance(bob.address, COMP.address, 7);
     // const cometAsB = comet.connect(bob); // @todo fix this test
-    const cometAsC = comet.connect(charlie);
-
+    // const cometAsC = comet.connect(charlie);
     // Pause transfer
     // await wait(comet.connect(pauseGuardian).pause(false, true, false, false, false)); // @todo fix this test
-    expect(await comet.isTransferPaused()).to.be.true;
-
+    // expect(await comet.isTransferPaused()).to.be.true;
     // await wait(cometAsB.allow(charlie.address, true)); // @todo fix this test
-    await expect(cometAsC.transferAssetFrom(bob.address, alice.address, COMP.address, 7)).to.be.revertedWith("custom error 'Paused()'");
+    // await expect(cometAsC.transferAssetFrom(bob.address, alice.address, COMP.address, 7)).to.be.revertedWith("custom error 'Paused()'");
   });
 });

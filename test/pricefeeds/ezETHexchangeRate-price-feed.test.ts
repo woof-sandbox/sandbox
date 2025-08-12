@@ -5,7 +5,7 @@ import {
   EzETHExchangeRatePriceFeed__factory,
   FaucetToken,
 } from "../../build/types";
-import { SnapshotRestorer, takeSnapshot, ethers, exp, makeToken, expect, ZERO_ADDRESS } from "../helper/helpers";
+import { SnapshotRestorer, takeSnapshot, ethers, exp, makeMockERC20, expect, ZERO_ADDRESS } from "../helper/helpers";
 import { time } from "@nomicfoundation/hardhat-network-helpers";
 
 describe("EzETHExchangeRatePriceFeed", function () {
@@ -26,7 +26,7 @@ describe("EzETHExchangeRatePriceFeed", function () {
   const RATE_PROVIDER_RATE = exp(11, 17); // 1.1 ETH per ezETH
 
   before(async function () {
-    token = await makeToken({ name: "EzETH", symbol: "EZETH", decimals: 18 });
+    token = await makeMockERC20({ name: "EzETH", symbol: "EZETH", decimals: 18 });
 
     factory = (await ethers.getContractFactory("EzETHExchangeRatePriceFeed")) as EzETHExchangeRatePriceFeed__factory;
     const BalancerRateProvider = (await ethers.getContractFactory("BalancerRateProviderTest")) as BalancerRateProviderTest__factory;

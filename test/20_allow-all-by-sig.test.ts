@@ -1,6 +1,6 @@
-import { ethers, event, expect, makeProtocol, SnapshotRestorer, takeSnapshot, wait } from "./helper/helpers";
+import { ethers, event, expect, SnapshotRestorer, takeSnapshot, wait, makeConfigController, createComet } from "./helper/helpers";
 import { BigNumber, Signature } from "ethers";
-import { CometExtension, CometHarness, FaucetToken, NonStandardFaucetFeeToken } from "../build/types";
+import { SandboxComet, ICometExtension, FaucetToken, NonStandardFaucetFeeToken } from "../build/types";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { time } from "@nomicfoundation/hardhat-network-helpers";
 
@@ -17,12 +17,11 @@ const types = {
 describe("20. allowAllBySig — SandboxComet / CometExtension", function () {
   let snapshot: SnapshotRestorer;
 
-  let comet: CometHarness;
-  let cometExt: CometExtension;
+  let comet: SandboxComet;
+  let cometExt: ICometExtension;
 
-  let users: SignerWithAddress[];
-  let signer: SignerWithAddress;
-  let manager: SignerWithAddress;
+  let owner, dao, curator, treasury, guardian, signer, manager: SignerWithAddress;
+
   let baseToken: FaucetToken | NonStandardFaucetFeeToken;
   let domain: { name: string; version: string; chainId: number; verifyingContract: string };
 
@@ -39,9 +38,22 @@ describe("20. allowAllBySig — SandboxComet / CometExtension", function () {
   let signature: Signature;
 
   before(async function () {
-    ({ comet, users, baseToken } = await makeProtocol());
-    cometExt = (await ethers.getContractAt("CometExtension", comet.address)) as CometExtension;
-    [signer, manager] = users;
+    [owner, dao, treasury, curator, guardian, signer, manager] = await ethers.getSigners();
+
+    const opts = await makeConfigController(
+      {
+        owner: owner,
+        dao: dao,
+        treasury: treasury.address,
+        curator: curator,
+        guardian: guardian,
+      },
+      true
+    );
+    baseToken = opts.baseToken as FaucetToken;
+
+    comet = await createComet(owner, opts.opts.assets, opts.configController, opts.sandboxController, opts.collaterals, baseToken);
+    cometExt = (await ethers.getContractAt("CometExtension", comet.address)) as ICometExtension;
 
     domain = {
       name: await cometExt.name(),

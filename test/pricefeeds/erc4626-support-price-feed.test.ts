@@ -1,5 +1,5 @@
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
-import { ethers, exp, expect, makeToken, SnapshotRestorer, takeSnapshot, ZERO_ADDRESS } from "../helper/helpers";
+import { ethers, exp, expect, makeMockERC20, SnapshotRestorer, takeSnapshot, ZERO_ADDRESS } from "../helper/helpers";
 import { time } from "@nomicfoundation/hardhat-network-helpers";
 import {
   ERC4626RateProviderTest,
@@ -52,7 +52,7 @@ describe("PriceFeedWith4626Support", function () {
     SimplePriceFeedFactory = (await ethers.getContractFactory("SimplePriceFeed")) as SimplePriceFeed__factory;
     ERC4626RateProviderTestFactory = (await ethers.getContractFactory("ERC4626RateProviderTest")) as ERC4626RateProviderTest__factory;
 
-    underlyingToken = await makeToken({
+    underlyingToken = await makeMockERC20({
       name: "Underlying Token",
       symbol: "UNDERLYING",
       decimals: 18,

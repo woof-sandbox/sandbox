@@ -119,4 +119,6 @@ interface ICometErrors {
     error MaxAllowanceRestricted();
 
     error IncorrectApproval();
+
+    error PrincipalDecreaseOnSupply();
 }

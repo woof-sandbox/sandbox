@@ -1,4 +1,4 @@
-import { ethers, exp, expect, makeToken, SnapshotRestorer, takeSnapshot, ZERO_ADDRESS } from "../helper/helpers";
+import { ethers, exp, expect, makeMockERC20, SnapshotRestorer, takeSnapshot, ZERO_ADDRESS } from "../helper/helpers";
 import { time } from "@nomicfoundation/hardhat-network-helpers";
 import {
   FaucetToken,
@@ -31,7 +31,7 @@ describe("Rate Based Scaling Price Feed", function () {
     RateBasedScalingPriceFeedFactory = (await ethers.getContractFactory("RateBasedScalingPriceFeed")) as RateBasedScalingPriceFeed__factory;
     BalancerRateProviderTestFactory = (await ethers.getContractFactory("BalancerRateProviderTest")) as BalancerRateProviderTest__factory;
 
-    underlyingToken = await makeToken({
+    underlyingToken = await makeMockERC20({
       name: "Test Token",
       symbol: "TEST",
       decimals: 18,

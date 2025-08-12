@@ -1,6 +1,5 @@
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
-import { ethers, exp, expect, makeToken, SnapshotRestorer, takeSnapshot, ZERO_ADDRESS } from "../helper/helpers";
-import { time } from "@nomicfoundation/hardhat-network-helpers";
+import { ethers, exp, expect, makeMockERC20, time, SnapshotRestorer, takeSnapshot, ZERO_ADDRESS } from "../helper/helpers";
 import { FaucetToken, ScalingPriceFeed, ScalingPriceFeed__factory, SimplePriceFeed, SimplePriceFeed__factory } from "../../build/types";
 
 describe("Scaling Price Feed", function () {
@@ -37,7 +36,7 @@ describe("Scaling Price Feed", function () {
     ScalingPriceFeedFactory = (await ethers.getContractFactory("ScalingPriceFeed")) as ScalingPriceFeed__factory;
     SimplePriceFeed = (await ethers.getContractFactory("SimplePriceFeed")) as SimplePriceFeed__factory;
 
-    underlyingToken = await makeToken({
+    underlyingToken = await makeMockERC20({
       name: "Token",
       symbol: "TKN",
       decimals: 18,
