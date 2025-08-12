@@ -100,23 +100,6 @@ function getNowInternal() internal view virtual returns (uint40)
 | ---- | ---- | ----------- |
 | [0] | uint40 | The current timestamp |
 
-### setRewards
-
-```solidity
-function setRewards(address _rewards) external
-```
-
-Sets the rewards contract for a comet
-
-_Can be set as zero address to disable rewards
-Only callable by the config controller, which is set during initialization_
-
-#### Parameters
-
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| _rewards | address | The address of the rewards contract to set |
-
 ### accruedInterestIndices
 
 ```solidity
@@ -445,13 +428,13 @@ function updateAssetsIn(address account, uint8 index, uint256 initialUserBalance
 
 _Update assetsIn bit vector if user has entered or exited an asset_
 
-### updateBasePrincipal
+### updateUserRewards
 
 ```solidity
-function updateBasePrincipal(address account, struct ICometStructures.UserBasic basic, int104 principalNew) internal
+function updateUserRewards(address account) internal
 ```
 
-_Write updated principal to store and tracking participation_
+_Encapsulation of user's rewards update_
 
 ### doTransferIn
 

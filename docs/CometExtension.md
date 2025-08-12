@@ -215,6 +215,20 @@ Sets authorization status for a manager via signature from signatory
 | r | bytes32 | Half of the ECDSA signature pair |
 | s | bytes32 | Half of the ECDSA signature pair |
 
+### setRewards
+
+```solidity
+function setRewards(address _rewards) external
+```
+
+Sets the rewards contract for a comet
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| _rewards | address | The address of the rewards contract to set |
+
 ### getConfiguration
 
 ```solidity

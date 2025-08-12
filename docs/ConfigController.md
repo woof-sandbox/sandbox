@@ -221,8 +221,6 @@ function setRewards(address _comet, address _rewards) external
 
 Sets the rewards contract for a specific comet
 
-_Only callable by the owner_
-
 #### Parameters
 
 | Name | Type | Description |

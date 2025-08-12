@@ -300,14 +300,6 @@ uint64 unlockTimestamp
 
 Unlock timestamp
 
-### suggestedReserves
-
-```solidity
-uint256 suggestedReserves
-```
-
-Suggested reserves
-
 ### baseSupplyIndex
 
 ```solidity
@@ -353,14 +345,6 @@ uint8 numAssets
 ```
 
 The number of assets this contract actually supports
-
-### controllerFeeDisabled
-
-```solidity
-bool controllerFeeDisabled
-```
-
-Marker that controller fees are disabled
 
 ### totalsCollateral
 
