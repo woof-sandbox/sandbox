@@ -52,6 +52,8 @@ interface ISandboxController is ISandboxErrors {
         uint64 minLiquidationFactor; // 8 bytes
         uint64 maxLiquidationFactor; // 8 bytes
         /// "Free" space 16 bytes
+        /// Fifth 256 bits (32 bytes)
+        uint256 supplyCap; // 32 bytes
     }
 
     struct SandboxControllerConfiguration {
@@ -67,6 +69,7 @@ interface ISandboxController is ISandboxErrors {
     event BaseAssetCurveAdded(address indexed token, BaseAssetCurve baseAssetCurve, uint256 curveIndex);
     event BaseAssetCurveChanged(address indexed token, BaseAssetCurve oldCurve, BaseAssetCurve newCurve, uint256 curveIndex);
     event CollateralAssetWhitelisted(address indexed token, address indexed priceFeed, uint256 decimals);
+    event CollateralAssetUpdated(address indexed token);
 
     event CommissionChanged(MarketState state, uint64 oldReserve, uint64 newReserve, uint64 oldProtocol, uint64 newProtocol);
     event TreasuryChanged(address oldTreasury, address newTreasury);
@@ -111,7 +114,19 @@ interface ISandboxController is ISandboxErrors {
         uint64 minLiquidateCollateralFactor,
         uint64 maxLiquidateCollateralFactor,
         uint64 minLiquidationFactor,
-        uint64 maxLiquidationFactor
+        uint64 maxLiquidationFactor,
+        uint256 supplyCap
+    ) external;
+
+    function updateWhitelistedCollateralAsset(
+        address token,
+        uint64 minBorrowCollateralFactor,
+        uint64 maxBorrowCollateralFactor,
+        uint64 minLiquidateCollateralFactor,
+        uint64 maxLiquidateCollateralFactor,
+        uint64 minLiquidationFactor,
+        uint64 maxLiquidationFactor,
+        uint256 supplyCap
     ) external;
 
     function addBaseAssetCurve(address token, BaseAssetCurve memory baseAssetCurve) external;

@@ -18,6 +18,9 @@ interface ISandboxErrors {
     error IncorrectIndex();
     error InvalidAmountOfSeedReserves();
     error InvalidLockTimeOfSeedReserves();
+    error SupplyCapCantBeZero();
+    error SupplyCapTooHigh();
+    error CollateralTokenNotWhitelisted();
 
     error Unauthorized();
     error NotOwner(address caller);

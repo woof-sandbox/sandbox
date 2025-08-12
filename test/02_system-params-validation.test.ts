@@ -117,6 +117,7 @@ describe("2. System Params Validation", function () {
       supply: ethers.utils.parseEther("50000").toString(),
     });
     const collateralToken = await makeMockERC20({ name: "C1", symbol: "COL" });
+    const supplyCap = (await collateralToken.totalSupply()).mul(15).div(100); // 15% of total supply
     const priceFeedBase = await makePriceFeed(baseToken.address);
     const priceFeedCol = await makePriceFeed(collateralToken.address);
 
@@ -130,7 +131,7 @@ describe("2. System Params Validation", function () {
       borrowCollateralFactor: collateralConfig.borrowCF,
       liquidateCollateralFactor: collateralConfig.liquidateCF,
       liquidationFactor: collateralConfig.liquidationFactor,
-      supplyCap: collateralConfig.supplyCap,
+      supplyCap: supplyCap,
     });
 
     marketConfig = {
@@ -417,6 +418,7 @@ describe("2. System Params Validation", function () {
         const maxAssets = await sandboxCometImpl.MAX_ASSETS();
         for (let i = 0; i < maxAssets; i++) {
           const extraCollateral = await makeMockERC20({ name: "C" + i, symbol: "COLL" + i });
+          const supplyCap = (await extraCollateral.totalSupply()).mul(15).div(100); // 15% of total supply
           const priceFeedCol = await makePriceFeed(extraCollateral.address);
 
           await sandboxListCollateralAsset(sandboxController, extraCollateral, priceFeedCol.address);
@@ -425,7 +427,7 @@ describe("2. System Params Validation", function () {
             borrowCollateralFactor: exp(0.6, 18),
             liquidateCollateralFactor: exp(0.75, 18),
             liquidationFactor: exp(0.85, 18),
-            supplyCap: exp(1e9, 18),
+            supplyCap: supplyCap,
           });
         }
         await expect(configController.createComet(marketConfig)).to.be.revertedWithCustomError(sandboxCometImpl, "TooManyAssets");

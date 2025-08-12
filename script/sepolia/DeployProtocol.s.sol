@@ -288,6 +288,7 @@ contract DeployProtocol is Script {
 
     function whitelistCollateralAsset(address sandboxControllerAddr, address collateralToken, address collateralPriceFeed) internal {
         SandboxController sandboxController = SandboxController(sandboxControllerAddr);
+        uint256 totalSupply = IERC20Metadata(collateralToken).totalSupply();
 
         // Whitelist collateral asset
         sandboxController.whitelistCollateralAsset(
@@ -298,7 +299,8 @@ contract DeployProtocol is Script {
             8.5e17, // minLiquidateCollateralFactor (85%)
             9.5e17, // maxLiquidateCollateralFactor (95%)
             8.5e17, // minLiquidationFactor (85%)
-            9.5e17 // maxLiquidationFactor (95%)
+            9.5e17, // maxLiquidationFactor (95%)
+            (totalSupply * 15) / 100 // supplyCap (15% of total supply)
         );
     }
 
