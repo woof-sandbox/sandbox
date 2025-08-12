@@ -130,11 +130,7 @@ contract CometStorage is ICometStructures {
     /// @notice Unlock timestamp
     uint64 public unlockTimestamp;
 
-    // /// @notice Whether the market is devalued
-    // bool public isDeprecated;
-
-    // bool public isDeprecating;
-
+    /// @notice The deprecation status of the market
     DeprecationStatus public deprecationStatus;
 
     uint40 internal deprecationStartTime;
