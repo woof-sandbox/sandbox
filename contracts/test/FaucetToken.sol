@@ -29,6 +29,4 @@ contract FaucetToken is ERC20 {
     function allocateTo(address _owner, uint256 value) public {
         _mint(_owner, value);
     }
-
-    function _spendAllowance(address owner, address spender, uint256 value) internal override {}
 }

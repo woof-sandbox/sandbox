@@ -27,8 +27,6 @@ interface IConfigController {
     struct CometGlobalParamsConfig {
         uint64 targetPercent;
         uint64 storeFrontPriceFactor;
-        uint40 suggestedLockTimeOfSeedReserves;
-        uint256 suggestedAmountOfSeedReserves;
     }
 
     struct CometRewardOptions {

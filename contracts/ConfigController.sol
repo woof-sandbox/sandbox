@@ -136,22 +136,22 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
     /// @param _cometConfig The configuration parameters for the new comet
     /// @return The address of the newly created comet
     function createComet(CometConfig memory _cometConfig) external override onlyOwner returns (address) {
+        address baseToken = _cometConfig.baseToken;
+        uint256 baseTokenCurveId = _cometConfig.baseTokenCurveId;
         /// Check base token
         ///
-        if (_cometConfig.baseToken == address(0)) revert ZeroAddress();
+        if (baseToken == address(0)) revert ZeroAddress();
         // aderyn-fp-next-line(reentrancy-state-change)
-        if (!ISandboxController(sandboxController).isBaseTokenWhitelisted(_cometConfig.baseToken)) revert BaseTokenNotWhitelisted();
+        if (!ISandboxController(sandboxController).isBaseTokenWhitelisted(baseToken)) revert BaseTokenNotWhitelisted();
         /// Token decimals and price feed decimal are validated on the Comet, as it may be an individual setting
 
         /// Check interest curve
         ///
         // aderyn-fp-next-line(reentrancy-state-change)
-        ISandboxController.BaseAssetConfiguration memory baseAssetConfig = ISandboxController(sandboxController).baseAssets(
-            _cometConfig.baseToken
-        );
+        ISandboxController.BaseAssetConfiguration memory baseAssetConfig = ISandboxController(sandboxController).baseAssets(baseToken);
 
         if (baseAssetConfig.baseAssetCurves.length == 0) revert NoCurveRegistered();
-        if (_cometConfig.baseTokenCurveId >= baseAssetConfig.baseAssetCurves.length) revert InvalidCurveId();
+        if (baseTokenCurveId >= baseAssetConfig.baseAssetCurves.length) revert InvalidCurveId();
 
         /// Check collaterals
         ///
@@ -168,7 +168,7 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
 
             /// Quick checks first
             if (_collateralToken == address(0)) revert ZeroAddress();
-            if (_collateralToken == _cometConfig.baseToken) revert WrongCollateralTokenSettings();
+            if (_collateralToken == baseToken) revert WrongCollateralTokenSettings();
 
             for (uint8 j = 0; j < i; ) {
                 if (addedCollateralTokens[j] == _collateralToken) revert CollateralTokenAlreadyAdded();
@@ -189,24 +189,22 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
         ISandboxController.SandboxControllerConfiguration memory _sandboxConfig = ISandboxController(sandboxController).config();
         CometGlobalParamsConfig memory _globalConfig = CometGlobalParamsConfig(
             _sandboxConfig.targetPercent,
-            _sandboxConfig.storeFrontPriceFactor,
-            _sandboxConfig.suggestedLockTimeOfSeedReserves,
-            _sandboxConfig.suggestedAmountOfSeedReserves
+            _sandboxConfig.storeFrontPriceFactor
         );
 
         address comet = ISandboxCometFactory(cometFactory).createComet(_cometConfig.name); // aderyn-fp(reentrancy-state-change)
         ISandboxComet(comet).initialize(_cometConfig, _globalConfig); // aderyn-fp(reentrancy-state-change)
 
+        // TODO: currently suggestedAmountOfSeedReserves is set in USD, token amount is expected in separate PR
+        uint256 suggestedAmountOfSeedReserves = ISandboxController(sandboxController).suggestedAmountOfSeedReserves(baseToken);
+        // TODO: optional amount of reserves (with validation on 0 reserves) is expected to be added in separate PR
+        IERC20(baseToken).safeTransferFrom(msg.sender, comet, suggestedAmountOfSeedReserves);
+
         uint256 cometsNum = comets.length;
         comets.push(comet);
         cometId[comet] = cometsNum;
 
-        /// TODO: seed reserves logic will be adjusted
-        if (_sandboxConfig.suggestedAmountOfSeedReserves > 0) {
-            IERC20(_cometConfig.baseToken).safeTransferFrom(msg.sender, comet, _sandboxConfig.suggestedAmountOfSeedReserves);
-        }
-
-        emit CometCreated(comet, _cometConfig.baseToken, baseAssetConfig.priceFeed, cometsNum + 1, _cometConfig.baseTokenCurveId);
+        emit CometCreated(comet, baseToken, baseAssetConfig.priceFeed, cometsNum + 1, baseTokenCurveId);
 
         return comet;
     }

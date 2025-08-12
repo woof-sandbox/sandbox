@@ -106,8 +106,12 @@ contract SandboxComet is CometCore, ISandboxComet {
 
         /// It can be safely assumed, that reserve parameters are validated in Sandbox Controller
         targetPercent = config.targetPercent;
-        seedReserves = config.suggestedAmountOfSeedReserves;
-        unlockTimestamp = safe64(block.timestamp + config.suggestedLockTimeOfSeedReserves);
+        (uint256 amountOfSeedReserves, uint40 lockTimeOfSeedReserves) = ISandboxController(sandboxController)
+            .baseTokenSuggestedSeedReserves(comet.baseToken);
+
+        /// TODO: currently never used, behavior will be adjusted in close market PR
+        seedReserves = amountOfSeedReserves;
+        unlockTimestamp = safe64(block.timestamp + lockTimeOfSeedReserves);
 
         /// Interest rate curve
         ///
@@ -264,6 +268,9 @@ contract SandboxComet is CometCore, ISandboxComet {
      * @return The per second supply rate at `utilization`
      */
     function getSupplyRate(uint utilization) public view override returns (uint64) {
+        /// No supply - no supply interest
+        if (totalSupplyBase == 0) return 0;
+
         if (utilization <= supplyKink) {
             // interestRateBase + interestRateSlopeLow * utilization
             return safe64(supplyPerSecondInterestRateBase + mulFactor(supplyPerSecondInterestRateSlopeLow, utilization));
@@ -407,8 +414,12 @@ contract SandboxComet is CometCore, ISandboxComet {
      * @dev The change in principal broken into repay and supply amounts
      */
     function repayAndSupplyAmount(int104 oldPrincipal, int104 newPrincipal) internal pure returns (uint104, uint104) {
-        // If the new principal is less than the old principal, then no amount has been repaid or supplied
-        if (newPrincipal < oldPrincipal) return (0, 0);
+        // If during supply the new principal is less than the old principal, than rounding error occured
+        // and caused no-effect call because of too low supply amount (lower that 1e15). Original Comet had
+        // a workaround to neglect such calls and just 0 principal delta. We revert in such situations, thus user
+        // should provide higher supply amount. While the case can occur only for supplied amount == 0 and that is
+        // prohibited in this version of Comet, this error works as additional safeguard for such cases
+        if (newPrincipal < oldPrincipal) revert PrincipalDecreaseOnSupply();
 
         if (newPrincipal <= 0) {
             return (uint104(newPrincipal - oldPrincipal), 0);
@@ -623,7 +634,7 @@ contract SandboxComet is CometCore, ISandboxComet {
      * @param amount The quantity to supply
      */
     function supply(address asset, uint256 amount) external override {
-        return supplyInternal(msg.sender, msg.sender, msg.sender, asset, amount, false);
+        return supplyInternal(msg.sender, msg.sender, asset, amount, false);
     }
 
     /**
@@ -633,7 +644,7 @@ contract SandboxComet is CometCore, ISandboxComet {
      * @param amount The quantity to supply
      */
     function supplyTo(address dst, address asset, uint256 amount) external override {
-        return supplyInternal(msg.sender, msg.sender, dst, asset, amount, false);
+        return supplyInternal(msg.sender, dst, asset, amount, false);
     }
 
     /**
@@ -644,7 +655,7 @@ contract SandboxComet is CometCore, ISandboxComet {
      * @param amount The quantity to supply
      */
     function supplyFrom(address from, address dst, address asset, uint256 amount) external override {
-        return supplyInternal(msg.sender, from, dst, asset, amount, false);
+        return supplyInternal(from, dst, asset, amount, false);
     }
 
     /**
@@ -653,13 +664,17 @@ contract SandboxComet is CometCore, ISandboxComet {
      * @param dst The address which will hold the balance (can be the same from address)
      */
     function repayAllFrom(address from, address dst) external override {
-        return supplyInternal(msg.sender, from, dst, baseToken, borrowBalanceOf(dst), true);
+        return supplyInternal(from, dst, baseToken, borrowBalanceOf(dst), true);
     }
 
     /**
      * @dev Supply either collateral or base asset, depending on the asset, if operator is allowed
      */
-    function supplyInternal(address operator, address from, address dst, address asset, uint256 amount, bool isAll) internal nonReentrant {
+    function supplyInternal(address from, address dst, address asset, uint256 amount, bool isAll) internal nonReentrant {
+        // operator is always msg.sender
+        address operator = msg.sender;
+
+        if (from == address(0) || dst == address(0) || asset == address(0)) revert ZeroAddress();
         if (amount == 0) revert ZeroAmount();
         if (isSupplyPaused()) revert Paused();
 
@@ -693,6 +708,10 @@ contract SandboxComet is CometCore, ISandboxComet {
 
         emit Supply(from, dst, amount);
 
+        /// Note: we use the present value from the principal delta instead of the token amount in the argument
+        /// principalValue() performs rounding down, thus it is possible to have post-supply present value
+        /// 1 wei lower than the actual supplied amount. Thus the present value of principal change is reported
+        /// The rounding error is small enough to be compensated from the supply interest in the next block.
         if (supplyAmount > 0) {
             emit Transfer(address(0), dst, presentValueSupply(baseSupplyIndex, supplyAmount));
         }
@@ -703,6 +722,7 @@ contract SandboxComet is CometCore, ISandboxComet {
      */
     function supplyCollateral(address from, address dst, address asset, uint256 amount) internal {
         amount = doTransferIn(asset, from, amount);
+        accrueInternal();
 
         (CollateralAsset memory assetInfo, uint8 index) = getAssetInfoByAddress(asset);
         uint256 totals = totalsCollateral[asset];
@@ -1228,10 +1248,9 @@ contract SandboxComet is CometCore, ISandboxComet {
 
         uint256 basePrice = getPrice(baseTokenPriceFeed);
         uint256 reservesUsd = (reserves * basePrice) / baseScale;
-        uint256 seedUsd = (seedReserves * basePrice) / baseScale;
         uint256 targetUsd = (targetReserves() * basePrice) / baseScale;
 
-        (uint64 reservePct, uint64 protocolPct) = ISandboxController(sandboxController).getCommissions(reservesUsd, seedUsd, targetUsd);
+        (uint64 reservePct, uint64 protocolPct) = ISandboxController(sandboxController).getCommissions(reservesUsd, targetUsd, baseToken);
 
         _reserveFee = mulFactor(profitAmount, uint256(reservePct));
         _daoFee = mulFactor(profitAmount, uint256(protocolPct));

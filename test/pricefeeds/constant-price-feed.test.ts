@@ -1,6 +1,5 @@
-import { ethers, exp, expect, getBlock, makeToken, SnapshotRestorer, takeSnapshot, ZERO_ADDRESS } from "../helper/helpers";
+import { ethers, exp, expect, time, makeMockERC20, SnapshotRestorer, takeSnapshot, ZERO_ADDRESS } from "../helper/helpers";
 import { ConstantPriceFeed, ConstantPriceFeed__factory, FaucetToken } from "../../build/types";
-import { time } from "@nomicfoundation/hardhat-network-helpers";
 
 describe("ConstantPriceFeed", function () {
   let snapshot: SnapshotRestorer;
@@ -15,7 +14,7 @@ describe("ConstantPriceFeed", function () {
   before(async () => {
     ConstantPriceFeedFactory = (await ethers.getContractFactory("ConstantPriceFeed")) as ConstantPriceFeed__factory;
 
-    underlyingToken = await makeToken({ name: "Underlying Token", symbol: "UTK", decimals: 18 });
+    underlyingToken = await makeMockERC20({ name: "Underlying Token", symbol: "UTK", decimals: 18 });
     priceFeed = await ConstantPriceFeedFactory.deploy(18, PRICE, underlyingToken.address);
 
     snapshot = await takeSnapshot();
@@ -164,7 +163,7 @@ describe("ConstantPriceFeed", function () {
     it("returns expected roundId, startedAt, updatedAt and answeredInRound values", async () => {
       const { roundId, startedAt, updatedAt, answeredInRound } = await priceFeed.latestRoundData();
 
-      const currentTimestamp = (await getBlock()).timestamp;
+      const currentTimestamp = await time.latest();
 
       expect(roundId).to.eq(1);
       expect(startedAt).to.eq(currentTimestamp);
@@ -200,13 +199,13 @@ describe("ConstantPriceFeed", function () {
     });
 
     it("returns current block timestamp for startedAt and updatedAt", async () => {
-      const beforeTimestamp = (await getBlock()).timestamp;
+      const beforeTimestamp = await time.latest();
 
       // Mine a new block
       await ethers.provider.send("evm_mine", []);
 
       const { startedAt, updatedAt } = await priceFeed.latestRoundData();
-      const afterTimestamp = (await getBlock()).timestamp;
+      const afterTimestamp = await time.latest();
 
       expect(startedAt).to.eq(afterTimestamp);
       expect(updatedAt).to.eq(afterTimestamp);

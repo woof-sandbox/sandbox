@@ -1,16 +1,21 @@
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { ConfigController, ISandboxController, SandboxComet, SandboxComet__factory } from "../build/types";
-import { ethers, expect, makeConfigController, SnapshotRestorer, takeSnapshot, DEFAULT_UPDATE_TIME, exp } from "./helper/helpers";
+import {
+  ethers,
+  expect,
+  makeConfigController,
+  defaultCollateralConfig,
+  CollateralConfig,
+  SnapshotRestorer,
+  takeSnapshot,
+  DEFAULT_UPDATE_TIME,
+} from "./helper/helpers";
 import { CometConfigStruct, CollateralTokenConfigStruct } from "../build/types/ConfigController";
+import { BigNumberish } from "ethers";
 
-describe("ConfigController", () => {
-  let owner: SignerWithAddress;
-  let dao: SignerWithAddress;
-  let curator: SignerWithAddress;
-  let other: SignerWithAddress;
-  let treasury: SignerWithAddress;
-  let guardian: SignerWithAddress;
-  let curatorProposalDuration: any;
+describe("4. ConfigController", () => {
+  let owner, dao, curator, other, treasury, guardian: SignerWithAddress;
+  let curatorProposalDuration: BigNumberish;
   let configController: ConfigController;
   let sandboxController: ISandboxController;
 
@@ -20,19 +25,29 @@ describe("ConfigController", () => {
   before(async function () {
     [owner, dao, treasury, curator, guardian, other] = await ethers.getSigners();
 
-    const opts = await makeConfigController({ owner: owner, dao: dao, treasury: treasury, curator: curator, guardian: guardian }, false);
+    const opts = await makeConfigController(
+      {
+        owner: owner,
+        dao: dao,
+        treasury: treasury.address,
+        curator: curator,
+        guardian: guardian,
+      },
+      false
+    );
     configController = opts.configController;
     sandboxController = opts.sandboxController;
 
     baseToken = opts.baseToken;
 
-    const asset = Object.keys(opts.assets)[0];
+    const asset = Object.keys(opts.collaterals)[0];
+    const collateralConfig: CollateralConfig = defaultCollateralConfig();
     collateralTokens.push({
-      collateralToken: opts.tokens[asset].address,
-      borrowCollateralFactor: exp(0.5, 18),
-      liquidateCollateralFactor: exp(0.6, 18),
-      liquidationFactor: exp(0.8, 18),
-      supplyCap: exp(1e9, 18),
+      collateralToken: opts.collaterals[asset].address,
+      borrowCollateralFactor: collateralConfig.borrowCF,
+      liquidateCollateralFactor: collateralConfig.liquidateCF,
+      liquidationFactor: collateralConfig.liquidationFactor,
+      supplyCap: collateralConfig.supplyCap,
     });
 
     curatorProposalDuration = await configController.curatorProposalDuration();
@@ -424,6 +439,10 @@ describe("ConfigController", () => {
     });
 
     it("should have disabled controller fee for new Comet ", async function () {
+      const amount = await sandboxController.suggestedAmountOfSeedReserves(baseToken.address);
+      await baseToken.allocateTo(owner.address, amount);
+      await baseToken.approve(configController.address, amount);
+
       await configController.connect(owner).createComet(marketConfig);
       newComet = (await ethers.getContractAt("SandboxComet", await configController.comets(0))) as SandboxComet;
 

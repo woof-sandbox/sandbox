@@ -1,4 +1,4 @@
-import { ethers, expect, exp, fastForward, getBlock, makeProtocol, wait, setTotalsBasic } from "./helper/helpers";
+/*import { ethers, expect, exp } from "./helper/helpers";
 
 function projectBaseIndex(index, rate, time, factorScale = exp(1, 18)) {
   return index.add(index.mul(rate.mul(time)).div(factorScale));
@@ -8,15 +8,11 @@ function projectTrackingIndex(index, speed, time, base, baseScale = exp(1, 6)) {
   return index.add(speed.mul(time).mul(baseScale).div(base));
 }
 
-describe.skip("accrue", function () {
-  it("fails if baseMinForRewards = 0", async () => {
-    await expect(
-      makeProtocol({
-        baseMinForRewards: 0,
-      })
-    ).to.be.revertedWith("custom error 'BadMinimum()'");
-  });
+*/
 
+// todo: merge with interest tests
+describe.skip("accrue", function () {
+  /*
   it("accrue initially succeeds and has the right parameters", async () => {
     await ethers.provider.send("hardhat_reset", []); // ensure clean start...
 
@@ -233,9 +229,11 @@ describe.skip("accrue", function () {
     await expect(wait(comet.accrue())).to.be.revertedWith("custom error 'TimestampTooLarge()'");
     await ethers.provider.send("hardhat_reset", []); // dont break downstream tests...
   });
+  */
 });
 
 describe.skip("accrueAccount", function () {
+  /*
   it("has no effect when called on an address with no protocol activity", async () => {
     const {
       comet,
@@ -252,4 +250,5 @@ describe.skip("accrueAccount", function () {
     expect(userBasic1.baseTrackingAccrued).to.eq(0);
     expect(userBasic1.assetsIn).to.eq(0);
   });
+  */
 });

@@ -1,6 +1,5 @@
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
-import { ethers, exp, expect, makeToken, SnapshotRestorer, takeSnapshot, ZERO_ADDRESS } from "../helper/helpers";
-import { time } from "@nomicfoundation/hardhat-network-helpers";
+import { ethers, exp, expect, makeMockERC20, time, SnapshotRestorer, takeSnapshot, ZERO_ADDRESS } from "../helper/helpers";
 import {
   FaucetToken,
   ReverseMultiplicativePriceFeed,
@@ -57,7 +56,7 @@ describe("Reverse Multiplicative Price Feed", function () {
     )) as ReverseMultiplicativePriceFeed__factory;
     SimplePriceFeed = (await ethers.getContractFactory("SimplePriceFeed")) as SimplePriceFeed__factory;
 
-    underlyingToken = await makeToken({
+    underlyingToken = await makeMockERC20({
       name: "TokenX",
       symbol: "TKNX",
       decimals: 18,
