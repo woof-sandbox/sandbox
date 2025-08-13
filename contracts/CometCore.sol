@@ -105,15 +105,29 @@ abstract contract CometCore is CometStorage, CometMath, ICometErrors, ICometEven
 
     /**
      * @dev The principal amount projected forward by the supply index
+     * Performs calculation in uint256, increasing the type for intermediate result to avoid overflow in uint104
+     * uint104 is approx (2*1e48), so 100bln supply (1e11*1e18) with full index (approx 1e4*1e15) may cause overflow
+     * @return _ Total supply as present value (in tokens). uint256 return type is kept for compatibility with ERC20
+     * balance types and for ease internal conversions. But in can be safely shortened to uint104
      */
     function presentValueSupply(uint64 baseSupplyIndex_, uint104 principalValue_) internal pure returns (uint256) {
+        /// once intermediate results are calculated, total supply can be cut into uint104 by any caller-function
+        /// as it is highly unlikely to have any supply above 2*1e30 of tokens with 18 decimals
+
         return (uint256(principalValue_) * baseSupplyIndex_) / BASE_INDEX_SCALE;
     }
 
     /**
      * @dev The principal amount projected forward by the borrow index
+     * Performs calculation in uint256, increasing the type for intermediate result to avoid overflow in uint104
+     * uint104 is approx (2*1e48), so 100bln supply (1e11*1e18) with full index (approx 1e4*1e15) may cause overflow
+     * @return _ Total borrow as present value (in tokens). uint256 return type is kept for compatibility with ERC20
+     * balance types and for ease internal conversions. But in can be safely shortened to uint104
      */
     function presentValueBorrow(uint64 baseBorrowIndex_, uint104 principalValue_) internal pure returns (uint256) {
+        /// once intermediate results are calculated, total borrow can be cut into uint104 by any caller-function
+        /// as it is highly unlikely to have any borrow above 2*1e30 of tokens with 18 decimals
+
         return (uint256(principalValue_) * baseBorrowIndex_) / BASE_INDEX_SCALE;
     }
 

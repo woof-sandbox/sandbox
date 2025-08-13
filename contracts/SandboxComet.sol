@@ -226,7 +226,7 @@ contract SandboxComet is CometCore, ISandboxComet {
         uint64 baseSupplyIndex_ = baseSupplyIndex;
         uint64 baseBorrowIndex_ = baseBorrowIndex;
         if (timeElapsed > 0) {
-            uint utilization = getUtilization();
+            uint64 utilization = getUtilization();
             uint64 supplyRate = getSupplyRate(utilization);
             uint64 borrowRate = getBorrowRate(utilization);
             baseSupplyIndex_ += safe64(mulFactor(baseSupplyIndex_, supplyRate * timeElapsed));
@@ -267,9 +267,12 @@ contract SandboxComet is CometCore, ISandboxComet {
      * @param utilization The utilization to check the supply rate for
      * @return The per second supply rate at `utilization`
      */
-    function getSupplyRate(uint utilization) public view override returns (uint64) {
+    function getSupplyRate(uint64 utilization) public view override returns (uint64) {
         /// No supply - no supply interest
         if (totalSupplyBase == 0) return 0;
+
+        /// TODO: add supplyRate -> if totalSuplpy >= balanceOf() && totalBorrow == 0
+        /// That will stop the distribution of reserves into early lenders in case of no borrows
 
         if (utilization <= supplyKink) {
             // interestRateBase + interestRateSlopeLow * utilization
@@ -290,7 +293,7 @@ contract SandboxComet is CometCore, ISandboxComet {
      * @param utilization The utilization to check the borrow rate for
      * @return The per second borrow rate at `utilization`
      */
-    function getBorrowRate(uint utilization) public view override returns (uint64) {
+    function getBorrowRate(uint64 utilization) public view override returns (uint64) {
         if (utilization <= borrowKink) {
             // interestRateBase + interestRateSlopeLow * utilization
             return safe64(borrowPerSecondInterestRateBase + mulFactor(borrowPerSecondInterestRateSlopeLow, utilization));
@@ -307,15 +310,20 @@ contract SandboxComet is CometCore, ISandboxComet {
 
     /**
      * @dev Note: Does not accrue interest first
-     * @return The utilization rate of the base asset
+     * @return _ The utilization rate of the base asset. 1e18 corresponds to 100% utilization. Return type is
+     * shortened to uint64 (approx 18 * 1e18) with 1800% as max possible value which is unlikely to be reached.
      */
-    function getUtilization() public view override returns (uint) {
-        uint totalSupply_ = presentValueSupply(baseSupplyIndex, totalSupplyBase);
-        uint totalBorrow_ = presentValueBorrow(baseBorrowIndex, totalBorrowBase);
+    function getUtilization() public view override returns (uint64) {
+        /// supply/borrow ends in: uin104(base) * uint64(index) / 1e15
+        /// approx (2*1e30 * 1e18) * (18,446 * 1e15) / 1e15
+        uint256 totalSupply_ = presentValueSupply(baseSupplyIndex, totalSupplyBase);
+        uint256 totalBorrow_ = presentValueBorrow(baseBorrowIndex, totalBorrowBase);
         if (totalSupply_ == 0) {
             return 0;
         } else {
-            return (totalBorrow_ * FACTOR_SCALE) / totalSupply_;
+            /// highly ulikely to reach 18 times more borrows than supplies,
+            /// thus we use explicit casting instead of safe casting
+            return uint64((totalBorrow_ * FACTOR_SCALE) / totalSupply_);
         }
     }
 
@@ -537,7 +545,7 @@ contract SandboxComet is CometCore, ISandboxComet {
     /**
      * @dev Multiply a number by a factor
      */
-    function mulFactor(uint n, uint factor) internal pure returns (uint) {
+    function mulFactor(uint256 n, uint256 factor) internal pure returns (uint256) {
         return (n * factor) / FACTOR_SCALE;
     }
 

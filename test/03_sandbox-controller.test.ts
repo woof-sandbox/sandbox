@@ -85,6 +85,7 @@ describe("3. SandboxController", function () {
   });
 
   describe("whitelistBaseAsset - reverts", function () {
+    /// Note: testset checks general reverts, work with interest rate curves is checked in a separate testset
     let tokenTest: FaucetToken;
     let priceFeedTest: SimplePriceFeed;
     let curve: BaseAssetCurveStruct = makeValidCurve();
@@ -265,172 +266,6 @@ describe("3. SandboxController", function () {
           .connect(dao)
           .whitelistBaseAsset(tokenTest.address, priceFeedTest.address, curve, 10, suggestedAmountOfSeedReserves, DEFAULT_LOCK_TIME - 1)
       ).to.be.revertedWithCustomError(sandboxController, "InvalidLockTimeOfSeedReserves");
-    });
-
-    describe("reverts on invalid curves", function () {
-      beforeEach(async function () {
-        curve = makeValidCurve();
-      });
-
-      it("reverts for zero supply kink", async function () {
-        curve.supplyKink = 0;
-
-        expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.false;
-        await expect(
-          sandboxController.whitelistBaseAsset(
-            tokenTest.address,
-            priceFeedTest.address,
-            curve,
-            10,
-            suggestedAmountOfSeedReserves,
-            suggestedLockTimeOfSeedReserves
-          )
-        ).to.be.revertedWithCustomError(sandboxController, "InvalidCurveConfiguration");
-      });
-
-      it("reverts for zero borrow kink", async function () {
-        curve.borrowKink = 0;
-
-        expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.false;
-        await expect(
-          sandboxController.whitelistBaseAsset(
-            tokenTest.address,
-            priceFeedTest.address,
-            curve,
-            10,
-            suggestedAmountOfSeedReserves,
-            suggestedLockTimeOfSeedReserves
-          )
-        ).to.be.revertedWithCustomError(sandboxController, "InvalidCurveConfiguration");
-      });
-
-      it("reverts for supply kink > 1e18", async function () {
-        curve.supplyKink = parseEther("1").add(1).toString();
-
-        expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.false;
-        await expect(
-          sandboxController.whitelistBaseAsset(
-            tokenTest.address,
-            priceFeedTest.address,
-            curve,
-            10,
-            suggestedAmountOfSeedReserves,
-            suggestedLockTimeOfSeedReserves
-          )
-        ).to.be.revertedWithCustomError(sandboxController, "InvalidCurveConfiguration");
-      });
-
-      it("reverts for borrow kink > 1e18", async function () {
-        curve.borrowKink = parseEther("1").add(1).toString();
-
-        expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.false;
-        await expect(
-          sandboxController.whitelistBaseAsset(
-            tokenTest.address,
-            priceFeedTest.address,
-            curve,
-            10,
-            suggestedAmountOfSeedReserves,
-            suggestedLockTimeOfSeedReserves
-          )
-        ).to.be.revertedWithCustomError(sandboxController, "InvalidCurveConfiguration");
-      });
-
-      it("reverts for supply slope high = 0", async function () {
-        curve.supplyPerYearInterestRateSlopeHigh = 0;
-
-        expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.false;
-        await expect(
-          sandboxController.whitelistBaseAsset(
-            tokenTest.address,
-            priceFeedTest.address,
-            curve,
-            10,
-            suggestedAmountOfSeedReserves,
-            suggestedLockTimeOfSeedReserves
-          )
-        ).to.be.revertedWithCustomError(sandboxController, "InvalidCurveConfiguration");
-      });
-
-      it("reverts for supply slope low = 0", async function () {
-        curve.supplyPerYearInterestRateSlopeLow = 0;
-
-        expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.false;
-        await expect(
-          sandboxController.whitelistBaseAsset(
-            tokenTest.address,
-            priceFeedTest.address,
-            curve,
-            10,
-            suggestedAmountOfSeedReserves,
-            suggestedLockTimeOfSeedReserves
-          )
-        ).to.be.revertedWithCustomError(sandboxController, "InvalidCurveConfiguration");
-      });
-
-      it("reverts for borrow slope high = 0", async function () {
-        curve.borrowPerYearInterestRateSlopeHigh = 0;
-
-        expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.false;
-        await expect(
-          sandboxController.whitelistBaseAsset(
-            tokenTest.address,
-            priceFeedTest.address,
-            curve,
-            10,
-            suggestedAmountOfSeedReserves,
-            suggestedLockTimeOfSeedReserves
-          )
-        ).to.be.revertedWithCustomError(sandboxController, "InvalidCurveConfiguration");
-      });
-
-      it("reverts for borrow slope low = 0", async function () {
-        curve.borrowPerYearInterestRateSlopeLow = 0;
-
-        expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.false;
-        await expect(
-          sandboxController.whitelistBaseAsset(
-            tokenTest.address,
-            priceFeedTest.address,
-            curve,
-            10,
-            suggestedAmountOfSeedReserves,
-            suggestedLockTimeOfSeedReserves
-          )
-        ).to.be.revertedWithCustomError(sandboxController, "InvalidCurveConfiguration");
-      });
-
-      it("reverts for borrow base = 0", async function () {
-        curve.borrowPerYearInterestRateBase = 0;
-
-        expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.false;
-        await expect(
-          sandboxController.whitelistBaseAsset(
-            tokenTest.address,
-            priceFeedTest.address,
-            curve,
-            10,
-            suggestedAmountOfSeedReserves,
-            suggestedLockTimeOfSeedReserves
-          )
-        ).to.be.revertedWithCustomError(sandboxController, "InvalidCurveConfiguration");
-      });
-
-      it("reverts for supply base = 0", async function () {
-        curve.supplyPerYearInterestRateBase = 0;
-
-        expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.false;
-        await expect(
-          sandboxController.whitelistBaseAsset(
-            tokenTest.address,
-            priceFeedTest.address,
-            curve,
-            10,
-            suggestedAmountOfSeedReserves,
-            suggestedLockTimeOfSeedReserves
-          )
-        ).to.be.revertedWithCustomError(sandboxController, "InvalidCurveConfiguration");
-      });
     });
   });
 
@@ -1324,6 +1159,8 @@ describe("3. SandboxController", function () {
   });
 
   describe("addBaseAssetCurve", function () {
+    /// Note: testset checks general reverts, work with interest rate curves is checked in a separate testset
+
     let tokenTest: any;
     let priceFeedTest: any;
     let curve: BaseAssetCurveStruct = makeValidCurve();
@@ -1367,112 +1204,6 @@ describe("3. SandboxController", function () {
       });
     });
 
-    describe("reverts on invalid curves", function () {
-      afterEach(async function () {
-        curve = makeValidCurve();
-      });
-
-      it("reverts for zero supply kink", async function () {
-        curve.supplyKink = 0;
-
-        expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.false;
-        await expect(sandboxController.addBaseAssetCurve(tokenTest.address, curve)).to.be.revertedWithCustomError(
-          sandboxController,
-          "InvalidCurveConfiguration"
-        );
-      });
-
-      it("reverts for zero borrow kink", async function () {
-        curve.borrowKink = 0;
-
-        expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.false;
-        await expect(sandboxController.addBaseAssetCurve(tokenTest.address, curve)).to.be.revertedWithCustomError(
-          sandboxController,
-          "InvalidCurveConfiguration"
-        );
-      });
-
-      it("reverts for supply kink > 1e18", async function () {
-        curve.supplyKink = parseEther("1").add(1).toString();
-
-        expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.false;
-        await expect(sandboxController.addBaseAssetCurve(tokenTest.address, curve)).to.be.revertedWithCustomError(
-          sandboxController,
-          "InvalidCurveConfiguration"
-        );
-      });
-
-      it("reverts for borrow kink > 1e18", async function () {
-        curve.borrowKink = parseEther("1").add(1).toString();
-
-        expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.false;
-        await expect(sandboxController.addBaseAssetCurve(tokenTest.address, curve)).to.be.revertedWithCustomError(
-          sandboxController,
-          "InvalidCurveConfiguration"
-        );
-      });
-
-      it("reverts for supply slope high = 0", async function () {
-        curve.supplyPerYearInterestRateSlopeHigh = 0;
-
-        expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.false;
-        await expect(sandboxController.addBaseAssetCurve(tokenTest.address, curve)).to.be.revertedWithCustomError(
-          sandboxController,
-          "InvalidCurveConfiguration"
-        );
-      });
-
-      it("reverts for supply slope low = 0", async function () {
-        curve.supplyPerYearInterestRateSlopeLow = 0;
-
-        expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.false;
-        await expect(sandboxController.addBaseAssetCurve(tokenTest.address, curve)).to.be.revertedWithCustomError(
-          sandboxController,
-          "InvalidCurveConfiguration"
-        );
-      });
-
-      it("reverts for borrow slope high = 0", async function () {
-        curve.borrowPerYearInterestRateSlopeHigh = 0;
-
-        expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.false;
-        await expect(sandboxController.addBaseAssetCurve(tokenTest.address, curve)).to.be.revertedWithCustomError(
-          sandboxController,
-          "InvalidCurveConfiguration"
-        );
-      });
-
-      it("reverts for borrow slope low = 0", async function () {
-        curve.borrowPerYearInterestRateSlopeLow = 0;
-
-        expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.false;
-        await expect(sandboxController.addBaseAssetCurve(tokenTest.address, curve)).to.be.revertedWithCustomError(
-          sandboxController,
-          "InvalidCurveConfiguration"
-        );
-      });
-
-      it("reverts for borrow base = 0", async function () {
-        curve.borrowPerYearInterestRateBase = 0;
-
-        expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.false;
-        await expect(sandboxController.addBaseAssetCurve(tokenTest.address, curve)).to.be.revertedWithCustomError(
-          sandboxController,
-          "InvalidCurveConfiguration"
-        );
-      });
-
-      it("reverts for supply base = 0", async function () {
-        curve.supplyPerYearInterestRateBase = 0;
-
-        expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.false;
-        await expect(sandboxController.addBaseAssetCurve(tokenTest.address, curve)).to.be.revertedWithCustomError(
-          sandboxController,
-          "InvalidCurveConfiguration"
-        );
-      });
-    });
-
     describe("happy cases", function () {
       it("should work for owner", async function () {
         await expect(sandboxController.connect(owner).addBaseAssetCurve(tokenTest.address, curve)).to.not.be.reverted;
@@ -1483,11 +1214,12 @@ describe("3. SandboxController", function () {
       });
 
       it("should append the curve and set storage", async function () {
+        /// add curve different from default to have clear test
         let curveTest: BaseAssetCurveStruct = {
           supplyKink: ethers.utils.parseEther("0.3").toString(),
           supplyPerYearInterestRateSlopeLow: ethers.BigNumber.from("100"),
           supplyPerYearInterestRateSlopeHigh: ethers.BigNumber.from("2000"),
-          supplyPerYearInterestRateBase: ethers.BigNumber.from("200"),
+          supplyPerYearInterestRateBase: ethers.BigNumber.from("2"),
           borrowKink: ethers.utils.parseEther("0.6").toString(),
           borrowPerYearInterestRateSlopeLow: ethers.BigNumber.from("2000"),
           borrowPerYearInterestRateSlopeHigh: ethers.BigNumber.from("3000"),
@@ -1521,6 +1253,8 @@ describe("3. SandboxController", function () {
   });
 
   describe("changeBaseAssetCurve", function () {
+    /// Note: testset checks general reverts, work with interest rate curves is checked in a separate testset
+
     let tokenTest: any;
     let priceFeedTest: any;
     let curve: BaseAssetCurveStruct = makeValidCurve();
@@ -1528,7 +1262,7 @@ describe("3. SandboxController", function () {
       supplyKink: ethers.utils.parseEther("0.3").toString(),
       supplyPerYearInterestRateSlopeLow: ethers.BigNumber.from("100"),
       supplyPerYearInterestRateSlopeHigh: ethers.BigNumber.from("2000"),
-      supplyPerYearInterestRateBase: ethers.BigNumber.from("200"),
+      supplyPerYearInterestRateBase: ethers.BigNumber.from("2"),
       borrowKink: ethers.utils.parseEther("0.6").toString(),
       borrowPerYearInterestRateSlopeLow: ethers.BigNumber.from("2000"),
       borrowPerYearInterestRateSlopeHigh: ethers.BigNumber.from("3000"),
@@ -1590,101 +1324,6 @@ describe("3. SandboxController", function () {
       });
     });
 
-    describe("reverts on invalid curves", function () {
-      afterEach(async function () {
-        curve = makeValidCurve();
-      });
-
-      it("reverts for zero supply kink", async function () {
-        curve.supplyKink = 0;
-
-        expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.false;
-        await expect(
-          sandboxController.connect(dao).changeBaseAssetCurve(tokenTest.address, curveIndex, curve)
-        ).to.be.revertedWithCustomError(sandboxController, "InvalidCurveConfiguration");
-      });
-
-      it("reverts for zero borrow kink", async function () {
-        curve.borrowKink = 0;
-
-        expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.false;
-        await expect(
-          sandboxController.connect(dao).changeBaseAssetCurve(tokenTest.address, curveIndex, curve)
-        ).to.be.revertedWithCustomError(sandboxController, "InvalidCurveConfiguration");
-      });
-
-      it("reverts for supply kink > 1e18", async function () {
-        curve.supplyKink = parseEther("1").add(1).toString();
-
-        expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.false;
-        await expect(
-          sandboxController.connect(dao).changeBaseAssetCurve(tokenTest.address, curveIndex, curve)
-        ).to.be.revertedWithCustomError(sandboxController, "InvalidCurveConfiguration");
-      });
-
-      it("reverts for borrow kink > 1e18", async function () {
-        curve.borrowKink = parseEther("1").add(1).toString();
-
-        expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.false;
-        await expect(
-          sandboxController.connect(dao).changeBaseAssetCurve(tokenTest.address, curveIndex, curve)
-        ).to.be.revertedWithCustomError(sandboxController, "InvalidCurveConfiguration");
-      });
-
-      it("reverts for supply slope high = 0", async function () {
-        curve.supplyPerYearInterestRateSlopeHigh = 0;
-
-        expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.false;
-        await expect(
-          sandboxController.connect(dao).changeBaseAssetCurve(tokenTest.address, curveIndex, curve)
-        ).to.be.revertedWithCustomError(sandboxController, "InvalidCurveConfiguration");
-      });
-
-      it("reverts for supply slope low = 0", async function () {
-        curve.supplyPerYearInterestRateSlopeLow = 0;
-
-        expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.false;
-        await expect(
-          sandboxController.connect(dao).changeBaseAssetCurve(tokenTest.address, curveIndex, curve)
-        ).to.be.revertedWithCustomError(sandboxController, "InvalidCurveConfiguration");
-      });
-
-      it("reverts for borrow slope high = 0", async function () {
-        curve.borrowPerYearInterestRateSlopeHigh = 0;
-
-        expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.false;
-        await expect(
-          sandboxController.connect(dao).changeBaseAssetCurve(tokenTest.address, curveIndex, curve)
-        ).to.be.revertedWithCustomError(sandboxController, "InvalidCurveConfiguration");
-      });
-
-      it("reverts for borrow slope low = 0", async function () {
-        curve.borrowPerYearInterestRateSlopeLow = 0;
-
-        expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.false;
-        await expect(
-          sandboxController.connect(dao).changeBaseAssetCurve(tokenTest.address, curveIndex, curve)
-        ).to.be.revertedWithCustomError(sandboxController, "InvalidCurveConfiguration");
-      });
-
-      it("reverts for borrow base = 0", async function () {
-        curve.borrowPerYearInterestRateBase = 0;
-
-        expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.false;
-        await expect(
-          sandboxController.connect(dao).changeBaseAssetCurve(tokenTest.address, curveIndex, curve)
-        ).to.be.revertedWithCustomError(sandboxController, "InvalidCurveConfiguration");
-      });
-
-      it("reverts for supply base = 0", async function () {
-        curve.supplyPerYearInterestRateBase = 0;
-
-        expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.false;
-        await expect(
-          sandboxController.connect(dao).changeBaseAssetCurve(tokenTest.address, curveIndex, curve)
-        ).to.be.revertedWithCustomError(sandboxController, "InvalidCurveConfiguration");
-      });
-    });
     describe("happy cases", function () {
       it("should work for dao", async function () {
         const snapshot: SnapshotRestorer = await takeSnapshot();
@@ -1730,6 +1369,124 @@ describe("3. SandboxController", function () {
           .withArgs(tokenTest, curveTest, curve, curveIndex);
 
         await snapshot.restore();
+      });
+    });
+  });
+
+  describe("Interest rate curves validations", function () {
+    let tokenTest1: FaucetToken;
+    let priceFeedTest1: SimplePriceFeed;
+    let tokenTest2: FaucetToken;
+    let priceFeedTest2: SimplePriceFeed;
+    let curve: BaseAssetCurveStruct = makeValidCurve();
+
+    before(async function () {
+      /// correct function to start with
+      expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.true;
+
+      tokenTest1 = await makeMockERC20({ name: "TestToken1", symbol: "TT1" });
+      priceFeedTest1 = await makePriceFeed(tokenTest1.address);
+
+      /// have fresh asset listed
+      await sandboxController
+        .connect(owner)
+        .whitelistBaseAsset(
+          tokenTest1.address,
+          priceFeedTest1.address,
+          curve,
+          100,
+          suggestedAmountOfSeedReserves,
+          suggestedLockTimeOfSeedReserves
+        );
+
+      /// prepare 2nd asset
+      tokenTest2 = await makeMockERC20({ name: "TestToken2", symbol: "TT2" });
+      priceFeedTest2 = await makePriceFeed(tokenTest2.address);
+    });
+
+    describe("reverts on invalid curves", function () {
+      describe("reverts if supply kink exceeds 100%", function () {
+        before(async function () {
+          curve = makeValidCurve();
+          curve.supplyKink = ethers.utils.parseEther("1").add(1);
+        });
+
+        it("validation function reverts", async function () {
+          expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.false;
+        });
+
+        it("whitelist asset reverts", async function () {
+          await expect(
+            sandboxController.whitelistBaseAsset(
+              tokenTest2.address,
+              priceFeedTest2.address,
+              curve,
+              10,
+              suggestedAmountOfSeedReserves,
+              suggestedLockTimeOfSeedReserves
+            )
+          ).to.be.revertedWithCustomError(sandboxController, "InvalidCurveConfiguration");
+        });
+
+        it("add curve reverts", async function () {
+          await expect(sandboxController.connect(dao).addBaseAssetCurve(tokenTest1.address, curve)).to.be.revertedWithCustomError(
+            sandboxController,
+            "InvalidCurveConfiguration"
+          );
+        });
+
+        it("change curve reverts", async function () {
+          await expect(sandboxController.connect(dao).changeBaseAssetCurve(tokenTest1.address, 0, curve)).to.be.revertedWithCustomError(
+            sandboxController,
+            "InvalidCurveConfiguration"
+          );
+        });
+      });
+    });
+
+    describe("edge cases for valid curves checked", function () {
+      let snapshot: SnapshotRestorer;
+
+      before(async function () {
+        curve = makeValidCurve();
+        snapshot = await takeSnapshot();
+      });
+
+      afterEach(async function () {
+        await snapshot.restore();
+      });
+
+      describe("works for supply kink = 0", function () {
+        before(async function () {
+          curve.supplyKink = 0;
+          /// low angle for the right slope to not intersect left side of the borrow curve
+          curve.supplyPerYearInterestRateSlopeHigh = ethers.utils.parseEther("0.05");
+        });
+
+        it("validation function confirms the curve", async function () {
+          expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.true;
+        });
+
+        it("whitelist asset confirms the curve", async function () {
+          await expect(
+            sandboxController.whitelistBaseAsset(
+              tokenTest2.address,
+              priceFeedTest2.address,
+              curve,
+              10,
+              suggestedAmountOfSeedReserves,
+              suggestedLockTimeOfSeedReserves
+            )
+          ).to.not.be.reverted;
+        });
+
+        it("add curve confirms the curve", async function () {
+          await expect(sandboxController.connect(dao).addBaseAssetCurve(tokenTest1.address, curve)).to.not.be.reverted;
+        });
+
+        it("change curve confirms the curve", async function () {
+          await expect(sandboxController.connect(dao).changeBaseAssetCurve(tokenTest1.address, 0, curve)).to.not.be.reverted;
+        });
       });
     });
   });
