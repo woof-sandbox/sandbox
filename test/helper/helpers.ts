@@ -132,6 +132,7 @@ export type ProtocolOpts = {
   config?: SandboxControllerConfigurationStruct;
   reserveCommissions?: [bigint, bigint, bigint];
   protocolCommissions?: [bigint, bigint, bigint];
+  acceptCurator?: boolean;
 };
 
 export type Protocol = {
@@ -353,10 +354,12 @@ async function makeCometFactory(cometImpl: string, configControllerFactory: stri
   return cometFactory;
 }
 
-export async function makeConfigController(opts: ProtocolOpts, acceptCurator?: boolean): Promise<Protocol> {
+export async function makeConfigController(opts: ProtocolOpts): Promise<Protocol> {
   const assets = opts.assets || defaultAssets();
   const baseTokenSymbol = opts.baseTokenSymbol || "USDC";
   let baseToken: FaucetToken | NonStandardFaucetFeeToken;
+
+  const acceptCurator = opts.acceptCurator === undefined || opts.acceptCurator;
 
   // --- deploy tokens ---
   const FaucetFactory = (await ethers.getContractFactory("FaucetToken")) as FaucetToken__factory;

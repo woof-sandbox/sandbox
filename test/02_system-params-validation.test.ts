@@ -492,14 +492,6 @@ describe("2. System Params Validation", function () {
         expect(await comet.borrowPerSecondInterestRateSlopeHigh()).to.eq(curve.borrowPerYearInterestRateSlopeHigh.div(secondsPerYear));
         expect(await comet.borrowPerSecondInterestRateBase()).to.eq(curve.borrowPerYearInterestRateBase.div(secondsPerYear));
       });
-
-      it("should set disabled rewards during initialization", async function () {
-        const MAX_UINT104 = 20282409603651670423947251286015n;
-        expect(await comet.baseMinForRewards()).to.eq(MAX_UINT104);
-        expect(await comet.trackingIndexScale()).to.eq(1);
-        expect(await comet.baseTrackingSupplySpeed()).to.eq(0);
-        expect(await comet.baseTrackingBorrowSpeed()).to.eq(0);
-      });
     });
   });
 });

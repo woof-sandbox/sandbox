@@ -41,16 +41,13 @@ describe("5. supply", function () {
   before(async function () {
     [owner, dao, treasury, curator, guardian, alice, bob] = await ethers.getSigners();
 
-    const opts = await makeConfigController(
-      {
-        owner: owner,
-        dao: dao,
-        treasury: treasury.address,
-        curator: curator,
-        guardian: guardian,
-      },
-      true
-    );
+    const opts = await makeConfigController({
+      owner: owner,
+      dao: dao,
+      treasury: treasury.address,
+      curator: curator,
+      guardian: guardian,
+    });
     configController = opts.configController;
     sandboxController = opts.sandboxController;
     baseToken = opts.baseToken as FaucetToken;
@@ -1040,10 +1037,14 @@ describe("5. supply", function () {
       const assets = defaultAssets();
       assets["WETH"].factory = (await ethers.getContractFactory("EvilToken")) as EvilToken__factory;
 
-      const opts = await makeConfigController(
-        { owner: owner, dao: dao, treasury: treasury.address, curator: curator, guardian: guardian, assets: assets },
-        true
-      );
+      const opts = await makeConfigController({
+        owner: owner,
+        dao: dao,
+        treasury: treasury.address,
+        curator: curator,
+        guardian: guardian,
+        assets: assets,
+      });
 
       evilComet = await createComet(
         owner,
@@ -1096,10 +1097,14 @@ describe("5. supply", function () {
         assets["USDC"].factory = (await ethers.getContractFactory("NonStandardFaucetFeeToken")) as NonStandardFaucetFeeToken__factory;
         assets["WETH"].factory = (await ethers.getContractFactory("NonStandardFaucetFeeToken")) as NonStandardFaucetFeeToken__factory;
 
-        const opts = await makeConfigController(
-          { owner: owner, dao: dao, treasury: treasury.address, curator: curator, guardian: guardian, assets: assets },
-          true
-        );
+        const opts = await makeConfigController({
+          owner: owner,
+          dao: dao,
+          treasury: treasury.address,
+          curator: curator,
+          guardian: guardian,
+          assets: assets,
+        });
         nonStandardToken = opts.baseToken as NonStandardFaucetFeeToken;
 
         nonStandardComet = await createComet(
@@ -1149,10 +1154,14 @@ describe("5. supply", function () {
         assets["USDC"].factory = (await ethers.getContractFactory("NonStandardFaucetFeeToken")) as NonStandardFaucetFeeToken__factory;
         assets["WETH"].factory = (await ethers.getContractFactory("NonStandardFaucetFeeToken")) as NonStandardFaucetFeeToken__factory;
 
-        const opts = await makeConfigController(
-          { owner: owner, dao: dao, treasury: treasury.address, curator: curator, guardian: guardian, assets: assets },
-          true
-        );
+        const opts = await makeConfigController({
+          owner: owner,
+          dao: dao,
+          treasury: treasury.address,
+          curator: curator,
+          guardian: guardian,
+          assets: assets,
+        });
         feeToken = opts.baseToken as NonStandardFaucetFeeToken;
 
         feeComet = await createComet(owner, opts.opts.assets, opts.configController, opts.sandboxController, opts.collaterals, feeToken);

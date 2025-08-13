@@ -25,16 +25,14 @@ describe("4. ConfigController", () => {
   before(async function () {
     [owner, dao, treasury, curator, guardian, other] = await ethers.getSigners();
 
-    const opts = await makeConfigController(
-      {
-        owner: owner,
-        dao: dao,
-        treasury: treasury.address,
-        curator: curator,
-        guardian: guardian,
-      },
-      false
-    );
+    const opts = await makeConfigController({
+      owner: owner,
+      dao: dao,
+      treasury: treasury.address,
+      curator: curator,
+      guardian: guardian,
+      acceptCurator: false,
+    });
     configController = opts.configController;
     sandboxController = opts.sandboxController;
 
