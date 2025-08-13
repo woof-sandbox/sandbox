@@ -104,6 +104,14 @@ contract CometHarness is SandboxComet {
         return TARGET_BORROW_COLLATERAL_FACTOR;
     }
 
+    function deprecationDuration() external pure returns (uint64) {
+        return DEPRECATION_DURATION;
+    }
+
+    function targetLiquidateFactor() external pure returns (uint64) {
+        return TARGET_LIQUIDATION_FACTOR;
+    }
+
     function targetLiquidateCollateralFactor() external pure returns (uint64) {
         return TARGET_LIQUIDATE_COLLATERAL_FACTOR;
     }

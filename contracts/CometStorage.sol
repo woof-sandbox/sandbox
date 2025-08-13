@@ -55,6 +55,12 @@ contract CometStorage is ICometStructures {
     /// @dev The target liquidate collateral factor for the processing removal of collateral assets
     uint64 internal constant TARGET_LIQUIDATE_COLLATERAL_FACTOR = 0;
 
+    uint64 internal constant TARGET_LIQUIDATION_FACTOR = 1e18;
+
+    uint40 internal constant DEPRECATION_DURATION = 21 days;
+
+    uint64 internal constant ZERO_INTEREST_RATE = 0;
+
     /** General configuration constants **/
     /// @notice Config Controller address
     address public configController;
@@ -143,6 +149,11 @@ contract CometStorage is ICometStructures {
     /// @notice Unlock timestamp
     uint64 public unlockTimestamp;
 
+    /// @notice The deprecation status of the market
+    DeprecationStatus public deprecationStatus;
+
+    uint40 internal deprecationStartTime;
+
     /// @notice Factor to divide by when accruing rewards in order to preserve 6 decimals (i.e. baseScale / 1e6)
     uint internal accrualDescaleFactor;
 
@@ -212,4 +223,6 @@ contract CometStorage is ICometStructures {
 
     /// @notice Whether a collateral removal process is in progress
     bool public removalInProgress;
+    
+    mapping(address => uint64) public startLiquidationFactors;
 }

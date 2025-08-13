@@ -179,6 +179,7 @@ describe("24. Create Remove Collateral Proposal", () => {
             collateralTokens: collateralTokens,
             baseTokenCurveId: 0n,
             name: "Comet",
+            amountOfSeedReserves: ethers.utils.parseEther("100"),
         };
 
         await configController.createComet(marketConfig);
@@ -258,7 +259,7 @@ describe("24. Create Remove Collateral Proposal", () => {
         it("should revert when invalid proposal type is used", async () => {
             await expect(
                 configController.connect(owner).createProposal(calldata, cometAddress, 3)
-            ).to.be.revertedWithCustomError(configController, "InvalidProposalType");
+            ).to.be.revertedWithCustomError(configController, "InvalidSelector");
         });
 
         it("should revert when invalid selector is used", async () => {

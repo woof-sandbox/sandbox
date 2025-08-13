@@ -69,6 +69,14 @@ abstract contract ICometExtension is CometCore {
 
     function version() external view virtual returns (string memory);
 
+    function deprecationDuration() external view virtual returns (uint64);
+
+    function targetLiquidateFactor() external view virtual returns (uint64);
+
+    function targetLiquidateCollateralFactor() external view virtual returns (uint64);
+
+    function targetBorrowCollateralFactor() external pure virtual returns (uint64);
+
     /**
      * ===== ERC20 interfaces =====
      * Does not include the following functions/events, which are defined in `CometMainInterface` instead:
@@ -107,8 +115,4 @@ abstract contract ICometExtension is CometCore {
      * @param approved Flag to set
      */
     function approveAll(address spender, bool approved) external virtual;
-
-    function targetBorrowCollateralFactor() external pure virtual returns (uint64);
-
-    function targetLiquidateCollateralFactor() external pure virtual returns (uint64);
 }

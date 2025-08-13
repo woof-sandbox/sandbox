@@ -68,4 +68,10 @@ interface ICometStructures {
         Curve startCurveParams;
         Curve targetCurveParams;
     }
+
+    enum DeprecationStatus {
+        NotStarted,
+        InProgress,
+        Finalized
+    }
 }

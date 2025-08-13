@@ -116,7 +116,7 @@ interface ISandboxController is ISandboxErrors {
 
     function protocolCommission(uint256) external view returns (uint64);
 
-    function getCommissions(uint256, uint256, uint256) external view returns (uint64, uint64);
+    function getCommissions(uint256, uint256) external view returns (uint64, uint64);
 
     function whitelistBaseAsset(address token, address priceFeed, BaseAssetCurve memory baseAssetCurve, uint256 minBorrow) external;
 

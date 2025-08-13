@@ -180,6 +180,7 @@ describe("26. Create Add Collateral Proposal", () => {
             baseToken: baseToken.address,
             baseTokenCurveId: 0,
             collateralTokens: collateralTokens,
+            amountOfSeedReserves: ethers.utils.parseEther("100"),
             name: "Test Market"
         };
 
@@ -988,7 +989,8 @@ describe("Check the proposal revert on the SandboxComet side.", () => {
                 liquidateCollateralFactor: ethers.utils.parseEther("0.7"),
                 liquidationFactor: ethers.utils.parseEther("0.8"),
             }],
-            baseTokenCurveId: 0n
+            baseTokenCurveId: 0n,
+            amountOfSeedReserves: ethers.utils.parseEther("100"),
         };
 
         await configControllerProposalTest.createComet(cometConfig);

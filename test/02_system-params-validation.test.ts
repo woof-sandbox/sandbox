@@ -42,6 +42,8 @@ describe("2. System Params Validation", function () {
     _proposalDuration: DEFAULT_UPDATE_TIME,
   };
 
+  const amountOfSeedReserves = exp(500, 18).toString(); // 500 tokens with 18 decimals
+
   let signers;
   let owner, curator, guardian;
 
@@ -118,6 +120,7 @@ describe("2. System Params Validation", function () {
       collateralTokens: collateralTokens.map(obj => ({ ...obj })),
       baseTokenCurveId: 0n,
       name: "Comet",
+      amountOfSeedReserves: amountOfSeedReserves,
     };
   });
 
@@ -128,6 +131,7 @@ describe("2. System Params Validation", function () {
         collateralTokens: collateralTokens.map(obj => ({ ...obj })),
         baseTokenCurveId: 0n,
         name: "Comet",
+        amountOfSeedReserves: amountOfSeedReserves,
       };
     });
     describe("Comet parameters validation", function () {
@@ -310,8 +314,8 @@ describe("2. System Params Validation", function () {
     describe("Comet creation, happy cases", function () {
       it("should be possible to create two comets with the same configuration", async () => {
         baseToken = (await ethers.getContractAt("FaucetToken", marketConfig.baseToken)) as FaucetToken;
-        await baseToken.allocateTo(owner.address, (await sandboxController.config()).suggestedAmountOfSeedReserves);
-        await baseToken.allocateTo(owner.address, (await sandboxController.config()).suggestedAmountOfSeedReserves);
+        await baseToken.allocateTo(owner.address, amountOfSeedReserves);
+        await baseToken.allocateTo(owner.address, amountOfSeedReserves);
 
         const cometAddress1 = await configController.callStatic.createComet(marketConfig);
         await configController.createComet(marketConfig);
@@ -334,6 +338,7 @@ describe("2. System Params Validation", function () {
           collateralTokens: collateralTokens.map(obj => ({ ...obj })),
           baseTokenCurveId: 0n,
           name: "Comet",
+          amountOfSeedReserves: amountOfSeedReserves,
         };
       });
       it("should revert if token decimals is greater than max base decimals", async () => {
@@ -407,6 +412,7 @@ describe("2. System Params Validation", function () {
           collateralTokens: collateralTokens.map(obj => ({ ...obj })),
           baseTokenCurveId: 0n,
           name: "Comet",
+          amountOfSeedReserves: amountOfSeedReserves,
         };
         const cometAddress = await configController.callStatic.createComet(marketConfig);
         await configController.createComet(marketConfig);
@@ -423,7 +429,7 @@ describe("2. System Params Validation", function () {
         expect(await comet.storeFrontPriceFactor()).to.eq((await sandboxController.config()).storeFrontPriceFactor);
         expect(await comet.baseBorrowMin()).to.eq((await sandboxController.baseAssets(marketConfig.baseToken)).minBorrow);
         expect(await comet.targetPercent()).to.eq((await sandboxController.config()).targetPercent);
-        expect(await comet.seedReserves()).to.eq((await sandboxController.config()).suggestedAmountOfSeedReserves);
+        expect(await comet.seedReserves()).to.eq(amountOfSeedReserves);
         expect(await comet.unlockTimestamp()).to.be.closeTo(
           currentTimestamp.add((await sandboxController.config()).suggestedLockTimeOfSeedReserves),
           10

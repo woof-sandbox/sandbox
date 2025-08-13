@@ -12,6 +12,8 @@ contract ConfigControllerTest is ConfigController {
     function initiateCollateralRemovalOnComet(address comet, address collateralAsset) external {
         ISandboxComet(comet).initiateCollateralRemoval(collateralAsset);
     }
+
+    function initiateDeprecationMarket(address comet) external {
+        ISandboxComet(comet).initiateDeprecation();
+    }
 }
-
-

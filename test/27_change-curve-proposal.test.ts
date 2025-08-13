@@ -191,7 +191,8 @@ describe("27. Create Change Curve Proposal", () => {
             baseToken: baseToken.address,
             baseTokenCurveId: 0,
             collateralTokens: collateralTokens,
-            name: "Test Market"
+            name: "Test Market",
+            amountOfSeedReserves: ethers.utils.parseEther("100"),
         };
 
         await configController.createComet(marketConfig);

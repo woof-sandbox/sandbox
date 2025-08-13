@@ -652,9 +652,8 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
         comets.push(comet);
         cometId[comet] = cometsNum;
 
-        /// TODO: seed reserves logic will be adjusted
-        if (_sandboxConfig.suggestedAmountOfSeedReserves > 0) {
-            IERC20(_cometConfig.baseToken).safeTransferFrom(msg.sender, comet, _sandboxConfig.suggestedAmountOfSeedReserves);
+        if (_cometConfig.amountOfSeedReserves > 0) {
+            IERC20(_cometConfig.baseToken).safeTransferFrom(msg.sender, comet, _cometConfig.amountOfSeedReserves);
         }
 
         emit CometCreated(comet, _cometConfig.baseToken, baseAssetConfig.priceFeed, cometsNum + 1, _cometConfig.baseTokenCurveId);
@@ -766,5 +765,42 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
     function _isCometOwned(address comet) public view returns (bool) {
         if (cometsLength() == 0) return false;
         return comets[cometId[comet]] == comet;
+    }
+
+    /// @notice Pauses specific operations in a comet market
+    /// @dev Only callable by the owner. The comet must be owned by this controller
+    /// @param comet The address of the comet to pause operations in
+    /// @param supplyPaused Boolean to pause/unpause supply actions
+    /// @param transferPaused Boolean to pause/unpause transfer actions
+    /// @param withdrawPaused Boolean to pause/unpause withdraw actions
+    /// @param absorbPaused Boolean to pause/unpause absorb actions
+    /// @param buyPaused Boolean to pause/unpause buy actions
+    function pauseMarket(
+        address comet,
+        bool supplyPaused,
+        bool transferPaused,
+        bool withdrawPaused,
+        bool absorbPaused,
+        bool buyPaused
+    ) external override onlyOwner {
+        if (comet == address(0)) revert ZeroAddress();
+        if (!_isCometOwned(comet)) revert UnknownComet();
+
+        ISandboxCometConfig(comet).pause(supplyPaused, transferPaused, withdrawPaused, absorbPaused, buyPaused);
+        /// Note: Comet emits the respective event
+    }
+
+    /// @notice Withdraws free seed reserves from a comet market
+    /// @dev Only callable by the owner. The comet must be owned by this controller.
+    ///      Withdrawal is allowed only if the market is deprecated or unlock timestamp has been reached.
+    ///      The specified amount will be withdrawn if sufficient free reserves are available.
+    /// @param comet The address of the comet to withdraw free reserves from
+    /// @param amount The amount of free seed reserves to withdraw
+    function withdrawFreeSeedReservesFrom(address comet, uint256 amount) external override onlyOwner {
+        if (comet == address(0)) revert ZeroAddress();
+        if (!_isCometOwned(comet)) revert UnknownComet();
+
+        ISandboxCometConfig(comet).withdrawFreeSeedReserves(amount);
+        /// Note: Comet emits the respective event
     }
 }

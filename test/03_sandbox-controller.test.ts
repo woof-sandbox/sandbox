@@ -18,6 +18,7 @@ import { SandboxController } from "../build/types";
 import { BaseAssetCurveStruct, SandboxControllerConfigurationStruct } from "../build/types/SandboxController";
 
 import { parseEther } from "ethers/lib/utils";
+import { BigNumber } from "ethers";
 
 describe("3. SandboxController", function () {
   let owner: any;
@@ -1634,12 +1635,14 @@ describe("3. SandboxController", function () {
     });
 
     describe("getCommissions", function () {
-      let curReserves, seedReserves, targetReserves: any;
+      let curReserves: BigNumber;
+      let suggestedAmountOfSeedReserves: BigNumber;
+      let targetReserves: BigNumber;
 
       before(async function () {
-        curReserves = ethers.utils.parseEther("300");
-        targetReserves = ethers.utils.parseEther("200");
-        seedReserves = ethers.utils.parseEther("100");
+        curReserves = ethers.utils.parseEther("800");
+        targetReserves = ethers.utils.parseEther("700");
+        suggestedAmountOfSeedReserves = (await sandboxController.config()).suggestedAmountOfSeedReserves;
 
         await sandboxController.setMarketStateCommissions(0, ethers.utils.parseEther("0.1"), ethers.utils.parseEther("0.2"));
         await sandboxController.setMarketStateCommissions(1, ethers.utils.parseEther("0.2"), ethers.utils.parseEther("0.4"));
@@ -1652,7 +1655,7 @@ describe("3. SandboxController", function () {
           await sandboxController.connect(dao).setFeeEnabled(true);
         }
 
-        let commissions = await sandboxController.getCommissions(curReserves, seedReserves, targetReserves);
+        let commissions = await sandboxController.getCommissions(curReserves, targetReserves);
         expect(commissions[0]).to.equal(ethers.utils.parseEther("0.1"));
         expect(commissions[1]).to.equal(ethers.utils.parseEther("0.2"));
       });
@@ -1663,31 +1666,31 @@ describe("3. SandboxController", function () {
           await sandboxController.connect(dao).setFeeEnabled(false);
         }
 
-        let commissions = await sandboxController.getCommissions(curReserves, seedReserves, targetReserves);
+        let commissions = await sandboxController.getCommissions(curReserves, targetReserves);
         expect(commissions[0]).to.equal(ethers.utils.parseEther("0.1"));
         expect(commissions[1]).to.equal(0);
       });
 
       it("should return commission for Medium state", async function () {
-        curReserves = ethers.utils.parseEther("150");
+        curReserves = ethers.utils.parseEther("600");
         const feeFlag = await sandboxController.feeEnabled();
         if (!feeFlag) {
           await sandboxController.connect(dao).setFeeEnabled(true);
         }
 
-        let commissions = await sandboxController.getCommissions(curReserves, seedReserves, targetReserves);
+        let commissions = await sandboxController.getCommissions(curReserves, targetReserves);
         expect(commissions[0]).to.equal(ethers.utils.parseEther("0.2"));
         expect(commissions[1]).to.equal(ethers.utils.parseEther("0.4"));
       });
 
       it("should return commission for Medium state if protocol fee disabled", async function () {
-        curReserves = ethers.utils.parseEther("150");
+        curReserves = ethers.utils.parseEther("600");
         const feeFlag = await sandboxController.feeEnabled();
         if (feeFlag) {
           await sandboxController.connect(dao).setFeeEnabled(false);
         }
 
-        let commissions = await sandboxController.getCommissions(curReserves, seedReserves, targetReserves);
+        let commissions = await sandboxController.getCommissions(curReserves, targetReserves);
         expect(commissions[0]).to.equal(ethers.utils.parseEther("0.2"));
         expect(commissions[1]).to.equal(0);
       });
@@ -1699,7 +1702,7 @@ describe("3. SandboxController", function () {
           await sandboxController.connect(dao).setFeeEnabled(true);
         }
 
-        let commissions = await sandboxController.getCommissions(curReserves, seedReserves, targetReserves);
+        let commissions = await sandboxController.getCommissions(curReserves, targetReserves);
         expect(commissions[0]).to.equal(ethers.utils.parseEther("0.3"));
         expect(commissions[1]).to.equal(ethers.utils.parseEther("0.5"));
       });
@@ -1711,7 +1714,7 @@ describe("3. SandboxController", function () {
           await sandboxController.connect(dao).setFeeEnabled(false);
         }
 
-        let commissions = await sandboxController.getCommissions(curReserves, seedReserves, targetReserves);
+        let commissions = await sandboxController.getCommissions(curReserves, targetReserves);
         expect(commissions[0]).to.equal(ethers.utils.parseEther("0.3"));
         expect(commissions[1]).to.equal(0);
       });

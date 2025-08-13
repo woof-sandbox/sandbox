@@ -139,4 +139,45 @@ interface ICometErrors {
 
     /// @notice Error thrown when a curveId is invalid
     error InvalidCurveId();
+    // /**
+    //  * @notice Error thrown when the market is deprecated
+    //  */
+    // error MarketIsDeprecated();
+
+    // /**
+    //  * @notice Error thrown when the market is deprecating
+    //  */
+    // error DeprecationInProgress();
+
+    // /**
+    //  * @notice Error thrown when the market is not deprecated
+    //  */
+    // error MarketIsNotDeprecated();
+
+    error InvalidDeprecationState(uint8 deprecationStatus);
+
+    /**
+     * @notice Error thrown when the market still has active supply base tokens
+     */
+    error ActiveSupplyBaseExists();
+
+    /**
+     * @notice Error thrown when the operation requires free reserves but they are insufficient
+     */
+    error InsufficientFreeReserves();
+
+    /**
+     * @notice Error thrown when the operation requires surplus reserves but they are insufficient
+     */
+    error NoSurplusReserves();
+
+    /**
+     * @notice Error thrown when the operation requires free reserves but they are insufficient
+     */
+    error NoFreeReserves();
+
+    /**
+     * @notice Error thrown when the unlock timestamp has not been reached for to withdraw seed reserves
+     */
+    error UnlockNotReached();
 }

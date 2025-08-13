@@ -61,4 +61,19 @@ interface ICometEvents is ICometStructures {
 
     /// @notice Event emitted when collateral removal is finalized
     event CollateralRemovalFinalized(uint8 removedAssetIndex, address indexed removedAsset);
+    
+    /// @notice Event emitted when initiate deprecation process
+    event DeprecationInitiated(uint256 indexed startTimestamp, uint256 indexed endTimestamp);
+
+    /// @notice Event emitted when finalize deprecation process
+    event DeprecationFinalized();
+
+    /// @notice Event emitted when the DAO withdraws surplus seed reserves
+    event SurplusSeedReservesWithdrawn(address indexed to, uint256 amount);
+
+    /// @notice Event emitted when the DAO withdraws surplus collateral reserves
+    event SurplusCollateralReservesWithdrawn(address indexed to, address[] indexed assets, uint256[] amounts);
+
+    /// @notice Event emitted when free seed reserves are withdrawn
+    event FreeSeedReservesWithdrawn(address indexed to, uint256 amount);
 }

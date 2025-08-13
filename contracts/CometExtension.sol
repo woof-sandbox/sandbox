@@ -55,6 +55,14 @@ contract CometExtension is ICometExtension {
         return TARGET_BORROW_COLLATERAL_FACTOR;
     }
 
+    function deprecationDuration() external pure override returns (uint64) {
+        return DEPRECATION_DURATION;
+    }
+
+    function targetLiquidateFactor() external pure override returns (uint64) {
+        return TARGET_LIQUIDATION_FACTOR;
+    }
+
     function targetLiquidateCollateralFactor() external pure override returns (uint64) {
         return TARGET_LIQUIDATE_COLLATERAL_FACTOR;
     }

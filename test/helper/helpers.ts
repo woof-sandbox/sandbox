@@ -20,17 +20,44 @@ import {
   ConfigControllerFactory__factory,
   SandboxComet,
   SandboxComet__factory,
+  CometExtension,
+  CometExtension__factory,
   ISandboxComet,
+  SandboxCometFactory,
+  SandboxCometFactory__factory,
+  SandboxController,
+  SandboxController__factory,
+  CometHarness,
 } from "../../build/types";
 
-import { SandboxCometFactory } from "../../build/types/SandboxCometFactory";
-import { SandboxCometFactory__factory } from "../../build/types/factories/SandboxCometFactory__factory";
-import { SandboxController, BaseAssetCurveStruct, SandboxControllerConfigurationStruct } from "../../build/types/SandboxController";
-import { SandboxController__factory } from "../../build/types/factories/SandboxController__factory";
-import { BigNumber, ContractReceipt, ContractTransaction } from "ethers";
-import { TransactionReceipt, TransactionResponse } from "@ethersproject/abstract-provider";
-import { CometHarness, TotalsBasicStructOutput } from "../../build/types/CometHarness";
+import { BaseAssetCurveStruct, SandboxControllerConfigurationStruct } from "../../build/types/SandboxController";
+import { TotalsBasicStructOutput } from "../../build/types/CometHarness";
+import { Provider } from "@ethersproject/providers";
 import { CometConfigStruct } from "../../build/types/ConfigController";
+import { TransactionReceipt, TransactionResponse } from "@ethersproject/abstract-provider";
+import { BigNumber, Contract, ContractReceipt, ContractTransaction, Signer } from "ethers";
+
+// The function to connect to a combined contract
+export type CombinedComet = SandboxComet & CometExtension;
+
+export function getCombinedComet(sandboxCometAddress: string, signerOrProvider: Signer | Provider): CombinedComet {
+  const sandboxComet = SandboxComet__factory.connect(sandboxCometAddress, signerOrProvider);
+  const cometExtension = CometExtension__factory.connect(sandboxCometAddress, signerOrProvider);
+
+  return new Proxy(sandboxComet, {
+    get(target, prop) {
+      // First, look in SandboxComet
+      if (prop in target) {
+        return target[prop as keyof typeof target];
+      }
+      // Then, look in CometExtension
+      if (prop in cometExtension) {
+        return cometExtension[prop as keyof typeof cometExtension];
+      }
+      return undefined;
+    },
+  }) as CombinedComet;
+}
 
 // Snapshot
 export type { SnapshotRestorer } from "@nomicfoundation/hardhat-network-helpers";
@@ -111,6 +138,7 @@ export type ProtocolOpts = {
   config?: SandboxControllerConfigurationStruct;
   reserveCommissions?: [bigint, bigint, bigint];
   protocolCommissions?: [bigint, bigint, bigint];
+  amountOfSeedReserves?: string;
 };
 
 export type Protocol = {
@@ -503,11 +531,45 @@ async function createComet2(
     collateralTokens: collateralTokens,
     baseTokenCurveId: 0n,
     name: opts.name || "Comet",
+    amountOfSeedReserves: dfn(opts.amountOfSeedReserves, "100000000"),
   };
 
   await configController.createComet(marketConfig);
 
   return configController.comets(0);
+}
+
+export async function createComet(
+  configController: ConfigController,
+  tokens: Record<string, FaucetToken | NonStandardFaucetFeeToken>,
+  baseToken: FaucetToken | NonStandardFaucetFeeToken,
+  amountOfSeedReserves = "100000000"
+): Promise<string> {
+  let marketConfig: CometConfigStruct = {
+    baseToken: baseToken.address,
+    collateralTokens: [],
+    baseTokenCurveId: 0n,
+    name: "Comet",
+    amountOfSeedReserves: amountOfSeedReserves,
+  };
+
+  for (let token in tokens) {
+    if (token != (await baseToken.symbol())) {
+      marketConfig.collateralTokens.push({
+        collateralToken: tokens[token].address,
+        borrowCollateralFactor: factor(0.6),
+        liquidateCollateralFactor: factor(0.7),
+        liquidationFactor: factor(0.8),
+        supplyCap: exp(1e9, 18),
+      });
+    }
+  }
+
+  const createCometTx: ContractTransaction = await configController.createComet(marketConfig);
+  const createCometReceipt: ContractReceipt = await createCometTx.wait();
+  const [createCometEvents] = createCometReceipt.events.filter(event => event.event === "MarketCreated");
+  const marketAddress: string = createCometEvents.args.market;
+  return marketAddress;
 }
 
 export const makeProtocol = async (opts: ProtocolOpts = {}) => {

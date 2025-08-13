@@ -176,6 +176,7 @@ describe('15. addCollateralAsset', function () {
                 baseToken: baseToken.address,
                 collateralTokens: collateralTokens.map(obj => ({ ...obj })),
                 baseTokenCurveId: 0n,
+                amountOfSeedReserves: ethers.utils.parseEther("100"),
                 name: "Test Market"
             };
             // Create a new comet instance with the current market configuration
@@ -351,6 +352,7 @@ describe('15. addCollateralAsset', function () {
                 baseToken: baseToken.address,
                 collateralTokens: collateralTokens.map(obj => ({ ...obj })),
                 baseTokenCurveId: 0n,
+                amountOfSeedReserves: ethers.utils.parseEther("100"),
                 name: "Test Market"
             };
 
@@ -406,8 +408,6 @@ describe('15. addCollateralAsset', function () {
             await expect(comet.connect(randomCaller).addCollateralAsset(
                 newCollateralTokenConfig
             )).to.be.revertedWithCustomError(comet, 'Unauthorized');
-        }
-        );
-
+        });
     });
 });

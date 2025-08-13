@@ -71,4 +71,14 @@ interface ISandboxCometConfig {
      * @return True if a transition is active, false otherwise
      */
     function isTransitionActive() external view returns (bool);
+
+    function pause(
+        bool supplyPaused,
+        bool transferPaused,
+        bool withdrawPaused,
+        bool absorbPaused,
+        bool buyPaused
+    ) external;
+    
+    function withdrawFreeSeedReserves(uint256 amount) external;
 }
