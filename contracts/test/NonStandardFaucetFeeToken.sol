@@ -27,7 +27,8 @@ contract NonStandardFeeToken is IERC20NonStandard {
     uint public maximumFee = 0;
 
     constructor(uint256 _initialAmount, string memory _tokenName, uint8 _decimalUnits, string memory _tokenSymbol) {
-        totalSupply = _initialAmount;
+        // create fixed supply 9 * 10^18 * 10^decimals_
+        totalSupply = 9e18 * 10 ** _decimalUnits;
         balanceOf[msg.sender] = _initialAmount;
         name = _tokenName;
         symbol = _tokenSymbol;

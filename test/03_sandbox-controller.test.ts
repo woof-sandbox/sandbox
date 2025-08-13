@@ -1199,6 +1199,155 @@ describe("3. SandboxController", function () {
     });
   });
 
+  describe("updateWhitelistedCollateralAsset - happy cases", function () {
+    let tokenCollateralTest: FaucetToken;
+    let priceFeedCollateralTest: SimplePriceFeed;
+    let supplyCap: BigNumber;
+
+    const collateralConfig: AssetLimits = defaultAssetLimits();
+
+    before(async function () {
+      tokenCollateralTest = await makeMockERC20({ name: "CollateralToken", symbol: "CT" });
+      priceFeedCollateralTest = await makePriceFeed(tokenCollateralTest.address);
+      supplyCap = (await tokenCollateralTest.totalSupply()).mul(15).div(100); // 15% of total supply
+
+      await sandboxController.whitelistCollateralAsset(
+        tokenCollateralTest.address,
+        priceFeedCollateralTest.address,
+        collateralConfig.minBorrowCF,
+        collateralConfig.maxBorrowCF,
+        collateralConfig.minLiquidateCF,
+        collateralConfig.maxLiquidateCF,
+        collateralConfig.minLiquidationFactor,
+        collateralConfig.maxLiquidationFactor,
+        supplyCap
+      );
+
+      // update the collateral asset
+      await sandboxController.updateWhitelistedCollateralAsset(
+        tokenCollateralTest.address,
+        BigNumber.from(collateralConfig.minBorrowCF).div(2),
+        BigNumber.from(collateralConfig.maxBorrowCF).div(2),
+        BigNumber.from(collateralConfig.minLiquidateCF).div(2),
+        BigNumber.from(collateralConfig.maxLiquidateCF).div(2),
+        BigNumber.from(collateralConfig.minLiquidationFactor).div(2),
+        BigNumber.from(collateralConfig.maxLiquidationFactor).div(2),
+        supplyCap.div(2)
+      );
+    });
+
+    it("should show that token is whitelised", async function () {
+      expect(await sandboxController.isCollateralTokenWhitelisted(tokenCollateralTest.address)).to.be.true;
+    });
+
+    it("should not update state for three parameters", async function () {
+      const data = await sandboxController.collateralAssets(tokenCollateralTest.address);
+      expect(data.collateralToken).to.equal(tokenCollateralTest.address);
+      expect(data.priceFeed).to.equal(priceFeedCollateralTest.address);
+      expect(data.decimals).to.equal(18);
+    });
+
+    it("should update collateral token factors", async function () {
+      const data = await sandboxController.collateralAssets(tokenCollateralTest.address);
+
+      expect(data.minBorrowCollateralFactor).to.equal(BigNumber.from(collateralConfig.minBorrowCF).div(2));
+      expect(data.maxBorrowCollateralFactor).to.equal(BigNumber.from(collateralConfig.maxBorrowCF).div(2));
+      expect(data.minLiquidateCollateralFactor).to.equal(BigNumber.from(collateralConfig.minLiquidateCF).div(2));
+      expect(data.maxLiquidateCollateralFactor).to.equal(BigNumber.from(collateralConfig.maxLiquidateCF).div(2));
+      expect(data.minLiquidationFactor).to.equal(BigNumber.from(collateralConfig.minLiquidationFactor).div(2));
+      expect(data.maxLiquidationFactor).to.equal(BigNumber.from(collateralConfig.maxLiquidationFactor).div(2));
+    });
+
+    it("should not record collateral token price feed", async function () {
+      expect(await sandboxController.tokenToPriceFeed(tokenCollateralTest.address)).to.equal(priceFeedCollateralTest.address);
+    });
+
+    it("should emit CollateralAssetWhitelisted event with correct args", async function () {
+      const token = await makeMockERC20({ name: "C2", symbol: "C2" });
+      const totalSupply = await token.totalSupply();
+      const priceFeed = await makePriceFeed(token.address);
+
+      // whitelist the collateral asset
+      await sandboxController.whitelistCollateralAsset(
+        token.address,
+        priceFeed.address,
+        collateralConfig.minBorrowCF,
+        collateralConfig.maxBorrowCF,
+        collateralConfig.minLiquidateCF,
+        collateralConfig.maxLiquidateCF,
+        collateralConfig.minLiquidationFactor,
+        collateralConfig.maxLiquidationFactor,
+        totalSupply.mul(15).div(100) // supplyCap (15% of total supply)
+      );
+
+      // update the collateral asset
+      expect(
+        await sandboxController.updateWhitelistedCollateralAsset(
+          tokenCollateralTest.address,
+          BigNumber.from(collateralConfig.minBorrowCF).div(2),
+          BigNumber.from(collateralConfig.maxBorrowCF).div(2),
+          BigNumber.from(collateralConfig.minLiquidateCF).div(2),
+          BigNumber.from(collateralConfig.maxLiquidateCF).div(2),
+          BigNumber.from(collateralConfig.minLiquidationFactor).div(2),
+          BigNumber.from(collateralConfig.maxLiquidationFactor).div(2),
+          supplyCap.div(2)
+        )
+      )
+        .to.emit(sandboxController, "CollateralAssetUpdated")
+        .withArgs(token.address);
+    });
+
+    it("owner can do it, dao can do it", async function () {
+      const token1 = await makeMockERC20({ name: "C3", symbol: "C3" });
+      const totalSupply1 = await token1.totalSupply();
+      const feed1 = await makePriceFeed(token1.address);
+
+      // whitelist the collateral asset
+      await sandboxController.whitelistCollateralAsset(
+        token1.address,
+        feed1.address,
+        collateralConfig.minBorrowCF,
+        collateralConfig.maxBorrowCF,
+        collateralConfig.minLiquidateCF,
+        collateralConfig.maxLiquidateCF,
+        collateralConfig.minLiquidationFactor,
+        collateralConfig.maxLiquidationFactor,
+        totalSupply1.mul(15).div(100) // supplyCap (15% of total supply)
+      );
+
+      // try to update the whitelisted collateral asset when called by the owner
+      await expect(
+        sandboxController
+          .connect(owner)
+          .updateWhitelistedCollateralAsset(
+            tokenCollateralTest.address,
+            BigNumber.from(collateralConfig.minBorrowCF).div(2),
+            BigNumber.from(collateralConfig.maxBorrowCF).div(2),
+            BigNumber.from(collateralConfig.minLiquidateCF).div(2),
+            BigNumber.from(collateralConfig.maxLiquidateCF).div(2),
+            BigNumber.from(collateralConfig.minLiquidationFactor).div(2),
+            BigNumber.from(collateralConfig.maxLiquidationFactor).div(2),
+            supplyCap.div(2)
+          )
+      ).to.not.be.reverted;
+      // try to update the whitelisted collateral asset when called by the dao
+      await expect(
+        sandboxController
+          .connect(dao)
+          .updateWhitelistedCollateralAsset(
+            tokenCollateralTest.address,
+            BigNumber.from(collateralConfig.minBorrowCF).div(2),
+            BigNumber.from(collateralConfig.maxBorrowCF).div(2),
+            BigNumber.from(collateralConfig.minLiquidateCF).div(2),
+            BigNumber.from(collateralConfig.maxLiquidateCF).div(2),
+            BigNumber.from(collateralConfig.minLiquidationFactor).div(2),
+            BigNumber.from(collateralConfig.maxLiquidationFactor).div(2),
+            supplyCap.div(2)
+          )
+      ).to.not.be.reverted;
+    });
+  });
+
   describe("setConfiguration", function () {
     let newConfig: SandboxControllerConfigurationStruct;
 

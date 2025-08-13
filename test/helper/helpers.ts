@@ -311,6 +311,7 @@ export async function sandboxListCollateralAsset(
 ) {
   const limits_: AssetLimits = limits || defaultAssetLimits();
 
+  const supplyCap: BigNumberish = await collateralAsset.totalSupply().then(supply => supply.mul(30).div(100)); // 30% of total supply
   await sandboxController.whitelistCollateralAsset(
     collateralAsset.address,
     priceFeed,
@@ -319,7 +320,8 @@ export async function sandboxListCollateralAsset(
     limits_.minLiquidateCF,
     limits_.maxLiquidateCF,
     limits_.minLiquidationFactor,
-    limits_.maxLiquidationFactor
+    limits_.maxLiquidationFactor,
+    supplyCap
   );
 }
 
@@ -504,7 +506,8 @@ export async function createComet(
       borrowCollateralFactor: assetConfig?.collateralConfig?.borrowCF || defaultConfig.borrowCF,
       liquidateCollateralFactor: assetConfig?.collateralConfig?.liquidateCF || defaultConfig.liquidateCF,
       liquidationFactor: assetConfig?.collateralConfig?.liquidationFactor || defaultConfig.liquidationFactor,
-      supplyCap: assetConfig?.collateralConfig?.supplyCap || defaultConfig.supplyCap,
+      supplyCap:
+        assetConfig?.collateralConfig?.supplyCap || (await collaterals[symbol].totalSupply().then(supply => supply.mul(30).div(100))),
     });
   }
 
@@ -515,7 +518,7 @@ export async function createComet(
     name: name || "Comet",
   };
 
-  const amount = await sandboxController.suggestedAmountOfSeedReserves(baseToken.address);
+  const amount = await baseToken.totalSupply().then(supply => supply.mul(30).div(100)); // 30% of total supply
   await baseToken.connect(owner).allocateTo(owner.address, amount);
   await baseToken.connect(owner).approve(configController.address, amount);
 
