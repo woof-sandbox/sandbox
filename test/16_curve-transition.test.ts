@@ -267,7 +267,7 @@ describe("16. curve transition", function() {
 
         snapshot = await takeSnapshot();
     });
-
+    /// TODO: Add more tests for user positions.
     describe("start curve transition - happy cases", function() {      
         it("should start curve transition", async function() {
             const tx = await configController.initiateCurveTransitionOnComet(comet.address, 1);
