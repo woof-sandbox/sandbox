@@ -133,4 +133,10 @@ interface ICometErrors {
     
     /// @notice Error thrown when a base token is added as collateral tokens
     error BaseToken();
+
+    /// @notice Error thrown when a curve transition is already active
+    error TransitionAlreadyActive();
+
+    /// @notice Error thrown when a curveId is invalid
+    error InvalidCurveId();
 }

@@ -36,4 +36,8 @@ interface IConfigControllerEvents {
     event ProposeCollateralRemoval(uint256 indexed proposalId, address indexed proposer, address indexed collateralToken);
 
     event ProposeCollateralRemovalAccepted(uint256 indexed proposalId, address indexed accepter, address indexed collateralToken);
+
+    event ProposeCurveTransition(uint256 indexed proposalId, address indexed proposer, uint8 curveId);
+
+    event ProposeCurveTransitionAccepted(uint256 indexed proposalId, address indexed accepter, uint8 curveId);
 }

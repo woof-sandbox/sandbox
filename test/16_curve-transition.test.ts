@@ -1,16 +1,11 @@
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import {
-    CometExtension,
     CometHarness,
     ConfigControllerTest,
     FaucetToken,
     NonStandardFaucetFeeToken,
-    SandboxController,
     ConfigControllerTest__factory,
     SandboxComet,
-    SandboxCometFactory,
-    ConfigControllerFactory,
-    SimplePriceFeed,
     FaucetToken__factory,
     SimplePriceFeed__factory
 } from "../build/types";
@@ -50,9 +45,9 @@ describe("16. curve transition", function() {
 
     let startCurve: CurveStruct;
     let targetCurve: CurveStruct;
-
+    let transitionDuration: number;
+    let receipt: ContractReceipt;
     // constants
-    const TRANSITION_DURATION = 7 * 24 * 60 * 60; // 7 days
     const SUPPLY_AMOUNT = exp(10, 6);
 
     before(async () => {
@@ -98,9 +93,10 @@ describe("16. curve transition", function() {
             dao: dao,
             treasury: alice
         });
-        sandboxControllerOpts.config.transitionDuration = TRANSITION_DURATION;
         const sandboxControllerInfo = await makeSandboxController(sandboxControllerOpts);
         sandboxController = sandboxControllerInfo.sandboxController;
+
+        transitionDuration = (await sandboxController.config()).transitionDuration;
 
         // Allocate base token to owner and approve
         await baseToken.allocateTo(owner.address, sandboxControllerOpts.config.suggestedAmountOfSeedReserves);
@@ -272,19 +268,24 @@ describe("16. curve transition", function() {
         snapshot = await takeSnapshot();
     });
 
-    afterEach(async () => await snapshot.restore());
-
-    describe("start curve transition", function() {
+    describe("start curve transition - happy cases", function() {      
         it("should start curve transition", async function() {
-            await configController.startCurveTransitionOnComet(comet.address, 1);
+            const tx = await configController.initiateCurveTransitionOnComet(comet.address, 1);
+            receipt = await tx.wait();
+            expect(receipt).to.not.be.reverted;
+        });
 
+        it("should change transition status", async function() {
+            expect(await comet.isTransitionActive()).to.be.true;
+        });
+
+        it("should update storage", async function() {
             const timestamp = (await ethers.provider.getBlock("latest"))?.timestamp;
             const transition = await comet.transition();
 
             expect(transition.startTime).to.be.closeTo(timestamp, 10);
             expect(transition.lastUpdateTime).to.be.closeTo(timestamp, 10);
-            expect(transition.endTime).to.eq(transition.startTime + TRANSITION_DURATION);
-            expect(await comet.isTransitionActive()).to.be.true;
+            expect(transition.endTime).to.eq(transition.startTime + transitionDuration);
             expect(transition.startCurveParams.supplyKink).to.eq(startCurve.supplyKink);
             expect(transition.startCurveParams.supplyPerSecondInterestRateSlopeLow).to.eq(
                 startCurve.supplyPerSecondInterestRateSlopeLow
@@ -328,22 +329,37 @@ describe("16. curve transition", function() {
         });
 
         it("should emit event after starting curve transition", async function() {
-            const tx = await configController.startCurveTransitionOnComet(comet.address, 1);
+            const blockTime = (await ethers.provider.getBlock(receipt.blockNumber)).timestamp;
 
-            const transition = await comet.transition();
-
-            expect(tx)
+            expect(receipt)
                 .to.emit(comet, "CurveTranstionStarted")
                 .withArgs(
-                    transition.startTime,
-                    transition.endTime,
-                    transition.startCurveParams,
-                    transition.targetCurveParams
+                    blockTime,
+                    blockTime + transitionDuration,
+                    startCurve,
+                    targetCurve
                 );
+        });
+    });
+
+    describe("start curve transition - revert cases", function() {
+        it("should revert if transition is already active", async function() {
+            await expect(configController.initiateCurveTransitionOnComet(comet.address, 1)).to.be.revertedWithCustomError(
+                comet,
+                "TransitionAlreadyActive"
+            );
+        });
+
+        it("should revert if curveId is invalid", async function() {
+            await snapshot.restore();
+            await expect(configController.initiateCurveTransitionOnComet(comet.address, 2)).to.be.revertedWithCustomError(
+                configController,
+                "InvalidCurveId"
+            );
         });
 
         it("should revert if caller is not config controller", async function() {
-            await expect(comet.connect(alice).startCurveTransition(1)).to.be.revertedWithCustomError(
+            await expect(comet.connect(alice).initiateCurveTransition(1)).to.be.revertedWithCustomError(
                 comet,
                 "Unauthorized"
             );
@@ -353,8 +369,10 @@ describe("16. curve transition", function() {
     describe("update curve values during transition", function() {
         beforeEach(async function() {
             // Start the curve transition
-            await configController.startCurveTransitionOnComet(comet.address, 1);
+            await configController.initiateCurveTransitionOnComet(comet.address, 1);
         });
+
+        afterEach(async () => await snapshot.restore());
 
         it("should update curve values", async function() {
             const currentSupplyKink = await comet.supplyKink();
@@ -378,7 +396,7 @@ describe("16. curve transition", function() {
             expect(currentBorrowPerSecondInterestRateSlopeHigh).to.eq(startCurve.borrowPerSecondInterestRateSlopeHigh);
             expect(currentBorrowPerSecondInterestRateBase).to.eq(startCurve.borrowPerSecondInterestRateBase);
 
-            const skipTime = TRANSITION_DURATION / 4;
+            const skipTime = transitionDuration / 4;
             const expectedChangeForEachUpdate = exp(0.025, 18);
             const expectedSupplyPerSecondInterestRateSlopeLowForEachUpdate = BigNumber.from(targetCurve.supplyPerSecondInterestRateSlopeLow)
                 .sub(startCurve.supplyPerSecondInterestRateSlopeLow)
@@ -583,7 +601,7 @@ describe("16. curve transition", function() {
         });
 
         it("should not update curve values if endtime is passed", async function() {
-            await fastForward(TRANSITION_DURATION);
+            await fastForward(transitionDuration);
             await comet.connect(alice).supply(baseToken.address, SUPPLY_AMOUNT);
 
             const supplyKink = await comet.supplyKink();
@@ -595,7 +613,7 @@ describe("16. curve transition", function() {
             const borrowPerSecondInterestRateSlopeHigh = await comet.borrowPerSecondInterestRateSlopeHigh();
             const borrowPerSecondInterestRateBase = await comet.borrowPerSecondInterestRateBase();
 
-            await fastForward(TRANSITION_DURATION);
+            await fastForward(transitionDuration);
             await comet.connect(alice).supply(baseToken.address, SUPPLY_AMOUNT);
 
             const supplyKinkAfter = await comet.supplyKink();
@@ -633,7 +651,7 @@ describe("16. curve transition", function() {
         });
 
         it("should set isTransitionActive to false when transition ends", async function() {
-            await fastForward(TRANSITION_DURATION);
+            await fastForward(transitionDuration);
             await comet.connect(alice).supply(baseToken.address, SUPPLY_AMOUNT);
 
             const isTransitionActive = await comet.isTransitionActive();
@@ -650,16 +668,16 @@ describe("16. curve transition", function() {
             await comet.connect(bob).supply(collateral.address, bobDepositAmount);
             await comet.connect(bob).withdraw(baseToken.address, SUPPLY_AMOUNT);
             const principal1 = (await comet.userBasic(bob.address)).principal;
-            await skipTimeAndAccrueAccount(comet, TRANSITION_DURATION / 4, bob.address);
+            await skipTimeAndAccrueAccount(comet, transitionDuration / 4, bob.address);
             const principal2 = (await comet.userBasic(bob.address)).principal;
 
-            await skipTimeAndAccrueAccount(comet, TRANSITION_DURATION / 4, bob.address);
+            await skipTimeAndAccrueAccount(comet, transitionDuration / 4, bob.address);
             const principal3 = (await comet.userBasic(bob.address)).principal;
 
-            await skipTimeAndAccrueAccount(comet, TRANSITION_DURATION / 4, bob.address);
+            await skipTimeAndAccrueAccount(comet, transitionDuration / 4, bob.address);
             const principal4 = (await comet.userBasic(bob.address)).principal;
 
-            await skipTimeAndAccrueAccount(comet, TRANSITION_DURATION / 4, bob.address);
+            await skipTimeAndAccrueAccount(comet, transitionDuration / 4, bob.address);
             const principal5 = (await comet.userBasic(bob.address)).principal;
 
             expect(principal1).to.eq(principal2);
@@ -681,19 +699,19 @@ describe("16. curve transition", function() {
             await comet.connect(bob).supply(collateral.address, bobDepositAmount);
             await comet.connect(bob).withdraw(baseToken.address, SUPPLY_AMOUNT * 6n);
 
-            await skipTimeAndAccrueAccount(comet, TRANSITION_DURATION / 4, bob.address);
+            await skipTimeAndAccrueAccount(comet, transitionDuration / 4, bob.address);
             let isLiquidatable = await comet.isLiquidatable(bob.address);
             expect(isLiquidatable).to.be.false;
 
-            await skipTimeAndAccrueAccount(comet, TRANSITION_DURATION / 4, bob.address);
+            await skipTimeAndAccrueAccount(comet, transitionDuration / 4, bob.address);
             isLiquidatable = await comet.isLiquidatable(bob.address);
             expect(isLiquidatable).to.be.false;
 
-            await skipTimeAndAccrueAccount(comet, TRANSITION_DURATION / 4, bob.address);
+            await skipTimeAndAccrueAccount(comet, transitionDuration / 4, bob.address);
             isLiquidatable = await comet.isLiquidatable(bob.address);
             expect(isLiquidatable).to.be.false;
 
-            await skipTimeAndAccrueAccount(comet, TRANSITION_DURATION / 4, bob.address);
+            await skipTimeAndAccrueAccount(comet, transitionDuration / 4, bob.address);
             isLiquidatable = await comet.isLiquidatable(bob.address);
             expect(isLiquidatable).to.be.false;
         });
@@ -708,7 +726,7 @@ describe("16. curve transition", function() {
             await comet.connect(bob).supply(collateral.address, bobDepositAmount);
             await comet.connect(bob).withdraw(baseToken.address, exp(60, 6));
 
-            await skipTimeAndAccrueAccount(comet, time.duration.weeks(5), bob.address);
+            await skipTimeAndAccrueAccount(comet, time.duration.weeks(4), bob.address);
 
             let isLiquidatable = await comet.isLiquidatable(bob.address);
             expect(isLiquidatable).to.be.false;
@@ -724,7 +742,7 @@ describe("16. curve transition", function() {
             await comet.connect(bob).supply(collateral.address, bobDepositAmount);
             await comet.connect(bob).withdraw(baseToken.address, exp(60, 6));
 
-            await skipTimeAndAccrueAccount(comet, time.duration.weeks(13), bob.address);
+            await skipTimeAndAccrueAccount(comet, time.duration.weeks(12), bob.address);
 
             let isLiquidatable = await comet.isLiquidatable(bob.address);
             expect(isLiquidatable).to.be.false;

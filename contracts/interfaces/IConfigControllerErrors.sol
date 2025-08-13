@@ -36,4 +36,5 @@ interface IConfigControllerErrors {
     error MaxCollateralTokensReached();
     error CollateralTokenNotAdded();
     error CollateralRemovalInProgress();
+    error CurveTransitionAlreadyInitiated();
 }

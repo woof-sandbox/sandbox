@@ -68,7 +68,7 @@ interface ISandboxComet {
         
     function getReserves() external view returns (int);
 
-    function startCurveTransition(uint8 curveId) external;
+    function initiateCurveTransition(uint8 curveId) external;
 
     function isTransferPaused() external view returns (bool);
 

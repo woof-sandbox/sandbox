@@ -65,4 +65,10 @@ interface ISandboxCometConfig {
      * @return True if a removal process is in progress, false otherwise
      */
     function removalInProgress() external view returns (bool);
+
+    /**
+     * @notice Check if a curve transition is active
+     * @return True if a transition is active, false otherwise
+     */
+    function isTransitionActive() external view returns (bool);
 }

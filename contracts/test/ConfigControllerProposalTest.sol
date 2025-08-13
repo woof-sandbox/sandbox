@@ -16,11 +16,9 @@ contract ConfigControllerProposalTest is ConfigController {
         proposalCounter++;
         uint256 proposalId = proposalCounter;
 
-        CollateralTokenConfig memory collateralConfig = abi.decode(_calldata[4:], (CollateralTokenConfig));
-
         proposals[proposalId] = Proposal({
                 proposer: msg.sender,
-                proposalType: ProposalType.ProposeNewCollateralToken,
+                proposalType: ProposalType(_proposalType),
                 maturityTime: uint40(block.timestamp + 1 weeks), /// TODO: Change to sandboxController.proposalBoundaries()
                 expirationTime: uint40(block.timestamp + 2 weeks), /// TODO: Change to sandboxController.proposalBoundaries()
                 timelock: 0, /// TODO: Change to sandboxController.proposalBoundaries()

@@ -235,7 +235,7 @@ contract SandboxComet is CometCore, ISandboxComet {
 
         if (removalInProgress) _prepareCollateralRemoval();
 
-        if (isTransitionActive) progressTransition(now_);
+        if (isTransitionActive) _progressTransition(now_);
 
         if (timeElapsed != 0) {
             (baseSupplyIndex, baseBorrowIndex) = accruedInterestIndices(timeElapsed);
@@ -258,7 +258,7 @@ contract SandboxComet is CometCore, ISandboxComet {
      * Called internally during interest accrual or when updating the curve.
      * @param now_ The current timestamp to use for transition progress calculation.
      */
-    function progressTransition(uint40 now_) internal {
+    function _progressTransition(uint40 now_) internal {
         if (now_ <= transition.lastUpdateTime) {
             return; // no update needed
         }
@@ -414,7 +414,7 @@ contract SandboxComet is CometCore, ISandboxComet {
      *
      * Usage:
      *   This function is called internally by the protocol during a curve transition, typically in a function like
-     *   `progressTransition(now_)`, to update each curve parameter to its correct value for the current time.
+     *   `_progressTransition(now_)`, to update each curve parameter to its correct value for the current time.
      *
      * @param startValue   The value of the parameter at the start of the transition.
      * @param targetValue  The value of the parameter at the end of the transition.
@@ -1418,8 +1418,56 @@ contract SandboxComet is CometCore, ISandboxComet {
         }
     }
 
-    function startCurveTransition(uint8 curveId) external override {
+    /**
+     * @notice Initiates a smooth transition between interest rate curves for the lending protocol
+     * @dev This function allows the config controller to smoothly transition from the current interest rate curve
+     *      to a new target curve over a predefined duration. The transition affects both supply and borrow rates
+     *      for all users of the protocol, ensuring a gradual change rather than an abrupt rate adjustment.
+     * 
+     * @dev The function performs the following key operations:
+     *      1. Validates that only the authorized config controller can call this function
+     *      2. Retrieves the target curve parameters from the sandbox controller
+     *      3. Creates a transition object with current and target curve parameters
+     *      4. Sets the transition start time, end time, and activates the transition state
+     *      5. Emits an event to notify all participants of the curve transition
+     * 
+     * @dev Interest rate curves control the protocol's monetary policy by determining:
+     *      - Supply rates: How much interest suppliers earn on their deposits
+     *      - Borrow rates: How much interest borrowers pay on their loans
+     *      - Kink points: Utilization thresholds where rate slopes change
+     *      - Rate slopes: How quickly rates change with utilization
+     *      - Base rates: Minimum rates regardless of utilization
+     * 
+     * @dev During the transition period:
+     *      - Rates are interpolated between start and target curves
+     *      - The interpolation is time-based, not utilization-based
+     *      - All rate calculations use the interpolated curve
+     *      - The transition completes automatically after transitionDuration
+     * 
+     * @dev Security considerations:
+     *      - Only callable by configController (privileged role)
+     *      - Prevents unauthorized rate manipulation
+     *      - Ensures protocol stability during rate changes
+     * 
+     * @dev Economic implications:
+     *      - Affects all active borrowers and suppliers
+     *      - Can impact protocol utilization and user behavior
+     *      - Should be used carefully to maintain protocol health
+     *      - Provides flexibility for monetary policy adjustments
+     * 
+     * @param curveId The identifier of the target curve in the sandbox controller
+     *               This curve defines the final interest rate structure after transition
+     * 
+     * @custom:security Only callable by configController
+     * @custom:event CurveTransitionStarted Emitted when transition begins
+     * @custom:error Unauthorized Thrown if caller is not configController
+     * 
+     */
+    function initiateCurveTransition(uint8 curveId) external override {
         if (msg.sender != configController) revert Unauthorized();
+        if (isTransitionActive) revert TransitionAlreadyActive();
+        // Double check that the curveId is valid.
+        if (curveId >= ISandboxController(sandboxController).baseAssets(baseToken).baseAssetCurves.length) revert InvalidCurveId();
 
         ISandboxController.BaseAssetCurve memory targetCurve = ISandboxController(sandboxController).baseAssets(baseToken).baseAssetCurves[curveId];
 
@@ -1463,8 +1511,6 @@ contract SandboxComet is CometCore, ISandboxComet {
             targetCurveParams
         );
     }
-
-    
 
     /**
      * @notice Buy collateral from the protocol using base tokens, increasing protocol reserves

@@ -49,6 +49,12 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
     uint24 public constant PROPOSE_CURATOR_MATURITY = 0;
     /// @notice The timelock of the curator proposal
     uint24 public constant PROPOSE_CURATOR_TIMELOCK = 0;
+    /// @notice The lifetime of the curve transition proposal
+    uint24 public constant PROPOSE_CURVE_TRANSITION_LIFETIME = 2 weeks;
+    /// @notice The maturity time of the curve transition proposal
+    uint24 public constant PROPOSE_CURVE_TRANSITION_MATURITY = 1 weeks;
+    /// @notice The timelock of the curve transition proposal
+    uint24 public constant PROPOSE_CURVE_TRANSITION_TIMELOCK = 0;
 
     /// @notice The address of the protocol owner
     address public override owner;
@@ -171,16 +177,16 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
     enum ProposalType {
         ProposeCurator,
         ProposeNewCollateralToken,
-        ProposeCollateralRemoval
-    }
-
-    function _proposeCurator(bytes memory _calldata, uint256 _proposalId) internal {
-        
+        ProposeCollateralRemoval,
+        ProposeCurveTransition,
+        ProposeMarketClosure
     }
 
     // Hardcoded selector for addCollateralToken function
     bytes4 constant ADD_COLLATERAL_SELECTOR = 0xfad67aaa;
     bytes4 constant REMOVE_COLLATERAL_SELECTOR = 0x58b77c0e;
+    bytes4 constant CURVE_TRANSITION_SELECTOR = 0x27c05186;
+    bytes4 constant MARKET_CLOSURE_SELECTOR = 0x00000000;
 
     /**
      * @notice Creates a new proposal
@@ -214,7 +220,7 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
         uint8 _proposalType
     ) external returns (uint256) {
         // Check if proposal type is valid
-        if (_proposalType > uint8(ProposalType.ProposeCollateralRemoval)) revert InvalidProposalType();
+        if (_proposalType > uint8(ProposalType.ProposeMarketClosure)) revert InvalidProposalType();
         if (_proposalType != uint8(ProposalType.ProposeCurator) && !_isCometOwned(_comet)) revert UnknownComet(); 
         // Increment proposal counter
         proposalCounter++;
@@ -320,6 +326,39 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
                 call: _calldata
             });
             emit ProposeCollateralRemoval(proposalId, msg.sender, collateralToken);
+        } else if (_proposalType == uint8(ProposalType.ProposeCurveTransition)) {
+            if (msg.sender != owner && msg.sender != curator) revert Unauthorized();
+            /**
+             * --- Before creating the proposal checks ---
+             * - Check if the selector is valid.
+             * - Check if the curveId is valid.
+             */
+            bytes4 selector = bytes4(_calldata);
+            if (selector != CURVE_TRANSITION_SELECTOR) revert InvalidSelector();
+
+            uint8 curveId = abi.decode(_calldata[4:], (uint8));
+            ISandboxCometConfig comet = ISandboxCometConfig(_comet);
+            if (curveId >= ISandboxController(sandboxController).baseAssets(comet.baseToken()).baseAssetCurves.length) revert InvalidCurveId();
+
+            // Create the proposal
+            proposals[proposalId] = Proposal({
+                proposer: msg.sender,
+                proposalType: ProposalType.ProposeCurveTransition,
+                maturityTime: uint40(block.timestamp + PROPOSE_CURVE_TRANSITION_MATURITY),
+                expirationTime: uint40(block.timestamp + PROPOSE_CURVE_TRANSITION_LIFETIME),
+                timelock: uint40(block.timestamp + PROPOSE_CURVE_TRANSITION_TIMELOCK),
+                comet: _comet,
+                call: _calldata
+            });
+            emit ProposeCurveTransition(proposalId, msg.sender, curveId);
+        } else if (_proposalType == uint8(ProposalType.ProposeMarketClosure)) {
+            if (msg.sender != owner) revert Unauthorized();
+            /**
+             * --- Before creating the proposal checks ---
+             * - Check if the selector is valid.
+             * - Check if the market in the close process.
+             * - Check if the market is already closed.
+             */
         }
         
         return proposalId;
@@ -471,6 +510,37 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
             _proposal.expirationTime = 0;
             
             emit ProposeCollateralRemovalAccepted(_proposalId, msg.sender, collateralToken);
+        } else if (_proposal.proposalType == ProposalType.ProposeCurveTransition) {
+            /**
+             * --- Significant checks ---
+             * The most significant checks. If they fail, the proposal can't be executed. Since that we performed them earlier.  
+             * - Check that the msg.sender is owner or curator.         
+             * - Check if the comet is owned by the ConfigController. Before the proposal is executed the comet can be
+             *   transferred to the another ConfigController.
+             * - Check if the transition is already active.
+             */
+            if (msg.sender != owner && msg.sender != curator) revert Unauthorized();
+            if (!_isCometOwned(_proposal.comet)) revert UnknownComet();
+            if (ISandboxCometConfig(_proposal.comet).isTransitionActive()) revert CurveTransitionAlreadyInitiated();
+            
+            // Copy the parameters (skip the first 4 bytes which is the selector)
+            bytes memory curveIdBytes = new bytes(_proposal.call.length - 4);
+            for (uint i = 4; i < _proposal.call.length; i++) {
+                curveIdBytes[i - 4] = _proposal.call[i];
+            }
+            uint8 curveId = abi.decode(curveIdBytes, (uint8));
+            
+            /// Execute the curve transition
+            (bool success, ) = _proposal.comet.call(_proposal.call);
+            if (!success) revert CometCallFailed();
+            /**
+             * --- After executing the proposal ---
+             * - We must mark the proposal as not active.
+             * - No additional checks are needed, since the only the ConfigController is evolved.
+             */
+            _proposal.expirationTime = 0;
+
+            emit ProposeCurveTransitionAccepted(_proposalId, msg.sender, curveId);
         }
 
         proposals[_proposalId] = _proposal;
