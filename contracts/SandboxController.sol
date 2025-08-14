@@ -431,6 +431,12 @@ contract SandboxController is ISandboxController {
          * - there should be a reasonable limit for the kink to avoid under-incentivised overutilization
          */
 
+        // separate variables because of prettier and solhint
+        uint256 supplySlopeLow = uint256(curve.supplyPerYearInterestRateSlopeLow);
+        uint256 borrowSlopeLow = uint256(curve.borrowPerYearInterestRateSlopeLow);
+        uint256 supplySlopeHigh = uint256(curve.supplyPerYearInterestRateSlopeHigh);
+        uint256 borrowSlopeHigh = uint256(curve.borrowPerYearInterestRateSlopeHigh);
+
         /// kink utilization cannot exceed 100%
         if (curve.supplyKink > PARAMETERS_SCALE || curve.borrowKink > PARAMETERS_SCALE) return false;
 
@@ -445,12 +451,12 @@ contract SandboxController is ISandboxController {
 
         // y_breakpoint = supplyBase + supplyLowSlope * x
         // where x = supplyKink (rightmost point of the low slope part of the curve)
-        uint256 intermediateSupplyPoint = (uint256(curve.supplyPerYearInterestRateSlopeLow) * uint256(curve.supplyKink)) / PARAMETERS_SCALE;
+        uint256 intermediateSupplyPoint = (supplySlopeLow * uint256(curve.supplyKink)) / PARAMETERS_SCALE;
         uint64 supplyBreakPoint = curve.supplyPerYearInterestRateBase + uint64(intermediateSupplyPoint);
 
         // y_breakpoint = borrowBase + borrowLowSlope * x
         // where x = borrowKink (rightmost point of the low slope part of the curve)
-        uint256 intermediateBorrowPoint = (uint256(curve.borrowPerYearInterestRateSlopeLow) * uint256(curve.borrowKink)) / PARAMETERS_SCALE;
+        uint256 intermediateBorrowPoint = (borrowSlopeLow * uint256(curve.borrowKink)) / PARAMETERS_SCALE;
         uint64 borrowBreakPoint = curve.borrowPerYearInterestRateBase + uint64(intermediateBorrowPoint);
 
         /// 2) borrow curve break point must always be higher than supplies one
@@ -467,9 +473,7 @@ contract SandboxController is ISandboxController {
 
                 // y = borrowBase + borrowLowSlope * borrowKink + borrowHighSlope * (x - borrowKink)
                 // where x = supplyKink (as we check borrow curve value at supply curve break point)
-                intermediateBorrowPoint =
-                    (uint256(curve.borrowPerYearInterestRateSlopeHigh) * uint256(curve.supplyKink - curve.borrowKink)) /
-                    PARAMETERS_SCALE;
+                intermediateBorrowPoint = (borrowSlopeHigh * uint256(curve.supplyKink - curve.borrowKink)) / PARAMETERS_SCALE;
                 uint64 borrowHighPoint = borrowBreakPoint + uint64(intermediateBorrowPoint);
 
                 // supply left part intersects borrow right part
@@ -482,9 +486,7 @@ contract SandboxController is ISandboxController {
             if (curve.supplyKink <= curve.borrowKink) {
                 // y = supplyBase + supplyLowSlope * supplyKink + supplyHighSlope * (x - supplyKink)
                 // where x = borrwKink (as we check supply curve value at borrow curve break point)
-                intermediateSupplyPoint =
-                    (uint256(curve.supplyPerYearInterestRateSlopeHigh) * uint256(curve.borrowKink - curve.supplyKink)) /
-                    PARAMETERS_SCALE;
+                intermediateSupplyPoint = (usupplySlopeHigh * uint256(curve.borrowKink - curve.supplyKink)) / PARAMETERS_SCALE;
                 uint64 supplyHighPoint = supplyBreakPoint + uint64(intermediateSupplyPoint);
 
                 // supply right part intersects borrow left part
@@ -499,12 +501,8 @@ contract SandboxController is ISandboxController {
 
         // y = supplyBase + supplyLowSlope * supplyKink + supplyHighSlope * (x - supplyKink)
         // where x = 200%
-        intermediateSupplyPoint =
-            (uint256(curve.supplyPerYearInterestRateSlopeHigh) * uint256(2 * PARAMETERS_SCALE - curve.supplyKink)) /
-            PARAMETERS_SCALE;
-        intermediateBorrowPoint =
-            (uint256(curve.borrowPerYearInterestRateSlopeHigh) * uint256(2 * PARAMETERS_SCALE - curve.borrowKink)) /
-            PARAMETERS_SCALE;
+        intermediateSupplyPoint = (usupplySlopeHigh * uint256(2 * PARAMETERS_SCALE - curve.supplyKink)) / PARAMETERS_SCALE;
+        intermediateBorrowPoint = (borrowSlopeHigh * uint256(2 * PARAMETERS_SCALE - curve.borrowKink)) / PARAMETERS_SCALE;
         uint64 supplyRightPoint = supplyBreakPoint + uint64(intermediateSupplyPoint);
         uint64 borrowRightPoint = borrowBreakPoint + uint64(intermediateBorrowPoint);
 
