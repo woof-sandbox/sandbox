@@ -1,0 +1,150 @@
+{
+  "owner": "0x0309004C4fB9943797f5C530abd8cddE564A9fD4",
+  "dao": "0x44908EF517c28DE800222A9F2030efbb01eE9aFe",
+  "treasury": "0x0309004C4fB9943797f5C530abd8cddE564A9fD4",
+  "curator": "0x0309004C4fB9943797f5C530abd8cddE564A9fD4",
+  "SandboxController": "0x1D64395C2C1A16c8d7265B0845d5BacFCB24d2EB",
+  "ConfigControllerImplementation": "0x3fbf88222017213B1eEF405522C704e3CDD0B160",
+  "ConfigControllerFactory": "0x268072d6460D78DF9587b16FC9F94B9e566770b8",
+  "CometImplementation": "0x1C75bA34588d5D7157A9a06aE0625C090164580F",
+  "SandboxCometFactory": "0x99dfbd7d0EaC78cd2F4e44B3733DBDF946B62E97",
+  "assets": {
+    "USDC": {
+      "address": "0xB09c256c99e6145715B5853dFa5b98194dF0eF6d",
+      "priceFeed": "0xE60E54E4de715b80d47fec4C185949bC6D3AC5d4",
+      "chainlinkPriceFeed": "0xA2F78ab2355fe2f984D808B5CeE7FD0A93D5270E",
+      "fallbackPriceFeed": "0x0000000000000000000000000000000000000000",
+      "minBorrowCF": 5.5e17,
+      "maxBorrowCF": 6.2e17,
+      "minLiquidateCF": 6e17,
+      "maxLiquidateCF": 7.5e17,
+      "minLiquidationF": 7.5e17,
+      "maxLiquidationF": 8.5e17
+    },
+    "WBTC": {
+      "address": "0x92Dc4Fbe389EBDd16cb0f83DBb9003588b78e019",
+      "priceFeed": "0xC633B3FaF212EbD85e95CD60e1CAEA22Ff053715",
+      "chainlinkPriceFeed": "0x1b44F3514812d835EB1BDB0acB33d3fA3351Ee43",
+      "fallbackPriceFeed": "0x0000000000000000000000000000000000000000",
+      "minBorrowCF": 7e17,
+      "maxBorrowCF": 8e17,
+      "minLiquidateCF": 8e17,
+      "maxLiquidateCF": 9e17,
+      "minLiquidationF": 9e17,
+      "maxLiquidationF": 1e18
+    },
+    "WETH": {
+      "address": "0x984bBE92186122e04edb9dd0943cbC155dC641A8",
+      "priceFeed": "0x4e17442211684B492cA098648D939eeC3E4b1D73",
+      "chainlinkPriceFeed": "0x694AA1769357215DE4FAC081bf1f309aDC325306",
+      "fallbackPriceFeed": "0x0000000000000000000000000000000000000000",
+      "minBorrowCF": 7.8e17,
+      "maxBorrowCF": 8.5e17,
+      "minLiquidateCF": 8.5e17,
+      "maxLiquidateCF": 9.1e17,
+      "minLiquidationF": 9.1e17,
+      "maxLiquidationF": 1e18
+    },
+    "LINK": {
+      "address": "0x636E888FdAB6bA6157058E4c13c63Ba8BCdc3f91",
+      "priceFeed": "0x14B7A75FB2Eca74904DCab5D888ea29abbb14411",
+      "chainlinkPriceFeed": "0xc59E3633BAAC79493d908e63626716e204A45EdF",
+      "fallbackPriceFeed": "0x0000000000000000000000000000000000000000",
+      "minBorrowCF": 7.5e17,
+      "maxBorrowCF": 8e17,
+      "minLiquidateCF": 8e17,
+      "maxLiquidateCF": 9e17,
+      "minLiquidationF": 9e17,
+      "maxLiquidationF": 1e18
+    },
+    "stETH": {
+      "address": "0xcbf99B521560f56A1e2A8CF1a38bdF72f4DB1757",
+      "priceFeed": "0x5a3372a160b29497f2494cB7e9Edc47aa3264b91",
+      "chainlinkPriceFeed": "0x694AA1769357215DE4FAC081bf1f309aDC325306",
+      "fallbackPriceFeed": "0x0000000000000000000000000000000000000000",
+      "minBorrowCF": 7.8e17,
+      "maxBorrowCF": 8.5e17,
+      "minLiquidateCF": 8.5e17,
+      "maxLiquidateCF": 9.1e17,
+      "minLiquidationF": 9.1e17,
+      "maxLiquidationF": 1e18
+    },
+    "wstETH": {
+      "address": "0xEc47Afc18862ADC7a698C447367E4345e2C67947",
+      "priceFeed": "0xdA44399549535285b0eca6C33B9A2940DA44ac30",
+      "chainlinkPriceFeed": "0xaaabb530434B0EeAAc9A42E25dbC6A22D7bE218E",
+      "fallbackPriceFeed": "0x0000000000000000000000000000000000000000",
+      "minBorrowCF": 7.8e17,
+      "maxBorrowCF": 8.5e17,
+      "minLiquidateCF": 8.5e17,
+      "maxLiquidateCF": 9.1e17,
+      "minLiquidationF": 9.1e17,
+      "maxLiquidationF": 1e18
+    },
+    "sUSDe": {
+      "address": "0xd065F95D82B1CD701B8f22cA15082C9cB244ED3E",
+      "priceFeed": "0x21b78Eb1502d3F88f023c6DF58616bB81687D9a0",
+      "chainlinkPriceFeed": "0x6f7be09227d98Ce1Df812d5Bc745c0c775507E92",
+      "fallbackPriceFeed": "0x0000000000000000000000000000000000000000",
+      "minBorrowCF": 5.5e17,
+      "maxBorrowCF": 6.2e17,
+      "minLiquidateCF": 6e17,
+      "maxLiquidateCF": 7.5e17,
+      "minLiquidationF": 7.5e17,
+      "maxLiquidationF": 8.5e17
+    },
+    "SNX": {
+      "address": "0xFdea80Cf495bedDF07A3fc3Cc3Cbe1F2A5d7Be81",
+      "priceFeed": "0x1A4E24216c2FE5B949B7d987f740F2073966b554",
+      "chainlinkPriceFeed": "0xc0F82A46033b8BdBA4Bb0B0e28Bc2006F64355bC",
+      "fallbackPriceFeed": "0x0000000000000000000000000000000000000000",
+      "minBorrowCF": 7.5e17,
+      "maxBorrowCF": 8e17,
+      "minLiquidateCF": 8e17,
+      "maxLiquidateCF": 9e17,
+      "minLiquidationF": 9e17,
+      "maxLiquidationF": 1e18
+    },
+    "JPY": {
+      "address": "0x35827480b2830Dee604ce74D13E4a49E2dE9aE8B",
+      "priceFeed": "0xe9FEA7b9Cc215089cbCC27817b1F011DECD71Da7",
+      "chainlinkPriceFeed": "0x8A6af2B75F23831ADc973ce6288e5329F63D86c6",
+      "fallbackPriceFeed": "0x0000000000000000000000000000000000000000",
+      "minBorrowCF": 5.5e17,
+      "maxBorrowCF": 6.2e17,
+      "minLiquidateCF": 6e17,
+      "maxLiquidateCF": 7.5e17,
+      "minLiquidationF": 7.5e17,
+      "maxLiquidationF": 8.5e17
+    },
+    "oETH": {
+      "address": "0x9085EaAAF6262C82265386e5DC93689447269ADd",
+      "priceFeed": "0x04EC4572c55214Dae79C19e0456CE1325e3FC4C4",
+      "chainlinkPriceFeed": "0x7236e415beC6F9A1747e223528ef9E38A1d36699",
+      "fallbackPriceFeed": "0x0000000000000000000000000000000000000000",
+      "minBorrowCF": 7.8e17,
+      "maxBorrowCF": 8.5e17,
+      "minLiquidateCF": 8.5e17,
+      "maxLiquidateCF": 9.1e17,
+      "minLiquidationF": 9.1e17,
+      "maxLiquidationF": 1e18
+    }
+  },
+  "sandboxControllerConfiguration": {
+    "targetPercent": 2e17,
+    "storeFrontPriceFactor": 6e17,
+    "minUpdateTime": 300,
+    "maxUpdateTime": 3600,
+    "feeEnabled": true,
+    "reserveCommissions": [
+      4e16,
+      3e16,
+      2e16
+    ],
+    "protocolCommissions": [
+      4e16,
+      3e16,
+      2e16
+    ]
+  }
+}
