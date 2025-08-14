@@ -59,6 +59,9 @@ contract PriceFeedWithFallback is AccessControl, IPriceFeed {
     /// @dev Reverts if the decimals do not match from price feeds.
     error DecimalsNotMatched();
 
+    /// @dev Reverts if the sequencer is invalid.
+    error InvalidSequencer();
+
     /**
      * @notice Initializes the price feed contract.
      * @param _dao The address of the DAO.
@@ -159,7 +162,7 @@ contract PriceFeedWithFallback is AccessControl, IPriceFeed {
      * @param _sequencer The address of the new sequencer.
      */
     function _validateAndSetSequencer(address _sequencer) internal {
-        if (block.chainid != 1 && _sequencer == address(0)) revert ZeroAddress();
+        if ((block.chainid != 1 && _sequencer == address(0)) || _sequencer == sequencer) revert InvalidSequencer();
 
         sequencer = _sequencer;
 
