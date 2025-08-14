@@ -1,0 +1,57 @@
+{
+  "name": "Sandbox WBTC",
+  "configController": "0x7F83A9083c536068d5d88E7CF55B7917832b1be2",
+  "comet": "0xF1EDcEa3C894C3Ed92304C135438b53E4329dea0",
+  "configControllerName": "WBTC ConfigController",
+  "owner": "0x0309004C4fB9943797f5C530abd8cddE564A9fD4",
+  "curator": "0xa7EcbfFdF700383F981f003048FAf598886637d3",
+  "guardian": "0x0000000000000000000000000000000000000000",
+  "curatorFee": "100",
+  "curatorProposalDuration": "3600",
+  "proposalDuration": "3600",
+  "baseToken": "WBTC",
+  "curve": {
+    "supplyKink": 850000000000000000,
+    "supplyPerYearInterestRateSlopeLow": 380517503,
+    "supplyPerYearInterestRateSlopeHigh": 31709791983,
+    "supplyPerYearInterestRateBase": 1,
+    "borrowKink": 850000000000000000,
+    "borrowPerYearInterestRateSlopeLow": 443937087,
+    "borrowPerYearInterestRateSlopeHigh": 36466260781,
+    "borrowPerYearInterestRateBase": 317097919
+  },
+  "baseTokenCurveId": 0,
+  "suggestedAmountOfSeedReserves": 0.01e8,
+  "suggestedLockTimeOfSeedReserves": 604800,
+  "minBorrow": 0.0001e8,
+  "collaterals": [
+    {
+      "name": "JPY",
+      "supplyCap": 100000e18,
+      "borrowCF": 5.6e17,
+      "liquidateCF": 6.5e17,
+      "liquidationF": 7.7e17
+    },
+    {
+      "name": "WETH",
+      "supplyCap": 25000e18,
+      "borrowCF": 8e17,
+      "liquidateCF": 8.5e17,
+      "liquidationF": 9.5e17
+    },
+    {
+      "name": "LINK",
+      "supplyCap": 100000e18,
+      "borrowCF": 7.7e17,
+      "liquidateCF": 8.2e17,
+      "liquidationF": 9.1e17
+    },
+    {
+      "name": "SNX",
+      "supplyCap": 100000e18,
+      "borrowCF": 7.7e17,
+      "liquidateCF": 8.5e17,
+      "liquidationF": 9.1e17
+    }
+  ]
+}
