@@ -1106,7 +1106,7 @@ contract SandboxComet is CometCore, ISandboxComet {
         if (amountOut + protocolFee + controllerFee > getCollateralReserves(asset)) revert InsufficientReserves();
 
         if (protocolFee > 0) {
-            totalProtocolFeesPerAsset[asset] += controllerFee;
+            totalProtocolFeesPerAsset[asset] += protocolFee;
         }
         if (controllerFee > 0) {
             totalControllerFeesPerAsset[asset] += controllerFee;
