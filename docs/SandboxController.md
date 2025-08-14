@@ -40,6 +40,12 @@ uint40 MIN_LOCK_TIME
 uint8 MARKET_STATES
 ```
 
+### MAX_SUPPLY_CAP_PERCENT
+
+```solidity
+uint64 MAX_SUPPLY_CAP_PERCENT
+```
+
 ### treasury
 
 ```solidity
@@ -301,7 +307,7 @@ The `lockTimeOfSeedReserves` must be greater than or equal to the minimum lock t
 ### whitelistCollateralAsset
 
 ```solidity
-function whitelistCollateralAsset(address token, address priceFeed, uint64 minBorrowCollateralFactor, uint64 maxBorrowCollateralFactor, uint64 minLiquidateCollateralFactor, uint64 maxLiquidateCollateralFactor, uint64 minLiquidationFactor, uint64 maxLiquidationFactor) external
+function whitelistCollateralAsset(address token, address priceFeed, uint64 minBorrowCollateralFactor, uint64 maxBorrowCollateralFactor, uint64 minLiquidateCollateralFactor, uint64 maxLiquidateCollateralFactor, uint64 minLiquidationFactor, uint64 maxLiquidationFactor, uint256 supplyCap) external
 ```
 
 Whitelists a new collateral asset with specified collateral factor parameters.
@@ -323,6 +329,33 @@ _Validates that all collateral factor parameters are within allowed ranges and m
 | maxLiquidateCollateralFactor | uint64 | The maximum liquidate collateral factor (scaled by 1e18). |
 | minLiquidationFactor | uint64 | The minimum liquidation factor (scaled by 1e18). |
 | maxLiquidationFactor | uint64 | The maximum liquidation factor (scaled by 1e18). |
+| supplyCap | uint256 | The supply cap for the collateral asset. |
+
+### updateWhitelistedCollateralAsset
+
+```solidity
+function updateWhitelistedCollateralAsset(address token, uint64 minBorrowCollateralFactor, uint64 maxBorrowCollateralFactor, uint64 minLiquidateCollateralFactor, uint64 maxLiquidateCollateralFactor, uint64 minLiquidationFactor, uint64 maxLiquidationFactor, uint256 supplyCap) external
+```
+
+Updates the parameters of an already whitelisted collateral asset.
+
+_Validates that all collateral factor parameters are within allowed ranges and maintain logical relationships:
+     - 10% <= minBorrowCollateralFactor <= minLiquidateCollateralFactor <= minLiquidationFactor <= 100%
+     - maxBorrowCollateralFactor <= maxLiquidateCollateralFactor <= maxLiquidationFactor <= 100%
+     - min <= max for each factor_
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| token | address | The address of the collateral asset to update. |
+| minBorrowCollateralFactor | uint64 | The new minimum borrow collateral factor (scaled by 1e18). |
+| maxBorrowCollateralFactor | uint64 | The new maximum borrow collateral factor (scaled by 1e18). |
+| minLiquidateCollateralFactor | uint64 | The new minimum liquidate collateral factor (scaled by 1e18). |
+| maxLiquidateCollateralFactor | uint64 | The new maximum liquidate collateral factor (scaled by 1e18). |
+| minLiquidationFactor | uint64 | The new minimum liquidation factor (scaled by 1e18). |
+| maxLiquidationFactor | uint64 | The new maximum liquidation factor (scaled by 1e18). |
+| supplyCap | uint256 | The new supply cap for the collateral asset. |
 
 ### isBaseTokenWhitelisted
 
