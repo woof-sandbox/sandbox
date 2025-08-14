@@ -42,7 +42,7 @@ interface ISandboxComet {
 
     function buyCollateral(address asset, uint256 minAmount, uint256 baseAmount, address recipient) external;
 
-    function quoteCollateral(address asset, uint256 baseAmount) external view returns (uint256, uint256, uint256);
+    function quoteCollateral(address asset, uint256 baseAmount) external view returns (uint256, uint256, uint256, uint256);
 
     function getCollateralReserves(address asset) external view returns (uint256);
 

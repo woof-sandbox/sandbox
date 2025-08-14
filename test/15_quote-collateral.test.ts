@@ -212,8 +212,8 @@ describe.skip("15. quoteCollateral", function () {
     const baseAmount = exp(200, 6);
     const q = await comet.quoteCollateral(COMP.address, baseAmount);
 
-    expect(q.feeController).to.equal(0);
-    expect(q.feeProtocol).to.equal(0);
+    expect(q.controllerFee).to.equal(0);
+    expect(q.protocolFee).to.equal(0);
   });
 
   // todo: fix test with correct storefront factor
@@ -261,10 +261,10 @@ describe.skip("15. quoteCollateral", function () {
 
     const q = await comet.quoteCollateral(COMP.address, baseAmount);
 
-    const totalFromContract = q.feeProtocol.toBigInt() + q.feeController.toBigInt() + expectedResv;
+    const totalFromContract = q.protocolFee.toBigInt() + q.controllerFee.toBigInt() + expectedResv;
     const totalExpected = mulDiv(deltaBase * assetScale, 1n, discountedPrice);
     expect(totalFromContract >= totalExpected ? totalFromContract - totalExpected : totalExpected - totalFromContract).to.be.lte(1n);
-    expect(q.feeProtocol.toBigInt()).to.equal(expectedProt);
-    expect(q.feeController.toBigInt()).to.equal(expectedCtrl);
+    expect(q.protocolFee.toBigInt()).to.equal(expectedProt);
+    expect(q.controllerFee.toBigInt()).to.equal(expectedCtrl);
   });
 });

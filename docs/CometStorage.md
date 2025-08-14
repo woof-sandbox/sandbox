@@ -419,10 +419,10 @@ mapping(address => uint256) totalControllerFeesPerAsset
 
 Total accrued controller fees per asset
 
-### totalDaoFeesPerAsset
+### totalProtocolFeesPerAsset
 
 ```solidity
-mapping(address => uint256) totalDaoFeesPerAsset
+mapping(address => uint256) totalProtocolFeesPerAsset
 ```
 
 Total accrued DAO fees per asset

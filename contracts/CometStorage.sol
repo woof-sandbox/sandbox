@@ -160,7 +160,7 @@ contract CometStorage is ICometStructures {
     mapping(address => uint256) public totalControllerFeesPerAsset;
 
     /// @notice Total accrued DAO fees per asset
-    mapping(address => uint256) public totalDaoFeesPerAsset;
+    mapping(address => uint256) public totalProtocolFeesPerAsset;
 
     /// @notice Mapping of users to accounts which may be permitted to manage the user account
     /// @notice user => spender => asset (base or collateral) => amount

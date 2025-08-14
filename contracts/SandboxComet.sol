@@ -332,7 +332,7 @@ contract SandboxComet is CometCore, ISandboxComet {
             IERC20(asset).balanceOf(address(this)) -
             totalsCollateral[asset] -
             totalControllerFeesPerAsset[asset] -
-            totalDaoFeesPerAsset[asset];
+            totalProtocolFeesPerAsset[asset];
     }
 
     /**
@@ -478,8 +478,8 @@ contract SandboxComet is CometCore, ISandboxComet {
         address dao = ISandboxController(sandboxController).dao(); // aderyn-fp(reentrancy-state-change)
 
         if (msg.sender == dao) {
-            amount = totalDaoFeesPerAsset[asset];
-            totalDaoFeesPerAsset[asset] = 0;
+            amount = totalProtocolFeesPerAsset[asset];
+            totalProtocolFeesPerAsset[asset] = 0;
         } else if (msg.sender == configController) {
             amount = totalControllerFeesPerAsset[asset];
             totalControllerFeesPerAsset[asset] = 0;
@@ -703,19 +703,21 @@ contract SandboxComet is CometCore, ISandboxComet {
             }
 
             // Split the delta into three parts:
-            (uint256 daoFee, uint256 controllerFee) = _distributeProfit(deltaValue);
+            (uint256 reserveFee, uint256 protocolFee, uint256 controllerFee) = _distributeProfit(deltaValue);
             // 1. The reserve commission. get the percentage from the SandboxController.getCommissions
             // 2. The protocol commission. get the percentage from the SandboxController.getCommissions
             // 3. The config controller commission. The rest of the amount.
-            // Save the protocol commisison to totalDaoFeesPerAsset[asset] if the fee is enabled.
+            // Save the protocol commisison to totalProtocolFeesPerAsset[asset] if the fee is enabled.
             // The reserves commission is not needed to save, because it is already in the reserves.
-            if (daoFee > 0) {
-                totalDaoFeesPerAsset[baseToken] += daoFee;
+            if (protocolFee > 0) {
+                totalProtocolFeesPerAsset[baseToken] += protocolFee;
             }
             // Save the config controller commission to totalControllerFeesPerAsset[asset]. if the config controller is enabled.
             if (controllerFee > 0) {
                 totalControllerFeesPerAsset[baseToken] += controllerFee;
             }
+
+            emit FeesCollected(baseToken, reserveFee, protocolFee, controllerFee);
         }
 
         (uint104 repayAmount, uint104 supplyAmount) = repayAndSupplyAmount(dstPrincipal, dstPrincipalNew);
@@ -1094,21 +1096,23 @@ contract SandboxComet is CometCore, ISandboxComet {
         if (isBuyPaused()) revert Paused();
         baseAmount = doTransferIn(baseToken, msg.sender, baseAmount);
 
-        (uint256 amountOut, uint256 feeProtocol, uint256 feeController) = quoteCollateral(asset, baseAmount);
+        (uint256 amountOut, uint256 reserveFee, uint256 protocolFee, uint256 controllerFee) = quoteCollateral(asset, baseAmount);
 
         // Note: Re-entrancy can skip the reserves check above on a second buyCollateral call.
 
         if (amountOut < minAmount) revert TooMuchSlippage();
 
         // Note: we do no use the reserve part of the profit, as it stays in the Comet anyway
-        if (amountOut + feeProtocol + feeController > getCollateralReserves(asset)) revert InsufficientReserves();
+        if (amountOut + protocolFee + controllerFee > getCollateralReserves(asset)) revert InsufficientReserves();
 
-        if (feeProtocol > 0) {
-            totalControllerFeesPerAsset[asset] += feeController;
+        if (protocolFee > 0) {
+            totalProtocolFeesPerAsset[asset] += controllerFee;
         }
-        if (feeController > 0) {
-            totalControllerFeesPerAsset[asset] += feeController;
+        if (controllerFee > 0) {
+            totalControllerFeesPerAsset[asset] += controllerFee;
         }
+
+        emit FeesCollected(baseToken, reserveFee, protocolFee, controllerFee);
 
         // Note: Pre-transfer hook can re-enter buyCollateral with a stale collateral ERC20 balance.
         //  Assets should not be listed which allow re-entry from pre-transfer now, as too much collateral could be bought.
@@ -1125,7 +1129,7 @@ contract SandboxComet is CometCore, ISandboxComet {
     function quoteCollateral(
         address asset,
         uint256 baseAmount
-    ) public view override returns (uint256 amountOut, uint256 feeProtocol, uint256 feeController) {
+    ) public view override returns (uint256 amountOut, uint256 reserveFee, uint256 protocolFee, uint256 controllerFee) {
         (CollateralAsset memory assetInfo, ) = getAssetInfoByAddress(asset);
         uint256 assetPrice = getPrice(assetInfo.priceFeed);
         // Store front discount is derived from the collateral asset's liquidationFactor and storeFrontPriceFactor
@@ -1192,7 +1196,7 @@ contract SandboxComet is CometCore, ISandboxComet {
         uint256 scaledCollateralValue = (scaledBaseAmount * basePrice * assetInfo.scale) / assetPrice / baseScale;
         uint256 profit = scaledCollateralValue - amountOut;
         // function guarantees that reserve+protocol+controller == profit
-        (feeProtocol, feeController) = _distributeProfit(profit);
+        (reserveFee, protocolFee, controllerFee) = _distributeProfit(profit);
     }
 
     /**
@@ -1251,9 +1255,12 @@ contract SandboxComet is CometCore, ISandboxComet {
     /// @notice Calculates fees distribution (reserves % and dao fees %)
     /// @dev Internal function for calculation over the liquidation profit or interest profit
     /// @param profitAmount The amount to calculate fees from - it is expected to be denominated in USD already
-    /// @return _daoFee Fee on profit in favour of DAO
+    /// @return _reserveFee Fee on profit in favour of reserves
+    /// @return _protocolFee Fee on profit in favour of DAO
     /// @return _controllerFee Fee on profit in favour of Config Controller
-    function _distributeProfit(uint256 profitAmount) internal view returns (uint256 _daoFee, uint256 _controllerFee) {
+    function _distributeProfit(
+        uint256 profitAmount
+    ) internal view returns (uint256 _reserveFee, uint256 _protocolFee, uint256 _controllerFee) {
         int256 _reserves = getReserves();
         uint256 reserves = _reserves > 0 ? uint256(_reserves) : 0;
 
@@ -1263,10 +1270,10 @@ contract SandboxComet is CometCore, ISandboxComet {
 
         (uint64 reservePct, uint64 protocolPct) = ISandboxController(sandboxController).getCommissions(reservesUsd, targetUsd);
 
-        uint256 _reserveFee = mulFactor(profitAmount, uint256(reservePct));
+        _reserveFee = mulFactor(profitAmount, uint256(reservePct));
 
-        _daoFee = mulFactor(profitAmount, uint256(protocolPct));
-        _controllerFee = IConfigController(configController).cometFeeEnabled(address(this)) ? profitAmount - _reserveFee - _daoFee : 0;
+        _protocolFee = mulFactor(profitAmount, uint256(protocolPct));
+        _controllerFee = IConfigController(configController).cometFeeEnabled(address(this)) ? profitAmount - _reserveFee - _protocolFee : 0;
     }
 
     /**

@@ -28,7 +28,10 @@ interface ICometEvents {
     event BuyCollateral(address indexed buyer, address indexed asset, uint256 baseAmount, uint256 collateralAmount);
 
     /// @notice Event emitted when fees are extracted either to DAO or to protocol
-    event FeesExtracted(address indexed comet, address indexed asset, uint256 amoint, address to);
+    event FeesExtracted(address indexed comet, address indexed asset, uint256 amount, address to);
+
+    /// @notice Event emitted when fees are collected from a transaction
+    event FeesCollected(address baseToken, uint256 reserveFee, uint256 protocolFee, uint256 controllerFee);
 
     /// @notice Event emitted when an action is paused/unpaused
     event PauseAction(bool supplyPaused, bool transferPaused, bool withdrawPaused, bool absorbPaused, bool buyPaused);
