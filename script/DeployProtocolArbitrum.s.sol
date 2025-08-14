@@ -162,7 +162,7 @@ contract DeployProtocol is Script {
         return address(configControllerFactory);
     }
 
-    function deploySandboxController(address owner) internal returns (address) {
+    function deploySandboxController(address owner_) internal returns (address) {
         ISandboxController.SandboxControllerConfiguration memory config = ISandboxController.SandboxControllerConfiguration({
             targetPercent: 2e17, // 20%
             storeFrontPriceFactor: 6e17, // 60%
@@ -284,7 +284,8 @@ contract DeployProtocol is Script {
             baseToken: baseToken,
             baseTokenCurveId: 0, // Use first curve
             collateralTokens: collateralConfigs,
-            name: "Comet"
+            name: "Comet",
+            amountOfSeedReserves: IERC20(baseToken).totalSupply() / 1000 // 0.1% of total supply
         });
 
         // Create comet

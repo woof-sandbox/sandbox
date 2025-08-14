@@ -22,7 +22,7 @@ can be legally deployed only via the factory which provides correct config contr
 ### initialize
 
 ```solidity
-function initialize(struct IConfigController.CometConfig comet, struct IConfigController.CometGlobalParamsConfig config) external
+function initialize(struct IConfigController.CometConfig cometConfig, struct IConfigController.CometGlobalParamsConfig globalConfig) external
 ```
 
 can be called only from Config Controller, as factoryInit prevents any other callers
@@ -31,8 +31,8 @@ can be called only from Config Controller, as factoryInit prevents any other cal
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-| comet | struct IConfigController.CometConfig | Base token, interest rate curve, collaterals |
-| config | struct IConfigController.CometGlobalParamsConfig | Global Comet reserve parameters |
+| cometConfig | struct IConfigController.CometConfig | Base token, interest rate curve, collaterals |
+| globalConfig | struct IConfigController.CometGlobalParamsConfig | Global Comet reserve parameters |
 
 ### nonReentrant
 
@@ -115,6 +115,100 @@ function accrueInternal() internal
 ```
 
 _Accrue interest (and rewards) in base token supply and borrows_
+
+### interpolateValue
+
+```solidity
+function interpolateValue(uint256 startValue, uint256 targetValue, uint256 currentValue, uint40 elapsed, uint40 duration) internal pure returns (uint64)
+```
+
+Linearly interpolates a curve parameter value during a transition period.
+@dev
+This function is used to smoothly update protocol curve parameters (such as supplyKink, interest rate slopes, etc.)
+from a starting value to a target value over a specified duration. It ensures that the parameter changes
+at a constant rate, providing a predictable and gradual transition rather than an abrupt jump.
+
+The algorithm works for both increasing and decreasing transitions. At any point during the transition,
+the value is calculated as a function of the elapsed time since the start of the transition.
+
+The formula used in this implementation is:
+  if (targetValue > startValue):
+      interpolated = currentValue + (((targetValue - startValue) * elapsed / duration) - (currentValue - startValue))
+  else:
+      interpolated = currentValue - (((startValue - targetValue) * elapsed / duration) - (startValue - currentValue))
+
+This means:
+- At the start (elapsed = 0):      interpolated = startValue
+- At the end (elapsed = duration): interpolated = targetValue
+- In between:                      interpolated is proportionally between startValue and targetValue
+
+Example 1: Increasing transition
+  Suppose we want to transition supplyKink from 200 to 800 over 10 seconds.
+  - startValue = 200
+  - targetValue = 800
+  - duration = 10
+
+  At elapsed = 0, currentValue = 200:
+    interpolated = 200 + ((800 - 200) * 0 / 10 - (200 - 200))
+                 = 200 + (0 - 0)
+                 = 200
+
+  At elapsed = 5, currentValue = 500:
+    interpolated = 500 + ((800 - 200) * 5 / 10 - (500 - 200))
+                 = 500 + (300 - 300)
+                 = 500
+
+  At elapsed = 10, currentValue = 800:
+    interpolated = 800 + ((800 - 200) * 10 / 10 - (800 - 200))
+                 = 800 + (600 - 600)
+                 = 800
+
+Example 2: Decreasing transition
+  Suppose we want to transition supplyKink from 900 to 300 over 10 seconds.
+  - startValue = 900
+  - targetValue = 300
+  - duration = 10
+
+  At elapsed = 0, currentValue = 900:
+    interpolated = 900 - ((900 - 300) * 0 / 10 - (900 - 900))
+                 = 900 - (0 - 0)
+                 = 900
+
+  At elapsed = 4, currentValue = 660:
+    interpolated = 660 - ((900 - 300) * 4 / 10 - (900 - 660))
+                 = 660 - (240 - 240)
+                 = 660
+
+  At elapsed = 10, currentValue = 300:
+    interpolated = 300 - ((900 - 300) * 10 / 10 - (900 - 300))
+                 = 300 - (600 - 600)
+                 = 300
+
+Example 3: No change
+  If startValue = targetValue = 500, duration = 10, any elapsed, currentValue = 500:
+    interpolated = 500 + ((500 - 500) * elapsed / 10 - (500 - 500))
+                 = 500 + (0 - 0)
+                 = 500
+
+Usage:
+  This function is called internally by the protocol during a curve transition, typically in a function like
+  `progressTransition(now_)`, to update each curve parameter to its correct value for the current time.
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| startValue | uint256 | The value of the parameter at the start of the transition. |
+| targetValue | uint256 | The value of the parameter at the end of the transition. |
+| currentValue | uint256 | The current value of the parameter (used for incremental calculation). |
+| elapsed | uint40 | The time elapsed since the start of the transition, in seconds. |
+| duration | uint40 | The total duration of the transition, in seconds. |
+
+#### Return Values
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| [0] | uint64 | The interpolated value as a uint64, representing the parameter's value at the current elapsed time. |
 
 ### accrueAccount
 
@@ -737,6 +831,59 @@ _Spend allowance for an asset, either all for base asset or a specific amount_
 | amount | uint256 | The amount of the asset to be spent, or 0 for all |
 | isAll | bool | Whether to spend all of the allowance for the base asset |
 
+### withdrawFreeSeedReserves
+
+```solidity
+function withdrawFreeSeedReserves(uint256 amount) external
+```
+
+Withdraw free seed reserves from the protocol
+
+_Only the config controller can withdraw free reserves. Withdrawal is allowed only if the market
+     is closed or the unlock timestamp has been reached. The amount withdrawn is limited to the
+     current seed reserves or total reserves, whichever is smaller. If insufficient free reserves
+     are available, the available amount will be returned if it's non-zero. Remaining reserves can
+     be withdrawn over time as they accumulate. Reserves cannot be withdrawn from user balances._
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| amount | uint256 | The amount of free seed reserves to withdraw |
+
+### withdrawSurplusSeedReserves
+
+```solidity
+function withdrawSurplusSeedReserves() external
+```
+
+Withdraw surplus seed reserves from the protocol above the seed reserves threshold
+
+_Only the DAO can withdraw surplus reserves when the market is deprecated and no active supply exists.
+     Surplus reserves are defined as total reserves minus seed reserves. If total reserves are less than
+     or equal to seed reserves, no surplus exists and the transaction will revert. This function ensures
+     that surplus reserves can only be extracted after market deprecation and all supply positions are closed.
+     The withdrawn amount is sent to the protocol treasury._
+
+### withdrawSurplusCollateralReserves
+
+```solidity
+function withdrawSurplusCollateralReserves(address[] assets) external
+```
+
+Withdraw surplus collateral reserves from the protocol for a specific asset
+
+_Only the DAO can withdraw surplus collateral reserves when the market is deprecated
+     and no active collateral positions exist for the asset. Surplus reserves are defined
+     as total collateral reserves minus any fees and user balances. This function allows
+     recovery of excess collateral that remains after market deprecation._
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| assets | address[] | The addresses of the collateral assets to withdraw surplus reserves for |
+
 ### absorb
 
 ```solidity
@@ -759,6 +906,60 @@ function absorbInternal(address absorber, address account) internal
 ```
 
 _Transfer user's collateral and debt to the protocol itself._
+
+### _absorbCollateralPartial
+
+```solidity
+function _absorbCollateralPartial(address absorber, address account, uint24 assetsIn, int256 oldBalance, uint256 basePrice) internal returns (uint256 deltaValue)
+```
+
+_Absorb collateral with partial seizure (when market is finalized)_
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| absorber | address | The absorber address |
+| account | address | The account to absorb |
+| assetsIn | uint24 | The assets bitmap |
+| oldBalance | int256 | The old balance of the account |
+| basePrice | uint256 | The base token price |
+
+#### Return Values
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| deltaValue | uint256 | The total value absorbed |
+
+### _absorbCollateralFull
+
+```solidity
+function _absorbCollateralFull(address absorber, address account, uint24 assetsIn) internal returns (uint256 deltaValue)
+```
+
+_Absorb collateral with full seizure (normal liquidation)_
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| absorber | address | The absorber address |
+| account | address | The account to absorb |
+| assetsIn | uint24 | The assets bitmap |
+
+#### Return Values
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| deltaValue | uint256 | The total value absorbed |
+
+### _processAbsorption
+
+```solidity
+function _processAbsorption(address absorber, address account, struct ICometStructures.UserBasic accountUser, int104 oldPrincipal, int256 oldBalance, uint256 deltaValue, uint256 basePrice) internal
+```
+
+_Process the final steps of absorption_
 
 ### buyCollateral
 
@@ -906,6 +1107,50 @@ _Internal function for calculation over the liquidation profit or interest profi
 | _reserveFee | uint256 | Profit accumulated in Comet's reserves |
 | _daoFee | uint256 | Fee on profit in favour of DAO |
 | _controllerFee | uint256 | Fee on profit in favour of Config Controller |
+
+### initiateDeprecation
+
+```solidity
+function initiateDeprecation() external
+```
+
+Initiate the gradual deprecation of collateral assets to prepare for market closure
+
+_Only the config controller can initiate deprecation. Once started, collateral factors will
+     gradually decrease over the deprecation period until they reach target values and the market
+     is permanently deprecated. All pause flags are cleared when deprecation begins.
+     During deprecation:
+     - Collateral liquidation factors gradually decrease to target values over time
+     - Users cannot transfer assets or supply new collateral
+     - Users can still supply base asset to close existing debt positions
+     - Once deprecation completes, the market becomes permanently deprecated_
+
+### _prepareDeprecation
+
+```solidity
+function _prepareDeprecation() internal
+```
+
+This internal function is called during interest accrual to gradually reduce collateral factors
+        over the deprecation period. If the deprecation duration has elapsed, it finalizes the deprecation.
+        During the deprecation period, collateral factors are linearly interpolated from their starting
+        values to target values, making positions easier to liquidate over time.
+
+_Progress the deprecation process by updating collateral factors or finalizing if duration is complete_
+
+### _finalizeDeprecation
+
+```solidity
+function _finalizeDeprecation() internal
+```
+
+This internal function finalizes the market deprecation by setting all collateral liquidation
+        factors to their target values and permanently deprecating the market. Once finalized:
+        - All collateral assets have minimum liquidation factors for maximum liquidation efficiency
+        - The market is permanently deprecated and cannot be reopened
+        - Users can only close positions and withdraw assets with no debt
+
+_Complete the deprecation process by setting final collateral factors and marking the market as deprecated_
 
 ### fallback
 

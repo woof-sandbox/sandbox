@@ -24,6 +24,7 @@ import { BaseAssetCurveStruct, SandboxControllerConfigurationStruct } from "../b
 import { parseEther } from "ethers/lib/utils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { BigNumber } from "ethers";
+import { time } from "@nomicfoundation/hardhat-network-helpers";
 
 describe("3. SandboxController", function () {
   let owner: SignerWithAddress;
@@ -1111,8 +1112,8 @@ describe("3. SandboxController", function () {
       newConfig = {
         targetPercent: ethers.utils.parseEther("0.45").toString(),
         storeFrontPriceFactor: ethers.utils.parseEther("0.65").toString(),
-        minUpdateTime: 1000,
-        maxUpdateTime: 24 * 60 * 60,
+        minUpdateTime: time.duration.seconds(1000),
+        maxUpdateTime: time.duration.days(1),
       };
     });
 

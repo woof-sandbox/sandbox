@@ -16,4 +16,10 @@ interface ICometForController {
     function factoryInit(address, address) external;
 
     function initialize(IConfigController.CometConfig memory market, IConfigController.CometGlobalParamsConfig memory config) external;
+
+    function pause(bool supplyPaused, bool transferPaused, bool withdrawPaused, bool absorbPaused, bool buyPaused) external;
+
+    function initiateDeprecation() external;
+
+    function withdrawFreeSeedReserves(uint256 amount) external;
 }

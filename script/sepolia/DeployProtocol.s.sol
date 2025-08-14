@@ -199,7 +199,7 @@ contract DeployProtocol is Script {
         return address(configControllerFactory);
     }
 
-    function deploySandboxController(address owner) internal returns (address) {
+    function deploySandboxController(address owner_) internal returns (address) {
         ISandboxController.SandboxControllerConfiguration memory config = ISandboxController.SandboxControllerConfiguration({
             targetPercent: 2e17, // 20%
             storeFrontPriceFactor: 6e17, // 60%
@@ -342,7 +342,7 @@ contract DeployProtocol is Script {
         for (uint i = 0; i < collateralTokens.length; i++) {
             // (, int256 price, , , ) = ManagedSimplePriceFeed(collateralPriceFeeds[i]).latestRoundData();
 
-            collateralConfigs[i] = IConfigController.CollateralTokenConfig({
+           collateralConfigs[i] = IConfigController.CollateralTokenConfig({
                 collateralToken: collateralTokens[i],
                 supplyCap: supplyCaps[i], // 1 million tokens
                 borrowCollateralFactor: 8.1e17, // 80%
@@ -356,7 +356,8 @@ contract DeployProtocol is Script {
             baseToken: baseToken,
             baseTokenCurveId: 0, // Use first curve
             collateralTokens: collateralConfigs,
-            name: "Comet"
+            name: "Comet",
+            amountOfSeedReserves: IERC20Metadata(baseToken).totalSupply() / 1000 // 0.1% of total supply
         });
 
         // Create comet

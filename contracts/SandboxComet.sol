@@ -9,8 +9,6 @@ import "./interfaces/ISandboxComet.sol";
 import "./interfaces/IPriceFeed.sol";
 import "./interfaces/IConfigController.sol";
 import "./interfaces/ISandboxController.sol";
-
-import "hardhat/console.sol";
 import "./interfaces/IRewardsV2.sol";
 
 /**
@@ -46,7 +44,7 @@ contract SandboxComet is CometCore, ISandboxComet {
     function initialize(
         IConfigController.CometConfig calldata cometConfig,
         IConfigController.CometGlobalParamsConfig calldata globalConfig
-    ) external override {
+    ) external {
         /// Relies on fact that factory provides correct controller and that it is set by the time of this call
         if (msg.sender != configController) revert IncorrectInitialization();
         // aderyn-fp-next-line(reentrancy-state-change)
@@ -109,7 +107,7 @@ contract SandboxComet is CometCore, ISandboxComet {
         /// It can be safely assumed, that reserve parameters are validated in Sandbox Controller
         targetPercent = globalConfig.targetPercent;
         seedReserves = cometConfig.amountOfSeedReserves;
-        unlockTimestamp = safe64(block.timestamp + globalConfig.suggestedLockTimeOfSeedReserves);
+        unlockTimestamp = safe64(block.timestamp + ISandboxController(sandboxController).suggestedLockTimeOfSeedReserves(baseToken));
 
         /// Interest rate curve
         ///
@@ -537,7 +535,7 @@ contract SandboxComet is CometCore, ISandboxComet {
      * @param absorbPaused Boolean for pausing absorb actions
      * @param buyPaused Boolean for pausing buy actions
      */
-    function pause(bool supplyPaused, bool transferPaused, bool withdrawPaused, bool absorbPaused, bool buyPaused) external override {
+    function pause(bool supplyPaused, bool transferPaused, bool withdrawPaused, bool absorbPaused, bool buyPaused) external {
         address caller = msg.sender;
         address dao = ISandboxController(sandboxController).dao(); // aderyn-fp(reentrancy-state-change)
         if (caller != configController && caller != dao) revert Unauthorized();
@@ -1087,7 +1085,7 @@ contract SandboxComet is CometCore, ISandboxComet {
      *      be withdrawn over time as they accumulate. Reserves cannot be withdrawn from user balances.
      * @param amount The amount of free seed reserves to withdraw
      */
-    function withdrawFreeSeedReserves(uint256 amount) external override nonReentrant {
+    function withdrawFreeSeedReserves(uint256 amount) external nonReentrant {
         address caller = msg.sender;
         if (caller != configController) revert Unauthorized();
         /// Note: Allowed to withdraw of seed reserves only if the market is devalued
@@ -1321,8 +1319,6 @@ contract SandboxComet is CometCore, ISandboxComet {
         }
 
         int104 newPrincipal = principalValue(newBalance);
-        console.logString("newPrincipal:");
-        console.logInt(newPrincipal);
 
         /// @dev rewards should be updated with previous principal
         updateUserRewards(account);
@@ -1396,11 +1392,11 @@ contract SandboxComet is CometCore, ISandboxComet {
         uint256 assetPrice = getPrice(assetInfo.priceFeed);
         // Store front discount is derived from the collateral asset's liquidationFactor and storeFrontPriceFactor
         // discount = storeFrontPriceFactor * (1e18 - liquidationFactor)
+        // TODO: if storeFrontPriceFactor is 1e18 (100%), then we don`t have profit
+        // TODO: 100% - storeFrontPriceFactor > 100% - liquidationFactor
         uint256 discountFactor = mulFactor(storeFrontPriceFactor, FACTOR_SCALE - assetInfo.liquidationFactor);
-        console.log("discountFactor", discountFactor);
+
         uint256 assetPriceDiscounted = mulFactor(assetPrice, FACTOR_SCALE - discountFactor);
-        console.log("assetPrice", assetPrice);
-        console.log("assetPriceDiscounted", assetPriceDiscounted);
         uint256 basePrice = getPrice(baseTokenPriceFeed);
         // # of collateral assets
         // = (TotalValueOfBaseAmount / DiscountedPriceOfCollateralAsset) * assetScale
@@ -1455,29 +1451,10 @@ contract SandboxComet is CometCore, ISandboxComet {
             profit = collateral value * (1 - 0.9 - 2 * 0.06 + 0.9 * 0.06) / (1 - 0.06) = collateral value * 0.036
         3.6% of the base asset value supplied during purchase can be extracted from the collateral reserves as a profit
         */
-        uint256 calculateFactorScale = (2 * FACTOR_SCALE - assetInfo.liquidationFactor);
-        console.log("FACTOR_SCALE", FACTOR_SCALE);
-        uint256 liquidationFactor = assetInfo.liquidationFactor;
-        console.log("liquidationFactor", liquidationFactor);
-        console.log("calculateFactorScale", calculateFactorScale);
 
-        // @todo testing
-        // uint256 scaledBaseAmount = mulFactor(baseAmount, assetInfo.liquidationFactor);
         uint256 scaledBaseAmount = mulFactor(baseAmount, 2 * FACTOR_SCALE - assetInfo.liquidationFactor);
-        console.log("scaledBaseAmount", scaledBaseAmount);
-
-        // @note amountOut = (baseAmount * basePrice * assetInfo.scale) / assetPriceDiscounted / baseScale;
         uint256 scaledCollateralValue = (scaledBaseAmount * basePrice * assetInfo.scale) / assetPrice / baseScale;
-        // @todo testing
-        // uint256 scaledCollateralValue = (scaledBaseAmount * basePrice * assetInfo.scale) / assetPriceDiscounted / baseScale;
-        console.log("scaledCollateralValue", scaledCollateralValue);
-        console.log("amountOut", amountOut);
-
-        // @todo testing
-        // uint256 profit = amountOut - scaledCollateralValue;
-        uint256 profit = scaledCollateralValue - amountOut; // << overflow
-        console.log("Profit", profit);
-        console.logString("----------------------");
+        uint256 profit = scaledCollateralValue - amountOut;
 
         // function guarantees that reserve+protocol+controller == profit
         (feeReserve, feeProtocol, feeController) = _distributeProfit(profit);
@@ -1550,7 +1527,7 @@ contract SandboxComet is CometCore, ISandboxComet {
         uint256 reservesUsd = (reserves * basePrice) / baseScale;
         uint256 targetUsd = (targetReserves() * basePrice) / baseScale;
 
-        (uint64 reservePct, uint64 protocolPct) = ISandboxController(sandboxController).getCommissions(reservesUsd, targetUsd);
+        (uint64 reservePct, uint64 protocolPct) = ISandboxController(sandboxController).getCommissions(reservesUsd, targetUsd, baseToken);
         _reserveFee = mulFactor(profitAmount, uint256(reservePct));
         _daoFee = mulFactor(profitAmount, uint256(protocolPct));
         _controllerFee = IConfigController(configController).cometFeeEnabled(address(this)) ? profitAmount - _reserveFee - _daoFee : 0;
@@ -1571,7 +1548,7 @@ contract SandboxComet is CometCore, ISandboxComet {
      *      - Users can still supply base asset to close existing debt positions
      *      - Once deprecation completes, the market becomes permanently deprecated
      */
-    function initiateDeprecation() external override {
+    function initiateDeprecation() external {
         if (msg.sender != configController) revert Unauthorized();
         if (deprecationStatus != DeprecationStatus.NotStarted) {
             revert InvalidDeprecationState(uint8(deprecationStatus));

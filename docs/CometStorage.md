@@ -116,6 +116,32 @@ _The reentrancy guard statuses_
 uint256 REENTRANCY_GUARD_ENTERED
 ```
 
+### TARGET_LIQUIDATE_COLLATERAL_FACTOR
+
+```solidity
+uint64 TARGET_LIQUIDATE_COLLATERAL_FACTOR
+```
+
+_The target liquidate collateral factor for the processing removal of collateral assets_
+
+### TARGET_LIQUIDATION_FACTOR
+
+```solidity
+uint64 TARGET_LIQUIDATION_FACTOR
+```
+
+### DEPRECATION_DURATION
+
+```solidity
+uint40 DEPRECATION_DURATION
+```
+
+### ZERO_INTEREST_RATE
+
+```solidity
+uint64 ZERO_INTEREST_RATE
+```
+
 ### configController
 
 ```solidity
@@ -300,6 +326,20 @@ uint64 unlockTimestamp
 
 Unlock timestamp
 
+### deprecationStatus
+
+```solidity
+enum ICometStructures.DeprecationStatus deprecationStatus
+```
+
+The deprecation status of the market
+
+### deprecationStartTime
+
+```solidity
+uint40 deprecationStartTime
+```
+
 ### baseSupplyIndex
 
 ```solidity
@@ -422,5 +462,11 @@ mapping(address => uint8) collateralAssetIndex
 
 ```solidity
 struct ICometStructures.CollateralAsset[] collateralAssets
+```
+
+### startLiquidationFactors
+
+```solidity
+mapping(address => uint64) startLiquidationFactors
 ```
 

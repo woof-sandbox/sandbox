@@ -97,6 +97,24 @@ function factorScale() external pure returns (uint64)
 function maxAssets() external pure returns (uint8)
 ```
 
+### deprecationDuration
+
+```solidity
+function deprecationDuration() external pure returns (uint64)
+```
+
+### targetLiquidateFactor
+
+```solidity
+function targetLiquidateFactor() external pure returns (uint64)
+```
+
+### targetLiquidateCollateralFactor
+
+```solidity
+function targetLiquidateCollateralFactor() external pure returns (uint64)
+```
+
 ### totalsBasic
 
 ```solidity

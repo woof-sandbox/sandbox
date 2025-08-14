@@ -2,7 +2,7 @@ import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { ConfigController, CometExtension, SandboxComet } from "../build/types";
 import { ethers, expect, makeConfigController, createComet, SnapshotRestorer, takeSnapshot } from "./helper/helpers";
 
-describe("22. Set rewards on Comet", () => {
+describe("23. Set rewards on Comet", () => {
   let snapshot: SnapshotRestorer;
 
   let configController: ConfigController;
@@ -32,7 +32,17 @@ describe("22. Set rewards on Comet", () => {
       guardian: guardian,
     });
     configController = opts.configController;
-    comet = await createComet(owner, opts.opts.assets, configController, opts.sandboxController, opts.collaterals, opts.baseToken);
+
+    const seedReserve = await opts.sandboxController.suggestedAmountOfSeedReserves(opts.baseToken.address);
+    comet = await createComet(
+      owner,
+      opts.opts.assets,
+      configController,
+      opts.sandboxController,
+      opts.collaterals,
+      opts.baseToken,
+      seedReserve
+    );
     cometExtension = (await ethers.getContractAt("CometExtension", comet.address)) as CometExtension;
 
     snapshot = await takeSnapshot();

@@ -58,8 +58,6 @@ interface ISandboxComet {
 
     function buyCollateral(address asset, uint minAmount, uint baseAmount, address recipient) external;
 
-    function pause(bool supplyPaused, bool transferPaused, bool withdrawPaused, bool absorbPaused, bool buyPaused) external;
-
     function isSupplyPaused() external view returns (bool);
 
     function isTransferPaused() external view returns (bool);
@@ -84,11 +82,7 @@ interface ISandboxComet {
 
     function getAssetInfoByAddress(address asset) external view returns (ICometStructures.CollateralAsset memory, uint8 index);
 
-    function initiateDeprecation() external virtual;
+    function withdrawSurplusSeedReserves() external;
 
-    function withdrawSurplusSeedReserves() external virtual;
-
-    function withdrawSurplusCollateralReserves(address[] calldata assets) external virtual;
-
-    function withdrawFreeSeedReserves(uint256 amount) external virtual;
+    function withdrawSurplusCollateralReserves(address[] calldata assets) external;
 }

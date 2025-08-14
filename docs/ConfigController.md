@@ -390,3 +390,43 @@ Internal function to check if a comet is owned by this controller
 | ---- | ---- | ----------- |
 | [0] | bool | True if the comet is owned by this controller |
 
+### pauseMarket
+
+```solidity
+function pauseMarket(address comet, bool supplyPaused, bool transferPaused, bool withdrawPaused, bool absorbPaused, bool buyPaused) external
+```
+
+Pauses specific operations in a comet market
+
+_Only callable by the owner. The comet must be owned by this controller_
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| comet | address | The address of the comet to pause operations in |
+| supplyPaused | bool | Boolean to pause/unpause supply actions |
+| transferPaused | bool | Boolean to pause/unpause transfer actions |
+| withdrawPaused | bool | Boolean to pause/unpause withdraw actions |
+| absorbPaused | bool | Boolean to pause/unpause absorb actions |
+| buyPaused | bool | Boolean to pause/unpause buy actions |
+
+### withdrawFreeSeedReservesFrom
+
+```solidity
+function withdrawFreeSeedReservesFrom(address comet, uint256 amount) external
+```
+
+Withdraws free seed reserves from a comet market
+
+_Only callable by the owner. The comet must be owned by this controller.
+     Withdrawal is allowed only if the market is deprecated or unlock timestamp has been reached.
+     The specified amount will be withdrawn if sufficient free reserves are available._
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| comet | address | The address of the comet to withdraw free reserves from |
+| amount | uint256 | The amount of free seed reserves to withdraw |
+

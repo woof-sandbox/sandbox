@@ -8,6 +8,6 @@ import "../ConfigController.sol";
  */
 contract ConfigControllerTest is ConfigController {
     function initiateDeprecationMarket(address comet) external {
-        ISandboxComet(comet).initiateDeprecation();
+        ICometForController(comet).initiateDeprecation();
     }
 }

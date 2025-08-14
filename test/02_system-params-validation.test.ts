@@ -46,8 +46,6 @@ describe("2. System Params Validation", function () {
     _proposalDuration: DEFAULT_UPDATE_TIME,
   };
 
-  const amountOfSeedReserves = exp(500, 18).toString(); // 500 tokens with 18 decimals
-
   let signers: SignerWithAddress[];
   let owner: SignerWithAddress;
   let curator: SignerWithAddress;
@@ -135,23 +133,27 @@ describe("2. System Params Validation", function () {
       supplyCap: collateralConfig.supplyCap,
     });
 
+    const seedReserves = ethers.utils.parseUnits("5000", await baseToken.decimals());
+
     marketConfig = {
       baseToken: baseToken.address,
       collateralTokens: collateralTokens.map(obj => ({ ...obj })),
       baseTokenCurveId: 0n,
       name: "Comet",
-      amountOfSeedReserves: amountOfSeedReserves,
+      amountOfSeedReserves: seedReserves,
     };
   });
 
   describe("ConfigController", function () {
     beforeEach(async function () {
+      const seedReserves = ethers.utils.parseUnits("5000", await baseToken.decimals());
+
       marketConfig = {
         baseToken: baseToken.address,
         collateralTokens: collateralTokens.map(obj => ({ ...obj })),
         baseTokenCurveId: 0n,
         name: "Comet",
-        amountOfSeedReserves: amountOfSeedReserves,
+        amountOfSeedReserves: seedReserves,
       };
     });
     describe("Comet parameters validation", function () {
@@ -341,7 +343,7 @@ describe("2. System Params Validation", function () {
     describe("Comet creation, happy cases", function () {
       it("should be possible to create two comets with the same configuration", async () => {
         baseToken = (await ethers.getContractAt("FaucetToken", marketConfig.baseToken)) as FaucetToken;
-        const seedReserves = await sandboxController.suggestedAmountOfSeedReserves(baseToken.address);
+        const seedReserves = ethers.utils.parseUnits("5000", await baseToken.decimals());
 
         await baseToken.allocateTo(owner.address, seedReserves.mul(2));
         await baseToken.approve(configController.address, seedReserves.mul(2));
@@ -362,14 +364,17 @@ describe("2. System Params Validation", function () {
   describe("SandboxComet", function () {
     describe("initialize validations", function () {
       beforeEach(async function () {
+        const seedReserves = ethers.utils.parseUnits("5000", await baseToken.decimals());
+
         marketConfig = {
           baseToken: baseToken.address,
           collateralTokens: collateralTokens.map(obj => ({ ...obj })),
           baseTokenCurveId: 0n,
           name: "Comet",
-          amountOfSeedReserves: amountOfSeedReserves,
+          amountOfSeedReserves: seedReserves,
         };
       });
+
       it("should revert if token decimals is greater than max base decimals", async () => {
         const unsupportedToken = await makeMockERC20({
           name: "Base",
@@ -438,16 +443,18 @@ describe("2. System Params Validation", function () {
     });
     describe("Comet creation: happy cases", function () {
       let comet: SandboxComet;
+      let seedReserves: BigNumber;
       before(async function () {
+        seedReserves = ethers.utils.parseUnits("5000", await baseToken.decimals());
+
         marketConfig = {
           baseToken: baseToken.address,
           collateralTokens: collateralTokens.map(obj => ({ ...obj })),
           baseTokenCurveId: 0n,
           name: "Comet",
-          amountOfSeedReserves: amountOfSeedReserves,
+          amountOfSeedReserves: seedReserves,
         };
 
-        const seedReserves = await sandboxController.suggestedAmountOfSeedReserves(baseToken.address);
         await baseToken.allocateTo(owner.address, seedReserves);
         await baseToken.approve(configController.address, seedReserves);
 
@@ -467,8 +474,7 @@ describe("2. System Params Validation", function () {
         expect(await comet.storeFrontPriceFactor()).to.eq((await sandboxController.config()).storeFrontPriceFactor);
         expect(await comet.baseBorrowMin()).to.eq((await sandboxController.baseAssets(marketConfig.baseToken)).minBorrow);
         expect(await comet.targetPercent()).to.eq((await sandboxController.config()).targetPercent);
-        expect(await comet.seedReserves()).to.eq(amountOfSeedReserves);
-        expect(await comet.seedReserves()).to.eq(await sandboxController.suggestedAmountOfSeedReserves(baseToken.address));
+        expect(await comet.seedReserves()).to.eq(seedReserves);
         expect(await comet.unlockTimestamp()).to.be.closeTo(
           currentTimestamp.add(await sandboxController.suggestedLockTimeOfSeedReserves(baseToken.address)),
           10

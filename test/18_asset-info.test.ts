@@ -24,7 +24,16 @@ describe.skip("18. asset info — SandboxComet", () => {
     });
     baseToken = opts.baseToken as FaucetToken;
 
-    comet = await createComet(owner, opts.opts.assets, opts.configController, opts.sandboxController, opts.collaterals, baseToken);
+    const seedReserve = await opts.sandboxController.suggestedAmountOfSeedReserves(baseToken.address);
+    comet = await createComet(
+      owner,
+      opts.opts.assets,
+      opts.configController,
+      opts.sandboxController,
+      opts.collaterals,
+      baseToken,
+      seedReserve
+    );
 
     for (let asset in opts.collaterals) {
       collaterals[asset] = opts.collaterals[asset] as FaucetToken;

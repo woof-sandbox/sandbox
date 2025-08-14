@@ -49,7 +49,16 @@ describe("20. allowAllBySig — SandboxComet / CometExtension", function () {
     });
     baseToken = opts.baseToken as FaucetToken;
 
-    comet = await createComet(owner, opts.opts.assets, opts.configController, opts.sandboxController, opts.collaterals, baseToken);
+    const seedReserve = await opts.sandboxController.suggestedAmountOfSeedReserves(baseToken.address);
+    comet = await createComet(
+      owner,
+      opts.opts.assets,
+      opts.configController,
+      opts.sandboxController,
+      opts.collaterals,
+      baseToken,
+      seedReserve
+    );
     cometExt = (await ethers.getContractAt("CometExtension", comet.address)) as ICometExtension;
 
     domain = {

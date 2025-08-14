@@ -48,8 +48,6 @@ describe("1. System Initialization", function () {
   let dao: SignerWithAddress;
   let treasury: SignerWithAddress;
 
-  const amountOfSeedReserves = exp(500, 18).toString(); // 500 tokens with 18 decimals
-
   const configControllerOpts = {
     _curatorFee: 1000,
     _name: "ConfigController",
@@ -603,15 +601,16 @@ describe("1. System Initialization", function () {
         supplyCap: colConfig.supplyCap,
       });
 
+      const seedReserves = ethers.utils.parseUnits("5000", await baseToken.decimals());
+
       marketConfig = {
         baseToken: baseToken.address,
         collateralTokens: collateralTokens.map(obj => ({ ...obj })),
         baseTokenCurveId: 0n,
         name: "Comet",
-        amountOfSeedReserves: amountOfSeedReserves,
+        amountOfSeedReserves: seedReserves,
       };
 
-      const seedReserves = await sandboxController.suggestedAmountOfSeedReserves(baseToken.address);
       await baseToken.approve(configController.address, seedReserves.mul(2));
 
       cometAddress = await configController.callStatic.createComet(marketConfig);

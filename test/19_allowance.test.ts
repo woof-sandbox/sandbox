@@ -36,7 +36,8 @@ describe.skip("19. allowance", function () {
       opts.configController,
       opts.sandboxController,
       opts.collaterals,
-      baseToken
+      baseToken,
+      ethers.utils.parseUnits("5000", await baseToken.decimals()).toString()
     )) as SandboxComet & ICometExtension;
     cometExt = (await ethers.getContractAt("CometExtension", comet.address)) as ICometExtension;
 

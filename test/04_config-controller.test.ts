@@ -418,6 +418,7 @@ describe("4. ConfigController", () => {
         collateralTokens: collateralTokens.map(obj => ({ ...obj })),
         baseTokenCurveId: 0n,
         name: "Comet",
+        amountOfSeedReserves: ethers.utils.parseUnits("1000", await baseToken.decimals()),
       };
     });
 

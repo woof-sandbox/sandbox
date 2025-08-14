@@ -16,22 +16,22 @@ import {
   ISandboxCometFactory,
   ConfigControllerFactory,
   ConfigControllerFactory__factory,
-  SandboxComet,
-  SandboxComet__factory,
   CometExtension,
   CometExtension__factory,
+  SandboxComet,
+  SandboxComet__factory,
   ISandboxComet,
   SandboxCometFactory,
   SandboxCometFactory__factory,
   SandboxController,
   SandboxController__factory,
-  CometHarness,
 } from "../../build/types";
+
 import { Provider } from "@ethersproject/providers";
-import { CometConfigStruct } from "../../build/types/ConfigController";
-import { TotalsBasicStructOutput } from "../../build/types/CometHarness";
+import { BaseAssetCurveStruct, SandboxControllerConfigurationStruct } from "../../build/types/SandboxController";
+import { BigNumber, BigNumberish, Signer } from "ethers";
 import { TransactionReceipt, TransactionResponse } from "@ethersproject/abstract-provider";
-import { BigNumber, Contract, ContractReceipt, ContractTransaction, Signer } from "ethers";
+import { CometConfigStruct, CollateralTokenConfigStruct } from "../../build/types/ConfigController";
 
 // The function to connect to a combined contract
 export type CombinedComet = SandboxComet & CometExtension;
@@ -54,7 +54,6 @@ export function getCombinedComet(sandboxCometAddress: string, signerOrProvider: 
     },
   }) as CombinedComet;
 }
-
 // Snapshot
 export type { SnapshotRestorer } from "@nomicfoundation/hardhat-network-helpers";
 export { takeSnapshot } from "@nomicfoundation/hardhat-network-helpers";
@@ -430,24 +429,7 @@ export async function makeConfigController(opts: ProtocolOpts): Promise<Protocol
     priceFeeds[symbol] = priceFeed;
   }
 
-  const priceFeed = await PriceFeedFactory.deploy(1, 6, unsupportedToken.address);
-  await priceFeed.deployed();
-  priceFeeds["USUP"] = priceFeed;
-
-  // --- Parameters ---
-  const supplyKink = dfn(opts.supplyKink, exp(0.8, 18));
-  const supplyPerYearInterestRateBase = dfn(opts.supplyInterestRateBase, exp(0.001, 18));
-  const supplyPerYearInterestRateSlopeLow = dfn(opts.supplyInterestRateSlopeLow, exp(0.05, 18));
-  const supplyPerYearInterestRateSlopeHigh = dfn(opts.supplyInterestRateSlopeHigh, exp(2, 18));
-  const borrowKink = dfn(opts.borrowKink, exp(0.8, 18));
-  const borrowPerYearInterestRateBase = dfn(opts.borrowInterestRateBase, exp(0.005, 18));
-  const borrowPerYearInterestRateSlopeLow = dfn(opts.borrowInterestRateSlopeLow, exp(0.1, 18));
-  const borrowPerYearInterestRateSlopeHigh = dfn(opts.borrowInterestRateSlopeHigh, exp(3, 18));
-  const baseBorrowMin = dfn(opts.baseBorrowMin, exp(1, assets[base].decimals));
-  const baseToken: FaucetToken = tokens[base];
-  const suggestedAmountOfSeedReserves = dfn(opts.suggestedAmountOfSeedReserves, "100000000");
-
-
+  /// --- Deploy sandbox controller
   const sandboxControllerOpts = defaultSandboxControllerOpts({
     admin: opts.owner.address,
     dao: opts.dao.address,
@@ -532,6 +514,7 @@ export async function createComet(
     [symbol: string]: FaucetToken | NonStandardFaucetFeeToken;
   },
   baseToken: FaucetToken | NonStandardFaucetFeeToken,
+  amountOfSeedReserves: BigNumberish,
   name?: string
 ): Promise<SandboxComet> {
   const _assets = assets || defaultAssets();
@@ -556,7 +539,7 @@ export async function createComet(
     collateralTokens: collateralTokens,
     baseTokenCurveId: 0n,
     name: name || "Comet",
-    amountOfSeedReserves: dfn(opts.amountOfSeedReserves, "100000000")
+    amountOfSeedReserves: amountOfSeedReserves,
   };
 
   const amount = await sandboxController.suggestedAmountOfSeedReserves(baseToken.address);

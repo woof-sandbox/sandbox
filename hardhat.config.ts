@@ -12,6 +12,7 @@ import 'hardhat-gas-reporter';
 import 'hardhat-preprocessor';
 import 'solidity-docgen';
 import 'solidity-coverage';
+import "hardhat-tracer";
 
 import fs from 'fs';
 

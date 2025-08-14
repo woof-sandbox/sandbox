@@ -1,6 +1,6 @@
 //import { /*Comet, // @todo fix this test */ expect, event, wait } from "./helper/helpers";
 
-describe.skip("Pause Guardian", function () {
+describe.skip("24. Pause Guardian", function () {
   /*
   it("Should pause supply", async function () {
     const { comet } = await makeProtocol();

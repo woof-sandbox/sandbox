@@ -412,7 +412,7 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
         if (comet == address(0)) revert ZeroAddress();
         if (!_isCometOwned(comet)) revert UnknownComet();
 
-        ISandboxComet(comet).pause(supplyPaused, transferPaused, withdrawPaused, absorbPaused, buyPaused);
+        ICometForController(comet).pause(supplyPaused, transferPaused, withdrawPaused, absorbPaused, buyPaused);
         /// Note: Comet emits the respective event
     }
 
@@ -426,7 +426,7 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
         if (comet == address(0)) revert ZeroAddress();
         if (!_isCometOwned(comet)) revert UnknownComet();
 
-        ISandboxComet(comet).withdrawFreeSeedReserves(amount);
+        ICometForController(comet).withdrawFreeSeedReserves(amount);
         /// Note: Comet emits the respective event
     }
 }
