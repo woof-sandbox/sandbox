@@ -501,7 +501,7 @@ contract SandboxController is ISandboxController {
 
         // y = supplyBase + supplyLowSlope * supplyKink + supplyHighSlope * (x - supplyKink)
         // where x = 200%
-        intermediateSupplyPoint = (usupplySlopeHigh * uint256(2 * PARAMETERS_SCALE - curve.supplyKink)) / PARAMETERS_SCALE;
+        intermediateSupplyPoint = (supplySlopeHigh * uint256(2 * PARAMETERS_SCALE - curve.supplyKink)) / PARAMETERS_SCALE;
         intermediateBorrowPoint = (borrowSlopeHigh * uint256(2 * PARAMETERS_SCALE - curve.borrowKink)) / PARAMETERS_SCALE;
         uint64 supplyRightPoint = supplyBreakPoint + uint64(intermediateSupplyPoint);
         uint64 borrowRightPoint = borrowBreakPoint + uint64(intermediateBorrowPoint);
