@@ -12,8 +12,15 @@ contract DeployWETH9PriceFeed is Script {
         HelperConfig.NetworkConfig memory config = helperConfig.getConfig();
         vm.startBroadcast();
 
-        ManagedSimplePriceFeed wethPriceFeed = new ManagedSimplePriceFeed(0, 18, config.weth);
-        wethPriceFeed.setRoundData(0, 248628071000, block.timestamp, block.timestamp, 0);
+        // Data for price feed
+        uint80 roundId = 0;
+        int256 price = 248628071000;
+        uint256 startedAt = block.timestamp;
+        uint256 updatedAt = block.timestamp;
+        uint80 answeredInRound = 0;
+
+        ManagedSimplePriceFeed wethPriceFeed = new ManagedSimplePriceFeed(0, 18, config.weth.tokenAddress);
+        wethPriceFeed.setRoundData(roundId, price, startedAt, updatedAt, answeredInRound);
 
         console.log("WETH9 Price Feed deployed at:", address(wethPriceFeed));
 

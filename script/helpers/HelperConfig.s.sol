@@ -2,8 +2,10 @@
 pragma solidity 0.8.28;
 
 import { Script } from "forge-std/Script.sol";
+import { stdJson } from "forge-std/StdJson.sol";
 
 contract HelperConfig is Script {
+    using stdJson for string;
     /*//////////////////////////////////////////////////////////////
                                 ERRORS
     //////////////////////////////////////////////////////////////*/
@@ -12,21 +14,50 @@ contract HelperConfig is Script {
     /*//////////////////////////////////////////////////////////////
                                 TYPES
     //////////////////////////////////////////////////////////////*/
+    struct AssetConfig {
+        address tokenAddress;
+        address priceFeed;
+        address chainlinkPriceFeed;
+        address fallbackPriceFeed;
+        uint64 minBorrowCF;
+        uint64 maxBorrowCF;
+        uint64 minLiquidateCF;
+        uint64 maxLiquidateCF;
+        uint64 minLiquidationF;
+        uint64 maxLiquidationF;
+    }
+
+    struct SandboxControllerConfig {
+        uint256 targetPercent;
+        uint256 storeFrontPriceFactor;
+        uint256 minUpdateTime;
+        uint256 maxUpdateTime;
+        bool feeEnabled;
+        uint256[3] reserveCommissions;
+        uint256[3] protocolCommissions;
+    }
+
     struct NetworkConfig {
-        address wstETH;
-        address stETH;
-        address usdc;
-        address weth;
-        address wbtc;
-        address comp;
-        address link;
-        address usdcPriceFeed;
-        address wethPriceFeed;
-        address wbtcPriceFeed;
-        address compPriceFeed;
-        address linkPriceFeed;
-        address comet1;
-        address comet2;
+        address owner;
+        address dao;
+        address treasury;
+        address curator;
+        AssetConfig usdc;
+        AssetConfig wbtc;
+        AssetConfig weth;
+        AssetConfig link;
+        AssetConfig stETH;
+        AssetConfig wstETH;
+        AssetConfig sUSDe;
+        AssetConfig snx;
+        AssetConfig jpy;
+        AssetConfig oETH;
+        SandboxControllerConfig sandboxControllerConfig;
+        address sandboxController;
+        address configControllerImplementation;
+        address configControllerFactory;
+        address cometImplementation;
+        address sandboxCometFactory;
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -34,7 +65,6 @@ contract HelperConfig is Script {
     //////////////////////////////////////////////////////////////*/
 
     uint256 public constant SEPOLIA_TESTNET_CHAIN_ID = 11155111;
-    uint256 public constant ARBITRUM_MAINNET_CHAIN_ID = 42161;
 
     mapping(uint256 => NetworkConfig) public networkConfigs;
 
@@ -44,12 +74,11 @@ contract HelperConfig is Script {
 
     constructor() {
         networkConfigs[SEPOLIA_TESTNET_CHAIN_ID] = getSepoliaTestnetConfig();
-        networkConfigs[ARBITRUM_MAINNET_CHAIN_ID] = getArbitrumMainnetConfig();
     }
 
     function getConfig() public view returns (NetworkConfig memory) {
         uint256 chainId = block.chainid;
-        if (networkConfigs[chainId].usdc != address(0)) {
+        if (networkConfigs[chainId].usdc.tokenAddress != address(0)) {
             return networkConfigs[chainId];
         } else {
             revert HelperConfig__InvalidChainId();
@@ -60,43 +89,75 @@ contract HelperConfig is Script {
                                 CONFIGS
     //////////////////////////////////////////////////////////////*/
 
-    function getSepoliaTestnetConfig() public pure returns (NetworkConfig memory) {
+    function getSepoliaTestnetConfig() public view returns (NetworkConfig memory) {
+        string memory path = string.concat(vm.projectRoot(), "/script/configs/sepolia.json");
+        string memory json = vm.readFile(path);
+
+        NetworkConfig memory config;
+
+        // Read basic config
+        config.owner = json.readAddress(".owner");
+        config.dao = json.readAddress(".dao");
+        config.treasury = json.readAddress(".treasury");
+        config.curator = json.readAddress(".curator");
+        config.sandboxController = json.readAddress(".SandboxController");
+        config.configControllerImplementation = json.readAddress(".ConfigControllerImplementation");
+        config.configControllerFactory = json.readAddress(".ConfigControllerFactory");
+        config.cometImplementation = json.readAddress(".CometImplementation");
+        config.sandboxCometFactory = json.readAddress(".SandboxCometFactory");
+
+        // Read assets
+        config.usdc = _readAssetConfig(json, ".assets.USDC");
+        config.wbtc = _readAssetConfig(json, ".assets.WBTC");
+        config.weth = _readAssetConfig(json, ".assets.WETH");
+        config.link = _readAssetConfig(json, ".assets.LINK");
+        config.stETH = _readAssetConfig(json, ".assets.stETH");
+        config.wstETH = _readAssetConfig(json, ".assets.wstETH");
+        config.sUSDe = _readAssetConfig(json, ".assets.sUSDe");
+        config.snx = _readAssetConfig(json, ".assets.SNX");
+        config.jpy = _readAssetConfig(json, ".assets.JPY");
+        config.oETH = _readAssetConfig(json, ".assets.oETH");
+
+        // Read sandbox controller config
+        config.sandboxControllerConfig = _readSandboxControllerConfig(json);
+
+        return config;
+    }
+
+    function _readAssetConfig(string memory json, string memory assetPath) private pure returns (AssetConfig memory) {
         return
-            NetworkConfig({
-                wstETH: 0x1044EE6eCA0b6a44057BfB46EF488fA8471875d4,
-                stETH: 0xB14a20F994E578f600834aEdA91cE18529ad2520,
-                usdc: 0x306134121e8B55dfA9faBA05De590E639a1F7D6B,
-                weth: 0x7C96E7d262659Ed6ED79910c2590666d8da87e66,
-                wbtc: 0xb01f67f936b018edf565311A0ab55F3e1A05dBaf,
-                comp: 0x2001c123a7d08d355b323d21E2c24b4bcB35C2FE,
-                link: 0x75B3598A06aBF790A25FF4B956799945c38D0bf5,
-                usdcPriceFeed: 0xA512C74c637108FD1Cae88163176480452B1Fb8E,
-                wethPriceFeed: 0x0Be7E6eEB5ba8f9f75DBc5c9237F1bC00F1520A2,
-                wbtcPriceFeed: 0x651D96AfbeE282C1D58ECFce0D2dd8515255e020,
-                compPriceFeed: 0x9d82DcF7Fe854EBCE8AF6D0B2206E2Cfb62a8EcE,
-                linkPriceFeed: 0x62E979Ddfc74A6d4E23624cF1EdF0612E501c7a5,
-                comet1: 0x14Bc5e66FF4e49D18bFf96C11d72A894DF285e5f,
-                comet2: 0xCE56294c40E8f479F709F207870c41450070C611
+            AssetConfig({
+                tokenAddress: json.readAddress(string.concat(assetPath, ".address")),
+                priceFeed: json.readAddress(string.concat(assetPath, ".priceFeed")),
+                chainlinkPriceFeed: json.readAddress(string.concat(assetPath, ".chainlinkPriceFeed")),
+                fallbackPriceFeed: json.readAddress(string.concat(assetPath, ".fallbackPriceFeed")),
+                minBorrowCF: uint64(json.readUint(string.concat(assetPath, ".minBorrowCF"))),
+                maxBorrowCF: uint64(json.readUint(string.concat(assetPath, ".maxBorrowCF"))),
+                minLiquidateCF: uint64(json.readUint(string.concat(assetPath, ".minLiquidateCF"))),
+                maxLiquidateCF: uint64(json.readUint(string.concat(assetPath, ".maxLiquidateCF"))),
+                minLiquidationF: uint64(json.readUint(string.concat(assetPath, ".minLiquidationF"))),
+                maxLiquidationF: uint64(json.readUint(string.concat(assetPath, ".maxLiquidationF")))
             });
     }
 
-    function getArbitrumMainnetConfig() public pure returns (NetworkConfig memory) {
+    function _readSandboxControllerConfig(string memory json) private pure returns (SandboxControllerConfig memory) {
         return
-            NetworkConfig({
-                wstETH: 0x0fBcbaEA96Ce0cF7Ee00A8c19c3ab6f5Dc8E1921,
-                stETH: 0x000000000000000000000000000000000000dEaD,
-                usdc: 0xaf88d065e77c8cC2239327C5EDb3A432268e5831,
-                weth: 0x82aF49447D8a07e3bd95BD0d56f35241523fBab1,
-                wbtc: 0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f,
-                comp: 0x354A6dA3fcde098F8389cad84b0182725c6C91dE,
-                link: 0xf97f4df75117a78c1A5a0DBb814Af92458539FB4,
-                usdcPriceFeed: 0x50834F3163758fcC1Df9973b6e91f0F0F0434aD3,
-                wethPriceFeed: 0x639Fe6ab55C921f74e7fac1ee960C0B6293ba612,
-                wbtcPriceFeed: 0x6ce185860a4963106506C203335A2910413708e9,
-                compPriceFeed: 0xe7C53FFd03Eb6ceF7d208bC4C13446c76d1E5884,
-                linkPriceFeed: 0x86E53CF1B870786351Da77A57575e79CB55812CB,
-                comet1: address(0),
-                comet2: address(0)
+            SandboxControllerConfig({
+                targetPercent: json.readUint(".sandboxControllerConfiguration.targetPercent"),
+                storeFrontPriceFactor: json.readUint(".sandboxControllerConfiguration.storeFrontPriceFactor"),
+                minUpdateTime: json.readUint(".sandboxControllerConfiguration.minUpdateTime"),
+                maxUpdateTime: json.readUint(".sandboxControllerConfiguration.maxUpdateTime"),
+                feeEnabled: json.readBool(".sandboxControllerConfiguration.feeEnabled"),
+                reserveCommissions: [
+                    json.readUint(".sandboxControllerConfiguration.reserveCommissions[0]"),
+                    json.readUint(".sandboxControllerConfiguration.reserveCommissions[1]"),
+                    json.readUint(".sandboxControllerConfiguration.reserveCommissions[2]")
+                ],
+                protocolCommissions: [
+                    json.readUint(".sandboxControllerConfiguration.protocolCommissions[0]"),
+                    json.readUint(".sandboxControllerConfiguration.protocolCommissions[1]"),
+                    json.readUint(".sandboxControllerConfiguration.protocolCommissions[2]")
+                ]
             });
     }
 }
