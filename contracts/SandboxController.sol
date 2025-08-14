@@ -477,7 +477,7 @@ contract SandboxController is ISandboxController {
             }
         } else {
             /// 2.3) At this point we ensured left segment of supply curve does not intersect left segment of borrow curve
-            ///      But there can be a situation, when supply kink is tilted to the left, and supply high slope have angle
+            ///      But there can be a situation, when supply kink is tilted to the left, and supply high slope has angle
             ///      high enough, that the right part of supply curve will intersect left part of borrow curve
             if (curve.supplyKink <= curve.borrowKink) {
                 // y = supplyBase + supplyLowSlope * supplyKink + supplyHighSlope * (x - supplyKink)
