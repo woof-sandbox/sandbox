@@ -36,7 +36,10 @@
     "prettier:ts": "prettier --no-error-on-unmatched-pattern --write test/**/*.ts src/**/*.ts scripts/**/*.ts hardhat.config.ts --config .prettierrc.json  --end-of-line auto",
     "doc": "hardhat docgen",
     "clean:out": "./scripts/clean-out.sh",
-    "setup:hooks": "git config core.hooksPath .githooks"
+    "setup:hooks": "git config core.hooksPath .githooks",
+    "load-env": "source .env",
+    "sepolia:deploy:fauceteer": "source .env && forge script script/sepolia/DeployFauceteer.s.sol --rpc-url $SEPOLIA_RPC_URL --verify --etherscan-api-key $ETHERSCAN_KEY --broadcast -vvvv",
+    "sepolia:distribute-tokens": "source .env && forge script script/sepolia/DistributeTokens.s.sol --rpc-url $SEPOLIA_RPC_URL --verify --etherscan-api-key $ETHERSCAN_KEY --broadcast -vvvv"
   },
   "author": "Compound Finance",
   "license": "UNLICENSED",
