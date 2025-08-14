@@ -486,7 +486,7 @@ contract SandboxController is ISandboxController {
             if (curve.supplyKink <= curve.borrowKink) {
                 // y = supplyBase + supplyLowSlope * supplyKink + supplyHighSlope * (x - supplyKink)
                 // where x = borrwKink (as we check supply curve value at borrow curve break point)
-                intermediateSupplyPoint = (usupplySlopeHigh * uint256(curve.borrowKink - curve.supplyKink)) / PARAMETERS_SCALE;
+                intermediateSupplyPoint = (supplySlopeHigh * uint256(curve.borrowKink - curve.supplyKink)) / PARAMETERS_SCALE;
                 uint64 supplyHighPoint = supplyBreakPoint + uint64(intermediateSupplyPoint);
 
                 // supply right part intersects borrow left part
