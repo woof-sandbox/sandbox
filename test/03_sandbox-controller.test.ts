@@ -1405,88 +1405,229 @@ describe("3. SandboxController", function () {
     });
 
     describe("reverts on invalid curves", function () {
-      describe("reverts if supply kink exceeds 100%", function () {
-        before(async function () {
-          curve = makeValidCurve();
-          curve.supplyKink = ethers.utils.parseEther("1").add(1);
-        });
+      let sampleCurves: BaseAssetCurveStruct[] = [];
+      let curvesDescriptions: string[] = [];
 
-        it("validation function reverts", async function () {
-          expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.false;
-        });
+      before(async function () {
+        let _curve = makeValidCurve();
 
-        it("whitelist asset reverts", async function () {
+        /// supply kink exceeds 100%
+        _curve.supplyKink = ethers.utils.parseEther("1").add(1);
+
+        sampleCurves.push(_curve);
+        curvesDescriptions.push("supply kink exceeds 100%");
+
+        /// borrow king exceeds 100%
+        _curve = makeValidCurve();
+        _curve.borrowKink = ethers.utils.parseEther("1").add(1);
+        /// have higher left slope to exceed the right slope of supply curve
+        _curve.supplyPerYearInterestRateSlopeHigh = ethers.utils.parseEther("2");
+
+        sampleCurves.push(_curve);
+        curvesDescriptions.push("borrow kink exceeds 100%");
+
+        /// base supply rate is higher than base borrow rate
+        _curve = makeValidCurve();
+        _curve.supplyPerYearInterestRateBase = (_curve.borrowPerYearInterestRateBase as BigNumber).add(1);
+
+        sampleCurves.push(_curve);
+        curvesDescriptions.push("base supply rate is higher than base borrow rate");
+
+        /// left slope for supply intersects left slope of borrow (too high left slope angle)
+        _curve = makeValidCurve();
+        /// with such slope, the curve intersects exectly in 80% kink (for default curves) which is valid
+        _curve.supplyPerYearInterestRateSlopeLow = ethers.utils.parseEther("0.105");
+        /// so we tilt angle to be higher, to force intersection in the left part
+        _curve.supplyPerYearInterestRateSlopeLow = (_curve.supplyPerYearInterestRateSlopeLow as BigNumber).add(10);
+
+        sampleCurves.push(_curve);
+        curvesDescriptions.push("left slope for supply intersects left slope of borrow (too high left slope angle))");
+
+        /// right slope for supply intersects left slope of borrow (supply kink < borrow kink)
+        _curve = makeValidCurve();
+        /// with such slope, the curve intersects exectly in 80% kink (for default curves) which is valid
+        _curve.supplyPerYearInterestRateSlopeLow = ethers.utils.parseEther("0.105");
+        /// so we tilt kink to the left, to make the intersection with the right part of the supply curve
+        _curve.supplyKink = (_curve.supplyKink as BigNumber).sub(10);
+
+        sampleCurves.push(_curve);
+        curvesDescriptions.push("right slope for supply intersects left slope of borrow (supply kink < borrow kink)");
+
+        /// left slope of supply intersects right slope of borrow (too high low slope with supply kink > borrow kink)
+        _curve = makeValidCurve();
+        /// with such slope, the curve intersects exectly in 80% kink (for default curves) which is valid
+        _curve.supplyPerYearInterestRateSlopeLow = ethers.utils.parseEther("0.105");
+        /// so we tilt borrow kink to the left, and make low angle for high slope
+        _curve.borrowKink = ethers.utils.parseEther("0.48");
+        _curve.borrowPerYearInterestRateSlopeHigh = ethers.utils.parseEther("0.0375");
+
+        sampleCurves.push(_curve);
+        curvesDescriptions.push("left supply slope / right slope borrow slope (too high low slope with supply kink > borrow kink");
+
+        /// right slope of supply intersects right slope of borrow (high slope angle is too high)
+        _curve = makeValidCurve();
+        /// make supply right slope high enough to intersect borrow curve before 200% utilization
+        _curve.supplyPerYearInterestRateSlopeHigh = ethers.utils.parseEther("3.75");
+
+        sampleCurves.push(_curve);
+        curvesDescriptions.push("left supply slope / right slope borrow slope (too high low slope with supply kink > borrow kink");
+      });
+
+      it("validation function reverts", async function () {
+        for (let i = 0; i < sampleCurves.length; ++i) {
+          console.log("          curve:", curvesDescriptions[i]);
+          expect(await sandboxController.isCurveConfigurationValid(sampleCurves[i])).to.be.false;
+        }
+      });
+
+      it("whitelist asset reverts", async function () {
+        for (let i = 0; i < sampleCurves.length; ++i) {
+          console.log("          curve:", curvesDescriptions[i]);
           await expect(
             sandboxController.whitelistBaseAsset(
               tokenTest2.address,
               priceFeedTest2.address,
-              curve,
+              sampleCurves[i],
               10,
               suggestedAmountOfSeedReserves,
               suggestedLockTimeOfSeedReserves
             )
           ).to.be.revertedWithCustomError(sandboxController, "InvalidCurveConfiguration");
-        });
+        }
+      });
 
-        it("add curve reverts", async function () {
-          await expect(sandboxController.connect(dao).addBaseAssetCurve(tokenTest1.address, curve)).to.be.revertedWithCustomError(
+      it("add curve reverts", async function () {
+        for (let i = 0; i < sampleCurves.length; ++i) {
+          console.log("          curve:", curvesDescriptions[i]);
+          await expect(sandboxController.connect(dao).addBaseAssetCurve(tokenTest1.address, sampleCurves[i])).to.be.revertedWithCustomError(
             sandboxController,
             "InvalidCurveConfiguration"
           );
-        });
+        }
+      });
 
-        it("change curve reverts", async function () {
-          await expect(sandboxController.connect(dao).changeBaseAssetCurve(tokenTest1.address, 0, curve)).to.be.revertedWithCustomError(
-            sandboxController,
-            "InvalidCurveConfiguration"
-          );
-        });
+      it("change curve reverts", async function () {
+        for (let i = 0; i < sampleCurves.length; ++i) {
+          console.log("          curve:", curvesDescriptions[i]);
+          await expect(
+            sandboxController.connect(dao).changeBaseAssetCurve(tokenTest1.address, 0, sampleCurves[i])
+          ).to.be.revertedWithCustomError(sandboxController, "InvalidCurveConfiguration");
+        }
       });
     });
 
-    describe("edge cases for valid curves checked", function () {
+    describe("edge cases for valid curves", function () {
       let snapshot: SnapshotRestorer;
 
+      let sampleCurves: BaseAssetCurveStruct[] = [];
+      let curvesDescriptions: string[] = [];
+
       before(async function () {
-        curve = makeValidCurve();
+        let _curve = makeValidCurve();
+
+        /// valid curve (happy case)
+        sampleCurves.push(_curve);
+        curvesDescriptions.push("valid curve (happy case)");
+
+        /// supply kink = 0 (low utilization is not rewarded)
+        _curve = makeValidCurve();
+        _curve.supplyKink = 0;
+        /// low angle for the right slope to not intersect left side of the borrow curve
+        _curve.supplyPerYearInterestRateSlopeHigh = ethers.utils.parseEther("0.05");
+
+        sampleCurves.push(_curve);
+        curvesDescriptions.push("supply kink = 0 (low utilization is not rewarded)");
+
+        /// borrow kink = 0 (low utilization is not rewarded)
+        _curve = makeValidCurve();
+        _curve.borrowKink = 0;
+
+        sampleCurves.push(_curve);
+        curvesDescriptions.push("borrow kink = 0 (low utilization is not rewarded)");
+
+        /// supply kink > borrow kink (happy case)
+        _curve = makeValidCurve();
+        _curve.supplyKink = ethers.utils.parseEther("0.85");
+
+        sampleCurves.push(_curve);
+        curvesDescriptions.push("supply kink > borrow kink (happy case)");
+
+        /// supply slopes = 0 (flat interest)
+        _curve = makeValidCurve();
+        _curve.supplyPerYearInterestRateSlopeHigh = 0;
+        _curve.supplyPerYearInterestRateSlopeLow = 0;
+
+        sampleCurves.push(_curve);
+        curvesDescriptions.push("supply slopes = 0 (flat interest)");
+
+        /// borrow slopes = 0 (flat interest)
+        _curve = makeValidCurve();
+        _curve.borrowPerYearInterestRateSlopeHigh = 0;
+        _curve.borrowPerYearInterestRateSlopeLow = 0;
+        _curve.borrowPerYearInterestRateBase = ethers.utils.parseEther("0.05");
+
+        /// make supply high slope = 0 to avoid intersection
+        _curve.supplyPerYearInterestRateSlopeLow = ethers.utils.parseEther("0.001");
+        _curve.supplyPerYearInterestRateSlopeHigh = 0;
+
+        sampleCurves.push(_curve);
+        curvesDescriptions.push("borrow slopes = 0 (flat interest)");
+
+        /// curves intersect out of 200% utilization
+        _curve = makeValidCurve();
+        _curve.borrowPerYearInterestRateSlopeHigh = 0;
+        _curve.borrowPerYearInterestRateSlopeLow = 0;
+        _curve.borrowPerYearInterestRateBase = ethers.utils.parseEther("0.05");
+
+        /// make supply high slope = 0 to avoid intersection
+        _curve.supplyPerYearInterestRateSlopeLow = ethers.utils.parseEther("0.001");
+        _curve.supplyPerYearInterestRateSlopeHigh = ethers.utils.parseEther("0.032");
+
+        sampleCurves.push(_curve);
+        curvesDescriptions.push("curves intersect out of 200% utilization");
+
         snapshot = await takeSnapshot();
       });
 
-      afterEach(async function () {
-        await snapshot.restore();
+      it("validation function confirms the curve", async function () {
+        for (let i = 0; i < sampleCurves.length; ++i) {
+          console.log("          curve:", curvesDescriptions[i]);
+          expect(await sandboxController.isCurveConfigurationValid(sampleCurves[i])).to.be.true;
+        }
       });
 
-      describe("works for supply kink = 0", function () {
-        before(async function () {
-          curve.supplyKink = 0;
-          /// low angle for the right slope to not intersect left side of the borrow curve
-          curve.supplyPerYearInterestRateSlopeHigh = ethers.utils.parseEther("0.05");
-        });
-
-        it("validation function confirms the curve", async function () {
-          expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.true;
-        });
-
-        it("whitelist asset confirms the curve", async function () {
+      it("whitelist asset confirms the curve", async function () {
+        for (let i = 0; i < sampleCurves.length; ++i) {
+          console.log("          curve:", curvesDescriptions[i]);
           await expect(
-            sandboxController.whitelistBaseAsset(
-              tokenTest2.address,
-              priceFeedTest2.address,
-              curve,
-              10,
-              suggestedAmountOfSeedReserves,
-              suggestedLockTimeOfSeedReserves
-            )
+            sandboxController
+              .connect(dao)
+              .whitelistBaseAsset(
+                tokenTest2.address,
+                priceFeedTest2.address,
+                sampleCurves[i],
+                10,
+                suggestedAmountOfSeedReserves,
+                suggestedLockTimeOfSeedReserves
+              )
           ).to.not.be.reverted;
-        });
 
-        it("add curve confirms the curve", async function () {
-          await expect(sandboxController.connect(dao).addBaseAssetCurve(tokenTest1.address, curve)).to.not.be.reverted;
-        });
+          await snapshot.restore();
+        }
+      });
 
-        it("change curve confirms the curve", async function () {
-          await expect(sandboxController.connect(dao).changeBaseAssetCurve(tokenTest1.address, 0, curve)).to.not.be.reverted;
-        });
+      it("add curve confirms the curve", async function () {
+        for (let i = 0; i < sampleCurves.length; ++i) {
+          console.log("          curve:", curvesDescriptions[i]);
+          await expect(sandboxController.connect(dao).addBaseAssetCurve(tokenTest1.address, sampleCurves[i])).to.not.be.reverted;
+        }
+      });
+
+      it("change curve confirms the curve", async function () {
+        for (let i = 0; i < sampleCurves.length; ++i) {
+          console.log("          curve:", curvesDescriptions[i]);
+          await expect(sandboxController.connect(dao).changeBaseAssetCurve(tokenTest1.address, 0, sampleCurves[i])).to.not.be.reverted;
+        }
       });
     });
   });
