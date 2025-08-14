@@ -717,7 +717,7 @@ contract SandboxComet is CometCore, ISandboxComet {
                 totalControllerFeesPerAsset[baseToken] += controllerFee;
             }
 
-            emit FeesCollected(baseToken, reserveFee, protocolFee, controllerFee);
+            emit FeesCollected(address(this), baseToken, reserveFee, protocolFee, controllerFee);
         }
 
         (uint104 repayAmount, uint104 supplyAmount) = repayAndSupplyAmount(dstPrincipal, dstPrincipalNew);
@@ -1112,7 +1112,7 @@ contract SandboxComet is CometCore, ISandboxComet {
             totalControllerFeesPerAsset[asset] += controllerFee;
         }
 
-        emit FeesCollected(baseToken, reserveFee, protocolFee, controllerFee);
+        emit FeesCollected(address(this), asset, reserveFee, protocolFee, controllerFee);
 
         // Note: Pre-transfer hook can re-enter buyCollateral with a stale collateral ERC20 balance.
         //  Assets should not be listed which allow re-entry from pre-transfer now, as too much collateral could be bought.

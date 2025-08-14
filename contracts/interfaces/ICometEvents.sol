@@ -31,7 +31,7 @@ interface ICometEvents {
     event FeesExtracted(address indexed comet, address indexed asset, uint256 amount, address to);
 
     /// @notice Event emitted when fees are collected from a transaction
-    event FeesCollected(address baseToken, uint256 reserveFee, uint256 protocolFee, uint256 controllerFee);
+    event FeesCollected(address indexed comet, address indexed asset, uint256 reserveFee, uint256 protocolFee, uint256 controllerFee);
 
     /// @notice Event emitted when an action is paused/unpaused
     event PauseAction(bool supplyPaused, bool transferPaused, bool withdrawPaused, bool absorbPaused, bool buyPaused);
