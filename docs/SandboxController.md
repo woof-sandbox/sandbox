@@ -55,7 +55,6 @@ address dao
 ```
 
 20 bytes
-owner address. This is the address that will be able to call the functions that require the owner role.
 dao address. This is the address that will be able to call the functions that require the dao role.
 
 ### contractor
@@ -441,37 +440,6 @@ _Validates global config and reverts on incorrect values_
 | Name | Type | Description |
 | ---- | ---- | ----------- |
 | _config | struct ISandboxController.SandboxControllerConfiguration | Configuration of the sandbox controller. |
-
-### setSeedReserves
-
-```solidity
-function setSeedReserves(address _baseToken, uint256 _amount, uint40 _lockTime) external
-```
-
-_Seed reserves parameters setter. Dao only._
-
-#### Parameters
-
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| _baseToken | address | Base asset changes are applied to |
-| _amount | uint256 | Seed reserves suggested amount (in USD) |
-| _lockTime | uint40 | Seed reserves suggested lock time on the Comet |
-
-### _validateSeedReserves
-
-```solidity
-function _validateSeedReserves(uint256 _amount, uint40 _lockTime) internal pure
-```
-
-_Validates seed reserves parameters and revers on incorrect values_
-
-#### Parameters
-
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| _amount | uint256 | Suggested seed reserves amount |
-| _lockTime | uint40 | Suggested seed reserves lock time on the Comet |
 
 ### setSeedReserves
 
