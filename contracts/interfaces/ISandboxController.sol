@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity 0.8.28;
 
 import "./ISandboxErrors.sol";
@@ -60,9 +60,6 @@ interface ISandboxController is ISandboxErrors {
         uint64 storeFrontPriceFactor; // 8 bytes
         uint40 minUpdateTime; // 5 bytes
         uint40 maxUpdateTime; // 5 bytes
-        uint40 suggestedLockTimeOfSeedReserves; // 5 bytes
-        /// 2nd 256 bits (32 bytes)
-        uint256 suggestedAmountOfSeedReserves; // 32 bytes
     }
 
     event BaseAssetWhitelisted(address indexed token, address indexed priceFeed, uint8 decimals);
@@ -74,6 +71,7 @@ interface ISandboxController is ISandboxErrors {
     event CommissionChanged(MarketState state, uint64 oldReserve, uint64 newReserve, uint64 oldProtocol, uint64 newProtocol);
     event TreasuryChanged(address oldTreasury, address newTreasury);
     event ConfigurationChanged(SandboxControllerConfiguration oldConfig, SandboxControllerConfiguration newConfig);
+    event SeedReservesSet(address baseToken, uint256 suggestedAmount, uint40 lockTime);
     event FeeEnabledSet(bool feeEnabled);
     event DaoTransferred(address oldDao, address newDao);
     event DaoProposed(address currentDao, address proposedDao);
@@ -97,9 +95,16 @@ interface ISandboxController is ISandboxErrors {
 
     function protocolCommission(uint256) external view returns (uint64);
 
-    function getCommissions(uint256, uint256, uint256) external view returns (uint64, uint64);
+    function getCommissions(uint256, uint256, address) external view returns (uint64, uint64);
 
-    function whitelistBaseAsset(address token, address priceFeed, BaseAssetCurve memory baseAssetCurve, uint256 minBorrow) external;
+    function whitelistBaseAsset(
+        address token,
+        address priceFeed,
+        BaseAssetCurve memory baseAssetCurve,
+        uint256 minBorrow,
+        uint256 amountOfSeedReserves,
+        uint40 lockTimeOfSeedReserves
+    ) external;
 
     function whitelistCollateralAsset(
         address token,
@@ -120,8 +125,6 @@ interface ISandboxController is ISandboxErrors {
 
     function setTreasury(address _treasury) external;
 
-    function setConfiguration(SandboxControllerConfiguration memory _config) external;
-
     function setFeeEnabled(bool _feeEnabled) external;
 
     function proposeDao(address _proposedDao) external;
@@ -141,4 +144,10 @@ interface ISandboxController is ISandboxErrors {
     function curves(address token) external view returns (BaseAssetCurve[] memory);
 
     function config() external view returns (SandboxControllerConfiguration memory);
+
+    function suggestedAmountOfSeedReserves(address token) external view returns (uint256);
+
+    function suggestedLockTimeOfSeedReserves(address token) external view returns (uint40);
+
+    function baseTokenSuggestedSeedReserves(address token) external view returns (uint256, uint40);
 }

@@ -147,22 +147,6 @@ modifier onlyOwner()
 
 Modifier to restrict access to owner only
 
-### onlyOwnerOrCurator
-
-```solidity
-modifier onlyOwnerOrCurator()
-```
-
-Modifier to restrict access to owner or curator
-
-### onlyGuardian
-
-```solidity
-modifier onlyGuardian()
-```
-
-Modifier to restrict access to guardian only
-
 ### initialize
 
 ```solidity
@@ -228,6 +212,21 @@ Disables/Enables the controller fee for a specific comet
 | ---- | ---- | ----------- |
 | comet | address | Comet which should be registered in Controller |
 | feeEnabled | bool | Flag for fees enabling (true -> fees are enabled) |
+
+### setRewards
+
+```solidity
+function setRewards(address _comet, address _rewards) external
+```
+
+Sets the rewards contract for a specific comet
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| _comet | address | Comet which should be registered in Controller |
+| _rewards | address | The address of the rewards contract |
 
 ### extractFees
 

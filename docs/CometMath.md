@@ -18,12 +18,6 @@ Custom errors *
 error InvalidUInt104()
 ```
 
-### InvalidUInt128
-
-```solidity
-error InvalidUInt128()
-```
-
 ### InvalidInt104
 
 ```solidity
@@ -52,12 +46,6 @@ function safe64(uint256 n) internal pure returns (uint64)
 
 ```solidity
 function safe104(uint256 n) internal pure returns (uint104)
-```
-
-### safe128
-
-```solidity
-function safe128(uint256 n) internal pure returns (uint128)
 ```
 
 ### signed104

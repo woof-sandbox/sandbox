@@ -1,7 +1,8 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity 0.8.28;
 
 import "./IConfigController.sol";
+import { ICometStructures } from "./ICometStructures.sol";
 
 /**
  * @title Compound's Comet Main Interface (without Ext)
@@ -15,11 +16,13 @@ interface ISandboxComet {
 
     function supplyFrom(address from, address dst, address asset, uint256 amount) external;
 
+    function repayAllFrom(address from, address dst) external;
+
     function transfer(address dst, uint256 amount) external returns (bool);
 
     function transferFrom(address src, address dst, uint256 amount) external returns (bool);
 
-    function transferAsset(address dst, address asset, uint256 amount) external;
+    function transferAllFrom(address src, address dst) external;
 
     function transferAssetFrom(address src, address dst, address asset, uint256 amount) external;
 
@@ -29,13 +32,9 @@ interface ISandboxComet {
 
     function withdrawFrom(address src, address to, address asset, uint256 amount) external;
 
-    function factoryInit(address, address) external;
-
-    function initialize(IConfigController.CometConfig memory market, IConfigController.CometGlobalParamsConfig memory config) external;
+    function withdrawAllFrom(address src, address to) external;
 
     function absorb(address absorber, address[] calldata accounts) external;
-
-    function buyCollateral(address asset, uint minAmount, uint baseAmount, address recipient) external;
 
     function quoteCollateral(address asset, uint baseAmount) external view returns (uint, uint, uint, uint);
 
@@ -51,13 +50,15 @@ interface ISandboxComet {
 
     function totalBorrow() external view returns (uint256);
 
+    function totalSupply() external view returns (uint256);
+
     function balanceOf(address owner) external view returns (uint256);
 
     function borrowBalanceOf(address account) external view returns (uint256);
 
-    function pause(bool supplyPaused, bool transferPaused, bool withdrawPaused, bool absorbPaused, bool buyPaused) external;
+    function buyCollateral(address asset, uint minAmount, uint baseAmount, address recipient) external;
 
-    function extractFees(address) external;
+    function pause(bool supplyPaused, bool transferPaused, bool withdrawPaused, bool absorbPaused, bool buyPaused) external;
 
     function isSupplyPaused() external view returns (bool);
 
@@ -78,4 +79,8 @@ interface ISandboxComet {
     function getUtilization() external view returns (uint);
 
     function targetReserves() external view returns (uint);
+
+    function getAssetInfo(uint8 i) external view returns (ICometStructures.CollateralAsset memory);
+
+    function getAssetInfoByAddress(address asset) external view returns (ICometStructures.CollateralAsset memory, uint8 index);
 }

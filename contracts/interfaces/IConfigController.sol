@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity 0.8.28;
 
 interface IConfigController {
@@ -19,7 +19,7 @@ interface IConfigController {
 
     struct CometConfig {
         address baseToken;
-        uint8 baseTokenCurveId;
+        uint256 baseTokenCurveId;
         CollateralTokenConfig[] collateralTokens;
         string name;
     }
@@ -27,15 +27,6 @@ interface IConfigController {
     struct CometGlobalParamsConfig {
         uint64 targetPercent;
         uint64 storeFrontPriceFactor;
-        uint40 suggestedLockTimeOfSeedReserves;
-        uint256 suggestedAmountOfSeedReserves;
-    }
-
-    struct CometRewardOptions {
-        uint256 baseTrackingSupplySpeed;
-        uint256 baseTrackingBorrowSpeed;
-        uint256 trackingIndexScale;
-        uint256 baseMinForRewards;
     }
 
     /// @notice Returns the current curator fee in basis points (1% = 100)
@@ -101,4 +92,8 @@ interface IConfigController {
     /// @notice Returns the address of the ConfigControllerFactory
     /// @return The address of the ConfigControllerFactory
     function configControllerFactory() external view returns (address);
+
+    /// @notice Sets the address of rewards contract for a specific comet
+    /// @dev Only callable by the owner
+    function setRewards(address _comet, address _rewards) external;
 }

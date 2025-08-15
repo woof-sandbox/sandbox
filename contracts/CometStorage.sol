@@ -1,44 +1,14 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
+import { ICometStructures } from "contracts/interfaces/ICometStructures.sol";
+
 /**
  * @title Compound's Comet Storage Interface
  * @dev Versions can enforce append-only storage slots via inheritance.
  * @author Compound
  */
-contract CometStorage {
-    // 512 bits total = 2 slots
-
-    struct TotalsBasic {
-        // 1st slot
-        uint64 baseSupplyIndex; // aderyn-fp(local-variable-shadowing)
-        uint64 baseBorrowIndex; // aderyn-fp(local-variable-shadowing)
-        uint64 trackingSupplyIndex; // aderyn-fp(local-variable-shadowing)
-        uint64 trackingBorrowIndex; // aderyn-fp(local-variable-shadowing)
-        // 2nd slot
-        uint104 totalSupplyBase; // aderyn-fp(local-variable-shadowing)
-        uint104 totalBorrowBase; // aderyn-fp(local-variable-shadowing)
-        uint40 lastAccrualTime; // aderyn-fp(local-variable-shadowing)
-        uint8 pauseFlags; // aderyn-fp(local-variable-shadowing)
-    }
-
-    struct UserBasic {
-        int104 principal;
-        uint64 baseTrackingIndex;
-        uint64 baseTrackingAccrued;
-        uint24 assetsIn;
-    }
-
-    struct CollateralAsset {
-        address collateralToken;
-        address priceFeed;
-        uint128 supplyCap;
-        uint64 borrowCollateralFactor;
-        uint64 liquidateCollateralFactor;
-        uint64 liquidationFactor;
-        uint64 scale;
-    }
-
+contract CometStorage is ICometStructures {
     /** Internal constants **/
 
     /// @dev The max number of assets this contract is hardcoded to support
@@ -89,6 +59,9 @@ contract CometStorage {
     /// @notice The address of the extension contract
     address public extension;
 
+    /// @notice The address of the reward contract
+    address public rewardAddress;
+
     /// @notice The address of the base token contract
     address public baseToken;
 
@@ -131,29 +104,10 @@ contract CometStorage {
     uint64 public borrowPerSecondInterestRateBase;
 
     /// @notice The fraction of the liquidation penalty that goes to buyers of collateral instead of the protocol
-    /// @dev uint64
     uint64 public storeFrontPriceFactor;
 
     /// @notice The scale for base token (must be less than 18 decimals)
-    /// @dev uint64
-    uint public baseScale;
-
-    /// @notice The scale for reward tracking
-    /// @dev uint64
-    uint public trackingIndexScale;
-
-    /// @notice The speed at which supply rewards are tracked (in trackingIndexScale)
-    /// @dev uint64
-    uint public baseTrackingSupplySpeed;
-
-    /// @notice The speed at which borrow rewards are tracked (in trackingIndexScale)
-    /// @dev uint64
-    uint public baseTrackingBorrowSpeed;
-
-    /// @notice The minimum amount of base principal wei for rewards to accrue
-    /// @dev This must be large enough so as to prevent division by base wei from overflowing the 64 bit indices
-    /// @dev uint104
-    uint public baseMinForRewards;
+    uint64 public baseScale;
 
     /// @notice The minimum base amount required to initiate a borrow
     uint public baseBorrowMin;
@@ -167,14 +121,9 @@ contract CometStorage {
     /// @notice Unlock timestamp
     uint64 public unlockTimestamp;
 
-    /// @notice Factor to divide by when accruing rewards in order to preserve 6 decimals (i.e. baseScale / 1e6)
-    uint internal accrualDescaleFactor;
-
     /// @dev Aggregate variables tracked for the entire market
     uint64 internal baseSupplyIndex;
     uint64 internal baseBorrowIndex;
-    uint64 internal trackingSupplyIndex;
-    uint64 internal trackingBorrowIndex;
     uint104 internal totalSupplyBase;
     uint104 internal totalBorrowBase;
     uint40 internal lastAccrualTime;
@@ -194,6 +143,10 @@ contract CometStorage {
     /// @notice Mapping of users to accounts which may be permitted to manage the user account
     /// @notice user => spender => asset (base or collateral) => amount
     mapping(address => mapping(address => mapping(address => uint))) public allowance;
+
+    /// @notice user => spender => true or false (for baseAsset only)
+    /// @notice allowance for all is expected to be atomic - for ...All() operations only
+    mapping(address => mapping(address => bool)) public allowanceAll;
 
     /// @notice The next expected nonce for an address, for validating authorizations via signature
     mapping(address => uint) public userNonce;

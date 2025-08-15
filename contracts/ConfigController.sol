@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
-import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import "./interfaces/IConfigController.sol";
@@ -10,7 +9,7 @@ import "./interfaces/IConfigControllerEvents.sol";
 
 import "./interfaces/IConfigControllerFactory.sol";
 import "./interfaces/ISandboxController.sol";
-import "./interfaces/ISandboxComet.sol";
+import "./interfaces/ICometForController.sol";
 import "./interfaces/ISandboxCometFactory.sol";
 
 /**
@@ -80,18 +79,6 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
         _;
     }
 
-    /// @notice Modifier to restrict access to owner or curator
-    modifier onlyOwnerOrCurator() {
-        if (msg.sender != owner && msg.sender != curator) revert Unauthorized();
-        _;
-    }
-
-    /// @notice Modifier to restrict access to guardian only
-    modifier onlyGuardian() {
-        if (msg.sender != guardian) revert Unauthorized();
-        _;
-    }
-
     /// @notice Initializes the ConfigController contract
     /// @param _owner The address of the protocol owner
     /// @param _guardian The address of the protocol guardian
@@ -148,22 +135,22 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
     /// @param _cometConfig The configuration parameters for the new comet
     /// @return The address of the newly created comet
     function createComet(CometConfig memory _cometConfig) external override onlyOwner returns (address) {
+        address baseToken = _cometConfig.baseToken;
+        uint256 baseTokenCurveId = _cometConfig.baseTokenCurveId;
         /// Check base token
         ///
-        if (_cometConfig.baseToken == address(0)) revert ZeroAddress();
+        if (baseToken == address(0)) revert ZeroAddress();
         // aderyn-fp-next-line(reentrancy-state-change)
-        if (!ISandboxController(sandboxController).isBaseTokenWhitelisted(_cometConfig.baseToken)) revert BaseTokenNotWhitelisted();
+        if (!ISandboxController(sandboxController).isBaseTokenWhitelisted(baseToken)) revert BaseTokenNotWhitelisted();
         /// Token decimals and price feed decimal are validated on the Comet, as it may be an individual setting
 
         /// Check interest curve
         ///
         // aderyn-fp-next-line(reentrancy-state-change)
-        ISandboxController.BaseAssetConfiguration memory baseAssetConfig = ISandboxController(sandboxController).baseAssets(
-            _cometConfig.baseToken
-        );
+        ISandboxController.BaseAssetConfiguration memory baseAssetConfig = ISandboxController(sandboxController).baseAssets(baseToken);
 
         if (baseAssetConfig.baseAssetCurves.length == 0) revert NoCurveRegistered();
-        if (_cometConfig.baseTokenCurveId >= baseAssetConfig.baseAssetCurves.length) revert InvalidCurveId();
+        if (baseTokenCurveId >= baseAssetConfig.baseAssetCurves.length) revert InvalidCurveId();
 
         /// Check collaterals
         ///
@@ -180,7 +167,7 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
 
             /// Quick checks first
             if (_collateralToken == address(0)) revert ZeroAddress();
-            if (_collateralToken == _cometConfig.baseToken) revert WrongCollateralTokenSettings();
+            if (_collateralToken == baseToken) revert WrongCollateralTokenSettings();
 
             for (uint8 j = 0; j < i; ) {
                 if (addedCollateralTokens[j] == _collateralToken) revert CollateralTokenAlreadyAdded();
@@ -201,24 +188,22 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
         ISandboxController.SandboxControllerConfiguration memory _sandboxConfig = ISandboxController(sandboxController).config();
         CometGlobalParamsConfig memory _globalConfig = CometGlobalParamsConfig(
             _sandboxConfig.targetPercent,
-            _sandboxConfig.storeFrontPriceFactor,
-            _sandboxConfig.suggestedLockTimeOfSeedReserves,
-            _sandboxConfig.suggestedAmountOfSeedReserves
+            _sandboxConfig.storeFrontPriceFactor
         );
 
         address comet = ISandboxCometFactory(cometFactory).createComet(_cometConfig.name); // aderyn-fp(reentrancy-state-change)
-        ISandboxComet(comet).initialize(_cometConfig, _globalConfig); // aderyn-fp(reentrancy-state-change)
+        ICometForController(comet).initialize(_cometConfig, _globalConfig); // aderyn-fp(reentrancy-state-change)
+
+        // TODO: currently suggestedAmountOfSeedReserves is set in USD, token amount is expected in separate PR
+        uint256 suggestedAmountOfSeedReserves = ISandboxController(sandboxController).suggestedAmountOfSeedReserves(baseToken);
+        // TODO: optional amount of reserves (with validation on 0 reserves) is expected to be added in separate PR
+        IERC20(baseToken).safeTransferFrom(msg.sender, comet, suggestedAmountOfSeedReserves);
 
         uint256 cometsNum = comets.length;
         comets.push(comet);
         cometId[comet] = cometsNum;
 
-        /// TODO: seed reserves logic will be adjusted
-        if (_sandboxConfig.suggestedAmountOfSeedReserves > 0) {
-            IERC20(_cometConfig.baseToken).safeTransferFrom(msg.sender, comet, _sandboxConfig.suggestedAmountOfSeedReserves);
-        }
-
-        emit CometCreated(comet, _cometConfig.baseToken, baseAssetConfig.priceFeed, cometsNum + 1, _cometConfig.baseTokenCurveId);
+        emit CometCreated(comet, baseToken, baseAssetConfig.priceFeed, cometsNum + 1, baseTokenCurveId);
 
         return comet;
     }
@@ -240,6 +225,19 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
         emit CometFeeEnabled(address(this), comet, feeEnabled);
     }
 
+    /// @notice Sets the rewards contract for a specific comet
+    /// @param _comet Comet which should be registered in Controller
+    /// @param _rewards The address of the rewards contract
+    function setRewards(address _comet, address _rewards) external onlyOwner {
+        /// Note: rewards can be set to address(0), meaning rewards are disabled for that comet
+        if (_comet == address(0)) revert ZeroAddress();
+        if (!_isCometOwned(_comet)) revert UnknownComet();
+
+        ICometForController(_comet).setRewards(_rewards);
+
+        emit RewardsSet(_comet, _rewards);
+    }
+
     /// @notice Extracts fees to a self and distributes it
     /// @param comet Comet which should be registered in Controller
     /// @param asset Asset (collateral or base asset) to extract
@@ -247,7 +245,7 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
         if (comet == address(0)) revert ZeroAddress();
         if (!_isCometOwned(comet)) revert UnknownComet();
 
-        ISandboxComet(comet).extractFees(asset);
+        ICometForController(comet).extractFees(asset);
         /// Note: Comet emits the respective event
 
         /// TODO: extend method once fee distribution is finished
@@ -259,6 +257,8 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
     function grantOwnership(address _newOwner) external onlyOwner {
         if (_newOwner == address(0)) revert ZeroAddress();
         address oldOwner = owner;
+
+        if (_newOwner == oldOwner) revert IncorrectValue();
         owner = _newOwner;
 
         emit OwnershipGranted(oldOwner, _newOwner);
@@ -394,4 +394,3 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
         return comets[cometId[comet]] == comet;
     }
 }
-// Test comment
