@@ -10,29 +10,38 @@ import "../interfaces/IPriceFeed.sol";
  */
 contract ConstantPriceFeed is IPriceFeed {
     /// @notice Version of the price feed
-    uint public constant override version = 1;
+    uint public constant version = 1;
 
     /// @notice Description of the price feed
     string public constant description = "Constant price feed";
 
     /// @notice Number of decimals for returned prices
-    uint8 public immutable override decimals;
+    uint8 public immutable decimals;
 
     /// @notice The constant price
-    int public immutable constantPrice;
+    int public immutable CONSTANT_PRICE;
 
     /// @notice The underlying token
-    address public immutable override underlyingToken;
+    address public immutable underlyingToken;
+
+    error ZeroAddress();
+    error ZeroValue();
+    error BadDecimals();
 
     /**
      * @notice Construct a new scaling price feed
      * @param decimals_ The number of decimals for the returned prices
      * @param constantPrice_ The constant price
      * @param underlyingToken_ The address of the underlying token
+     * @dev The constant price must be non-zero and the decimals must be between 1 and 18
      **/
     constructor(uint8 decimals_, int256 constantPrice_, address underlyingToken_) {
+        if (decimals_ == 0 || decimals_ > 18) revert BadDecimals();
+        if (constantPrice_ <= 0) revert ZeroValue();
+        if (underlyingToken_ == address(0)) revert ZeroAddress();
+
         decimals = decimals_;
-        constantPrice = constantPrice_;
+        CONSTANT_PRICE = constantPrice_;
         underlyingToken = underlyingToken_;
     }
 
@@ -49,6 +58,6 @@ contract ConstantPriceFeed is IPriceFeed {
         view
         returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound)
     {
-        return (1, constantPrice, block.timestamp, block.timestamp, 1);
+        return (1, CONSTANT_PRICE, block.timestamp, block.timestamp, 1);
     }
 }

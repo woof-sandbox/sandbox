@@ -1,76 +1,168 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
-import "@openzeppelin/contracts/interfaces/IERC4626.sol";
-import "../interfaces/AggregatorV3Interface.sol";
-import "../interfaces/IPriceFeed.sol";
+import { IPriceFeed } from "contracts/interfaces/IPriceFeed.sol";
+import { IERC4626 } from "@openzeppelin/contracts/interfaces/IERC4626.sol";
+import { AggregatorV3Interface } from "contracts/interfaces/AggregatorV3Interface.sol";
+import { AccessControl } from "contracts/pricefeeds/AccessControl.sol";
 
 /**
  * @title Price feed for ERC4626 assets
  * @notice A custom price feed that calculates the price for an ERC4626 asset
  * @author Compound
  */
-contract PriceFeedWith4626Support is IPriceFeed {
-    /** Custom errors **/
-    error BadDecimals();
-    error InvalidInt256();
-
+contract PriceFeedWith4626Support is IPriceFeed, AccessControl {
     /// @notice Version of the price feed
-    uint public constant VERSION = 1;
+    uint256 public constant version = 1;
 
-    /// @notice Description of the price feed
-    string public override description;
-
-    /// @notice Number of decimals for returned prices
-    uint8 public immutable override decimals;
+    /// @notice Scale of this price feed
+    int256 public immutable priceFeedScale;
 
     /// @notice Number of decimals for the 4626 rate provider
     uint8 internal immutable rateProviderDecimals;
 
-    /// @notice Number of decimals for the underlying asset
-    uint8 internal immutable underlyingDecimals;
-
     /// @notice 4626 rate provider
     address public immutable rateProvider;
 
-    /// @notice Chainlink oracle for the underlying asset
-    address public immutable underlyingPriceFeed;
+    /// @notice Number of decimals for returned prices
+    uint8 public immutable decimals;
 
     /// @notice The underlying token
-    address public immutable override underlyingToken;
+    address public immutable underlyingToken;
+
+    /// @notice Chainlink oracle for the underlying asset
+    address public underlyingPriceFeed;
+
+    /// @notice Fallback provider for the underlying asset
+    address public fallbackPriceFeed;
 
     /// @notice Combined scale of the two underlying price feeds
-    int public immutable combinedScale;
+    int256 public combinedScale;
 
-    /// @notice Scale of this price feed
-    int public immutable priceFeedScale;
+    /// @notice Combined scale of the two fallback underlying price feeds
+    int256 public fallbackCombinedScale;
+
+    /// @notice Time limit for the primary price feed to be updated
+    uint24 public updateTimeLimit;
+
+    /// @notice Time limit for the fallback price feed to be updated
+    uint24 public fallbackUpdateTimeLimit;
+
+    /// @notice Number of decimals for the underlying asset
+    uint8 internal underlyingDecimals;
+
+    /// @notice Number of decimals for the fallback underlying asset
+    uint8 public fallbackUnderlyingDecimals;
+
+    /// @notice Description of the price feed
+    string public description;
+
+    /**
+     * @notice Emitted when a price feed is set
+     * @param priceFeed The address of the price feed to set
+     * @param updateTimeLimit The time limit for the price feed to be updated
+     * @param isPrimaryPriceFeed Whether the price feed is the primary price feed
+     */
+    event PriceFeedSet(address indexed priceFeed, uint24 indexed updateTimeLimit, bool isPrimaryPriceFeed);
+
+    /// @notice Reverts when invalid decimals are provided
+    error BadDecimals();
+
+    /// @notice Reverts when int256 oveerflow
+    error InvalidInt256();
+
+    /// @notice Reverts when update time limit is 0
+    error InvalidUpdateTimeLimit();
+
+    /// @notice Reverts when price is not available
+    error PriceNotAvailable();
 
     /**
      * @notice Construct a new 4626 price feed
+     * @param dao_ The address of the DAO that can set price feeds
      * @param rateProvider_ The address of the 4626 rate provider
-     * @param underlyingPriceFeed_ The address of the underlying asset price feed to fetch prices from
+     * @param underlyingPriceFeed_ The address of the underlying price feed to fetch prices from
+     * @param fallbackPriceFeed_ The address of the fallback price feed to fetch prices from
+     * @param underlyingToken_ The address of the underlying token
+     * @param updateTimeLimit_ The time limit for the primary price feed to be updated
+     * @param fallbackUpdateTimeLimit_ The time limit for the fallback price feed to be updated
      * @param decimals_ The number of decimals for the returned prices
      * @param description_ The description of the price feed
-     * @param underlyingToken_ The address of the underlying token
      **/
     constructor(
+        address dao_,
         address rateProvider_,
         address underlyingPriceFeed_,
+        address fallbackPriceFeed_,
+        address underlyingToken_,
+        uint24 updateTimeLimit_,
+        uint24 fallbackUpdateTimeLimit_,
         uint8 decimals_,
-        string memory description_,
-        address underlyingToken_
-    ) {
+        string memory description_
+    ) AccessControl(dao_) {
+        if (underlyingPriceFeed_ == address(0) || rateProvider_ == address(0) || underlyingToken_ == address(0)) revert ZeroAddress();
+        if (decimals_ == 0 || decimals_ > 18) revert BadDecimals();
+        if (updateTimeLimit_ == 0 || (fallbackPriceFeed_ != address(0) && fallbackUpdateTimeLimit_ == 0)) revert InvalidUpdateTimeLimit();
+
         rateProvider = rateProvider_;
         underlyingPriceFeed = underlyingPriceFeed_;
-        rateProviderDecimals = IERC4626(rateProvider_).decimals();
-        underlyingDecimals = AggregatorV3Interface(underlyingPriceFeed_).decimals();
-        combinedScale = signed256(10 ** (rateProviderDecimals + underlyingDecimals));
+        fallbackPriceFeed = fallbackPriceFeed_;
+        decimals = decimals_;
+        priceFeedScale = signed256(10 ** decimals);
+        underlyingToken = underlyingToken_;
+        updateTimeLimit = updateTimeLimit_;
         description = description_;
 
-        if (decimals_ > 18) revert BadDecimals();
-        decimals = decimals_;
-        priceFeedScale = int256(10 ** decimals);
-        underlyingToken = underlyingToken_;
+        rateProviderDecimals = IERC4626(rateProvider_).decimals();
+
+        underlyingDecimals = AggregatorV3Interface(underlyingPriceFeed_).decimals();
+        combinedScale = signed256(10 ** (rateProviderDecimals + underlyingDecimals));
+
+        if (fallbackPriceFeed_ != address(0)) {
+            fallbackUnderlyingDecimals = AggregatorV3Interface(fallbackPriceFeed_).decimals();
+            fallbackCombinedScale = signed256(10 ** (rateProviderDecimals + fallbackUnderlyingDecimals));
+            fallbackUpdateTimeLimit = fallbackUpdateTimeLimit_;
+        }
+
+        emit PriceFeedSet(underlyingPriceFeed, updateTimeLimit, true);
+        emit PriceFeedSet(fallbackPriceFeed, fallbackUpdateTimeLimit, false);
+    }
+
+    /**
+     * @notice Set the price feeds for the underlying asset
+     * @param underlyingPriceFeed_ The address of the underlying price feed to fetch prices from
+     * @param fallbackPriceFeed_ The address of the fallback price feed to fetch prices from
+     * @param updateTimeLimit_ The time limit for the primary price feed to be updated
+     * @param fallbackUpdateTimeLimit_ The time limit for the fallback price feed to be updated
+     **/
+    function setPriceFeeds(
+        address underlyingPriceFeed_,
+        address fallbackPriceFeed_,
+        uint24 updateTimeLimit_,
+        uint24 fallbackUpdateTimeLimit_
+    ) external onlyAuthorized {
+        if (underlyingPriceFeed_ == address(0)) revert ZeroAddress();
+        if (updateTimeLimit_ == 0 || (fallbackPriceFeed_ != address(0) && fallbackUpdateTimeLimit_ == 0)) revert InvalidUpdateTimeLimit();
+
+        underlyingPriceFeed = underlyingPriceFeed_;
+        updateTimeLimit = updateTimeLimit_;
+        underlyingDecimals = AggregatorV3Interface(underlyingPriceFeed_).decimals();
+        combinedScale = signed256(10 ** (rateProviderDecimals + underlyingDecimals));
+
+        if (fallbackPriceFeed_ != address(0)) {
+            fallbackUnderlyingDecimals = AggregatorV3Interface(fallbackPriceFeed_).decimals();
+            fallbackCombinedScale = signed256(10 ** (rateProviderDecimals + fallbackUnderlyingDecimals));
+            fallbackUpdateTimeLimit = fallbackUpdateTimeLimit_;
+            fallbackPriceFeed = fallbackPriceFeed_;
+        } else {
+            fallbackPriceFeed = address(0);
+            fallbackUpdateTimeLimit = 0;
+            fallbackUnderlyingDecimals = 0;
+            fallbackCombinedScale = 0;
+        }
+
+        emit PriceFeedSet(underlyingPriceFeed, updateTimeLimit, true);
+        emit PriceFeedSet(fallbackPriceFeed, fallbackUpdateTimeLimit, false);
     }
 
     /**
@@ -81,28 +173,39 @@ contract PriceFeedWith4626Support is IPriceFeed {
      * @return updatedAt Timestamp when the round was last updated; passed on from the underlying asset price feed
      * @return answeredInRound Round id in which the answer was computed; passed on from the underlying asset price feed
      **/
-    function latestRoundData() external view override returns (uint80, int256, uint256, uint256, uint80) {
+    function latestRoundData()
+        external
+        view
+        override
+        returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound)
+    {
         uint256 rate = IERC4626(rateProvider).convertToAssets(10 ** rateProviderDecimals);
-        (uint80 roundId_, int256 underlyingPrice, uint256 startedAt_, uint256 updatedAt_, uint80 answeredInRound_) = AggregatorV3Interface(
-            underlyingPriceFeed
-        ).latestRoundData();
 
-        if (rate <= 0 || underlyingPrice <= 0) return (roundId_, 0, startedAt_, updatedAt_, answeredInRound_);
+        if (rate == 0) revert PriceNotAvailable();
 
-        int256 price = (signed256(rate) * underlyingPrice * priceFeedScale) / combinedScale;
-        return (roundId_, price, startedAt_, updatedAt_, answeredInRound_);
-    }
+        (roundId, answer, startedAt, updatedAt, answeredInRound) = AggregatorV3Interface(underlyingPriceFeed).latestRoundData();
 
-    function signed256(uint256 n) internal pure returns (int256) {
-        if (n > uint256(type(int256).max)) revert InvalidInt256();
-        return int256(n);
+        /// @dev If the answer is zero or the update time limit has passed, use the fallback price feed
+        if (answer <= 0 || updateTimeLimit < block.timestamp - updatedAt) {
+            if (fallbackPriceFeed == address(0)) revert PriceNotAvailable();
+
+            (roundId, answer, startedAt, updatedAt, answeredInRound) = AggregatorV3Interface(fallbackPriceFeed).latestRoundData();
+
+            if (answer <= 0 || fallbackUpdateTimeLimit < block.timestamp - updatedAt) revert PriceNotAvailable();
+
+            answer = (signed256(rate) * answer * priceFeedScale) / fallbackCombinedScale;
+            return (roundId, answer, startedAt, updatedAt, answeredInRound);
+        }
+
+        answer = (signed256(rate) * answer * priceFeedScale) / combinedScale;
     }
 
     /**
-     * @notice Price for the latest round
-     * @return The version of the price feed contract
+     * @notice Convert a uint256 to int256
+     * @param n The uint256 number to convert
      **/
-    function version() external pure returns (uint256) {
-        return VERSION;
+    function signed256(uint256 n) internal pure returns (int256) {
+        if (n > uint256(type(int256).max)) revert InvalidInt256();
+        return int256(n);
     }
 }

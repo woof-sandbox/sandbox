@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
-import "../interfaces/IBalancerRateProvider.sol";
-import "../interfaces/IPriceFeed.sol";
+import { IPriceFeed } from "contracts/interfaces/IPriceFeed.sol";
+import { IBalancerRateProvider } from "contracts/interfaces/IBalancerRateProvider.sol";
 
 /**
  * @title ezETH Scaling price feed
@@ -11,30 +11,38 @@ import "../interfaces/IPriceFeed.sol";
  * @author Compound
  */
 contract EzETHExchangeRatePriceFeed is IPriceFeed {
-    /** Custom errors **/
-    error InvalidInt256();
-    error BadDecimals();
-
     /// @notice Version of the price feed
-    uint public constant VERSION = 1;
+    uint public constant version = 1;
 
-    /// @notice Description of the price feed
-    string public description;
+    /// @notice Number of decimals for the ezETH rate provider
+    uint8 public constant EZETH_RATE_PROVIDER_DECIMALS = 18;
 
     /// @notice Number of decimals for returned prices
-    uint8 public immutable override decimals;
-
-    /// @notice ezETH price feed where prices are fetched from
-    address public immutable underlyingPriceFeed;
-
-    /// @notice Whether or not the price should be upscaled
-    bool internal immutable shouldUpscale;
+    uint8 public immutable decimals;
 
     /// @notice The amount to upscale or downscale the price by
     int256 internal immutable rescaleFactor;
 
     /// @notice The underlying token
-    address public immutable override underlyingToken;
+    address public immutable underlyingToken;
+
+    /// @notice Description of the price feed
+    string public description;
+
+    /// @notice ezETH price feed where prices are fetched from
+    address public immutable underlyingPriceFeed;
+
+    /// @notice Reverts if the uint256 value is over the int256 max value
+    error InvalidInt256();
+
+    /// @notice Reverts if the address is zero
+    error ZeroAddress();
+
+    /// @notice Reverts if the decimals are greater than 18 or equal to 0
+    error BadDecimals();
+
+    /// @notice Reverts if the price is not available
+    error PriceNotAvailable();
 
     /**
      * @notice Construct a new ezETH scaling price feed
@@ -44,20 +52,15 @@ contract EzETHExchangeRatePriceFeed is IPriceFeed {
      * @param underlyingToken_ The address of the underlying token
      **/
     constructor(address ezETHRateProvider, uint8 decimals_, string memory description_, address underlyingToken_) {
+        if (ezETHRateProvider == address(0) || underlyingToken_ == address(0)) revert ZeroAddress();
+        if (decimals_ == 0 || decimals_ > 18) revert BadDecimals();
+
         underlyingPriceFeed = ezETHRateProvider;
-        if (decimals_ > 18) revert BadDecimals();
         decimals = decimals_;
         description = description_;
-
-        uint8 ezETHRateProviderDecimals = 18;
-        // Note: Solidity does not allow setting immutables in if/else statements
-        shouldUpscale = ezETHRateProviderDecimals < decimals_ ? true : false;
-        rescaleFactor = (
-            shouldUpscale
-                ? signed256(10 ** (decimals_ - ezETHRateProviderDecimals))
-                : signed256(10 ** (ezETHRateProviderDecimals - decimals_))
-        );
         underlyingToken = underlyingToken_;
+
+        rescaleFactor = signed256(10 ** (EZETH_RATE_PROVIDER_DECIMALS - decimals_));
     }
 
     /**
@@ -75,32 +78,17 @@ contract EzETHExchangeRatePriceFeed is IPriceFeed {
         returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound)
     {
         uint256 rate = IBalancerRateProvider(underlyingPriceFeed).getRate();
+        if (rate == 0) revert PriceNotAvailable();
+
+        answer = signed256(rate) / rescaleFactor;
         // protocol uses only the answer value. Other data fields are not provided by the underlying pricefeed and are not used
         // in Comet protocol
         // https://etherscan.io/address/0x387dBc0fB00b26fb085aa658527D5BE98302c84C#readProxyContract
-        return (1, scalePrice(signed256(rate)), block.timestamp, block.timestamp, 1);
+        return (1, answer, block.timestamp, block.timestamp, 1);
     }
 
     function signed256(uint256 n) internal pure returns (int256) {
         if (n > uint256(type(int256).max)) revert InvalidInt256();
         return int256(n);
-    }
-
-    function scalePrice(int256 price) internal view returns (int256) {
-        int256 scaledPrice;
-        if (shouldUpscale) {
-            scaledPrice = price * rescaleFactor;
-        } else {
-            scaledPrice = price / rescaleFactor;
-        }
-        return scaledPrice;
-    }
-
-    /**
-     * @notice Price for the latest round
-     * @return The version of the price feed contract
-     **/
-    function version() external pure returns (uint256) {
-        return VERSION;
     }
 }
