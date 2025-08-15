@@ -171,7 +171,7 @@ contract DeployProtocol is Script {
         });
         // Deploy SandboxController with valid parameters
         SandboxController sandboxController = new SandboxController(
-            owner_, // owner
+            owner, // owner
             address(1), // dao (different from owner)
             address(2), // treasury (for now random address)
             true, // feeEnabled
