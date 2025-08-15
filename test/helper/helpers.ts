@@ -173,14 +173,14 @@ export async function makePriceFeed(underlyingToken: string, amount?: string, de
 
 export function makeValidCurve(): BaseAssetCurveStruct {
   return {
-    supplyKink: ethers.utils.parseEther("0.8").toString(),
-    supplyPerYearInterestRateSlopeLow: ethers.utils.parseEther("0.05").toString(),
-    supplyPerYearInterestRateSlopeHigh: ethers.utils.parseEther("2").toString(),
-    supplyPerYearInterestRateBase: ethers.utils.parseEther("0.001").toString(),
-    borrowKink: ethers.utils.parseEther("0.8").toString(),
-    borrowPerYearInterestRateSlopeLow: ethers.utils.parseEther("0.1").toString(),
-    borrowPerYearInterestRateSlopeHigh: ethers.utils.parseEther("3").toString(),
-    borrowPerYearInterestRateBase: ethers.utils.parseEther("0.005").toString(),
+    supplyKink: ethers.utils.parseEther("0.8"),
+    supplyPerYearInterestRateSlopeLow: ethers.utils.parseEther("0.05"),
+    supplyPerYearInterestRateSlopeHigh: ethers.utils.parseEther("2"),
+    supplyPerYearInterestRateBase: ethers.utils.parseEther("0.001"),
+    borrowKink: ethers.utils.parseEther("0.8"),
+    borrowPerYearInterestRateSlopeLow: ethers.utils.parseEther("0.1"),
+    borrowPerYearInterestRateSlopeHigh: ethers.utils.parseEther("3"),
+    borrowPerYearInterestRateBase: ethers.utils.parseEther("0.005"),
   };
 }
 

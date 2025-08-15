@@ -199,31 +199,16 @@ contract DeployProtocol is Script {
         return address(configControllerFactory);
     }
 
-<<<<<<< HEAD:script/DeployProtocol.s.sol
     function deploySandboxController() internal returns (address) {
         // Create SandboxController configuration
-=======
-    function deploySandboxController(address owner) internal returns (address) {
->>>>>>> dev:script/sepolia/DeployProtocol.s.sol
         ISandboxController.SandboxControllerConfiguration memory config = ISandboxController.SandboxControllerConfiguration({
             targetPercent: 2e17, // 20%
             storeFrontPriceFactor: 6e17, // 60%
             minUpdateTime: 300, // 5 minutes
-<<<<<<< HEAD:script/DeployProtocol.s.sol
             maxUpdateTime: 3600, // 1 hour
-            suggestedAmountOfSeedReserves: 250, // 250 tokens
-            suggestedLockTimeOfSeedReserves: 3600 // 1 hour
         });
         // Deploy SandboxController with valid parameters
         SandboxController sandboxController = new SandboxController(
-=======
-            maxUpdateTime: 3600 // 1 hour
-        });
-        // Deploy SandboxController with valid parameters
-        SandboxController sandboxController = new SandboxController(
-            owner_, // owner
-            address(1), // dao (different from owner)
->>>>>>> dev:script/sepolia/DeployProtocol.s.sol
             address(2), // treasury (for now random address)
             true, // feeEnabled
             config,
