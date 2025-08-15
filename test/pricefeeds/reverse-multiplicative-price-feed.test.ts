@@ -6,6 +6,8 @@ import {
   ReverseMultiplicativePriceFeed__factory,
   SimplePriceFeed,
   SimplePriceFeed__factory,
+  ManagedSimplePriceFeed,
+  ManagedSimplePriceFeed__factory,
 } from "../../build/types";
 
 describe("Reverse Multiplicative Price Feed", function () {
@@ -14,6 +16,7 @@ describe("Reverse Multiplicative Price Feed", function () {
   // factories
   let ReverseMultiplicativePriceFeedFactory: ReverseMultiplicativePriceFeed__factory;
   let SimplePriceFeed: SimplePriceFeed__factory;
+  let ManagedSimplePriceFeedFactory: ManagedSimplePriceFeed__factory;
 
   let dao: SignerWithAddress;
   let attacker: SignerWithAddress;
@@ -31,6 +34,7 @@ describe("Reverse Multiplicative Price Feed", function () {
   let priceFeedB: SimplePriceFeed;
   let fallbackPriceFeedA: SimplePriceFeed;
   let fallbackPriceFeedB: SimplePriceFeed;
+  let sequencer: ManagedSimplePriceFeed;
 
   // Price feed A (TokenX/USD) - 8 decimals
   const priceFeedAPrice = exp(5000, 8); // $50.00
@@ -55,12 +59,17 @@ describe("Reverse Multiplicative Price Feed", function () {
       "ReverseMultiplicativePriceFeed"
     )) as ReverseMultiplicativePriceFeed__factory;
     SimplePriceFeed = (await ethers.getContractFactory("SimplePriceFeed")) as SimplePriceFeed__factory;
+    ManagedSimplePriceFeedFactory = (await ethers.getContractFactory("ManagedSimplePriceFeed")) as ManagedSimplePriceFeed__factory;
 
     underlyingToken = await makeMockERC20({
       name: "TokenX",
       symbol: "TKNX",
       decimals: 18,
     });
+
+    // Sequencer with answer 0 (available)
+    sequencer = await ManagedSimplePriceFeedFactory.deploy(0, 8, underlyingToken.address);
+    await sequencer.deployed();
 
     priceFeedA = await SimplePriceFeed.deploy(priceFeedAPrice, priceFeedADecimals, underlyingToken.address);
     await priceFeedA.deployed();
@@ -76,6 +85,7 @@ describe("Reverse Multiplicative Price Feed", function () {
 
     priceFeed = await ReverseMultiplicativePriceFeedFactory.deploy(
       dao.address,
+      sequencer.address,
       priceFeedA.address,
       priceFeedB.address,
       fallbackPriceFeedA.address,
@@ -110,6 +120,29 @@ describe("Reverse Multiplicative Price Feed", function () {
       expect(await priceFeed.description()).to.eq(DESCRIPTION);
       expect(await priceFeed.underlyingToken()).to.eq(underlyingToken.address);
       expect(await priceFeed.version()).to.eq(1);
+      expect(await priceFeed.sequencer()).to.eq(sequencer.address);
+    });
+
+    it("emits SequencerUpdated event", async function () {
+      expect(
+        await ReverseMultiplicativePriceFeedFactory.deploy(
+          dao.address,
+          sequencer.address,
+          priceFeedA.address,
+          priceFeedB.address,
+          fallbackPriceFeedA.address,
+          fallbackPriceFeedB.address,
+          underlyingToken.address,
+          UPDATE_TIME_LIMIT_A,
+          UPDATE_TIME_LIMIT_B,
+          UPDATE_TIME_LIMIT_FALLBACK_A,
+          UPDATE_TIME_LIMIT_FALLBACK_B,
+          DECIMALS,
+          DESCRIPTION
+        )
+      )
+        .to.emit(priceFeed, "SequencerUpdated")
+        .withArgs(sequencer.address);
     });
 
     it("sets price feed scales properly", async function () {
@@ -130,6 +163,7 @@ describe("Reverse Multiplicative Price Feed", function () {
       await expect(
         ReverseMultiplicativePriceFeedFactory.deploy(
           dao.address,
+          sequencer.address,
           ZERO_ADDRESS,
           priceFeedB.address,
           fallbackPriceFeedA.address,
@@ -145,10 +179,37 @@ describe("Reverse Multiplicative Price Feed", function () {
       ).to.be.revertedWithCustomError(priceFeed, "ZeroAddress");
     });
 
+    it("reverts if sequencer is zero address on non-mainnet", async function () {
+      // Skip on mainnet chain id (1)
+      const currentChainId = await ethers.provider.getNetwork().then(n => n.chainId);
+      if (currentChainId === 1) {
+        this.skip();
+      }
+
+      await expect(
+        ReverseMultiplicativePriceFeedFactory.deploy(
+          dao.address,
+          ZERO_ADDRESS,
+          priceFeedA.address,
+          priceFeedB.address,
+          fallbackPriceFeedA.address,
+          fallbackPriceFeedB.address,
+          underlyingToken.address,
+          UPDATE_TIME_LIMIT_A,
+          UPDATE_TIME_LIMIT_B,
+          UPDATE_TIME_LIMIT_FALLBACK_A,
+          UPDATE_TIME_LIMIT_FALLBACK_B,
+          DECIMALS,
+          DESCRIPTION
+        )
+      ).to.be.revertedWithCustomError(priceFeed, "InvalidSequencer");
+    });
+
     it("reverts if price feed B is zero address", async function () {
       await expect(
         ReverseMultiplicativePriceFeedFactory.deploy(
           dao.address,
+          sequencer.address,
           priceFeedA.address,
           ZERO_ADDRESS,
           fallbackPriceFeedA.address,
@@ -167,6 +228,7 @@ describe("Reverse Multiplicative Price Feed", function () {
     it("allows fallback price feed A to be zero address", async function () {
       const priceFeedWithoutFallbackA = await ReverseMultiplicativePriceFeedFactory.deploy(
         dao.address,
+        sequencer.address,
         priceFeedA.address,
         priceFeedB.address,
         ZERO_ADDRESS,
@@ -187,6 +249,7 @@ describe("Reverse Multiplicative Price Feed", function () {
     it("allows fallback price feed B to be zero address", async function () {
       const priceFeedWithoutFallbackB = await ReverseMultiplicativePriceFeedFactory.deploy(
         dao.address,
+        sequencer.address,
         priceFeedA.address,
         priceFeedB.address,
         fallbackPriceFeedA.address,
@@ -208,6 +271,7 @@ describe("Reverse Multiplicative Price Feed", function () {
       await expect(
         ReverseMultiplicativePriceFeedFactory.deploy(
           dao.address,
+          sequencer.address,
           priceFeedA.address,
           priceFeedB.address,
           fallbackPriceFeedA.address,
@@ -227,6 +291,7 @@ describe("Reverse Multiplicative Price Feed", function () {
       await expect(
         ReverseMultiplicativePriceFeedFactory.deploy(
           dao.address,
+          sequencer.address,
           priceFeedA.address,
           priceFeedB.address,
           fallbackPriceFeedA.address,
@@ -246,6 +311,7 @@ describe("Reverse Multiplicative Price Feed", function () {
       await expect(
         ReverseMultiplicativePriceFeedFactory.deploy(
           dao.address,
+          sequencer.address,
           priceFeedA.address,
           priceFeedB.address,
           fallbackPriceFeedA.address,
@@ -265,6 +331,7 @@ describe("Reverse Multiplicative Price Feed", function () {
       await expect(
         ReverseMultiplicativePriceFeedFactory.deploy(
           dao.address,
+          sequencer.address,
           priceFeedA.address,
           priceFeedB.address,
           fallbackPriceFeedA.address,
@@ -283,6 +350,7 @@ describe("Reverse Multiplicative Price Feed", function () {
     it("allows fallback update time limit A to be zero when fallback A is not set", async function () {
       const priceFeedWithoutFallbackA = await ReverseMultiplicativePriceFeedFactory.deploy(
         dao.address,
+        sequencer.address,
         priceFeedA.address,
         priceFeedB.address,
         ZERO_ADDRESS,
@@ -303,6 +371,7 @@ describe("Reverse Multiplicative Price Feed", function () {
     it("allows fallback update time limit B to be zero when fallback B is not set", async function () {
       const priceFeedWithoutFallbackB = await ReverseMultiplicativePriceFeedFactory.deploy(
         dao.address,
+        sequencer.address,
         priceFeedA.address,
         priceFeedB.address,
         fallbackPriceFeedA.address,
@@ -324,6 +393,7 @@ describe("Reverse Multiplicative Price Feed", function () {
       await expect(
         ReverseMultiplicativePriceFeedFactory.deploy(
           dao.address,
+          sequencer.address,
           priceFeedA.address,
           priceFeedB.address,
           fallbackPriceFeedA.address,
@@ -343,6 +413,7 @@ describe("Reverse Multiplicative Price Feed", function () {
       await expect(
         ReverseMultiplicativePriceFeedFactory.deploy(
           dao.address,
+          sequencer.address,
           priceFeedA.address,
           priceFeedB.address,
           fallbackPriceFeedA.address,
@@ -367,6 +438,7 @@ describe("Reverse Multiplicative Price Feed", function () {
 
       const mixedDecimalPriceFeed = await ReverseMultiplicativePriceFeedFactory.deploy(
         dao.address,
+        sequencer.address,
         priceFeedA6.address,
         priceFeedB18.address,
         ZERO_ADDRESS,
@@ -389,6 +461,7 @@ describe("Reverse Multiplicative Price Feed", function () {
       expect(
         await ReverseMultiplicativePriceFeedFactory.deploy(
           dao.address,
+          sequencer.address,
           priceFeedA.address,
           priceFeedB.address,
           fallbackPriceFeedA.address,
@@ -412,6 +485,7 @@ describe("Reverse Multiplicative Price Feed", function () {
       expect(
         await ReverseMultiplicativePriceFeedFactory.deploy(
           dao.address,
+          sequencer.address,
           priceFeedA.address,
           priceFeedB.address,
           fallbackPriceFeedA.address,
@@ -429,6 +503,59 @@ describe("Reverse Multiplicative Price Feed", function () {
         .withArgs(fallbackPriceFeedA.address, UPDATE_TIME_LIMIT_FALLBACK_A, true)
         .to.emit(priceFeed, "FallbackPriceFeedSet")
         .withArgs(fallbackPriceFeedB.address, UPDATE_TIME_LIMIT_FALLBACK_B, false);
+    });
+  });
+
+  describe("setSequencer", function () {
+    it("updates sequencer address", async function () {
+      const newSequencer = await ManagedSimplePriceFeedFactory.deploy(0, 8, underlyingToken.address);
+      await newSequencer.deployed();
+
+      await priceFeed.connect(dao).setSequencer(newSequencer.address);
+
+      expect(await priceFeed.sequencer()).to.eq(newSequencer.address);
+    });
+
+    it("emits SequencerUpdated event", async function () {
+      const newSequencer = await ManagedSimplePriceFeedFactory.deploy(0, 8, underlyingToken.address);
+      await newSequencer.deployed();
+
+      await expect(priceFeed.connect(dao).setSequencer(newSequencer.address))
+        .to.emit(priceFeed, "SequencerUpdated")
+        .withArgs(newSequencer.address);
+    });
+
+    it("allows setting sequencer to zero address on mainnet", async function () {
+      // we'll skip this test if not on mainnet
+      const currentChainId = await ethers.provider.getNetwork().then(n => n.chainId);
+      if (currentChainId !== 1) {
+        this.skip();
+      }
+
+      await priceFeed.connect(dao).setSequencer(ZERO_ADDRESS);
+      expect(await priceFeed.sequencer()).to.eq(ZERO_ADDRESS);
+    });
+
+    it("reverts if caller is not dao", async function () {
+      const newSequencer = await ManagedSimplePriceFeedFactory.deploy(0, 8, underlyingToken.address);
+      await newSequencer.deployed();
+
+      await expect(priceFeed.connect(attacker).setSequencer(newSequencer.address)).to.be.revertedWithCustomError(priceFeed, "NotDao");
+    });
+
+    it("reverts if sequencer is zero address on non-mainnet", async function () {
+      const currentChainId = await ethers.provider.getNetwork().then(n => n.chainId);
+      if (currentChainId === 1) {
+        this.skip();
+      }
+
+      await expect(priceFeed.connect(dao).setSequencer(ZERO_ADDRESS)).to.be.revertedWithCustomError(priceFeed, "InvalidSequencer");
+    });
+
+    it("reverts if current sequencer is a new one", async function () {
+      const newSequencer = sequencer.address;
+
+      await expect(priceFeed.setSequencer(newSequencer)).to.be.revertedWithCustomError(priceFeed, "InvalidSequencer");
     });
   });
 
@@ -466,6 +593,12 @@ describe("Reverse Multiplicative Price Feed", function () {
       expect(await priceFeed.priceFeedBScale()).to.eq(10n ** 8n);
       expect(await priceFeed.fallbackPriceFeedAScale()).to.eq(10n ** 18n);
       expect(await priceFeed.fallbackPriceFeedBScale()).to.eq(10n ** 6n);
+    });
+
+    it("reverts when sequencer is down", async function () {
+      await sequencer.setRoundData(3, 1, await time.latest(), await time.latest(), 3); // Sequencer down
+
+      await expect(priceFeed.latestRoundData()).to.be.revertedWithCustomError(priceFeed, "PriceNotAvailable");
     });
 
     it("updates update time limits", async function () {
@@ -710,6 +843,7 @@ describe("Reverse Multiplicative Price Feed", function () {
       // We can test this indirectly by ensuring no revert with valid decimals
       const validDecimalPriceFeed = await ReverseMultiplicativePriceFeedFactory.deploy(
         dao.address,
+        sequencer.address,
         priceFeedA.address,
         priceFeedB.address,
         fallbackPriceFeedA.address,
@@ -730,6 +864,7 @@ describe("Reverse Multiplicative Price Feed", function () {
     it("should work with maximum valid decimals", async function () {
       const maxDecimalPriceFeed = await ReverseMultiplicativePriceFeedFactory.deploy(
         dao.address,
+        sequencer.address,
         priceFeedA.address,
         priceFeedB.address,
         fallbackPriceFeedA.address,
@@ -888,6 +1023,7 @@ describe("Reverse Multiplicative Price Feed", function () {
     it("reverts when primary price feed A is invalid and no fallback A is set", async function () {
       const priceFeedWithoutFallbackA = await ReverseMultiplicativePriceFeedFactory.deploy(
         dao.address,
+        sequencer.address,
         priceFeedA.address,
         priceFeedB.address,
         ZERO_ADDRESS,
@@ -915,6 +1051,7 @@ describe("Reverse Multiplicative Price Feed", function () {
     it("reverts when primary price feed B is invalid and no fallback B is set", async function () {
       const priceFeedWithoutFallbackB = await ReverseMultiplicativePriceFeedFactory.deploy(
         dao.address,
+        sequencer.address,
         priceFeedA.address,
         priceFeedB.address,
         fallbackPriceFeedA.address,
@@ -997,6 +1134,7 @@ describe("Reverse Multiplicative Price Feed", function () {
 
         eighteenDecimalPriceFeed = await ReverseMultiplicativePriceFeedFactory.deploy(
           dao.address,
+          sequencer.address,
           priceFeedA18.address,
           priceFeedB18.address,
           ZERO_ADDRESS,
@@ -1055,6 +1193,7 @@ describe("Reverse Multiplicative Price Feed", function () {
       beforeEach(async function () {
         eightDecimalPriceFeed = await ReverseMultiplicativePriceFeedFactory.deploy(
           dao.address,
+          sequencer.address,
           priceFeedA.address,
           priceFeedB.address,
           fallbackPriceFeedA.address,
@@ -1118,6 +1257,7 @@ describe("Reverse Multiplicative Price Feed", function () {
 
         const mixedDecimalPriceFeed = await ReverseMultiplicativePriceFeedFactory.deploy(
           dao.address,
+          sequencer.address,
           priceFeedA6.address,
           priceFeedB18.address,
           ZERO_ADDRESS,

@@ -5,14 +5,21 @@ import {
   RateBasedScalingPriceFeed__factory,
   BalancerRateProviderTest,
   BalancerRateProviderTest__factory,
+  ManagedSimplePriceFeed,
+  ManagedSimplePriceFeed__factory,
 } from "../../build/types";
+import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
 describe("Rate Based Scaling Price Feed", function () {
   let snapshot: SnapshotRestorer;
 
+  let dao: SignerWithAddress;
+  let attacker: SignerWithAddress;
+
   // factories
   let RateBasedScalingPriceFeedFactory: RateBasedScalingPriceFeed__factory;
   let BalancerRateProviderTestFactory: BalancerRateProviderTest__factory;
+  let ManagedSimplePriceFeedFactory: ManagedSimplePriceFeed__factory;
 
   const DECIMALS = 8n;
   const UNDERLYING_DECIMALS = 18n;
@@ -21,14 +28,18 @@ describe("Rate Based Scaling Price Feed", function () {
   let underlyingToken: FaucetToken;
   let priceFeed: RateBasedScalingPriceFeed;
   let rateProvider: BalancerRateProviderTest;
+  let sequencer: ManagedSimplePriceFeed;
 
   // Rate provider rate (18 decimals)
   const rateProviderRate = exp(11, 17); // 1.1 rate
   const rateProviderDecimals = 18n;
 
   before(async function () {
+    [dao, attacker] = await ethers.getSigners();
+
     RateBasedScalingPriceFeedFactory = (await ethers.getContractFactory("RateBasedScalingPriceFeed")) as RateBasedScalingPriceFeed__factory;
     BalancerRateProviderTestFactory = (await ethers.getContractFactory("BalancerRateProviderTest")) as BalancerRateProviderTest__factory;
+    ManagedSimplePriceFeedFactory = (await ethers.getContractFactory("ManagedSimplePriceFeed")) as ManagedSimplePriceFeed__factory;
 
     underlyingToken = await makeMockERC20({
       name: "Test Token",
@@ -36,10 +47,16 @@ describe("Rate Based Scaling Price Feed", function () {
       decimals: 18,
     });
 
+    // Sequencer with answer 0 (available)
+    sequencer = await ManagedSimplePriceFeedFactory.deploy(0, 8, underlyingToken.address);
+    await sequencer.deployed();
+
     rateProvider = await BalancerRateProviderTestFactory.deploy(rateProviderRate);
     await rateProvider.deployed();
 
     priceFeed = await RateBasedScalingPriceFeedFactory.deploy(
+      dao.address,
+      sequencer.address,
       rateProvider.address,
       underlyingToken.address,
       UNDERLYING_DECIMALS,
@@ -60,6 +77,44 @@ describe("Rate Based Scaling Price Feed", function () {
       expect(await priceFeed.description()).to.eq(DESCRIPTION);
       expect(await priceFeed.underlyingToken()).to.eq(underlyingToken.address);
       expect(await priceFeed.version()).to.eq(1);
+      expect(await priceFeed.sequencer()).to.eq(sequencer.address);
+      expect(await priceFeed.dao()).to.eq(dao.address);
+    });
+
+    it("emits SequencerUpdated event", async function () {
+      expect(
+        await RateBasedScalingPriceFeedFactory.deploy(
+          dao.address,
+          sequencer.address,
+          rateProvider.address,
+          underlyingToken.address,
+          UNDERLYING_DECIMALS,
+          DECIMALS,
+          DESCRIPTION
+        )
+      )
+        .to.emit(priceFeed, "SequencerUpdated")
+        .withArgs(sequencer.address);
+    });
+
+    it("reverts if sequencer is zero address on non-mainnet", async function () {
+      // Skip on mainnet chain id (1)
+      const currentChainId = await ethers.provider.getNetwork().then(n => n.chainId);
+      if (currentChainId === 1) {
+        this.skip();
+      }
+
+      await expect(
+        RateBasedScalingPriceFeedFactory.deploy(
+          dao.address,
+          ZERO_ADDRESS,
+          rateProvider.address,
+          underlyingToken.address,
+          UNDERLYING_DECIMALS,
+          DECIMALS,
+          DESCRIPTION
+        )
+      ).to.be.revertedWithCustomError(priceFeed, "InvalidSequencer");
     });
 
     it("calculates rescale factor properly for downscaling (18 to 8 decimals)", async function () {
@@ -77,6 +132,8 @@ describe("Rate Based Scaling Price Feed", function () {
       await smallDecimalRateProvider.deployed();
 
       const upscalingPriceFeed = await RateBasedScalingPriceFeedFactory.deploy(
+        dao.address,
+        sequencer.address,
         smallDecimalRateProvider.address,
         underlyingToken.address,
         6, // underlying decimals
@@ -97,6 +154,8 @@ describe("Rate Based Scaling Price Feed", function () {
       await sameDecimalRateProvider.deployed();
 
       const noScalingPriceFeed = await RateBasedScalingPriceFeedFactory.deploy(
+        dao.address,
+        sequencer.address,
         sameDecimalRateProvider.address,
         underlyingToken.address,
         DECIMALS, // same as target decimals
@@ -112,43 +171,93 @@ describe("Rate Based Scaling Price Feed", function () {
 
     it("reverts if underlying price feed is zero address", async function () {
       await expect(
-        RateBasedScalingPriceFeedFactory.deploy(ZERO_ADDRESS, underlyingToken.address, UNDERLYING_DECIMALS, DECIMALS, DESCRIPTION)
+        RateBasedScalingPriceFeedFactory.deploy(
+          dao.address,
+          sequencer.address,
+          ZERO_ADDRESS,
+          underlyingToken.address,
+          UNDERLYING_DECIMALS,
+          DECIMALS,
+          DESCRIPTION
+        )
       ).to.be.revertedWithCustomError(priceFeed, "ZeroAddress");
     });
 
     it("reverts if underlying token is zero address", async function () {
       await expect(
-        RateBasedScalingPriceFeedFactory.deploy(rateProvider.address, ZERO_ADDRESS, UNDERLYING_DECIMALS, DECIMALS, DESCRIPTION)
+        RateBasedScalingPriceFeedFactory.deploy(
+          dao.address,
+          sequencer.address,
+          rateProvider.address,
+          ZERO_ADDRESS,
+          UNDERLYING_DECIMALS,
+          DECIMALS,
+          DESCRIPTION
+        )
       ).to.be.revertedWithCustomError(priceFeed, "ZeroAddress");
     });
 
     it("reverts if decimals is zero", async function () {
       await expect(
-        RateBasedScalingPriceFeedFactory.deploy(rateProvider.address, underlyingToken.address, UNDERLYING_DECIMALS, 0, DESCRIPTION)
+        RateBasedScalingPriceFeedFactory.deploy(
+          dao.address,
+          sequencer.address,
+          rateProvider.address,
+          underlyingToken.address,
+          UNDERLYING_DECIMALS,
+          0,
+          DESCRIPTION
+        )
       ).to.be.revertedWithCustomError(priceFeed, "BadDecimals");
     });
 
     it("reverts if decimals is greater than 18", async function () {
       await expect(
-        RateBasedScalingPriceFeedFactory.deploy(rateProvider.address, underlyingToken.address, UNDERLYING_DECIMALS, 19, DESCRIPTION)
+        RateBasedScalingPriceFeedFactory.deploy(
+          dao.address,
+          sequencer.address,
+          rateProvider.address,
+          underlyingToken.address,
+          UNDERLYING_DECIMALS,
+          19,
+          DESCRIPTION
+        )
       ).to.be.revertedWithCustomError(priceFeed, "BadDecimals");
     });
 
     it("reverts if underlying decimals is zero", async function () {
       await expect(
-        RateBasedScalingPriceFeedFactory.deploy(rateProvider.address, underlyingToken.address, 0, DECIMALS, DESCRIPTION)
+        RateBasedScalingPriceFeedFactory.deploy(
+          dao.address,
+          sequencer.address,
+          rateProvider.address,
+          underlyingToken.address,
+          0,
+          DECIMALS,
+          DESCRIPTION
+        )
       ).to.be.revertedWithCustomError(priceFeed, "BadDecimals");
     });
 
     it("reverts if underlying decimals is greater than 18", async function () {
       await expect(
-        RateBasedScalingPriceFeedFactory.deploy(rateProvider.address, underlyingToken.address, 19, DECIMALS, DESCRIPTION)
+        RateBasedScalingPriceFeedFactory.deploy(
+          dao.address,
+          sequencer.address,
+          rateProvider.address,
+          underlyingToken.address,
+          19,
+          DECIMALS,
+          DESCRIPTION
+        )
       ).to.be.revertedWithCustomError(priceFeed, "BadDecimals");
     });
 
     describe("different decimal configurations", function () {
       it("works with 6 decimals output", async function () {
         const sixDecimalPriceFeed = await RateBasedScalingPriceFeedFactory.deploy(
+          dao.address,
+          sequencer.address,
           rateProvider.address,
           underlyingToken.address,
           UNDERLYING_DECIMALS,
@@ -166,6 +275,8 @@ describe("Rate Based Scaling Price Feed", function () {
 
       it("works with 18 decimals output (no scaling)", async function () {
         const eighteenDecimalPriceFeed = await RateBasedScalingPriceFeedFactory.deploy(
+          dao.address,
+          sequencer.address,
           rateProvider.address,
           underlyingToken.address,
           UNDERLYING_DECIMALS,
@@ -186,6 +297,8 @@ describe("Rate Based Scaling Price Feed", function () {
         await lowDecimalRateProvider.deployed();
 
         const upscalingPriceFeed = await RateBasedScalingPriceFeedFactory.deploy(
+          dao.address,
+          sequencer.address,
           lowDecimalRateProvider.address,
           underlyingToken.address,
           6,
@@ -202,6 +315,59 @@ describe("Rate Based Scaling Price Feed", function () {
     });
   });
 
+  describe("setSequencer", function () {
+    it("updates sequencer address", async function () {
+      const newSequencer = await ManagedSimplePriceFeedFactory.deploy(0, 8, underlyingToken.address);
+      await newSequencer.deployed();
+
+      await priceFeed.connect(dao).setSequencer(newSequencer.address);
+
+      expect(await priceFeed.sequencer()).to.eq(newSequencer.address);
+    });
+
+    it("emits SequencerUpdated event", async function () {
+      const newSequencer = await ManagedSimplePriceFeedFactory.deploy(0, 8, underlyingToken.address);
+      await newSequencer.deployed();
+
+      await expect(priceFeed.connect(dao).setSequencer(newSequencer.address))
+        .to.emit(priceFeed, "SequencerUpdated")
+        .withArgs(newSequencer.address);
+    });
+
+    it("allows setting sequencer to zero address on mainnet", async function () {
+      // we'll skip this test if not on mainnet
+      const currentChainId = await ethers.provider.getNetwork().then(n => n.chainId);
+      if (currentChainId !== 1) {
+        this.skip();
+      }
+
+      await priceFeed.connect(dao).setSequencer(ZERO_ADDRESS);
+      expect(await priceFeed.sequencer()).to.eq(ZERO_ADDRESS);
+    });
+
+    it("reverts if caller is not dao", async function () {
+      const newSequencer = await ManagedSimplePriceFeedFactory.deploy(0, 8, underlyingToken.address);
+      await newSequencer.deployed();
+
+      await expect(priceFeed.connect(attacker).setSequencer(newSequencer.address)).to.be.revertedWithCustomError(priceFeed, "NotDao");
+    });
+
+    it("reverts if sequencer is zero address on non-mainnet", async function () {
+      const currentChainId = await ethers.provider.getNetwork().then(n => n.chainId);
+      if (currentChainId === 1) {
+        this.skip();
+      }
+
+      await expect(priceFeed.connect(dao).setSequencer(ZERO_ADDRESS)).to.be.revertedWithCustomError(priceFeed, "InvalidSequencer");
+    });
+
+    it("reverts if current sequencer is a new one", async function () {
+      const newSequencer = sequencer.address;
+
+      await expect(priceFeed.setSequencer(newSequencer)).to.be.revertedWithCustomError(priceFeed, "InvalidSequencer");
+    });
+  });
+
   describe("latestRoundData", function () {
     it("returns scaled rate from rate provider when rate is valid", async function () {
       const timeNow = await time.latest();
@@ -212,6 +378,12 @@ describe("Rate Based Scaling Price Feed", function () {
       expect(startedAt).to.eq(timeNow);
       expect(updatedAt).to.eq(timeNow);
       expect(answeredInRound).to.eq(1);
+    });
+
+    it("reverts when sequencer is down", async function () {
+      await sequencer.setRoundData(3, 1, await time.latest(), await time.latest(), 3); // Sequencer down
+
+      await expect(priceFeed.latestRoundData()).to.be.revertedWithCustomError(priceFeed, "PriceNotAvailable");
     });
 
     it("returns current block timestamp for startedAt and updatedAt", async function () {
@@ -282,6 +454,8 @@ describe("Rate Based Scaling Price Feed", function () {
 
       beforeEach(async function () {
         eighteenDecimalPriceFeed = await RateBasedScalingPriceFeedFactory.deploy(
+          dao.address,
+          sequencer.address,
           rateProvider.address,
           underlyingToken.address,
           UNDERLYING_DECIMALS,
@@ -406,6 +580,8 @@ describe("Rate Based Scaling Price Feed", function () {
       await lowDecimalRateProvider.deployed();
 
       const upscalingPriceFeed = await RateBasedScalingPriceFeedFactory.deploy(
+        dao.address,
+        sequencer.address,
         lowDecimalRateProvider.address,
         underlyingToken.address,
         6, // underlying decimals
@@ -434,6 +610,8 @@ describe("Rate Based Scaling Price Feed", function () {
       await sameDecimalRateProvider.deployed();
 
       const noScalingPriceFeed = await RateBasedScalingPriceFeedFactory.deploy(
+        dao.address,
+        sequencer.address,
         sameDecimalRateProvider.address,
         underlyingToken.address,
         DECIMALS, // same as target

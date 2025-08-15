@@ -1,6 +1,14 @@
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { ethers, exp, expect, makeMockERC20, time, SnapshotRestorer, takeSnapshot, ZERO_ADDRESS } from "../helper/helpers";
-import { FaucetToken, ScalingPriceFeed, ScalingPriceFeed__factory, SimplePriceFeed, SimplePriceFeed__factory } from "../../build/types";
+import {
+  FaucetToken,
+  ScalingPriceFeed,
+  ScalingPriceFeed__factory,
+  SimplePriceFeed,
+  SimplePriceFeed__factory,
+  ManagedSimplePriceFeed,
+  ManagedSimplePriceFeed__factory,
+} from "../../build/types";
 
 describe("Scaling Price Feed", function () {
   let snapshot: SnapshotRestorer;
@@ -8,6 +16,7 @@ describe("Scaling Price Feed", function () {
   // factories
   let ScalingPriceFeedFactory: ScalingPriceFeed__factory;
   let SimplePriceFeed: SimplePriceFeed__factory;
+  let ManagedSimplePriceFeedFactory: ManagedSimplePriceFeed__factory;
 
   let dao: SignerWithAddress;
   let attacker: SignerWithAddress;
@@ -21,6 +30,7 @@ describe("Scaling Price Feed", function () {
   let priceFeed: ScalingPriceFeed;
   let underlyingPriceFeed: SimplePriceFeed;
   let fallbackPriceFeed: SimplePriceFeed;
+  let sequencer: ManagedSimplePriceFeed;
 
   // Underlying price feed
   const underlyingPriceFeedPrice = exp(3500, 18);
@@ -35,12 +45,17 @@ describe("Scaling Price Feed", function () {
 
     ScalingPriceFeedFactory = (await ethers.getContractFactory("ScalingPriceFeed")) as ScalingPriceFeed__factory;
     SimplePriceFeed = (await ethers.getContractFactory("SimplePriceFeed")) as SimplePriceFeed__factory;
+    ManagedSimplePriceFeedFactory = (await ethers.getContractFactory("ManagedSimplePriceFeed")) as ManagedSimplePriceFeed__factory;
 
     underlyingToken = await makeMockERC20({
       name: "Token",
       symbol: "TKN",
       decimals: 18,
     });
+
+    // Sequencer with answer 0 (available)
+    sequencer = await ManagedSimplePriceFeedFactory.deploy(0, 8, underlyingToken.address);
+    await sequencer.deployed();
 
     underlyingPriceFeed = await SimplePriceFeed.deploy(underlyingPriceFeedPrice, underlyingPriceFeedDecimals, underlyingToken.address);
     await underlyingPriceFeed.deployed();
@@ -50,6 +65,7 @@ describe("Scaling Price Feed", function () {
 
     priceFeed = await ScalingPriceFeedFactory.deploy(
       dao.address,
+      sequencer.address,
       underlyingPriceFeed.address,
       fallbackPriceFeed.address,
       underlyingToken.address,
@@ -76,6 +92,26 @@ describe("Scaling Price Feed", function () {
       expect(await priceFeed.description()).to.eq(DESCRIPTION);
       expect(await priceFeed.underlyingToken()).to.eq(underlyingToken.address);
       expect(await priceFeed.version()).to.eq(1);
+      expect(await priceFeed.sequencer()).to.eq(sequencer.address);
+      expect(await priceFeed.dao()).to.eq(dao.address);
+    });
+
+    it("emits SequencerUpdated event", async function () {
+      expect(
+        await ScalingPriceFeedFactory.deploy(
+          dao.address,
+          sequencer.address,
+          underlyingPriceFeed.address,
+          fallbackPriceFeed.address,
+          underlyingToken.address,
+          UPDATE_TIME_LIMIT,
+          FALLBACK_UPDATE_TIME_LIMIT,
+          DECIMALS,
+          DESCRIPTION
+        )
+      )
+        .to.emit(priceFeed, "SequencerUpdated")
+        .withArgs(sequencer.address);
     });
 
     it("sets rescale factors properly", async function () {
@@ -89,9 +125,32 @@ describe("Scaling Price Feed", function () {
       expect(fallbackRescaleFactor).to.eq(expectedFallbackRescaleFactor);
     });
 
+    it("reverts if sequencer is zero address on non-mainnet", async function () {
+      // Skip on mainnet chain id (1)
+      const currentChainId = await ethers.provider.getNetwork().then(n => n.chainId);
+      if (currentChainId === 1) {
+        this.skip();
+      }
+
+      await expect(
+        ScalingPriceFeedFactory.deploy(
+          dao.address,
+          ZERO_ADDRESS,
+          underlyingPriceFeed.address,
+          fallbackPriceFeed.address,
+          underlyingToken.address,
+          UPDATE_TIME_LIMIT,
+          FALLBACK_UPDATE_TIME_LIMIT,
+          DECIMALS,
+          DESCRIPTION
+        )
+      ).to.be.revertedWithCustomError(priceFeed, "InvalidSequencer");
+    });
+
     it("fallback rescale factor is 0 if fallback price feed is not set", async function () {
       const priceFeedWithoutFallback = await ScalingPriceFeedFactory.deploy(
         dao.address,
+        sequencer.address,
         underlyingPriceFeed.address,
         ZERO_ADDRESS,
         underlyingToken.address,
@@ -109,6 +168,7 @@ describe("Scaling Price Feed", function () {
       await expect(
         ScalingPriceFeedFactory.deploy(
           dao.address,
+          sequencer.address,
           ZERO_ADDRESS,
           fallbackPriceFeed.address,
           underlyingToken.address,
@@ -124,6 +184,7 @@ describe("Scaling Price Feed", function () {
       await expect(
         ScalingPriceFeedFactory.deploy(
           dao.address,
+          sequencer.address,
           underlyingPriceFeed.address,
           fallbackPriceFeed.address,
           ZERO_ADDRESS,
@@ -139,6 +200,7 @@ describe("Scaling Price Feed", function () {
       await expect(
         ScalingPriceFeedFactory.deploy(
           dao.address,
+          sequencer.address,
           underlyingPriceFeed.address,
           fallbackPriceFeed.address,
           underlyingToken.address,
@@ -154,6 +216,7 @@ describe("Scaling Price Feed", function () {
       await expect(
         ScalingPriceFeedFactory.deploy(
           dao.address,
+          sequencer.address,
           underlyingPriceFeed.address,
           fallbackPriceFeed.address,
           underlyingToken.address,
@@ -168,6 +231,7 @@ describe("Scaling Price Feed", function () {
     it("allows to set fallback update time limit to zero if fallback price feed is not set", async function () {
       const priceFeedWithoutFallback = await ScalingPriceFeedFactory.deploy(
         dao.address,
+        sequencer.address,
         underlyingPriceFeed.address,
         ZERO_ADDRESS,
         underlyingToken.address,
@@ -184,6 +248,7 @@ describe("Scaling Price Feed", function () {
     it("allows to set fallback update time limit to zero if fallback price feed is not set", async function () {
       const priceFeedWithoutFallback = await ScalingPriceFeedFactory.deploy(
         dao.address,
+        sequencer.address,
         underlyingPriceFeed.address,
         ZERO_ADDRESS,
         underlyingToken.address,
@@ -201,6 +266,7 @@ describe("Scaling Price Feed", function () {
       await expect(
         ScalingPriceFeedFactory.deploy(
           dao.address,
+          sequencer.address,
           underlyingPriceFeed.address,
           fallbackPriceFeed.address,
           underlyingToken.address,
@@ -216,6 +282,7 @@ describe("Scaling Price Feed", function () {
       await expect(
         ScalingPriceFeedFactory.deploy(
           dao.address,
+          sequencer.address,
           underlyingPriceFeed.address,
           fallbackPriceFeed.address,
           underlyingToken.address,
@@ -225,6 +292,59 @@ describe("Scaling Price Feed", function () {
           DESCRIPTION
         )
       ).to.be.revertedWithCustomError(priceFeed, "BadDecimals");
+    });
+  });
+
+  describe("setSequencer", function () {
+    it("updates sequencer address", async function () {
+      const newSequencer = await ManagedSimplePriceFeedFactory.deploy(0, 8, underlyingToken.address);
+      await newSequencer.deployed();
+
+      await priceFeed.connect(dao).setSequencer(newSequencer.address);
+
+      expect(await priceFeed.sequencer()).to.eq(newSequencer.address);
+    });
+
+    it("emits SequencerUpdated event", async function () {
+      const newSequencer = await ManagedSimplePriceFeedFactory.deploy(0, 8, underlyingToken.address);
+      await newSequencer.deployed();
+
+      await expect(priceFeed.connect(dao).setSequencer(newSequencer.address))
+        .to.emit(priceFeed, "SequencerUpdated")
+        .withArgs(newSequencer.address);
+    });
+
+    it("allows setting sequencer to zero address on mainnet", async function () {
+      // we'll skip this test if not on mainnet
+      const currentChainId = await ethers.provider.getNetwork().then(n => n.chainId);
+      if (currentChainId !== 1) {
+        this.skip();
+      }
+
+      await priceFeed.connect(dao).setSequencer(ZERO_ADDRESS);
+      expect(await priceFeed.sequencer()).to.eq(ZERO_ADDRESS);
+    });
+
+    it("reverts if caller is not dao", async function () {
+      const newSequencer = await ManagedSimplePriceFeedFactory.deploy(0, 8, underlyingToken.address);
+      await newSequencer.deployed();
+
+      await expect(priceFeed.connect(attacker).setSequencer(newSequencer.address)).to.be.revertedWithCustomError(priceFeed, "NotDao");
+    });
+
+    it("reverts if sequencer is zero address on non-mainnet", async function () {
+      const currentChainId = await ethers.provider.getNetwork().then(n => n.chainId);
+      if (currentChainId === 1) {
+        this.skip();
+      }
+
+      await expect(priceFeed.connect(dao).setSequencer(ZERO_ADDRESS)).to.be.revertedWithCustomError(priceFeed, "InvalidSequencer");
+    });
+
+    it("reverts if current sequencer is a new one", async function () {
+      const newSequencer = sequencer.address;
+
+      await expect(priceFeed.setSequencer(newSequencer)).to.be.revertedWithCustomError(priceFeed, "InvalidSequencer");
     });
   });
 
@@ -343,6 +463,12 @@ describe("Scaling Price Feed", function () {
       expect(answeredInRound).to.eq(1);
     });
 
+    it("reverts when sequencer is down", async function () {
+      await sequencer.setRoundData(3, 1, await time.latest(), await time.latest(), 3); // Sequencer down
+
+      await expect(priceFeed.latestRoundData()).to.be.revertedWithCustomError(priceFeed, "PriceNotAvailable");
+    });
+
     it("returns scaled price from fallback price feed when underlying price is zero", async function () {
       const currentTime = await time.latest();
       await underlyingPriceFeed.setRoundData(1, 0, currentTime, currentTime, 1);
@@ -447,6 +573,7 @@ describe("Scaling Price Feed", function () {
 
       const scalingPriceFeed = await ScalingPriceFeedFactory.deploy(
         dao.address,
+        sequencer.address,
         lowDecimalsPriceFeed.address,
         ZERO_ADDRESS,
         underlyingToken.address,
