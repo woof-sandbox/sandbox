@@ -130,7 +130,15 @@ _The positive present supply balance if positive or the negative borrow balance 
 function presentValueSupply(uint64 baseSupplyIndex_, uint104 principalValue_) internal pure returns (uint256)
 ```
 
-_The principal amount projected forward by the supply index_
+_The principal amount projected forward by the supply index
+Performs calculation in uint256, increasing the type for intermediate result to avoid overflow in uint104
+uint104 is approx (2*1e48), so 100bln supply (1e11*1e18) with full index (approx 1e4*1e15) may cause overflow_
+
+#### Return Values
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| [0] | uint256 | _ Total supply as present value (in tokens). uint256 return type is kept for compatibility with ERC20 balance types and for ease internal conversions. But in can be safely shortened to uint104 |
 
 ### presentValueBorrow
 
@@ -138,7 +146,15 @@ _The principal amount projected forward by the supply index_
 function presentValueBorrow(uint64 baseBorrowIndex_, uint104 principalValue_) internal pure returns (uint256)
 ```
 
-_The principal amount projected forward by the borrow index_
+_The principal amount projected forward by the borrow index
+Performs calculation in uint256, increasing the type for intermediate result to avoid overflow in uint104
+uint104 is approx (2*1e48), so 100bln supply (1e11*1e18) with full index (approx 1e4*1e15) may cause overflow_
+
+#### Return Values
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| [0] | uint256 | _ Total borrow as present value (in tokens). uint256 return type is kept for compatibility with ERC20 balance types and for ease internal conversions. But in can be safely shortened to uint104 |
 
 ### principalValue
 

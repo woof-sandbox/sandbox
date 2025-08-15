@@ -407,7 +407,7 @@ Validates an interest rate curve configuration.
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-| curve | struct ISandboxController.BaseAssetCurve | The interest rate curve configuration to validate. |
+| curve | struct ISandboxController.BaseAssetCurve | The interest rate curve configuration to validate. Contains parameters in per year units |
 
 #### Return Values
 

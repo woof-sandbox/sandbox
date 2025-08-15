@@ -413,22 +413,101 @@ contract SandboxController is ISandboxController {
 
     /**
      * @notice Validates an interest rate curve configuration.
-     * @param curve The interest rate curve configuration to validate.
+     * @param curve The interest rate curve configuration to validate. Contains parameters in per year units
      * @return True if valid, false otherwise.
      */
     function isCurveConfigurationValid(BaseAssetCurve memory curve) public pure override returns (bool) {
-        /// TODO: update validations to have borrow curve higher than supply curve
-        if (curve.supplyKink == 0 || curve.borrowKink == 0 || curve.supplyKink >= PARAMETERS_SCALE || curve.borrowKink >= PARAMETERS_SCALE)
-            return false;
+        /**
+         * Note: The protocol can support different sub-types of interest curves:
+         * - base rate (for both supply and borrow) can be set to 0 to have curves with no boost for 0 utilization;
+         * - both slopes can be set to 0 to discourage any side of the utilization or to have flat rate;
+         * - kink can be set to 0 to have one-slope curve, or can be set to 100% to have curve that works in
+         *   over-utilization segment;
+         * - kinks for supply and borrow curves can be different;
+         * - slopes can have different angles to have convex or concave curves
+         *
+         * For the limitations:
+         * - borrow curve should always be higher than supply curve to ensure that supply rate is fully paid by interest
+         * - there should be a reasonable limit for the kink to avoid under-incentivised overutilization
+         */
 
-        if (
-            curve.supplyPerYearInterestRateSlopeLow == 0 ||
-            curve.supplyPerYearInterestRateSlopeHigh == 0 ||
-            curve.supplyPerYearInterestRateBase == 0 ||
-            curve.borrowPerYearInterestRateSlopeLow == 0 ||
-            curve.borrowPerYearInterestRateSlopeHigh == 0 ||
-            curve.borrowPerYearInterestRateBase == 0
-        ) return false;
+        // separate variables because of prettier and solhint
+        uint256 supplySlopeLow = uint256(curve.supplyPerYearInterestRateSlopeLow);
+        uint256 borrowSlopeLow = uint256(curve.borrowPerYearInterestRateSlopeLow);
+        uint256 supplySlopeHigh = uint256(curve.supplyPerYearInterestRateSlopeHigh);
+        uint256 borrowSlopeHigh = uint256(curve.borrowPerYearInterestRateSlopeHigh);
+
+        /// kink utilization cannot exceed 100%
+        if (curve.supplyKink > PARAMETERS_SCALE || curve.borrowKink > PARAMETERS_SCALE) return false;
+
+        /// Borrow interest curve should be above the supply curve at any point
+
+        /// 1) cannot have supply base rate > borrow base rate, as it will create deficit from the start
+        ///    so we validate that borrow curve starting point is higher than supply curve starting point
+        if (curve.supplyPerYearInterestRateBase > curve.borrowPerYearInterestRateBase) return false;
+
+        /// calculate break points for both curves. We operate in uint256 to avoid overflow in uint64
+        /// and we can safely cast back to uint64, as the result is scaled back to uint64 size
+
+        // y_breakpoint = supplyBase + supplyLowSlope * x
+        // where x = supplyKink (rightmost point of the low slope part of the curve)
+        uint256 intermediateSupplyPoint = (supplySlopeLow * uint256(curve.supplyKink)) / PARAMETERS_SCALE;
+        uint64 supplyBreakPoint = curve.supplyPerYearInterestRateBase + uint64(intermediateSupplyPoint);
+
+        // y_breakpoint = borrowBase + borrowLowSlope * x
+        // where x = borrowKink (rightmost point of the low slope part of the curve)
+        uint256 intermediateBorrowPoint = (borrowSlopeLow * uint256(curve.borrowKink)) / PARAMETERS_SCALE;
+        uint64 borrowBreakPoint = curve.borrowPerYearInterestRateBase + uint64(intermediateBorrowPoint);
+
+        /// 2) borrow curve break point must always be higher than supplies one
+        if (supplyBreakPoint > borrowBreakPoint) {
+            /// 2.1) If supply curve break point has offset to the left and is higher than the borrow's one
+            ///      than left segments intersect, and borrow interest does not cover supply interest
+            if (curve.supplyKink <= curve.borrowKink) {
+                // supply left part intersects borrow left part
+                return false;
+            } else {
+                /// 2.2) There are some edge-cases where supply break point can be higher than borrows:
+                ///      - with supply kink offset to the right and larger angle of borrow high slope.
+                /// So we walidate, that this break point is not above the right segment of borrow interest curve.
+
+                // y = borrowBase + borrowLowSlope * borrowKink + borrowHighSlope * (x - borrowKink)
+                // where x = supplyKink (as we check borrow curve value at supply curve break point)
+                intermediateBorrowPoint = (borrowSlopeHigh * uint256(curve.supplyKink - curve.borrowKink)) / PARAMETERS_SCALE;
+                uint64 borrowHighPoint = borrowBreakPoint + uint64(intermediateBorrowPoint);
+
+                // supply left part intersects borrow right part
+                if (supplyBreakPoint > borrowHighPoint) return false;
+            }
+        } else {
+            /// 2.3) At this point we ensured left segment of supply curve does not intersect left segment of borrow curve
+            ///      But there can be a situation, when supply kink is tilted to the left, and supply high slope has angle
+            ///      high enough, that the right part of supply curve will intersect left part of borrow curve
+            if (curve.supplyKink <= curve.borrowKink) {
+                // y = supplyBase + supplyLowSlope * supplyKink + supplyHighSlope * (x - supplyKink)
+                // where x = borrwKink (as we check supply curve value at borrow curve break point)
+                intermediateSupplyPoint = (supplySlopeHigh * uint256(curve.borrowKink - curve.supplyKink)) / PARAMETERS_SCALE;
+                uint64 supplyHighPoint = supplyBreakPoint + uint64(intermediateSupplyPoint);
+
+                // supply right part intersects borrow left part
+                if (supplyHighPoint > borrowBreakPoint) return false;
+            }
+            /// else case is checked further as it refers to the intersection of high slopes
+        }
+
+        /// 3) The last thing to check - that right segment of supply curve does not intersect right segment
+        ///    of borrow curve (borrow in interest covers supply interest in over-utilization area).
+        /// We set as a possible limit 200% utilization, and check the rightmost points of curves.
+
+        // y = supplyBase + supplyLowSlope * supplyKink + supplyHighSlope * (x - supplyKink)
+        // where x = 200%
+        intermediateSupplyPoint = (supplySlopeHigh * uint256(2 * PARAMETERS_SCALE - curve.supplyKink)) / PARAMETERS_SCALE;
+        intermediateBorrowPoint = (borrowSlopeHigh * uint256(2 * PARAMETERS_SCALE - curve.borrowKink)) / PARAMETERS_SCALE;
+        uint64 supplyRightPoint = supplyBreakPoint + uint64(intermediateSupplyPoint);
+        uint64 borrowRightPoint = borrowBreakPoint + uint64(intermediateBorrowPoint);
+
+        // supply right part intersects borrow right part
+        if (supplyRightPoint > borrowRightPoint) return false;
 
         return true;
     }
