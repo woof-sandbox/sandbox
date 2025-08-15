@@ -328,25 +328,16 @@ contract SandboxController is ISandboxController {
         (, int256 answer, , , ) = IPriceFeed(priceFeed).latestRoundData(); // aderyn-fp(reentrancy-state-change)
         if (answer <= 0) revert InvalidPriceFeed();
 
-        /// @dev Validates that all collateral factor parameters are within allowed ranges and maintain logical relationships:
-        /// - 10% <= minBorrowCollateralFactor <= minLiquidateCollateralFactor <= minLiquidationFactor <= 100%
-        /// - maxBorrowCollateralFactor <= maxLiquidateCollateralFactor <= maxLiquidationFactor <= 100%
-        /// - min <= max for each factor
-        if (
-            minBorrowCollateralFactor < MIN_FACTOR ||
-            minBorrowCollateralFactor > minLiquidateCollateralFactor ||
-            minLiquidateCollateralFactor > minLiquidationFactor ||
-            maxBorrowCollateralFactor > maxLiquidateCollateralFactor ||
-            maxLiquidateCollateralFactor > maxLiquidationFactor ||
-            maxLiquidationFactor > PARAMETERS_SCALE ||
-            minBorrowCollateralFactor > maxBorrowCollateralFactor ||
-            minLiquidateCollateralFactor > maxLiquidateCollateralFactor ||
-            minLiquidationFactor > maxLiquidationFactor
-        ) revert InvalidFactors();
+        _validateCollateralFactors(
+            minBorrowCollateralFactor,
+            maxBorrowCollateralFactor,
+            minLiquidateCollateralFactor,
+            maxLiquidateCollateralFactor,
+            minLiquidationFactor,
+            maxLiquidationFactor
+        );
 
-        if (supplyCap == 0) revert SupplyCapCantBeZero();
-        uint256 totalSupply = IERC20Metadata(token).totalSupply(); // aderyn-fp(reentrancy-state-change)
-        if (supplyCap > (totalSupply * MAX_SUPPLY_CAP_PERCENT) / 1e18) revert SupplyCapTooHigh();
+        _validateSupplyCap(token, supplyCap);
 
         tokenToPriceFeed[token] = priceFeed;
 
@@ -402,25 +393,16 @@ contract SandboxController is ISandboxController {
 
         if (assetConfig.collateralToken == address(0)) revert CollateralTokenNotWhitelisted();
 
-        /// @dev Validates that all collateral factor parameters are within allowed ranges and maintain logical relationships:
-        /// - 10% <= minBorrowCollateralFactor <= minLiquidateCollateralFactor <= minLiquidationFactor <= 100%
-        /// - maxBorrowCollateralFactor <= maxLiquidateCollateralFactor <= maxLiquidationFactor <= 100%
-        /// - min <= max for each factor
-        if (
-            minBorrowCollateralFactor < MIN_FACTOR ||
-            minBorrowCollateralFactor > minLiquidateCollateralFactor ||
-            minLiquidateCollateralFactor > minLiquidationFactor ||
-            maxBorrowCollateralFactor > maxLiquidateCollateralFactor ||
-            maxLiquidateCollateralFactor > maxLiquidationFactor ||
-            maxLiquidationFactor > PARAMETERS_SCALE ||
-            minBorrowCollateralFactor > maxBorrowCollateralFactor ||
-            minLiquidateCollateralFactor > maxLiquidateCollateralFactor ||
-            minLiquidationFactor > maxLiquidationFactor
-        ) revert InvalidFactors();
+        _validateCollateralFactors(
+            minBorrowCollateralFactor,
+            maxBorrowCollateralFactor,
+            minLiquidateCollateralFactor,
+            maxLiquidateCollateralFactor,
+            minLiquidationFactor,
+            maxLiquidationFactor
+        );
 
-        if (supplyCap == 0) revert SupplyCapCantBeZero();
-        uint256 totalSupply = IERC20Metadata(token).totalSupply(); // aderyn-fp(reentrancy-state-change)
-        if (supplyCap > (totalSupply * MAX_SUPPLY_CAP_PERCENT) / 1e18) revert SupplyCapTooHigh();
+        _validateSupplyCap(token, supplyCap);
 
         assetConfig.minBorrowCollateralFactor = minBorrowCollateralFactor;
         assetConfig.maxBorrowCollateralFactor = maxBorrowCollateralFactor;
@@ -657,5 +639,48 @@ contract SandboxController is ISandboxController {
      */
     function baseTokenSuggestedSeedReserves(address token) external view returns (uint256, uint40) {
         return (suggestedAmountOfSeedReserves[token], suggestedLockTimeOfSeedReserves[token]);
+    }
+
+    /**
+     * @dev Validates collateral factor parameters for whitelisting and updating collateral assets.
+     * @param minBorrowCollateralFactor The minimum borrow collateral factor (scaled by 1e18).
+     * @param maxBorrowCollateralFactor The maximum borrow collateral factor (scaled by 1e18).
+     * @param minLiquidateCollateralFactor The minimum liquidate collateral factor (scaled by 1e18).
+     * @param maxLiquidateCollateralFactor The maximum liquidate collateral factor (scaled by 1e18).
+     * @param minLiquidationFactor The minimum liquidation factor (scaled by 1e18).
+     * @param maxLiquidationFactor The maximum liquidation factor (scaled by 1e18).
+     */
+    function _validateCollateralFactors(
+        uint64 minBorrowCollateralFactor,
+        uint64 maxBorrowCollateralFactor,
+        uint64 minLiquidateCollateralFactor,
+        uint64 maxLiquidateCollateralFactor,
+        uint64 minLiquidationFactor,
+        uint64 maxLiquidationFactor
+    ) private pure {
+        /// - 10% <= minBorrowCollateralFactor <= minLiquidateCollateralFactor <= minLiquidationFactor <= 100%
+        /// - maxBorrowCollateralFactor <= maxLiquidateCollateralFactor <= maxLiquidationFactor <= 100%
+        /// - min <= max for each factor
+        if (
+            minBorrowCollateralFactor < MIN_FACTOR ||
+            minBorrowCollateralFactor > minLiquidateCollateralFactor ||
+            minLiquidateCollateralFactor > minLiquidationFactor ||
+            maxBorrowCollateralFactor > maxLiquidateCollateralFactor ||
+            maxLiquidateCollateralFactor > maxLiquidationFactor ||
+            maxLiquidationFactor > PARAMETERS_SCALE ||
+            minBorrowCollateralFactor > maxBorrowCollateralFactor ||
+            minLiquidateCollateralFactor > maxLiquidateCollateralFactor ||
+            minLiquidationFactor > maxLiquidationFactor
+        ) revert InvalidFactors();
+    }
+
+    /**
+     * @dev Validates supply cap for collateral assets.
+     * @param token The address of the collateral asset token.
+     * @param supplyCap The supply cap to validate.
+     */
+    function _validateSupplyCap(address token, uint256 supplyCap) private view {
+        if (supplyCap == 0) revert SupplyCapCantBeZero();
+        if (supplyCap > (IERC20Metadata(token).totalSupply() * MAX_SUPPLY_CAP_PERCENT) / 1e18) revert SupplyCapTooHigh();
     }
 }
