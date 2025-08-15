@@ -3,18 +3,17 @@ pragma solidity 0.8.28;
 
 import { IPriceFeed } from "contracts/interfaces/IPriceFeed.sol";
 import { IRateProvider } from "contracts/interfaces/IRateProvider.sol";
+import { AccessControl } from "contracts/pricefeeds/AccessControl.sol";
+import { AggregatorV3Interface } from "contracts/interfaces/AggregatorV3Interface.sol";
 
 /**
  * @title Scaling price feed for rate based oracles
  * @notice A custom price feed that scales up or down the price received from an underlying price feed and returns the result
  * @author Compound
  */
-contract RateBasedScalingPriceFeed is IPriceFeed {
+contract RateBasedScalingPriceFeed is AccessControl, IPriceFeed {
     /// @notice Version of the price feed
     uint256 public constant version = 1;
-
-    /// @notice Description of the price feed
-    string public description;
 
     /// @notice Number of decimals for returned prices
     uint8 public immutable override decimals;
@@ -31,14 +30,34 @@ contract RateBasedScalingPriceFeed is IPriceFeed {
     /// @notice The underlying token
     address public immutable override underlyingToken;
 
-    /** Custom errors **/
+    /// @notice Description of the price feed
+    string public description;
+
+    /// @notice The Chainlink sequencer address
+    address public sequencer;
+
+    /**
+     * @notice Emitted when the sequencer address is updated.
+     * @param newSequencer The address of the new sequencer.
+     */
+    event SequencerUpdated(address indexed newSequencer);
+
+    /// @notice Reverts if the uint256 value is over the int256 max value
     error InvalidInt256();
+
+    /// @notice Reverts if the decimals are greater than 18 or equal to 0
     error BadDecimals();
-    error ZeroAddress();
+
+    /// @dev Reverts if the sequencer is invalid.
+    error InvalidSequencer();
+
+    /// @notice Reverts if the price is not available
     error PriceNotAvailable();
 
     /**
      * @notice Construct a new scaling price feed
+     * @param dao_ The address of the DAO
+     * @param sequencer_ The address of the Chainlink sequencer
      * @param underlyingPriceFeed_ The address of the underlying price feed to fetch prices from
      * @param decimals_ The number of decimals for the returned prices
      * @param underlyingDecimals_ The number of decimals for the underlying price feed
@@ -46,14 +65,17 @@ contract RateBasedScalingPriceFeed is IPriceFeed {
      * @param underlyingToken_ The address of the underlying token
      **/
     constructor(
+        address dao_,
+        address sequencer_,
         address underlyingPriceFeed_,
         address underlyingToken_,
         uint8 underlyingDecimals_,
         uint8 decimals_,
         string memory description_
-    ) {
+    ) AccessControl(dao_) {
         if (underlyingPriceFeed_ == address(0) || underlyingToken_ == address(0)) revert ZeroAddress();
         if (decimals_ == 0 || decimals_ > 18 || underlyingDecimals_ == 0 || underlyingDecimals_ > 18) revert BadDecimals();
+        _validateAndSetSequencer(sequencer_);
 
         underlyingPriceFeed = underlyingPriceFeed_;
         decimals = decimals_;
@@ -64,6 +86,15 @@ contract RateBasedScalingPriceFeed is IPriceFeed {
         rescaleFactor = (
             shouldUpscale ? signed256(10 ** (decimals_ - underlyingDecimals_)) : signed256(10 ** (underlyingDecimals_ - decimals_))
         );
+    }
+
+    /**
+     * @notice Sets the sequencer address.
+     * @param _sequencer The address of the new sequencer.
+     * @notice Available only to the DAO.
+     */
+    function setSequencer(address _sequencer) external onlyDao {
+        _validateAndSetSequencer(_sequencer);
     }
 
     /**
@@ -80,6 +111,11 @@ contract RateBasedScalingPriceFeed is IPriceFeed {
         override
         returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound)
     {
+        if (sequencer != address(0)) {
+            (, answer, , , ) = AggregatorV3Interface(sequencer).latestRoundData();
+            if (answer == 1) revert PriceNotAvailable();
+        }
+
         uint256 rate = IRateProvider(underlyingPriceFeed).getRate();
 
         if (rate == 0) revert PriceNotAvailable();
@@ -94,5 +130,18 @@ contract RateBasedScalingPriceFeed is IPriceFeed {
 
     function scalePrice(int256 price) internal view returns (int256) {
         return shouldUpscale ? price * rescaleFactor : price / rescaleFactor;
+    }
+
+    /**
+     * @notice Validates and sets the sequencer address.
+     * @notice Emits a SequencerUpdated event.
+     * @param _sequencer The address of the new sequencer.
+     */
+    function _validateAndSetSequencer(address _sequencer) internal {
+        if ((block.chainid != 1 && _sequencer == address(0)) || _sequencer == sequencer) revert InvalidSequencer();
+
+        sequencer = _sequencer;
+
+        emit SequencerUpdated(_sequencer);
     }
 }
