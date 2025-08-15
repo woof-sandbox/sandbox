@@ -479,6 +479,7 @@ function proposeDao(address _proposedDao) external
 ```
 
 Proposes a new DAO address.
+Allows zero address to be set as proposed dao in case previous proposal should be dismissed
 
 #### Parameters
 
