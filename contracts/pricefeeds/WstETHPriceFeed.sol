@@ -16,7 +16,7 @@ contract WstETHPriceFeed is IPriceFeed {
     error InvalidInt256();
 
     /// @notice Version of the price feed
-    uint public constant override version = 1;
+    uint256 public constant override version = 1;
 
     /// @notice Description of the price feed
     string public constant override description = "Custom price feed for wstETH / ETH";
@@ -28,7 +28,7 @@ contract WstETHPriceFeed is IPriceFeed {
     address public immutable stETHtoETHPriceFeed;
 
     /// @notice Number of decimals for the stETH / ETH price feed
-    uint public immutable stETHToETHPriceFeedDecimals;
+    uint256 public immutable stETHToETHPriceFeedDecimals;
 
     /// @notice WstETH contract address
     address public immutable wstETH;

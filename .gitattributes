@@ -1,1 +1,4 @@
 yarn.lock binary
+* text=auto eol=lf
+*.ts text eol=lf
+*.sol text eol=lf

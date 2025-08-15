@@ -22,12 +22,12 @@ contract EvilToken is FaucetToken {
         address source;
         address destination;
         address asset;
-        uint amount;
-        uint maxCalls;
+        uint256 amount;
+        uint256 maxCalls;
     }
 
     ReentryAttack public attack;
-    uint public numberOfCalls = 0;
+    uint256 public numberOfCalls = 0;
 
     constructor(
         uint256 _initialAmount,
@@ -41,7 +41,7 @@ contract EvilToken is FaucetToken {
             destination: address(this),
             asset: address(this),
             amount: 1e6,
-            maxCalls: type(uint).max
+            maxCalls: type(uint256).max
         });
     }
 

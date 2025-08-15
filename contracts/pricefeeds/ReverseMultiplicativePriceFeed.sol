@@ -18,7 +18,7 @@ contract ReverseMultiplicativePriceFeed is IPriceFeed {
     error InvalidInt256();
 
     /// @notice Version of the price feed
-    uint public constant VERSION = 1;
+    uint256 public constant VERSION = 1;
 
     /// @notice Description of the price feed
     string public override description;

@@ -7,7 +7,7 @@ import "../interfaces/IPriceFeed.sol";
 contract MockPriceFeed is IPriceFeed {
     string public constant override description = "Mock Chainlink price aggregator";
 
-    uint public constant override version = 1;
+    uint256 public constant override version = 1;
 
     uint8 public immutable override decimals;
 

@@ -270,7 +270,7 @@ describe.skip("15. quoteCollateral", function () {
 
     const q = await comet.quoteCollateral(COMP.address, baseAmount);
 
-    const totalFromContract = q.feeProtocol.toBigInt() + q.feeController.toBigInt() + expectedResv;
+    const totalFromContract = q.protocolFee.toBigInt() + q.controllerFee.toBigInt() + expectedResv;
     const totalExpected = mulDiv(deltaBase * assetScale, 1n, discountedPrice);
     expect(totalFromContract >= totalExpected ? totalFromContract - totalExpected : totalExpected - totalFromContract).to.be.lte(1n);
     expect(q.feeProtocol.toBigInt()).to.equal(expectedProt);

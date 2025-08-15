@@ -781,7 +781,7 @@ Buy collateral from the protocol using base tokens, increasing protocol reserves
 ### quoteCollateral
 
 ```solidity
-function quoteCollateral(address asset, uint256 baseAmount) public view returns (uint256 amountOut, uint256 feeReserve, uint256 feeProtocol, uint256 feeController)
+function quoteCollateral(address asset, uint256 baseAmount) public view returns (uint256 amountOut, uint256 reserveFee, uint256 protocolFee, uint256 controllerFee)
 ```
 
 #### Parameters
@@ -886,7 +886,7 @@ _Note: uses updated interest indices to calculate_
 ### _distributeProfit
 
 ```solidity
-function _distributeProfit(uint256 profitAmount) internal view returns (uint256 _reserveFee, uint256 _daoFee, uint256 _controllerFee)
+function _distributeProfit(uint256 profitAmount) internal view returns (uint256 _reserveFee, uint256 _protocolFee, uint256 _controllerFee)
 ```
 
 Calculates fees distribution (reserves % and dao fees %)
@@ -903,8 +903,8 @@ _Internal function for calculation over the liquidation profit or interest profi
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-| _reserveFee | uint256 | Profit accumulated in Comet's reserves |
-| _daoFee | uint256 | Fee on profit in favour of DAO |
+| _reserveFee | uint256 | Fee on profit in favour of reserves |
+| _protocolFee | uint256 | Fee on profit in favour of DAO |
 | _controllerFee | uint256 | Fee on profit in favour of Config Controller |
 
 ### fallback

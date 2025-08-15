@@ -36,13 +36,13 @@ interface ISandboxComet {
 
     function absorb(address absorber, address[] calldata accounts) external;
 
-    function quoteCollateral(address asset, uint baseAmount) external view returns (uint, uint, uint, uint);
+    function quoteCollateral(address asset, uint256 baseAmount) external view returns (uint256, uint256, uint256, uint256);
 
-    function getCollateralReserves(address asset) external view returns (uint);
+    function getCollateralReserves(address asset) external view returns (uint256);
 
     function getReserves() external view returns (int);
 
-    function getPrice(address priceFeed) external view returns (uint);
+    function getPrice(address priceFeed) external view returns (uint256);
 
     function isBorrowCollateralized(address account) external view returns (bool);
 
@@ -72,13 +72,13 @@ interface ISandboxComet {
 
     function accrueAccount(address account) external;
 
-    function getSupplyRate(uint utilization) external view returns (uint64);
+    function getSupplyRate(uint256 utilization) external view returns (uint64);
 
-    function getBorrowRate(uint utilization) external view returns (uint64);
+    function getBorrowRate(uint256 utilization) external view returns (uint64);
 
-    function getUtilization() external view returns (uint);
+    function getUtilization() external view returns (uint256);
 
-    function targetReserves() external view returns (uint);
+    function targetReserves() external view returns (uint256);
 
     function getAssetInfo(uint8 i) external view returns (ICometStructures.CollateralAsset memory);
 

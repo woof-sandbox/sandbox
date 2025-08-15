@@ -44,7 +44,7 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
 
     /// @dev This is a more gas efficient way to store the all comets and check if the comet address is inside the array.
     /// @notice The mapping of comet address => comet Id
-    mapping(address => uint) public cometId;
+    mapping(address => uint256) public cometId;
 
     /// @notice Array of all comets created by this controller
     address[] public override comets;

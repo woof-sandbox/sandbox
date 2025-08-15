@@ -29,7 +29,7 @@ abstract contract IConfigControllerFactory {
         string name,
         uint40 curatorProposalDuration,
         uint40 proposalDuration,
-        uint controllerId
+        uint256 controllerId
     );
     error InvalidAddress();
     error ZeroAddress();
@@ -45,16 +45,16 @@ abstract contract IConfigControllerFactory {
     /// @notice Returns the controller ID for a given config controller address
     /// @param configController The address of the config controller
     /// @return The ID of the controller
-    function controllerIds(address configController) external view virtual returns (uint);
+    function controllerIds(address configController) external view virtual returns (uint256);
 
     /// @notice Returns the controller address at a given index
     /// @param index The index of the controller
     /// @return The address of the controller
-    function controllerAddresses(uint index) external view virtual returns (address);
+    function controllerAddresses(uint256 index) external view virtual returns (address);
 
     /// @notice Returns the last controller ID
     /// @return The ID of the last controller
-    function getLastControllerLength() external view virtual returns (uint);
+    function getLastControllerLength() external view virtual returns (uint256);
 
     /// @notice Creates a new ConfigController instance with unique configuration
     /// @param _guardian The address of the protocol guardian

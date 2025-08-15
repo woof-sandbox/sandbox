@@ -17,7 +17,7 @@ contract ConfigControllerFactory is IConfigControllerFactory {
     /// @notice The implementation address used for cloning
     address public immutable override sandboxController;
     /// @notice The array of controller addresses
-    mapping(address => uint) public override controllerIds;
+    mapping(address => uint256) public override controllerIds;
     /// @notice The array of controller addresses
     address[] public override controllerAddresses;
 
@@ -92,7 +92,7 @@ contract ConfigControllerFactory is IConfigControllerFactory {
 
     /// @notice Returns the last controller ID
     /// @return The last controller ID
-    function getLastControllerLength() external view override returns (uint) {
+    function getLastControllerLength() external view override returns (uint256) {
         return controllerAddresses.length;
     }
 

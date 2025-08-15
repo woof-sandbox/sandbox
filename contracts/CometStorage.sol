@@ -110,13 +110,13 @@ contract CometStorage is ICometStructures {
     uint64 public baseScale;
 
     /// @notice The minimum base amount required to initiate a borrow
-    uint public baseBorrowMin;
+    uint256 public baseBorrowMin;
 
     /// @notice The minimum base token reserves which must be held before collateral is hodled
     uint64 public targetPercent;
 
     /// @notice Seed reserves, initialized during the Comet creation
-    uint public seedReserves;
+    uint256 public seedReserves;
 
     /// @notice Unlock timestamp
     uint64 public unlockTimestamp;
@@ -135,27 +135,28 @@ contract CometStorage is ICometStructures {
     /// @notice Aggregate variables tracked for each collateral asset
     mapping(address => uint256) public totalsCollateral;
 
-    /// @notice Fees aggregation for the controller
-    mapping(address => uint256) public assetFeesController;
-    /// @notice Fees aggregation for the DAO
-    mapping(address => uint256) public assetFeesDAO;
+    /// @notice Total accrued controller fees per asset
+    mapping(address => uint256) public totalControllerFeesPerAsset;
+
+    /// @notice Total accrued DAO fees per asset
+    mapping(address => uint256) public totalProtocolFeesPerAsset;
 
     /// @notice Mapping of users to accounts which may be permitted to manage the user account
     /// @notice user => spender => asset (base or collateral) => amount
-    mapping(address => mapping(address => mapping(address => uint))) public allowance;
+    mapping(address => mapping(address => mapping(address => uint256))) public allowance;
 
     /// @notice user => spender => true or false (for baseAsset only)
     /// @notice allowance for all is expected to be atomic - for ...All() operations only
     mapping(address => mapping(address => bool)) public allowanceAll;
 
     /// @notice The next expected nonce for an address, for validating authorizations via signature
-    mapping(address => uint) public userNonce;
+    mapping(address => uint256) public userNonce;
 
     /// @notice Mapping of users to base principal and other basic data
     mapping(address => UserBasic) public userBasic;
 
     /// @notice Mapping of users to collateral data per collateral asset
-    mapping(address => mapping(address => uint)) public userCollateral;
+    mapping(address => mapping(address => uint256)) public userCollateral;
 
     mapping(address => uint8) public collateralAssetIndex;
     CollateralAsset[] public collateralAssets;
