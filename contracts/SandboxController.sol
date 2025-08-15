@@ -483,14 +483,15 @@ contract SandboxController is ISandboxController {
 
     /**
      * @notice Proposes a new DAO address.
+     * @notice Allows zero address to be set as proposed dao in case previous proposal should be dismissed
      * @param _proposedDao The address of the proposed new DAO.
      */
     function proposeDao(address _proposedDao) external onlyDao {
-        if (_proposedDao == address(0)) revert ZeroAddress();
+        if (_proposedDao == proposedDao) revert IncorrectSetting();
         if (_proposedDao == dao) revert IncorrectSetting();
 
         emit DaoProposed(dao, _proposedDao);
-        proposedDao = _proposedDao;
+        proposedDao = _proposedDao; // aderyn-fp(state-no-address-check)
     }
 
     /**
@@ -513,9 +514,11 @@ contract SandboxController is ISandboxController {
      * @dev This function can only be called by the DAO.
      */
     function grantContractorRole(address _newContractor) external onlyDao {
+        if (_newContractor == contractor) revert IncorrectSetting();
+
         emit ContractorGranted(contractor, _newContractor);
 
-        contractor = _newContractor;
+        contractor = _newContractor; // aderyn-fp(state-no-address-check)
     }
 
     ///

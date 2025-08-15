@@ -28,6 +28,7 @@ import { BigNumber } from "ethers";
 describe("3. SandboxController", function () {
   let dao: SignerWithAddress;
   let attacker: SignerWithAddress;
+  let contractor: SignerWithAddress;
   let other: SignerWithAddress;
   let treasury: SignerWithAddress;
   let opts: SandboxControllerOpts;
@@ -38,7 +39,7 @@ describe("3. SandboxController", function () {
   const suggestedLockTimeOfSeedReserves = DEFAULT_LOCK_TIME;
 
   before(async function () {
-    [dao, treasury, attacker, other] = await ethers.getSigners();
+    [dao, treasury, attacker, contractor, other] = await ethers.getSigners();
 
     opts = defaultSandboxControllerOpts({
       treasury: treasury.address,
@@ -48,8 +49,12 @@ describe("3. SandboxController", function () {
   });
 
   describe("deployment with typical valid parameters", function () {
-    it("verifies initial values after construction", async function () {
+    it("dao is set, proposed dao is not", async function () {
       expect(await sandboxController.dao()).to.equal(dao.address);
+      expect(await sandboxController.proposedDao()).to.equal(ethers.constants.AddressZero);
+    });
+
+    it("verifies initial values after construction", async function () {
       expect(await sandboxController.treasury()).to.equal(treasury.address);
       expect(await sandboxController.feeEnabled()).to.equal(false);
       /// Protocol Commissions
@@ -60,6 +65,10 @@ describe("3. SandboxController", function () {
       expect(await sandboxController.reserveCommission(0)).to.equal(exp(0.01, 18));
       expect(await sandboxController.reserveCommission(1)).to.equal(exp(0.02, 18));
       expect(await sandboxController.reserveCommission(2)).to.equal(exp(0.03, 18));
+    });
+
+    it("no contractor by default", async function () {
+      expect(await sandboxController.contractor()).to.equal(ethers.constants.AddressZero);
     });
 
     it("verifies config after construction", async function () {
@@ -113,6 +122,27 @@ describe("3. SandboxController", function () {
             suggestedLockTimeOfSeedReserves
           )
       ).to.be.revertedWithCustomError(sandboxController, "NotDao");
+    });
+
+    it("reverts for contractor (if caller is not dao)", async function () {
+      const snapshot: SnapshotRestorer = await takeSnapshot();
+
+      await sandboxController.grantContractorRole(contractor.address);
+      await expect(
+        sandboxController
+          .connect(contractor)
+          .whitelistBaseAsset(
+            tokenTest.address,
+            priceFeedTest.address,
+            curve,
+            10,
+            suggestedAmountOfSeedReserves,
+            suggestedLockTimeOfSeedReserves
+          )
+      )
+        .to.be.revertedWithCustomError(sandboxController, "NotDao")
+        .withArgs(contractor.address);
+      await snapshot.restore();
     });
 
     it("reverts if token = 0", async function () {
@@ -620,6 +650,29 @@ describe("3. SandboxController", function () {
         .withArgs(attacker.address);
     });
 
+    it("reverts for contractor (if caller is not dao)", async function () {
+      const snapshot: SnapshotRestorer = await takeSnapshot();
+
+      await sandboxController.grantContractorRole(contractor.address);
+      await expect(
+        sandboxController
+          .connect(contractor)
+          .whitelistCollateralAsset(
+            tokenCollateralTest.address,
+            priceFeedCollateralTest.address,
+            collateralConfig.minBorrowCF,
+            collateralConfig.maxBorrowCF,
+            collateralConfig.minLiquidateCF,
+            collateralConfig.maxLiquidateCF,
+            collateralConfig.minLiquidationFactor,
+            collateralConfig.maxLiquidationFactor
+          )
+      )
+        .to.be.revertedWithCustomError(sandboxController, "NotDao")
+        .withArgs(contractor.address);
+      await snapshot.restore();
+    });
+
     it("reverts if token = 0", async function () {
       await expect(
         sandboxController.whitelistCollateralAsset(
@@ -1059,10 +1112,21 @@ describe("3. SandboxController", function () {
       };
     });
 
-    it("reverts if caller is dao", async function () {
+    it("reverts if caller is not dao", async function () {
       await expect(sandboxController.connect(attacker).setConfiguration(newConfig))
         .to.be.revertedWithCustomError(sandboxController, "NotDao")
         .withArgs(attacker.address);
+    });
+
+    it("reverts for contractor (if caller is not dao)", async function () {
+      const snapshot: SnapshotRestorer = await takeSnapshot();
+
+      await sandboxController.grantContractorRole(contractor.address);
+      await expect(sandboxController.connect(contractor).setConfiguration(newConfig))
+        .to.be.revertedWithCustomError(sandboxController, "NotDao")
+        .withArgs(contractor.address);
+
+      await snapshot.restore();
     });
 
     it("reverts if storeFrontPriceFactor > 1e18", async function () {
@@ -1145,6 +1209,17 @@ describe("3. SandboxController", function () {
       ).to.be.revertedWithCustomError(sandboxController, "NotDao");
     });
 
+    it("reverts for contractor (if caller is not dao)", async function () {
+      const snapshot: SnapshotRestorer = await takeSnapshot();
+      await sandboxController.connect(dao).grantContractorRole(contractor.address);
+
+      await expect(
+        sandboxController.connect(contractor).setSeedReserves(testToken.address, newSeedReserves, newLockTime)
+      ).to.be.revertedWithCustomError(sandboxController, "NotDao");
+
+      await snapshot.restore();
+    });
+
     it("reverts if base token = 0", async function () {
       await expect(
         sandboxController.connect(dao).setSeedReserves(ethers.constants.AddressZero, newSeedReserves, newLockTime)
@@ -1218,6 +1293,16 @@ describe("3. SandboxController", function () {
   describe("setFeeEnabled", function () {
     it("reverts if caller is not dao", async function () {
       await expect(sandboxController.connect(attacker).setFeeEnabled(true)).to.be.revertedWithCustomError(sandboxController, "NotDao");
+    });
+
+    it("reverts for contractor (if caller is not dao)", async function () {
+      const snapshot: SnapshotRestorer = await takeSnapshot();
+
+      await sandboxController.grantContractorRole(contractor.address);
+      await expect(sandboxController.connect(contractor).setFeeEnabled(true))
+        .to.be.revertedWithCustomError(sandboxController, "NotDao")
+        .withArgs(contractor.address);
+      await snapshot.restore();
     });
 
     it("sets feeEnabled", async function () {
@@ -1398,12 +1483,15 @@ describe("3. SandboxController", function () {
     });
 
     describe("happy cases", function () {
-      it("should work for dao and contractor", async function () {
-        await sandboxController.connect(dao).grantContractorRole(other.address);
-
+      it("dao can add curve", async function () {
         await expect(sandboxController.connect(dao).addBaseAssetCurve(tokenTest.address, curve)).to.not.be.reverted;
+      });
 
-        await expect(sandboxController.connect(other).addBaseAssetCurve(tokenTest.address, curve)).to.not.be.reverted;
+      it("contractor can add curve", async function () {
+        const snapshot: SnapshotRestorer = await takeSnapshot();
+        await sandboxController.connect(dao).grantContractorRole(contractor.address);
+        await expect(sandboxController.connect(contractor).addBaseAssetCurve(tokenTest.address, curve)).to.not.be.reverted;
+        await snapshot.restore();
       });
 
       it("should append the curve and set storage", async function () {
@@ -1602,14 +1690,16 @@ describe("3. SandboxController", function () {
       });
     });
     describe("happy cases", function () {
-      it("should work for dao and contractor", async function () {
+      it("dao can change curve", async function () {
+        const snapshot: SnapshotRestorer = await takeSnapshot();
+        await expect(sandboxController.connect(dao).changeBaseAssetCurve(tokenTest.address, curveIndex, curve)).to.not.be.reverted;
+        await snapshot.restore();
+      });
+
+      it("contractor can change curve", async function () {
         const snapshot: SnapshotRestorer = await takeSnapshot();
         await sandboxController.connect(dao).grantContractorRole(other.address);
-
-        await expect(sandboxController.connect(dao).changeBaseAssetCurve(tokenTest.address, curveIndex, curve)).to.not.be.reverted;
-
         await expect(sandboxController.connect(other).changeBaseAssetCurve(tokenTest.address, curveIndex, curve)).to.not.be.reverted;
-
         await snapshot.restore();
       });
 
@@ -1661,6 +1751,16 @@ describe("3. SandboxController", function () {
         await expect(sandboxController.connect(attacker).setMarketStateCommissions(0, parseEther("0.5"), parseEther("0.2")))
           .to.be.revertedWithCustomError(sandboxController, "NotDao")
           .withArgs(attacker.address);
+      });
+
+      it("reverts for contractor (if caller is not dao)", async function () {
+        const snapshot: SnapshotRestorer = await takeSnapshot();
+
+        await sandboxController.grantContractorRole(contractor.address);
+        await expect(sandboxController.connect(contractor).setMarketStateCommissions(0, parseEther("0.5"), parseEther("0.2")))
+          .to.be.revertedWithCustomError(sandboxController, "NotDao")
+          .withArgs(contractor.address);
+        await snapshot.restore();
       });
 
       it("reverts if sum of commissions exceed 80% (pair 1)", async function () {
@@ -1834,26 +1934,64 @@ describe("3. SandboxController", function () {
   });
 
   describe("proposeDao", function () {
+    let snapshot: SnapshotRestorer;
+
+    before(async function () {
+      snapshot = await takeSnapshot();
+    });
+
     it("should allow to propose new DAO", async function () {
       await sandboxController.proposeDao(other.address);
       expect(await sandboxController.proposedDao()).to.equal(other.address);
+
+      await snapshot.restore();
     });
 
     it("should emit event", async function () {
       expect(await sandboxController.proposeDao(other.address))
         .to.emit(sandboxController, "DaoProposed")
         .withArgs(dao.address, other.address);
+
+      await snapshot.restore();
     });
 
-    it("should revert if proposed DAO is the zero address", async function () {
-      await expect(sandboxController.proposeDao(ethers.constants.AddressZero)).to.be.revertedWithCustomError(
-        sandboxController,
-        "ZeroAddress"
-      );
+    it("should allow to set zero address (to disregard the proposal)", async function () {
+      await sandboxController.proposeDao(other.address);
+      expect(await sandboxController.proposedDao()).to.equal(other.address);
+
+      await expect(sandboxController.proposeDao(ethers.constants.AddressZero)).to.not.be.reverted;
+      expect(await sandboxController.proposedDao()).to.equal(ethers.constants.AddressZero);
+
+      await snapshot.restore();
+    });
+
+    it("should revert if proposed DAO is proposed twice", async function () {
+      await sandboxController.proposeDao(other.address);
+      await expect(sandboxController.proposeDao(other.address)).to.be.revertedWithCustomError(sandboxController, "IncorrectSetting");
+
+      await snapshot.restore();
     });
 
     it("should revert if proposed DAO is the same as current", async function () {
       await expect(sandboxController.proposeDao(dao.address)).to.be.revertedWithCustomError(sandboxController, "IncorrectSetting");
+    });
+
+    it("should revert for caller other than dao", async function () {
+      await expect(sandboxController.connect(attacker).proposeDao(other.address)).to.be.revertedWithCustomError(
+        sandboxController,
+        "NotDao"
+      );
+    });
+
+    it("should revert for contractor (caller other than dao)", async function () {
+      await sandboxController.connect(dao).grantContractorRole(contractor.address);
+
+      await expect(sandboxController.connect(contractor).proposeDao(other.address)).to.be.revertedWithCustomError(
+        sandboxController,
+        "NotDao"
+      );
+
+      await snapshot.restore();
     });
   });
 
@@ -1868,8 +2006,6 @@ describe("3. SandboxController", function () {
     afterEach(async () => await snapshot.restore());
 
     it("should allow to accept dao role", async function () {
-      await sandboxController.proposeDao(other.address);
-
       await sandboxController.connect(other).acceptDao();
 
       expect(await sandboxController.dao()).to.equal(other.address);
@@ -1895,26 +2031,62 @@ describe("3. SandboxController", function () {
   });
 
   describe("grantContractorRole", function () {
+    let snapshot: SnapshotRestorer;
+
+    before(async function () {
+      snapshot = await takeSnapshot();
+    });
+
     it("should allow dao to grant contractor role", async function () {
-      await sandboxController.connect(dao).grantContractorRole(ethers.constants.AddressZero);
-
-      expect(await sandboxController.contractor()).to.not.be.eq(other.address);
-
       await sandboxController.connect(dao).grantContractorRole(other.address);
-
       expect(await sandboxController.contractor()).to.be.eq(other.address);
+
+      await snapshot.restore();
+    });
+
+    it("should allow dao to set zero address", async function () {
+      await sandboxController.connect(dao).grantContractorRole(other.address);
+      expect(await sandboxController.contractor()).to.be.eq(other.address);
+
+      await sandboxController.connect(dao).grantContractorRole(ethers.constants.AddressZero);
+      expect(await sandboxController.contractor()).to.be.eq(ethers.constants.AddressZero);
+
+      await snapshot.restore();
     });
 
     it("should emit event", async function () {
       expect(await sandboxController.connect(dao).grantContractorRole(other.address))
         .to.emit(sandboxController, "ContractorGranted")
         .withArgs(ethers.constants.AddressZero, other.address);
+
+      await snapshot.restore();
     });
 
     it("reverts if caller is not dao", async function () {
       await expect(sandboxController.connect(attacker).grantContractorRole(other.address))
         .to.be.revertedWithCustomError(sandboxController, "NotDao")
         .withArgs(attacker.address);
+    });
+
+    it("reverts for current contractor (if caller is not dao)", async function () {
+      await sandboxController.connect(dao).grantContractorRole(other.address);
+
+      await expect(sandboxController.connect(other).grantContractorRole(contractor.address))
+        .to.be.revertedWithCustomError(sandboxController, "NotDao")
+        .withArgs(other.address);
+
+      await snapshot.restore();
+    });
+
+    it("reverts for the same value assinged twice", async function () {
+      await sandboxController.connect(dao).grantContractorRole(other.address);
+
+      await expect(sandboxController.connect(dao).grantContractorRole(other.address)).to.be.revertedWithCustomError(
+        sandboxController,
+        "IncorrectSetting"
+      );
+
+      await snapshot.restore();
     });
   });
 
@@ -1923,6 +2095,16 @@ describe("3. SandboxController", function () {
       await expect(sandboxController.connect(attacker).setTreasury(attacker.address))
         .to.be.revertedWithCustomError(sandboxController, "NotDao")
         .withArgs(attacker.address);
+    });
+
+    it("reverts for contractor (if caller is not dao)", async function () {
+      const snapshot: SnapshotRestorer = await takeSnapshot();
+
+      await sandboxController.grantContractorRole(contractor.address);
+      await expect(sandboxController.connect(contractor).setTreasury(attacker.address))
+        .to.be.revertedWithCustomError(sandboxController, "NotDao")
+        .withArgs(contractor.address);
+      await snapshot.restore();
     });
 
     it("reverts if _treasury is the zero address", async function () {
