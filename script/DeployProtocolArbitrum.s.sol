@@ -46,7 +46,7 @@ contract DeployProtocol is Script {
         address configControllerImplementation = deployConfigControllerImplementation();
 
         // Deploy SandboxController
-        address sandboxController = deploySandboxController(owner);
+        address sandboxController = deploySandboxController();
 
         // Deploy factories
         address configControllerFactory = deployConfigControllerFactory(sandboxController, configControllerImplementation);
@@ -171,8 +171,6 @@ contract DeployProtocol is Script {
         });
         // Deploy SandboxController with valid parameters
         SandboxController sandboxController = new SandboxController(
-            owner_, // owner
-            address(1), // dao (different from owner)
             address(2), // treasury (for now random address)
             true, // feeEnabled
             config,

@@ -20,6 +20,6 @@ interface ISandboxErrors {
     error InvalidLockTimeOfSeedReserves();
 
     error Unauthorized();
-    error NotOwner(address caller);
     error NotDao(address caller);
+    error NotProposedDao(address caller);
 }

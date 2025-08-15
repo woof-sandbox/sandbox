@@ -82,7 +82,8 @@ describe("2. System Params Validation", function () {
       "SandboxControllerNoCurvesTest"
     )) as SandboxControllerNoCurvesTest__factory;
     sandboxController = await makeSandboxController(
-      defaultSandboxControllerOpts({ admin: owner.address, dao: dao.address, treasury: treasury.address }),
+      defaultSandboxControllerOpts({ treasury: treasury.address }),
+      dao,
       SandboxControllerFactoryTest
     );
 

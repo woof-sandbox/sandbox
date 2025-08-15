@@ -100,8 +100,6 @@ export type CollateralConfig = {
 };
 
 export type SandboxControllerOpts = {
-  admin: string;
-  dao: string;
   treasury: string;
 
   feeEnabled?: boolean;
@@ -248,8 +246,6 @@ export function defaultCollateralConfig(): CollateralConfig {
 
 export function defaultSandboxControllerOpts(partial?: Partial<SandboxControllerOpts>): SandboxControllerOpts {
   return {
-    admin: partial?.admin,
-    dao: partial?.dao,
     treasury: partial?.treasury,
     feeEnabled: partial?.feeEnabled ?? false,
     config: {
@@ -263,17 +259,15 @@ export function defaultSandboxControllerOpts(partial?: Partial<SandboxController
   };
 }
 
-export async function makeSandboxController(opts: SandboxControllerOpts, factory?): Promise<SandboxController> {
+export async function makeSandboxController(opts: SandboxControllerOpts, dao: SignerWithAddress, factory?): Promise<SandboxController> {
   let SandboxControllerFactory;
   if (factory) {
     SandboxControllerFactory = factory;
   } else {
-    SandboxControllerFactory = (await ethers.getContractFactory("SandboxController")) as SandboxController__factory;
+    SandboxControllerFactory = (await ethers.getContractFactory("SandboxController", dao)) as SandboxController__factory;
   }
 
   const sandboxController = await SandboxControllerFactory.deploy(
-    opts.admin,
-    opts.dao,
     opts.treasury,
     opts.feeEnabled,
     opts.config,
@@ -406,8 +400,6 @@ export async function makeConfigController(opts: ProtocolOpts): Promise<Protocol
 
   /// --- Deploy sandbox controller
   const sandboxControllerOpts = defaultSandboxControllerOpts({
-    admin: opts.owner.address,
-    dao: opts.dao.address,
     treasury: opts.treasury,
     feeEnabled: false,
     config: opts.config,
@@ -415,7 +407,7 @@ export async function makeConfigController(opts: ProtocolOpts): Promise<Protocol
     protocolCommissions: opts.protocolCommissions,
   });
 
-  const sandboxController = await makeSandboxController(sandboxControllerOpts);
+  const sandboxController = await makeSandboxController(sandboxControllerOpts, opts.dao);
 
   // --- Whitelist the base token ---
   await sandboxListBaseAsset(
