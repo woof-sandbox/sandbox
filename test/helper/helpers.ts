@@ -76,6 +76,7 @@ export type AssetLimits = {
   maxLiquidateCF: BigNumberish;
   minLiquidationFactor: BigNumberish;
   maxLiquidationFactor: BigNumberish;
+  supplyCap: BigNumberish;
 };
 
 export type Asset = {
@@ -234,6 +235,7 @@ export function defaultAssetLimits(): AssetLimits {
     maxLiquidateCF: exp(0.9, 18),
     minLiquidationFactor: exp(0.75, 18),
     maxLiquidationFactor: exp(0.95, 18),
+    supplyCap: exp(1e9, 18)
   };
 }
 
@@ -321,7 +323,7 @@ export async function sandboxListCollateralAsset(
     limits_.maxLiquidateCF,
     limits_.minLiquidationFactor,
     limits_.maxLiquidationFactor,
-    supplyCap
+    limits_.supplyCap
   );
 }
 

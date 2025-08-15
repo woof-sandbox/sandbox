@@ -386,12 +386,8 @@ contract SandboxController is ISandboxController {
         uint64 maxLiquidationFactor,
         uint256 supplyCap
     ) external override onlyAuthorized {
-        /// @dev token and priceFeed are not zero address
         if (token == address(0)) revert ZeroAddress();
-
-        CollateralAssetConfiguration storage assetConfig = _collateralAssets[token];
-
-        if (assetConfig.collateralToken == address(0)) revert CollateralTokenNotWhitelisted();
+        if (!isCollateralTokenWhitelisted(assetConfig.collateralToken)) revert CollateralTokenNotWhitelisted();
 
         _validateCollateralFactors(
             minBorrowCollateralFactor,
@@ -681,6 +677,6 @@ contract SandboxController is ISandboxController {
      */
     function _validateSupplyCap(address token, uint256 supplyCap) private view {
         if (supplyCap == 0) revert SupplyCapCantBeZero();
-        if (supplyCap > (IERC20Metadata(token).totalSupply() * MAX_SUPPLY_CAP_PERCENT) / 1e18) revert SupplyCapTooHigh();
+        if (supplyCap > (IERC20Metadata(token).totalSupply() * MAX_SUPPLY_CAP_PERCENT) / PARAMETERS_SCALE) revert SupplyCapTooHigh();
     }
 }

@@ -19,9 +19,7 @@ contract FaucetToken is ERC20 {
     ) ERC20(_tokenName, _tokenSymbol) {
         decimals_ = _decimalUnits;
 
-        // create fixed supply 9 * 10^18 * 10^decimals_
-        _mint(address(this), 9e18 * 10 ** decimals_);
-        _transfer(address(this), msg.sender, _initialAmount);
+        _mint(msg.sender, _initialAmount);
     }
 
     function decimals() public view override returns (uint8) {
@@ -29,6 +27,6 @@ contract FaucetToken is ERC20 {
     }
 
     function allocateTo(address _owner, uint256 value) public {
-        _transfer(address(this), _owner, value);
+        _mint(_owner, value);
     }
 }
