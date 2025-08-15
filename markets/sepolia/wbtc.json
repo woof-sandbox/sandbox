@@ -1,7 +1,7 @@
 {
   "name": "Sandbox WBTC",
-  "configController": "0x7F83A9083c536068d5d88E7CF55B7917832b1be2",
-  "comet": "0xF1EDcEa3C894C3Ed92304C135438b53E4329dea0",
+  "configController": "0xC2a1cEdBfefA6F041d1561688e4b51690372F24A",
+  "comet": "0x9d4223477C668eB60C01fd7148dA38cA1Df614fB",
   "configControllerName": "WBTC ConfigController",
   "owner": "0x0309004C4fB9943797f5C530abd8cddE564A9fD4",
   "curator": "0xa7EcbfFdF700383F981f003048FAf598886637d3",

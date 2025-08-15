@@ -1,7 +1,7 @@
 {
   "name": "Sandbox WETH",
-  "configController": "0x19725575d04e78e3dDf2A440cf6cBce335EB02F9",
-  "comet": "0x36772794709e8Ad8715Ce2F9dF6c3245cBA24B0a",
+  "configController": "0x8CAe19f330065d055E7C9BC89223f0cA0F24dd1c",
+  "comet": "0xc50E5F19B9dF6F3542b82660423c1DC1cc2BA439",
   "configControllerName": "WETH ConfigController",
   "owner": "0x0309004C4fB9943797f5C530abd8cddE564A9fD4",
   "curator": "0xc9DDCAc9D1CAF777d95e59e0d57A20c7A1E1474A",
