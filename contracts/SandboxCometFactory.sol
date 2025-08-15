@@ -4,7 +4,7 @@ pragma solidity 0.8.28;
 import "@openzeppelin/contracts/proxy/Clones.sol";
 
 import "./interfaces/ISandboxCometFactory.sol";
-import "./interfaces/ISandboxComet.sol";
+import "./interfaces/ICometForController.sol";
 import "./interfaces/IConfigControllerFactory.sol";
 import "./CometExtension.sol";
 
@@ -49,7 +49,7 @@ contract SandboxCometFactory is ISandboxCometFactory {
 
         CometExtension ext = new CometExtension(bytes32(bytes(_name)));
 
-        ISandboxComet(comet).factoryInit(msg.sender, address(ext));
+        ICometForController(comet).factoryInit(msg.sender, address(ext));
 
         emit CometCreated(comet, address(ext), msg.sender);
         return comet;

@@ -114,6 +114,8 @@ _Calculate accrued interest indices for base token supply and borrows_
 function accrueInternal() internal
 ```
 
+_Accrue interest (and rewards) in base token supply and borrows_
+
 ### accrueAccount
 
 ```solidity
@@ -426,13 +428,13 @@ function updateAssetsIn(address account, uint8 index, uint256 initialUserBalance
 
 _Update assetsIn bit vector if user has entered or exited an asset_
 
-### updateBasePrincipal
+### updateUserRewards
 
 ```solidity
-function updateBasePrincipal(address account, struct ICometStructures.UserBasic basic, int104 principalNew) internal
+function updateUserRewards(address account) internal
 ```
 
-_Write updated principal to store and tracking participation_
+_Encapsulation of user's rewards update_
 
 ### doTransferIn
 
@@ -510,7 +512,7 @@ Repay the whole debt in base asset to the protocol from `from` to dst, if allowe
 ### supplyInternal
 
 ```solidity
-function supplyInternal(address operator, address from, address dst, address asset, uint256 amount, bool isAll) internal
+function supplyInternal(address from, address dst, address asset, uint256 amount, bool isAll) internal
 ```
 
 _Supply either collateral or base asset, depending on the asset, if operator is allowed_

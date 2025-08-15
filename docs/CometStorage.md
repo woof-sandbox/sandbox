@@ -140,6 +140,14 @@ address extension
 
 The address of the extension contract
 
+### rewardAddress
+
+```solidity
+address rewardAddress
+```
+
+The address of the reward contract
+
 ### baseToken
 
 ```solidity
@@ -252,58 +260,13 @@ uint64 storeFrontPriceFactor
 
 The fraction of the liquidation penalty that goes to buyers of collateral instead of the protocol
 
-_uint64_
-
 ### baseScale
 
 ```solidity
-uint256 baseScale
+uint64 baseScale
 ```
 
 The scale for base token (must be less than 18 decimals)
-
-_uint64_
-
-### trackingIndexScale
-
-```solidity
-uint256 trackingIndexScale
-```
-
-The scale for reward tracking
-
-_uint64_
-
-### baseTrackingSupplySpeed
-
-```solidity
-uint256 baseTrackingSupplySpeed
-```
-
-The speed at which supply rewards are tracked (in trackingIndexScale)
-
-_uint64_
-
-### baseTrackingBorrowSpeed
-
-```solidity
-uint256 baseTrackingBorrowSpeed
-```
-
-The speed at which borrow rewards are tracked (in trackingIndexScale)
-
-_uint64_
-
-### baseMinForRewards
-
-```solidity
-uint256 baseMinForRewards
-```
-
-The minimum amount of base principal wei for rewards to accrue
-
-_This must be large enough so as to prevent division by base wei from overflowing the 64 bit indices
-uint104_
 
 ### baseBorrowMin
 
@@ -337,14 +300,6 @@ uint64 unlockTimestamp
 
 Unlock timestamp
 
-### accrualDescaleFactor
-
-```solidity
-uint256 accrualDescaleFactor
-```
-
-Factor to divide by when accruing rewards in order to preserve 6 decimals (i.e. baseScale / 1e6)
-
 ### baseSupplyIndex
 
 ```solidity
@@ -357,18 +312,6 @@ _Aggregate variables tracked for the entire market_
 
 ```solidity
 uint64 baseBorrowIndex
-```
-
-### trackingSupplyIndex
-
-```solidity
-uint64 trackingSupplyIndex
-```
-
-### trackingBorrowIndex
-
-```solidity
-uint64 trackingBorrowIndex
 ```
 
 ### totalSupplyBase

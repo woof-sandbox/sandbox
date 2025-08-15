@@ -34,13 +34,7 @@ interface ISandboxComet {
 
     function withdrawAllFrom(address src, address to) external;
 
-    function factoryInit(address, address) external;
-
-    function initialize(IConfigController.CometConfig memory market, IConfigController.CometGlobalParamsConfig memory config) external;
-
     function absorb(address absorber, address[] calldata accounts) external;
-
-    function buyCollateral(address asset, uint256 minAmount, uint256 baseAmount, address recipient) external;
 
     function quoteCollateral(address asset, uint256 baseAmount) external view returns (uint256, uint256, uint256, uint256);
 
@@ -56,13 +50,15 @@ interface ISandboxComet {
 
     function totalBorrow() external view returns (uint256);
 
+    function totalSupply() external view returns (uint256);
+
     function balanceOf(address owner) external view returns (uint256);
 
     function borrowBalanceOf(address account) external view returns (uint256);
 
-    function pause(bool supplyPaused, bool transferPaused, bool withdrawPaused, bool absorbPaused, bool buyPaused) external;
+    function buyCollateral(address asset, uint minAmount, uint baseAmount, address recipient) external;
 
-    function extractFees(address) external;
+    function pause(bool supplyPaused, bool transferPaused, bool withdrawPaused, bool absorbPaused, bool buyPaused) external;
 
     function isSupplyPaused() external view returns (bool);
 

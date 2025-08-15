@@ -100,7 +100,7 @@ function maxAssets() external pure returns (uint8)
 ### totalsBasic
 
 ```solidity
-function totalsBasic() public view returns (struct ICometStructures.TotalsBasic)
+function totalsBasic() public view returns (struct ICometExtension.TotalsBasic)
 ```
 
 Aggregate variables tracked for the entire market
@@ -119,54 +119,16 @@ Get the name of the SandboxComet
 | ---- | ---- | ----------- |
 | [0] | string | The name as a string |
 
-### collateralBalanceOf
-
-```solidity
-function collateralBalanceOf(address account, address asset) external view returns (uint256)
-```
-
-Query the current collateral balance of an account
-
-#### Parameters
-
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| account | address | The account whose balance to query |
-| asset | address | The collateral asset to check the balance for |
-
-#### Return Values
-
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| [0] | uint256 | The collateral balance of the account |
-
-### baseTrackingAccrued
-
-```solidity
-function baseTrackingAccrued(address account) external view returns (uint64)
-```
-
-Query the total accrued base rewards for an account
-
-#### Parameters
-
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| account | address | The account to query |
-
-#### Return Values
-
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| [0] | uint64 | The accrued rewards, scaled by `BASE_ACCRUAL_SCALE` |
-
 ### approve
 
 ```solidity
 function approve(address spender, address asset, uint256 amount) external
 ```
 
-Approve a spender to transfer a specific amount of an asset on behalf of the sender
+Approve or disallow `spender` to transfer on sender's behalf
+
+_Note: this binary approval is unlike most other ERC20 tokens
+Note: this grants full approval for spender to manage *all* the owner's assets_
 
 #### Parameters
 
@@ -252,6 +214,20 @@ Sets authorization status for a manager via signature from signatory
 | v | uint8 | The recovery byte of the signature |
 | r | bytes32 | Half of the ECDSA signature pair |
 | s | bytes32 | Half of the ECDSA signature pair |
+
+### setRewards
+
+```solidity
+function setRewards(address _rewards) external
+```
+
+Sets the rewards contract for a comet
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| _rewards | address | The address of the rewards contract to set |
 
 ### getConfiguration
 

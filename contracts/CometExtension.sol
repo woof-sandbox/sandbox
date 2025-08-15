@@ -61,14 +61,12 @@ contract CometExtension is ICometExtension {
     function totalsBasic() public view override returns (TotalsBasic memory) {
         return
             TotalsBasic({
-                baseSupplyIndex: baseSupplyIndex,
-                baseBorrowIndex: baseBorrowIndex,
-                trackingSupplyIndex: trackingSupplyIndex,
-                trackingBorrowIndex: trackingBorrowIndex,
                 totalSupplyBase: totalSupplyBase,
                 totalBorrowBase: totalBorrowBase,
                 lastAccrualTime: lastAccrualTime,
-                pauseFlags: pauseFlags
+                pauseFlags: pauseFlags,
+                baseSupplyIndex: baseSupplyIndex,
+                baseBorrowIndex: baseBorrowIndex
             });
     }
 
@@ -95,26 +93,9 @@ contract CometExtension is ICometExtension {
     }
 
     /**
-     * @notice Query the current collateral balance of an account
-     * @param account The account whose balance to query
-     * @param asset The collateral asset to check the balance for
-     * @return The collateral balance of the account
-     */
-    function collateralBalanceOf(address account, address asset) external view override returns (uint256) {
-        return userCollateral[account][asset];
-    }
-
-    /**
-     * @notice Query the total accrued base rewards for an account
-     * @param account The account to query
-     * @return The accrued rewards, scaled by `BASE_ACCRUAL_SCALE`
-     */
-    function baseTrackingAccrued(address account) external view override returns (uint64) {
-        return userBasic[account].baseTrackingAccrued;
-    }
-
-    /**
-     * @notice Approve a spender to transfer a specific amount of an asset on behalf of the sender
+     * @notice Approve or disallow `spender` to transfer on sender's behalf
+     * @dev Note: this binary approval is unlike most other ERC20 tokens
+     * @dev Note: this grants full approval for spender to manage *all* the owner's assets
      * @param spender The address of the account which may transfer tokens
      * @param asset The address of the asset being approved
      * @param amount The amount of the asset that the spender is allowed to manage
@@ -228,6 +209,20 @@ contract CometExtension is ICometExtension {
         allowAllInternal(signatory, manager, approved);
     }
 
+    /**
+     * @notice Sets the rewards contract for a comet
+     * @param _rewards The address of the rewards contract to set
+     */
+    // aderyn-fp-next-line(state-change-without-event)
+    function setRewards(address _rewards) external {
+        if (msg.sender != configController) revert Unauthorized();
+
+        /// @dev: Can be set as zero address to disable rewards
+        rewardAddress = _rewards; // aderyn-fp(state-no-address-check)
+
+        /// @dev: event is emitted in config controller
+    }
+
     /// @notice Returns the current configuration of the market
     /// @return Configuration struct containing all market parameters
     function getConfiguration() external view returns (Configuration memory) {
@@ -246,11 +241,7 @@ contract CometExtension is ICometExtension {
                 borrowPerYearInterestRateSlopeHigh: borrowPerSecondInterestRateSlopeHigh * SECONDS_PER_YEAR,
                 borrowPerYearInterestRateBase: borrowPerSecondInterestRateBase * SECONDS_PER_YEAR,
                 storeFrontPriceFactor: storeFrontPriceFactor,
-                trackingIndexScale: safe64(trackingIndexScale),
-                baseTrackingSupplySpeed: safe64(baseTrackingSupplySpeed),
-                baseTrackingBorrowSpeed: safe64(baseTrackingBorrowSpeed),
-                baseMinForRewards: safe104(baseMinForRewards),
-                baseBorrowMin: safe104(baseBorrowMin),
+                baseBorrowMin: uint104(baseBorrowMin),
                 targetPercent: targetPercent,
                 seedReserves: safe104(seedReserves),
                 unlockTimestamp: unlockTimestamp,

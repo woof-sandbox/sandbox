@@ -59,6 +59,9 @@ contract CometStorage is ICometStructures {
     /// @notice The address of the extension contract
     address public extension;
 
+    /// @notice The address of the reward contract
+    address public rewardAddress;
+
     /// @notice The address of the base token contract
     address public baseToken;
 
@@ -101,29 +104,10 @@ contract CometStorage is ICometStructures {
     uint64 public borrowPerSecondInterestRateBase;
 
     /// @notice The fraction of the liquidation penalty that goes to buyers of collateral instead of the protocol
-    /// @dev uint64
     uint64 public storeFrontPriceFactor;
 
     /// @notice The scale for base token (must be less than 18 decimals)
-    /// @dev uint64
-    uint256 public baseScale;
-
-    /// @notice The scale for reward tracking
-    /// @dev uint64
-    uint256 public trackingIndexScale;
-
-    /// @notice The speed at which supply rewards are tracked (in trackingIndexScale)
-    /// @dev uint64
-    uint256 public baseTrackingSupplySpeed;
-
-    /// @notice The speed at which borrow rewards are tracked (in trackingIndexScale)
-    /// @dev uint64
-    uint256 public baseTrackingBorrowSpeed;
-
-    /// @notice The minimum amount of base principal wei for rewards to accrue
-    /// @dev This must be large enough so as to prevent division by base wei from overflowing the 64 bit indices
-    /// @dev uint104
-    uint256 public baseMinForRewards;
+    uint64 public baseScale;
 
     /// @notice The minimum base amount required to initiate a borrow
     uint256 public baseBorrowMin;
@@ -137,14 +121,9 @@ contract CometStorage is ICometStructures {
     /// @notice Unlock timestamp
     uint64 public unlockTimestamp;
 
-    /// @notice Factor to divide by when accruing rewards in order to preserve 6 decimals (i.e. baseScale / 1e6)
-    uint256 internal accrualDescaleFactor;
-
     /// @dev Aggregate variables tracked for the entire market
     uint64 internal baseSupplyIndex;
     uint64 internal baseBorrowIndex;
-    uint64 internal trackingSupplyIndex;
-    uint64 internal trackingBorrowIndex;
     uint104 internal totalSupplyBase;
     uint104 internal totalBorrowBase;
     uint40 internal lastAccrualTime;
