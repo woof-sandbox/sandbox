@@ -115,8 +115,8 @@ describe("25. Curator Proposal", () => {
             expect(proposal.comet).to.equal(cometAddress);
             expect(proposal.call).to.equal(calldata);
             expect(proposal.expirationTime).to.be.equal(blockTimestamp + LIFETIME_PERIOD);
-            expect(proposal.maturityTime).to.be.equal(blockTimestamp + MATURITY_PERIOD);
-            expect(proposal.timelock).to.equal(blockTimestamp + TIMELOCK_PERIOD);
+            expect(proposal.maturityTime).to.be.equal(0);
+            expect(proposal.timelock).to.equal(0);
         });
 
         it("should made the proposal with the same calldata twice", async () => {

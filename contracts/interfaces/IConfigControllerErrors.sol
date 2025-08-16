@@ -37,4 +37,5 @@ interface IConfigControllerErrors {
     error CollateralTokenNotAdded();
     error CollateralRemovalInProgress();
     error CurveTransitionAlreadyInitiated();
+    error MarketAlreadyDeprecated();
 }

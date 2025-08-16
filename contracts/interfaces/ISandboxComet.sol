@@ -96,6 +96,8 @@ interface ISandboxComet {
 
     function initiateDeprecation() external virtual;
 
+    function isDeprecated() external view returns (bool);
+
     function withdrawSurplusSeedReserves() external virtual;
 
     function withdrawSurplusCollateralReserves(address[] calldata assets) external virtual;

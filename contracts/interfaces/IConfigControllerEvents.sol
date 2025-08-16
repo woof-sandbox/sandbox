@@ -40,4 +40,10 @@ interface IConfigControllerEvents {
     event ProposeCurveTransition(uint256 indexed proposalId, address indexed proposer, uint8 curveId);
 
     event ProposeCurveTransitionAccepted(uint256 indexed proposalId, address indexed accepter, uint8 curveId);
+
+    event ProposeMarketDeprecation(uint256 indexed proposalId, address indexed proposer);
+
+    event ProposeMarketDeprecationAccepted(uint256 indexed proposalId, address indexed accepter, address indexed market);
+
+    event ProposalTimelockSetted(uint256 indexed proposalId, address indexed accepter, uint40 timelock);
 }

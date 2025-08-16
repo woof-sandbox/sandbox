@@ -35,26 +35,24 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
     uint24 public constant PRPOPOSE_NEW_COLLATERAL_LIFETIME = 2 weeks;
     /// @notice The maturity time of the new collateral proposal
     uint24 public constant PROPOSE_NEW_COLLATERAL_MATURITY = 1 weeks;
-    /// @notice The timelock of the new collateral proposal
-    uint24 public constant PROPOSE_NEW_COLLATERAL_TIMELOCK = 0;
     /// @notice The lifetime of the collateral removal proposal
     uint24 public constant PROPOSE_COLLATERAL_REMOVAL_LIFETIME = 2 weeks; 
     /// @notice The maturity time of the collateral removal proposal
     uint24 public constant PROPOSE_COLLATERAL_REMOVAL_MATURITY = 1 weeks;
     /// @notice The timelock of the collateral removal proposal
-    uint24 public constant PROPOSE_COLLATERAL_REMOVAL_TIMELOCK = 0;
+    uint24 public constant PROPOSE_COLLATERAL_REMOVAL_TIMELOCK = 1 weeks;
     /// @notice The lifetime of the curator proposal
     uint24 public constant PROPOSE_CURATOR_LIFETIME = 1 weeks;
-    /// @notice The maturity time of the curator proposal
-    uint24 public constant PROPOSE_CURATOR_MATURITY = 0;
-    /// @notice The timelock of the curator proposal
-    uint24 public constant PROPOSE_CURATOR_TIMELOCK = 0;
     /// @notice The lifetime of the curve transition proposal
     uint24 public constant PROPOSE_CURVE_TRANSITION_LIFETIME = 2 weeks;
     /// @notice The maturity time of the curve transition proposal
     uint24 public constant PROPOSE_CURVE_TRANSITION_MATURITY = 1 weeks;
-    /// @notice The timelock of the curve transition proposal
-    uint24 public constant PROPOSE_CURVE_TRANSITION_TIMELOCK = 0;
+    /// @notice The lifetime of the market deprecation proposal
+    uint24 public constant PROPOSE_MARKET_DEPRECATION_LIFETIME = 5 weeks;
+    /// @notice The maturity time of the market deprecation proposal
+    uint24 public constant PROPOSE_MARKET_DEPRECATION_MATURITY = 1 weeks;
+    /// @notice The timelock of the market deprecation proposal
+    uint24 public constant PROPOSE_MARKET_DEPRECATION_TIMELOCK = 3 weeks;
 
     /// @notice The address of the protocol owner
     address public override owner;
@@ -154,8 +152,8 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
             proposer: owner,
             proposalType: ProposalType.ProposeCurator,
             expirationTime: uint40(block.timestamp + PROPOSE_CURATOR_LIFETIME),
-            maturityTime: uint40(block.timestamp + PROPOSE_CURATOR_MATURITY),
-            timelock: uint40(block.timestamp + PROPOSE_CURATOR_TIMELOCK), 
+            maturityTime: 0,
+            timelock: 0, 
             comet: address(0),
             call: call // Curator can be zero address.
         });
@@ -179,14 +177,14 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
         ProposeNewCollateralToken,
         ProposeCollateralRemoval,
         ProposeCurveTransition,
-        ProposeMarketClosure
+        ProposeMarketDeprecation
     }
 
     // Hardcoded selector for addCollateralToken function
     bytes4 constant ADD_COLLATERAL_SELECTOR = 0xfad67aaa;
     bytes4 constant REMOVE_COLLATERAL_SELECTOR = 0x58b77c0e;
     bytes4 constant CURVE_TRANSITION_SELECTOR = 0x27c05186;
-    bytes4 constant MARKET_CLOSURE_SELECTOR = 0x00000000;
+    bytes4 constant MARKET_DEPRECATION_SELECTOR = 0xc32b0b15;
 
     /**
      * @notice Creates a new proposal
@@ -220,7 +218,7 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
         uint8 _proposalType
     ) external returns (uint256) {
         // Check if proposal type is valid
-        if (_proposalType > uint8(ProposalType.ProposeMarketClosure)) revert InvalidProposalType();
+        if (_proposalType > uint8(ProposalType.ProposeMarketDeprecation)) revert InvalidProposalType();
         if (_proposalType != uint8(ProposalType.ProposeCurator) && !_isCometOwned(_comet)) revert UnknownComet(); 
         // Increment proposal counter
         proposalCounter++;
@@ -261,7 +259,7 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
                 proposalType: ProposalType.ProposeNewCollateralToken,
                 maturityTime: uint40(block.timestamp + PROPOSE_NEW_COLLATERAL_MATURITY),
                 expirationTime: uint40(block.timestamp + PRPOPOSE_NEW_COLLATERAL_LIFETIME),
-                timelock: uint40(block.timestamp + PROPOSE_NEW_COLLATERAL_TIMELOCK),
+                timelock: 0,
                 comet: _comet,
                 call: _calldata
             });
@@ -288,8 +286,8 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
                 proposer: msg.sender,
                 proposalType: ProposalType.ProposeCurator,
                 expirationTime: uint40(block.timestamp + PROPOSE_CURATOR_LIFETIME),
-                maturityTime: uint40(block.timestamp + PROPOSE_CURATOR_MATURITY),
-                timelock: uint40(block.timestamp + PROPOSE_CURATOR_TIMELOCK), 
+                maturityTime: 0,
+                timelock: 0, 
                 comet: address(0),
                 call: _calldata
             });
@@ -321,7 +319,7 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
                 proposalType: ProposalType.ProposeCollateralRemoval,
                 maturityTime: uint40(block.timestamp + PROPOSE_COLLATERAL_REMOVAL_MATURITY),
                 expirationTime: uint40(block.timestamp + PROPOSE_COLLATERAL_REMOVAL_LIFETIME),
-                timelock: uint40(block.timestamp + PROPOSE_COLLATERAL_REMOVAL_TIMELOCK),
+                timelock: 0,
                 comet: _comet,
                 call: _calldata
             });
@@ -346,12 +344,12 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
                 proposalType: ProposalType.ProposeCurveTransition,
                 maturityTime: uint40(block.timestamp + PROPOSE_CURVE_TRANSITION_MATURITY),
                 expirationTime: uint40(block.timestamp + PROPOSE_CURVE_TRANSITION_LIFETIME),
-                timelock: uint40(block.timestamp + PROPOSE_CURVE_TRANSITION_TIMELOCK),
+                timelock: 0,
                 comet: _comet,
                 call: _calldata
             });
             emit ProposeCurveTransition(proposalId, msg.sender, curveId);
-        } else if (_proposalType == uint8(ProposalType.ProposeMarketClosure)) {
+        } else if (_proposalType == uint8(ProposalType.ProposeMarketDeprecation)) {
             if (msg.sender != owner) revert Unauthorized();
             /**
              * --- Before creating the proposal checks ---
@@ -359,6 +357,23 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
              * - Check if the market in the close process.
              * - Check if the market is already closed.
              */
+            bytes4 selector = bytes4(_calldata);
+            if (selector != MARKET_DEPRECATION_SELECTOR) revert InvalidSelector();
+
+            // Check if the market is already deprecated
+            if (ISandboxCometConfig(_comet).isDeprecated()) revert MarketAlreadyDeprecated();
+
+            // Create the proposal
+            proposals[proposalId] = Proposal({
+                proposer: msg.sender,
+                proposalType: ProposalType.ProposeMarketDeprecation,
+                expirationTime: uint40(block.timestamp + PROPOSE_MARKET_DEPRECATION_LIFETIME),
+                maturityTime: uint40(block.timestamp + PROPOSE_MARKET_DEPRECATION_MATURITY),
+                timelock: 0,
+                comet: _comet,
+                call: _calldata
+            });
+            emit ProposeMarketDeprecation(proposalId, msg.sender);
         }
         
         return proposalId;
@@ -378,9 +393,16 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
          * - Check if the timelock is reached.
          */
         if (_proposal.expirationTime == 0) revert NoActiveProposal();
-        if (block.timestamp > _proposal.expirationTime) revert ProposalExpired();
-        if (block.timestamp < _proposal.maturityTime) revert ProposalNotMatured();
-        if (block.timestamp < _proposal.timelock) revert ProposalNotTimelocked();
+        // Check if the proposal has the timelock timestamp. 
+        // If the timelock is 0, the proposal doesn't have the timelock. And we can check the proposal as usual.
+        // If the timelock is greater than 0, the proposal has the timelock. And we don't need to check the expiration time and the maturity time.
+        // They already passed.
+        if (_proposal.timelock == 0) {
+            if (block.timestamp > _proposal.expirationTime) revert ProposalExpired();
+            if (block.timestamp < _proposal.maturityTime) revert ProposalNotMatured();
+        } else {
+            if (block.timestamp < _proposal.timelock) revert ProposalNotTimelocked();
+        }
 
         /// Accept the curator role proposal.
         if (_proposal.proposalType == ProposalType.ProposeCurator) {
@@ -405,15 +427,13 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
             /// We emit the event before the storage update to avoid to save the old curator in the event logs.
             emit CuratorAccepted(_proposalId, curator, proposedCuratorAddress);
             
-            curator = proposedCuratorAddress;
-
             /**
-             * --- After executing the proposal ---
-             * - We must mark the proposal as not active.
-             * - No additional checks are needed, since the only the ConfigController is evolved.
-             */
+            * --- After executing the proposal ---
+            * - We must mark the proposal as not active.
+            * - No additional checks are needed, since the only the ConfigController is evolved.
+            */
             _proposal.expirationTime = 0;
-            
+            curator = proposedCuratorAddress;
         /// Accept the new collateral token proposal.
         } else if (_proposal.proposalType == ProposalType.ProposeNewCollateralToken) {
             /**
@@ -479,37 +499,43 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
             if (msg.sender != owner && msg.sender != curator) revert Unauthorized();
             if (!_isCometOwned(_proposal.comet)) revert UnknownComet();
             if (ISandboxCometConfig(_proposal.comet).removalInProgress()) revert CollateralRemovalInProgress();
-            /**
-             * --- Before executing the proposal checks ---
-             * - Check if the collateral token is stil the part of the comet collateral list.
-             */
-              
-            // Copy the parameters (skip the first 4 bytes which is the selector)
-            bytes memory collateralTokenBytes = new bytes(_proposal.call.length - 4);
-            for (uint i = 4; i < _proposal.call.length; i++) {
-                collateralTokenBytes[i - 4] = _proposal.call[i];
-            }            
-            address collateralToken = abi.decode(collateralTokenBytes, (address));
 
-            /// Inside the comet, the function getAssetInfoByAddress will revert if the collateral token is not added.
-            try ISandboxCometConfig(_proposal.comet).getAssetInfoByAddress(collateralToken) {
-                // Collateral token is still part of the comet collateral list
-            }
-            catch {
-                revert CollateralTokenNotAdded();
-            }
-            
-            /// Execute the collateral removal
-            (bool success, ) = _proposal.comet.call(_proposal.call);
-            if (!success) revert CometCallFailed();
-            /**
-             * --- After executing the proposal ---
-             * - We must mark the proposal as not active.
-             * - No additional checks are needed, since the only the ConfigController is evolved.
-             */
-            _proposal.expirationTime = 0;
-            
-            emit ProposeCollateralRemovalAccepted(_proposalId, msg.sender, collateralToken);
+            if (_proposal.timelock == 0) {
+                _proposal.timelock = uint40(block.timestamp + PROPOSE_COLLATERAL_REMOVAL_TIMELOCK);
+
+                emit ProposalTimelockSetted(_proposalId, msg.sender, _proposal.timelock);
+            } else {
+                /**
+                * --- Before executing the proposal checks ---
+                * - Check if the collateral token is stil the part of the comet collateral list.
+                */
+                
+                // Copy the parameters (skip the first 4 bytes which is the selector)
+                bytes memory collateralTokenBytes = new bytes(_proposal.call.length - 4);
+                for (uint i = 4; i < _proposal.call.length; i++) {
+                    collateralTokenBytes[i - 4] = _proposal.call[i];
+                }            
+                address collateralToken = abi.decode(collateralTokenBytes, (address));
+
+                /// Inside the comet, the function getAssetInfoByAddress will revert if the collateral token is not added.
+                try ISandboxCometConfig(_proposal.comet).getAssetInfoByAddress(collateralToken) {
+                    // Collateral token is still part of the comet collateral list
+                }
+                catch {
+                    revert CollateralTokenNotAdded();
+                }
+                
+                /// Execute the collateral removal
+                (bool success, ) = _proposal.comet.call(_proposal.call);
+                if (!success) revert CometCallFailed();
+                /**
+                * --- After executing the proposal ---
+                * - We must mark the proposal as not active.
+                * - No additional checks are needed, since the only the ConfigController is evolved.
+                */
+                _proposal.expirationTime = 0;
+                emit ProposeCollateralRemovalAccepted(_proposalId, msg.sender, collateralToken);
+            }            
         } else if (_proposal.proposalType == ProposalType.ProposeCurveTransition) {
             /**
              * --- Significant checks ---
@@ -541,6 +567,37 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
             _proposal.expirationTime = 0;
 
             emit ProposeCurveTransitionAccepted(_proposalId, msg.sender, curveId);
+        } else if (_proposal.proposalType == ProposalType.ProposeMarketDeprecation) {
+            /**
+             * --- Significant checks ---
+             * The most significant checks. If they fail, the proposal can't be executed. Since that we performed them earlier.  
+             * - Check that the msg.sender is owner.         
+             * - Check if the comet is owned by the ConfigController. Before the proposal is executed the comet can be
+             *   transferred to the another ConfigController.
+             * - Check if the market is already deprecated.
+             */
+            if (msg.sender != owner) revert Unauthorized();
+            if (!_isCometOwned(_proposal.comet)) revert UnknownComet();
+            if (ISandboxCometConfig(_proposal.comet).isDeprecated()) revert MarketAlreadyDeprecated();
+            
+            // The proposal is not timelocked. Buy we must have the timelock period.
+            if (_proposal.timelock == 0) {
+                _proposal.timelock = uint40(block.timestamp + PROPOSE_MARKET_DEPRECATION_TIMELOCK);
+
+                emit ProposalTimelockSetted(_proposalId, msg.sender, _proposal.timelock);
+            } else { 
+                /// Execute the market deprecation
+                (bool success, ) = _proposal.comet.call(_proposal.call);
+                if (!success) revert CometCallFailed();
+                /**
+                * --- After executing the proposal ---
+                * - We must mark the proposal as not active.
+                * - No additional checks are needed, since the only the ConfigController is evolved.
+                */
+                _proposal.expirationTime = 0;
+
+                emit ProposeMarketDeprecationAccepted(_proposalId, msg.sender, _proposal.comet);
+            }
         }
 
         proposals[_proposalId] = _proposal;

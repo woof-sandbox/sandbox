@@ -783,6 +783,14 @@ contract SandboxComet is CometCore, ISandboxComet {
     }
 
     /**
+     * @notice Check if the market is deprecated
+     * @return True if the market is deprecated (InProgress or Finalized), false otherwise
+     */
+    function isDeprecated() public view override returns (bool) {
+        return deprecationStatus != DeprecationStatus.NotStarted;
+    }
+
+    /**
      * @dev The change in principal broken into repay and supply amounts
      */
     function repayAndSupplyAmount(int104 oldPrincipal, int104 newPrincipal) internal pure returns (uint104, uint104) {

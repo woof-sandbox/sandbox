@@ -72,6 +72,8 @@ interface ISandboxCometConfig {
      */
     function isTransitionActive() external view returns (bool);
 
+    function isDeprecated() external view returns (bool);
+
     function pause(
         bool supplyPaused,
         bool transferPaused,
