@@ -120,4 +120,14 @@ interface IConfigController is IConfigControllerStructs {
     /// @param comet The address of the comet to withdraw free seed reserves from
     /// @param amount The amount of free seed reserves to withdraw
     function withdrawFreeSeedReservesFrom(address comet, uint256 amount) external;
+
+    /// @notice Accepts a comet
+    /// @dev Only callable by the another ConfigController
+    /// @param comet The address of the comet to accept
+    function acceptComet(address comet) external;
+
+    /// @notice Checks if a comet is owned by this controller
+    /// @param comet The address of the comet to check ownership of
+    /// @return True if the comet is owned by this controller, false otherwise
+    function isCometOwned(address comet) external view returns (bool);
 }

@@ -46,4 +46,10 @@ interface IConfigControllerEvents {
     event ProposeMarketDeprecationAccepted(uint256 indexed proposalId, address indexed accepter, address indexed market);
 
     event ProposalTimelockSetted(uint256 indexed proposalId, address indexed accepter, uint40 timelock);
+
+    event ProposeMarketTransfer(uint256 indexed proposalId, address indexed proposer, address indexed configController);
+
+    event ProposeMarketTransferAccepted(uint256 indexed proposalId, address indexed accepter, address indexed configController);
+
+    event CometAccepted(address indexed comet);
 }

@@ -53,6 +53,10 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
     uint24 public constant PROPOSE_MARKET_DEPRECATION_MATURITY = 1 weeks;
     /// @notice The timelock of the market deprecation proposal
     uint24 public constant PROPOSE_MARKET_DEPRECATION_TIMELOCK = 3 weeks;
+    /// @notice The lifetime of the market transfer proposal
+    uint24 public constant PROPOSE_MARKET_TRANSFER_LIFETIME = 2 weeks;
+    /// @notice The timelock of the market transfer proposal
+    uint24 public constant PROPOSE_MARKET_TRANSFER_TIMELOCK = 1 weeks;
 
     /// @notice The address of the protocol owner
     address public override owner;
@@ -177,7 +181,8 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
         ProposeNewCollateralToken,
         ProposeCollateralRemoval,
         ProposeCurveTransition,
-        ProposeMarketDeprecation
+        ProposeMarketDeprecation,
+        ProposeMarketTransfer
     }
 
     // Hardcoded selector for addCollateralToken function
@@ -218,8 +223,8 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
         uint8 _proposalType
     ) external returns (uint256) {
         // Check if proposal type is valid
-        if (_proposalType > uint8(ProposalType.ProposeMarketDeprecation)) revert InvalidProposalType();
-        if (_proposalType != uint8(ProposalType.ProposeCurator) && !_isCometOwned(_comet)) revert UnknownComet(); 
+        if (_proposalType > uint8(ProposalType.ProposeMarketTransfer)) revert InvalidProposalType();
+        if (_proposalType != uint8(ProposalType.ProposeCurator) && !isCometOwned(_comet)) revert UnknownComet(); 
         // Increment proposal counter
         proposalCounter++;
         uint256 proposalId = proposalCounter;
@@ -374,8 +379,30 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
                 call: _calldata
             });
             emit ProposeMarketDeprecation(proposalId, msg.sender);
+        } else if (_proposalType == uint8(ProposalType.ProposeMarketTransfer)) {
+            if (msg.sender != owner) revert Unauthorized();
+            /**
+             * --- Before creating the proposal checks ---
+             * - Check if the _configController is address.
+             */
+            address _configController = abi.decode(_calldata, (address));
+            if (_configController == address(0)) revert InvalidConfigController();
+            if (_configController == address(this)) revert InvalidConfigController();
+            if (!IConfigControllerFactory(configControllerFactory).isController(_configController)) revert InvalidConfigController();
+            
+            // Create the proposal
+            proposals[proposalId] = Proposal({
+                proposer: msg.sender,
+                proposalType: ProposalType.ProposeMarketTransfer,
+                maturityTime: 0,
+                expirationTime: uint40(block.timestamp + PROPOSE_MARKET_TRANSFER_LIFETIME),
+                timelock: 0,
+                comet: _comet,
+                call: _calldata
+            });
+            emit ProposeMarketTransfer(proposalId, msg.sender, _configController);
         }
-        
+
         return proposalId;
     }
 
@@ -444,7 +471,7 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
              *   transferred to the another ConfigController.
              */
             if (msg.sender != owner && msg.sender != curator) revert Unauthorized();
-            if (!_isCometOwned(_proposal.comet)) revert UnknownComet();
+            if (!isCometOwned(_proposal.comet)) revert UnknownComet();
             
             /**
              * --- Before executing the proposal checks ---
@@ -497,7 +524,7 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
              * - Check if the collateral removal is already initiated.
              */
             if (msg.sender != owner && msg.sender != curator) revert Unauthorized();
-            if (!_isCometOwned(_proposal.comet)) revert UnknownComet();
+            if (!isCometOwned(_proposal.comet)) revert UnknownComet();
             if (ISandboxCometConfig(_proposal.comet).removalInProgress()) revert CollateralRemovalInProgress();
 
             if (_proposal.timelock == 0) {
@@ -546,7 +573,7 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
              * - Check if the transition is already active.
              */
             if (msg.sender != owner && msg.sender != curator) revert Unauthorized();
-            if (!_isCometOwned(_proposal.comet)) revert UnknownComet();
+            if (!isCometOwned(_proposal.comet)) revert UnknownComet();
             if (ISandboxCometConfig(_proposal.comet).isTransitionActive()) revert CurveTransitionAlreadyInitiated();
             
             // Copy the parameters (skip the first 4 bytes which is the selector)
@@ -577,7 +604,7 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
              * - Check if the market is already deprecated.
              */
             if (msg.sender != owner) revert Unauthorized();
-            if (!_isCometOwned(_proposal.comet)) revert UnknownComet();
+            if (!isCometOwned(_proposal.comet)) revert UnknownComet();
             if (ISandboxCometConfig(_proposal.comet).isDeprecated()) revert MarketAlreadyDeprecated();
             
             // The proposal is not timelocked. Buy we must have the timelock period.
@@ -598,9 +625,58 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
 
                 emit ProposeMarketDeprecationAccepted(_proposalId, msg.sender, _proposal.comet);
             }
+        } else if (_proposal.proposalType == ProposalType.ProposeMarketTransfer) {
+            /**
+             * --- Significant checks ---
+             * The most significant checks. If they fail, the proposal can't be executed. Since that we performed them earlier.  
+             * - Check that the msg.sender is owner.         
+             * - Check if the comet is owned by the ConfigController. Before the proposal is executed the comet can be
+             *   transferred to the another ConfigController.
+             */
+            address _configController = abi.decode(_proposal.call, (address));
+            IConfigController _configControllerContract = IConfigController(_configController);
+            if (msg.sender != _configControllerContract.owner()) revert Unauthorized();
+            if (!isCometOwned(_proposal.comet)) revert UnknownComet();
+            if (!IConfigControllerFactory(configControllerFactory).isController(_configController)) revert InvalidConfigController();
+        
+            if (_proposal.timelock == 0) {
+                _proposal.timelock = uint40(block.timestamp + PROPOSE_MARKET_TRANSFER_TIMELOCK);
+
+                emit ProposalTimelockSetted(_proposalId, msg.sender, _proposal.timelock);
+            } else {
+                /// Remove the comet from the current controller
+                uint256 _cometId = cometId[_proposal.comet];
+                uint256 _lastIndex = comets.length - 1;
+                
+                // Only reorder if not the last element
+                if (_cometId != _lastIndex) {
+                    address _lastComet = comets[_lastIndex];
+                    comets[_cometId] = _lastComet;
+                    cometId[_lastComet] = _cometId;
+                }
+                
+                comets.pop();
+                cometId[_proposal.comet] = 0;
+                _configControllerContract.acceptComet(_proposal.comet);
+                
+                _proposal.expirationTime = 0;
+                
+                emit ProposeMarketTransferAccepted(_proposalId, msg.sender, _configController); 
+            }
         }
 
         proposals[_proposalId] = _proposal;
+    }
+
+    /// @notice Accepts a comet
+    /// @dev Only callable by the ConfigControllerFactory
+    /// @param _comet The address of the comet to accept
+    function acceptComet(address _comet) external {
+        if (!IConfigControllerFactory(configControllerFactory).isController(msg.sender)) revert Unauthorized();
+        comets.push(_comet);
+        cometId[_comet] = comets.length - 1;
+
+        emit CometAccepted(_comet);
     }
 
     /// @notice Cancels a proposal
@@ -728,7 +804,7 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
     /// @param feeEnabled Flag for fees enabling (true -> fees are enabled)
     function setCometFee(address comet, bool feeEnabled) external onlyOwner {
         if (comet == address(0)) revert ZeroAddress();
-        if (!_isCometOwned(comet)) revert UnknownComet();
+        if (!isCometOwned(comet)) revert UnknownComet();
         if (cometFeeEnabled[comet] == feeEnabled) revert IncorrectValue();
 
         cometFeeEnabled[comet] = feeEnabled;
@@ -740,7 +816,7 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
     /// @param asset Asset (collateral or base asset) to extract
     function extractFees(address comet, address asset) external onlyOwner {
         if (comet == address(0)) revert ZeroAddress();
-        if (!_isCometOwned(comet)) revert UnknownComet();
+        if (!isCometOwned(comet)) revert UnknownComet();
 
         ISandboxCometConfig(comet).extractFees(asset);
         /// Note: Comet emits the respective event
@@ -819,7 +895,7 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
     /// @notice Internal function to check if a comet is owned by this controller
     /// @param comet The address of the comet
     /// @return True if the comet is owned by this controller
-    function _isCometOwned(address comet) public view returns (bool) {
+    function isCometOwned(address comet) public view returns (bool) {
         if (cometsLength() == 0) return false;
         return comets[cometId[comet]] == comet;
     }
@@ -841,7 +917,7 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
         bool buyPaused
     ) external override onlyOwner {
         if (comet == address(0)) revert ZeroAddress();
-        if (!_isCometOwned(comet)) revert UnknownComet();
+        if (!isCometOwned(comet)) revert UnknownComet();
 
         ISandboxCometConfig(comet).pause(supplyPaused, transferPaused, withdrawPaused, absorbPaused, buyPaused);
         /// Note: Comet emits the respective event
@@ -855,7 +931,7 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
     /// @param amount The amount of free seed reserves to withdraw
     function withdrawFreeSeedReservesFrom(address comet, uint256 amount) external override onlyOwner {
         if (comet == address(0)) revert ZeroAddress();
-        if (!_isCometOwned(comet)) revert UnknownComet();
+        if (!isCometOwned(comet)) revert UnknownComet();
 
         ISandboxCometConfig(comet).withdrawFreeSeedReserves(amount);
         /// Note: Comet emits the respective event

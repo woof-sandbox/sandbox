@@ -38,4 +38,5 @@ interface IConfigControllerErrors {
     error CollateralRemovalInProgress();
     error CurveTransitionAlreadyInitiated();
     error MarketAlreadyDeprecated();
+    error InvalidConfigController();
 }
