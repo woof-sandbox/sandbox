@@ -57,6 +57,8 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
     uint24 public constant PROPOSE_MARKET_TRANSFER_LIFETIME = 2 weeks;
     /// @notice The timelock of the market transfer proposal
     uint24 public constant PROPOSE_MARKET_TRANSFER_TIMELOCK = 1 weeks;
+    /// @notice The lifetime of the transfer ownership proposal
+    uint24 public constant PROPOSE_TRANSFER_OWNERSHIP_LIFETIME = 2 weeks;
 
     /// @notice The address of the protocol owner
     address public override owner;
@@ -182,7 +184,8 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
         ProposeCollateralRemoval,
         ProposeCurveTransition,
         ProposeMarketDeprecation,
-        ProposeMarketTransfer
+        ProposeMarketTransfer,
+        ProposeTransferOwnership
     }
 
     // Hardcoded selector for addCollateralToken function
@@ -223,8 +226,8 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
         uint8 _proposalType
     ) external returns (uint256) {
         // Check if proposal type is valid
-        if (_proposalType > uint8(ProposalType.ProposeMarketTransfer)) revert InvalidProposalType();
-        if (_proposalType != uint8(ProposalType.ProposeCurator) && !isCometOwned(_comet)) revert UnknownComet(); 
+        if (_proposalType > uint8(ProposalType.ProposeTransferOwnership)) revert InvalidProposalType();
+        if (_proposalType != uint8(ProposalType.ProposeCurator) && _proposalType != uint8(ProposalType.ProposeTransferOwnership) && !isCometOwned(_comet)) revert UnknownComet(); 
         // Increment proposal counter
         proposalCounter++;
         uint256 proposalId = proposalCounter;
@@ -401,6 +404,33 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
                 call: _calldata
             });
             emit ProposeMarketTransfer(proposalId, msg.sender, _configController);
+        } else if (_proposalType == uint8(ProposalType.ProposeTransferOwnership)) {
+            if (msg.sender != owner) revert Unauthorized();
+            address _newOwner = abi.decode(_calldata, (address));
+            /**
+             * --- Significant checks ---
+             * The most significant checks. If they fail, the proposal can't be executed. Since that we performed them earlier.  
+             * - Check if the new owner is not the zero address.
+             * - Check if the new owner is not the same as the current owner.
+             * - Check if the new owner is not the same as the current curator.
+             * - Check if the new owner is not the same as the current guardian.
+             */
+            if (_newOwner == address(0)) revert InvalidOwner();
+            if (_newOwner == owner) revert InvalidOwner();
+            if (_newOwner == curator) revert InvalidOwner();
+            if (_newOwner == guardian) revert InvalidOwner();
+
+            // Create the proposal
+            proposals[proposalId] = Proposal({
+                proposer: msg.sender,
+                proposalType: ProposalType.ProposeTransferOwnership,
+                maturityTime: 0,
+                expirationTime: uint40(block.timestamp + PROPOSE_TRANSFER_OWNERSHIP_LIFETIME),
+                timelock: 0,
+                comet: address(0),
+                call: _calldata
+            });
+            emit ProposeTransferOwnership(proposalId, msg.sender, _newOwner);
         }
 
         return proposalId;
@@ -663,8 +693,25 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
                 
                 emit ProposeMarketTransferAccepted(_proposalId, msg.sender, _configController); 
             }
-        }
+        } else if (_proposal.proposalType == ProposalType.ProposeTransferOwnership) {
+            address _newOwner = abi.decode(_proposal.call, (address));
+            /**
+             * --- Significant checks ---
+             * The most significant checks. If they fail, the proposal can't be executed. Since that we performed them earlier.  
+             * - Check that the msg.sender is the new owner.
+             * - Check if the new owner is not the same as the current owner.
+             * - Check if the new owner is not the same as the current curator.
+             * - Check if the new owner is not the same as the current guardian.
+             */
+            if (msg.sender != _newOwner) revert Unauthorized();
+            if (_newOwner == owner) revert InvalidOwner();
+            if (_newOwner == curator) revert InvalidOwner();
+            if (_newOwner == guardian) revert InvalidOwner();
 
+            _proposal.expirationTime = 0;
+            owner = _newOwner;
+            emit ProposeTransferOwnershipAccepted(_proposalId, msg.sender, _newOwner);
+        }
         proposals[_proposalId] = _proposal;
     }
 

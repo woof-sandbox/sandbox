@@ -39,4 +39,5 @@ interface IConfigControllerErrors {
     error CurveTransitionAlreadyInitiated();
     error MarketAlreadyDeprecated();
     error InvalidConfigController();
+    error InvalidOwner();
 }

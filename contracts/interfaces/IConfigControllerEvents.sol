@@ -52,4 +52,8 @@ interface IConfigControllerEvents {
     event ProposeMarketTransferAccepted(uint256 indexed proposalId, address indexed accepter, address indexed configController);
 
     event CometAccepted(address indexed comet);
+
+    event ProposeTransferOwnership(uint256 indexed proposalId, address indexed proposer, address indexed newOwner);
+
+    event ProposeTransferOwnershipAccepted(uint256 indexed proposalId, address indexed accepter, address indexed newOwner);
 }

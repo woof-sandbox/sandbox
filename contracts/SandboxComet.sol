@@ -515,7 +515,6 @@ contract SandboxComet is CometCore, ISandboxComet {
         if (msg.sender != configController) revert Unauthorized();
 
         CollateralRemovalState memory collateralRemovalState_ = _collateralRemovalState;
-
         if (removalInProgress) {
             revert CollateralRemovalInProgress(
                 collateralRemovalState_.collateralToken,
@@ -523,7 +522,6 @@ contract SandboxComet is CometCore, ISandboxComet {
                 collateralRemovalState_.startTime + collateralRemovalState_.duration
             );
         }
-
         (CollateralAsset memory asset, uint8 assetIndex) = getAssetInfoByAddress(removalAsset);
 
         uint40 now_ = getNowInternal();
