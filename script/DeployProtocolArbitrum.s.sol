@@ -162,7 +162,7 @@ contract DeployProtocol is Script {
         return address(configControllerFactory);
     }
 
-    function deploySandboxController(address owner) internal returns (address) {
+    function deploySandboxController() internal returns (address) {
         ISandboxController.SandboxControllerConfiguration memory config = ISandboxController.SandboxControllerConfiguration({
             targetPercent: 2e17, // 20%
             storeFrontPriceFactor: 6e17, // 60%
@@ -227,7 +227,8 @@ contract DeployProtocol is Script {
             8.5e17, // minLiquidateCollateralFactor (85%)
             9.5e17, // maxLiquidateCollateralFactor (95%)
             8.5e17, // minLiquidationFactor (85%)
-            9.5e17 // maxLiquidationFactor (95%)
+            9.5e17, // maxLiquidationFactor (95%)
+            300_000 * 1e18 // 300k tokens as 30% of presumable 1mln supply
         );
     }
 

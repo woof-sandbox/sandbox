@@ -76,6 +76,7 @@ export type AssetLimits = {
   maxLiquidateCF: BigNumberish;
   minLiquidationFactor: BigNumberish;
   maxLiquidationFactor: BigNumberish;
+  supplyCap: BigNumberish;
 };
 
 export type Asset = {
@@ -191,7 +192,7 @@ export function defaultAssets(): { [symbol: string]: Asset } {
       symbol: "COMP",
       decimals: 18,
 
-      initial: 1e7,
+      initial: exp(1e9, 18),
       initialPrice: 175,
       liquidationFactor: exp(0.8, 18),
     }),
@@ -200,7 +201,7 @@ export function defaultAssets(): { [symbol: string]: Asset } {
       symbol: "USDC",
       decimals: 6,
 
-      initial: 1e6,
+      initial: exp(1e9, 6),
       liquidationFactor: exp(0.8, 18),
     }),
     WETH: Object.assign({
@@ -208,7 +209,7 @@ export function defaultAssets(): { [symbol: string]: Asset } {
       symbol: "WETH",
       decimals: 18,
 
-      initial: 1e4,
+      initial: exp(1e9, 18),
       initialPrice: 3000,
       liquidationFactor: exp(0.8, 18),
     }),
@@ -217,7 +218,7 @@ export function defaultAssets(): { [symbol: string]: Asset } {
       symbol: "WBTC",
       decimals: 8,
 
-      initial: 1e3,
+      initial: exp(1e9, 8),
       initialPrice: 41000,
       liquidationFactor: exp(0.8, 18),
     }),
@@ -232,6 +233,7 @@ export function defaultAssetLimits(): AssetLimits {
     maxLiquidateCF: exp(0.9, 18),
     minLiquidationFactor: exp(0.75, 18),
     maxLiquidationFactor: exp(0.95, 18),
+    supplyCap: exp(300000, 18), // 300k tokens as 30% of presumable 1M supply
   };
 }
 
@@ -304,6 +306,9 @@ export async function sandboxListCollateralAsset(
   limits?: AssetLimits
 ) {
   const limits_: AssetLimits = limits || defaultAssetLimits();
+  const totalSupply_ = await collateralAsset.totalSupply();
+
+  const expectedCap = totalSupply_.mul(30).div(100);
 
   await sandboxController.whitelistCollateralAsset(
     collateralAsset.address,
@@ -313,7 +318,8 @@ export async function sandboxListCollateralAsset(
     limits_.minLiquidateCF,
     limits_.maxLiquidateCF,
     limits_.minLiquidationFactor,
-    limits_.maxLiquidationFactor
+    limits_.maxLiquidationFactor,
+    expectedCap
   );
 }
 
@@ -496,7 +502,8 @@ export async function createComet(
       borrowCollateralFactor: assetConfig?.collateralConfig?.borrowCF || defaultConfig.borrowCF,
       liquidateCollateralFactor: assetConfig?.collateralConfig?.liquidateCF || defaultConfig.liquidateCF,
       liquidationFactor: assetConfig?.collateralConfig?.liquidationFactor || defaultConfig.liquidationFactor,
-      supplyCap: assetConfig?.collateralConfig?.supplyCap || defaultConfig.supplyCap,
+      supplyCap:
+        assetConfig?.collateralConfig?.supplyCap || (await collaterals[symbol].totalSupply().then(supply => supply.mul(30).div(100))),
     });
   }
 
@@ -507,7 +514,7 @@ export async function createComet(
     name: name || "Comet",
   };
 
-  const amount = await sandboxController.suggestedAmountOfSeedReserves(baseToken.address);
+  const amount = await baseToken.totalSupply().then(supply => supply.mul(30).div(100)); // 30% of total supply
   await baseToken.connect(owner).allocateTo(owner.address, amount);
   await baseToken.connect(owner).approve(configController.address, amount);
 
