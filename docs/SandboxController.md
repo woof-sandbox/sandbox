@@ -147,6 +147,7 @@ mapping(address => struct ISandboxController.CollateralAssetConfiguration) _coll
 
 collateral asset configurations.
 Holds:
+supplyCap
 priceFeed,
 decimals,
 maxBorrowCollateralFactor,
