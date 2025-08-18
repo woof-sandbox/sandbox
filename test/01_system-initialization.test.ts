@@ -58,26 +58,26 @@ describe("1. System Initialization", function () {
   let opts: SandboxControllerOpts;
 
   before(async function () {
+    signers = await ethers.getSigners();
+    owner = signers[0];
+    curator = signers[1];
+    guardian = signers[2];
+    dao = signers[3];
+    treasury = signers[4];
+
     _ConfigControllerFactory = (await ethers.getContractFactory("ConfigControllerFactory")) as ConfigControllerFactory__factory;
 
     /// Note: we are deploying the test wrapper over the config controller
     _ConfigController = (await ethers.getContractFactory("ConfigControllerInitializeTest")) as ConfigControllerInitializeTest__factory;
     _Comet = (await ethers.getContractFactory("SandboxComet")) as SandboxComet__factory;
     _SandboxCometFactory = (await ethers.getContractFactory("SandboxCometFactory")) as SandboxCometFactory__factory;
-    _SandboxControllerFactory = (await ethers.getContractFactory("SandboxController")) as SandboxController__factory;
+    _SandboxControllerFactory = (await ethers.getContractFactory("SandboxController", dao)) as SandboxController__factory;
 
     configControllerImpl = (await _ConfigController.deploy()) as ConfigController;
     sandboxCometImpl = (await _Comet.deploy()) as SandboxComet;
 
-    signers = await ethers.getSigners();
-
-    owner = signers[0];
-    curator = signers[1];
-    guardian = signers[2];
-    dao = signers[3];
-    treasury = signers[4];
     /// Options of the sandbox controller
-    opts = defaultSandboxControllerOpts({ admin: owner.address, dao: dao.address, treasury: treasury.address, feeEnabled: true });
+    opts = defaultSandboxControllerOpts({ treasury: treasury.address, feeEnabled: true });
   });
 
   describe("Config Controller Factory deployment", function () {
@@ -171,7 +171,7 @@ describe("1. System Initialization", function () {
     let configControllersCount = 0;
 
     before(async function () {
-      sandboxController = await makeSandboxController(opts);
+      sandboxController = await makeSandboxController(opts, dao);
       configControllerFactory = await _ConfigControllerFactory.deploy(sandboxController.address, configControllerImpl.address);
       sandboxCometFactory = await _SandboxCometFactory.deploy(sandboxCometImpl.address, configControllerFactory.address);
     });
@@ -541,9 +541,7 @@ describe("1. System Initialization", function () {
     let marketConfig: CometConfigStruct;
 
     before(async function () {
-      sandboxController = await makeSandboxController(
-        defaultSandboxControllerOpts({ admin: owner.address, dao: dao.address, treasury: treasury.address })
-      );
+      sandboxController = await makeSandboxController(defaultSandboxControllerOpts({ treasury: treasury.address }), dao);
 
       const configControllerFactory = await _ConfigControllerFactory.deploy(sandboxController.address, configControllerImpl.address);
       sandboxCometFactory = await _SandboxCometFactory.deploy(sandboxCometImpl.address, configControllerFactory.address);
@@ -717,31 +715,7 @@ describe("1. System Initialization", function () {
     type DeployParams = Parameters<typeof _SandboxControllerFactory.deploy>;
 
     beforeEach(async function () {
-      opts = defaultSandboxControllerOpts({ dao: dao.address, admin: owner.address, treasury: treasury.address });
-    });
-
-    it("reverts if admin = 0", async function () {
-      opts.admin = ethers.constants.AddressZero;
-      await expect(_SandboxControllerFactory.connect(dao).deploy(...(Object.values(opts) as DeployParams))).to.be.revertedWithCustomError(
-        _SandboxControllerFactory,
-        "ZeroAddress"
-      );
-    });
-
-    it("reverts if dao = 0", async function () {
-      opts.dao = ethers.constants.AddressZero;
-      await expect(_SandboxControllerFactory.deploy(...(Object.values(opts) as DeployParams))).to.be.revertedWithCustomError(
-        _SandboxControllerFactory,
-        "ZeroAddress"
-      );
-    });
-
-    it("reverts if dao = owner", async function () {
-      opts.dao = opts.admin;
-      await expect(_SandboxControllerFactory.deploy(...(Object.values(opts) as DeployParams))).to.be.revertedWithCustomError(
-        _SandboxControllerFactory,
-        "IncorrectSetting"
-      );
+      opts = defaultSandboxControllerOpts({ treasury: treasury.address });
     });
 
     it("reverts if treasury = 0", async function () {
@@ -826,8 +800,7 @@ describe("1. System Initialization", function () {
     });
 
     it("initializes state with correct values", async function () {
-      const sandboxController = await makeSandboxController(opts);
-      expect(await sandboxController.owner()).to.equal(owner.address);
+      const sandboxController = await makeSandboxController(opts, dao, _SandboxControllerFactory);
       expect(await sandboxController.dao()).to.equal(dao.address);
       expect(await sandboxController.treasury()).to.equal(treasury.address);
       expect(await sandboxController.feeEnabled()).to.equal(false);

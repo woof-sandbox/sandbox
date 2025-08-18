@@ -26,9 +26,9 @@ import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { BigNumber } from "ethers";
 
 describe("3. SandboxController", function () {
-  let owner: SignerWithAddress;
   let dao: SignerWithAddress;
   let attacker: SignerWithAddress;
+  let contractor: SignerWithAddress;
   let other: SignerWithAddress;
   let treasury: SignerWithAddress;
   let opts: SandboxControllerOpts;
@@ -39,21 +39,22 @@ describe("3. SandboxController", function () {
   const suggestedLockTimeOfSeedReserves = DEFAULT_LOCK_TIME;
 
   before(async function () {
-    [owner, dao, treasury, attacker, other] = await ethers.getSigners();
+    [dao, treasury, attacker, contractor, other] = await ethers.getSigners();
 
     opts = defaultSandboxControllerOpts({
-      admin: owner.address,
-      dao: dao.address,
       treasury: treasury.address,
     });
 
-    sandboxController = await makeSandboxController(opts);
+    sandboxController = await makeSandboxController(opts, dao);
   });
 
   describe("deployment with typical valid parameters", function () {
-    it("verifies initial values after construction", async function () {
-      expect(await sandboxController.owner()).to.equal(owner.address);
+    it("dao is set, proposed dao is not", async function () {
       expect(await sandboxController.dao()).to.equal(dao.address);
+      expect(await sandboxController.proposedDao()).to.equal(ethers.constants.AddressZero);
+    });
+
+    it("verifies initial values after construction", async function () {
       expect(await sandboxController.treasury()).to.equal(treasury.address);
       expect(await sandboxController.feeEnabled()).to.equal(false);
       /// Protocol Commissions
@@ -64,6 +65,10 @@ describe("3. SandboxController", function () {
       expect(await sandboxController.reserveCommission(0)).to.equal(exp(0.01, 18));
       expect(await sandboxController.reserveCommission(1)).to.equal(exp(0.02, 18));
       expect(await sandboxController.reserveCommission(2)).to.equal(exp(0.03, 18));
+    });
+
+    it("no contractor by default", async function () {
+      expect(await sandboxController.contractor()).to.equal(ethers.constants.AddressZero);
     });
 
     it("verifies config after construction", async function () {
@@ -85,6 +90,7 @@ describe("3. SandboxController", function () {
   });
 
   describe("whitelistBaseAsset - reverts", function () {
+    /// Note: testset checks general reverts, work with interest rate curves is checked in a separate testset
     let tokenTest: FaucetToken;
     let priceFeedTest: SimplePriceFeed;
     let curve: BaseAssetCurveStruct = makeValidCurve();
@@ -104,7 +110,7 @@ describe("3. SandboxController", function () {
       expect(assetCurves.length).to.equal(0);
     });
 
-    it("reverts if caller is not owner or dao", async function () {
+    it("reverts if caller is dao", async function () {
       await expect(
         sandboxController
           .connect(attacker)
@@ -116,7 +122,28 @@ describe("3. SandboxController", function () {
             suggestedAmountOfSeedReserves,
             suggestedLockTimeOfSeedReserves
           )
-      ).to.be.revertedWithCustomError(sandboxController, "Unauthorized");
+      ).to.be.revertedWithCustomError(sandboxController, "NotDao");
+    });
+
+    it("reverts for contractor (if caller is not dao)", async function () {
+      const snapshot: SnapshotRestorer = await takeSnapshot();
+
+      await sandboxController.grantContractorRole(contractor.address);
+      await expect(
+        sandboxController
+          .connect(contractor)
+          .whitelistBaseAsset(
+            tokenTest.address,
+            priceFeedTest.address,
+            curve,
+            10,
+            suggestedAmountOfSeedReserves,
+            suggestedLockTimeOfSeedReserves
+          )
+      )
+        .to.be.revertedWithCustomError(sandboxController, "NotDao")
+        .withArgs(contractor.address);
+      await snapshot.restore();
     });
 
     it("reverts if token = 0", async function () {
@@ -266,172 +293,6 @@ describe("3. SandboxController", function () {
           .connect(dao)
           .whitelistBaseAsset(tokenTest.address, priceFeedTest.address, curve, 10, suggestedAmountOfSeedReserves, DEFAULT_LOCK_TIME - 1)
       ).to.be.revertedWithCustomError(sandboxController, "InvalidLockTimeOfSeedReserves");
-    });
-
-    describe("reverts on invalid curves", function () {
-      beforeEach(async function () {
-        curve = makeValidCurve();
-      });
-
-      it("reverts for zero supply kink", async function () {
-        curve.supplyKink = 0;
-
-        expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.false;
-        await expect(
-          sandboxController.whitelistBaseAsset(
-            tokenTest.address,
-            priceFeedTest.address,
-            curve,
-            10,
-            suggestedAmountOfSeedReserves,
-            suggestedLockTimeOfSeedReserves
-          )
-        ).to.be.revertedWithCustomError(sandboxController, "InvalidCurveConfiguration");
-      });
-
-      it("reverts for zero borrow kink", async function () {
-        curve.borrowKink = 0;
-
-        expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.false;
-        await expect(
-          sandboxController.whitelistBaseAsset(
-            tokenTest.address,
-            priceFeedTest.address,
-            curve,
-            10,
-            suggestedAmountOfSeedReserves,
-            suggestedLockTimeOfSeedReserves
-          )
-        ).to.be.revertedWithCustomError(sandboxController, "InvalidCurveConfiguration");
-      });
-
-      it("reverts for supply kink > 1e18", async function () {
-        curve.supplyKink = parseEther("1").add(1).toString();
-
-        expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.false;
-        await expect(
-          sandboxController.whitelistBaseAsset(
-            tokenTest.address,
-            priceFeedTest.address,
-            curve,
-            10,
-            suggestedAmountOfSeedReserves,
-            suggestedLockTimeOfSeedReserves
-          )
-        ).to.be.revertedWithCustomError(sandboxController, "InvalidCurveConfiguration");
-      });
-
-      it("reverts for borrow kink > 1e18", async function () {
-        curve.borrowKink = parseEther("1").add(1).toString();
-
-        expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.false;
-        await expect(
-          sandboxController.whitelistBaseAsset(
-            tokenTest.address,
-            priceFeedTest.address,
-            curve,
-            10,
-            suggestedAmountOfSeedReserves,
-            suggestedLockTimeOfSeedReserves
-          )
-        ).to.be.revertedWithCustomError(sandboxController, "InvalidCurveConfiguration");
-      });
-
-      it("reverts for supply slope high = 0", async function () {
-        curve.supplyPerYearInterestRateSlopeHigh = 0;
-
-        expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.false;
-        await expect(
-          sandboxController.whitelistBaseAsset(
-            tokenTest.address,
-            priceFeedTest.address,
-            curve,
-            10,
-            suggestedAmountOfSeedReserves,
-            suggestedLockTimeOfSeedReserves
-          )
-        ).to.be.revertedWithCustomError(sandboxController, "InvalidCurveConfiguration");
-      });
-
-      it("reverts for supply slope low = 0", async function () {
-        curve.supplyPerYearInterestRateSlopeLow = 0;
-
-        expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.false;
-        await expect(
-          sandboxController.whitelistBaseAsset(
-            tokenTest.address,
-            priceFeedTest.address,
-            curve,
-            10,
-            suggestedAmountOfSeedReserves,
-            suggestedLockTimeOfSeedReserves
-          )
-        ).to.be.revertedWithCustomError(sandboxController, "InvalidCurveConfiguration");
-      });
-
-      it("reverts for borrow slope high = 0", async function () {
-        curve.borrowPerYearInterestRateSlopeHigh = 0;
-
-        expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.false;
-        await expect(
-          sandboxController.whitelistBaseAsset(
-            tokenTest.address,
-            priceFeedTest.address,
-            curve,
-            10,
-            suggestedAmountOfSeedReserves,
-            suggestedLockTimeOfSeedReserves
-          )
-        ).to.be.revertedWithCustomError(sandboxController, "InvalidCurveConfiguration");
-      });
-
-      it("reverts for borrow slope low = 0", async function () {
-        curve.borrowPerYearInterestRateSlopeLow = 0;
-
-        expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.false;
-        await expect(
-          sandboxController.whitelistBaseAsset(
-            tokenTest.address,
-            priceFeedTest.address,
-            curve,
-            10,
-            suggestedAmountOfSeedReserves,
-            suggestedLockTimeOfSeedReserves
-          )
-        ).to.be.revertedWithCustomError(sandboxController, "InvalidCurveConfiguration");
-      });
-
-      it("reverts for borrow base = 0", async function () {
-        curve.borrowPerYearInterestRateBase = 0;
-
-        expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.false;
-        await expect(
-          sandboxController.whitelistBaseAsset(
-            tokenTest.address,
-            priceFeedTest.address,
-            curve,
-            10,
-            suggestedAmountOfSeedReserves,
-            suggestedLockTimeOfSeedReserves
-          )
-        ).to.be.revertedWithCustomError(sandboxController, "InvalidCurveConfiguration");
-      });
-
-      it("reverts for supply base = 0", async function () {
-        curve.supplyPerYearInterestRateBase = 0;
-
-        expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.false;
-        await expect(
-          sandboxController.whitelistBaseAsset(
-            tokenTest.address,
-            priceFeedTest.address,
-            curve,
-            10,
-            suggestedAmountOfSeedReserves,
-            suggestedLockTimeOfSeedReserves
-          )
-        ).to.be.revertedWithCustomError(sandboxController, "InvalidCurveConfiguration");
-      });
     });
   });
 
@@ -592,24 +453,6 @@ describe("3. SandboxController", function () {
         .to.emit(sandboxController, "BaseAssetWhitelisted")
         .withArgs(token.address, priceFeed.address, 18);
     });
-
-    it("owner can do it, dao can do it", async function () {
-      const token1 = await makeMockERC20({ name: "T7", symbol: "T7" });
-      const feed1 = await makePriceFeed(token1.address);
-      await expect(
-        sandboxController
-          .connect(owner)
-          .whitelistBaseAsset(token1.address, feed1.address, curve, 100, suggestedAmountOfSeedReserves, suggestedLockTimeOfSeedReserves)
-      ).to.not.be.reverted;
-
-      const token2 = await makeMockERC20({ name: "T8", symbol: "T8" });
-      const feed2 = await makePriceFeed(token2.address);
-      await expect(
-        sandboxController
-          .connect(dao)
-          .whitelistBaseAsset(token2.address, feed2.address, curve, 200, suggestedAmountOfSeedReserves, suggestedLockTimeOfSeedReserves)
-      ).to.not.be.reverted;
-    });
   });
 
   describe("whitelistCollateralAsset - reverts", function () {
@@ -630,7 +473,7 @@ describe("3. SandboxController", function () {
       expect(await sandboxController.isCollateralTokenWhitelisted(tokenCollateralTest.address)).to.be.false;
     });
 
-    it("reverts if caller is not authorized", async function () {
+    it("reverts if caller is not dao", async function () {
       await expect(
         sandboxController
           .connect(attacker)
@@ -645,7 +488,33 @@ describe("3. SandboxController", function () {
             collateralConfig.maxLiquidationFactor,
             supplyCap
           )
-      ).to.be.revertedWithCustomError(sandboxController, "Unauthorized");
+      )
+        .to.be.revertedWithCustomError(sandboxController, "NotDao")
+        .withArgs(attacker.address);
+    });
+
+    it("reverts for contractor (if caller is not dao)", async function () {
+      const snapshot: SnapshotRestorer = await takeSnapshot();
+
+      await sandboxController.grantContractorRole(contractor.address);
+      await expect(
+        sandboxController
+          .connect(contractor)
+          .whitelistCollateralAsset(
+            tokenCollateralTest.address,
+            priceFeedCollateralTest.address,
+            collateralConfig.minBorrowCF,
+            collateralConfig.maxBorrowCF,
+            collateralConfig.minLiquidateCF,
+            collateralConfig.maxLiquidateCF,
+            collateralConfig.minLiquidationFactor,
+            collateralConfig.maxLiquidationFactor,
+            supplyCap
+          )
+      )
+        .to.be.revertedWithCustomError(sandboxController, "NotDao")
+        .withArgs(contractor.address);
+      await snapshot.restore();
     });
 
     it("reverts if token = 0", async function () {
@@ -1057,41 +926,6 @@ describe("3. SandboxController", function () {
         .withArgs(token.address, priceFeed.address, 18);
     });
 
-    it("owner can do it, dao can do it", async function () {
-      const token1 = await makeMockERC20({ name: "C3", symbol: "C3", supply: totalTestSupply });
-      const feed1 = await makePriceFeed(token1.address);
-
-      await expect(
-        sandboxController.connect(owner).whitelistCollateralAsset(
-          token1.address,
-          feed1.address,
-          collateralConfig.minBorrowCF,
-          collateralConfig.maxBorrowCF,
-          collateralConfig.minLiquidateCF,
-          collateralConfig.maxLiquidateCF,
-          collateralConfig.minLiquidationFactor,
-          collateralConfig.maxLiquidationFactor,
-          supplyCap // supplyCap (15% of total supply)
-        )
-      ).to.not.be.reverted;
-
-      const token2 = await makeMockERC20({ name: "C4", symbol: "C4", supply: totalTestSupply });
-      const feed2 = await makePriceFeed(token2.address);
-      await expect(
-        sandboxController.connect(dao).whitelistCollateralAsset(
-          token2.address,
-          feed2.address,
-          collateralConfig.minBorrowCF,
-          collateralConfig.maxBorrowCF,
-          collateralConfig.minLiquidateCF,
-          collateralConfig.maxLiquidateCF,
-          collateralConfig.minLiquidationFactor,
-          collateralConfig.maxLiquidationFactor,
-          supplyCap // supplyCap (15% of total supply)
-        )
-      ).to.not.be.reverted;
-    });
-
     it("should list collateral with min borrow factor = 10%", async function () {
       const token = await makeMockERC20({ name: "C5", symbol: "C5", supply: totalTestSupply });
       const priceFeed = await makePriceFeed(token.address);
@@ -1275,55 +1109,6 @@ describe("3. SandboxController", function () {
         .to.emit(sandboxController, "CollateralAssetUpdated")
         .withArgs(token.address);
     });
-
-    it("owner can do it, dao can do it", async function () {
-      const token1 = await makeMockERC20({ name: "C3", symbol: "C3", supply: totalTestSupply });
-      const feed1 = await makePriceFeed(token1.address);
-
-      // whitelist the collateral asset
-      await sandboxController.whitelistCollateralAsset(
-        token1.address,
-        feed1.address,
-        collateralConfig.minBorrowCF,
-        collateralConfig.maxBorrowCF,
-        collateralConfig.minLiquidateCF,
-        collateralConfig.maxLiquidateCF,
-        collateralConfig.minLiquidationFactor,
-        collateralConfig.maxLiquidationFactor,
-        supplyCap // supplyCap (15% of total supply)
-      );
-
-      // try to update the whitelisted collateral asset when called by the owner
-      await expect(
-        sandboxController
-          .connect(owner)
-          .updateWhitelistedCollateralAsset(
-            tokenCollateralTest.address,
-            newConfig.minBorrowCF,
-            newConfig.maxBorrowCF,
-            newConfig.minLiquidateCF,
-            newConfig.maxLiquidateCF,
-            newConfig.minLiquidationFactor,
-            newConfig.maxLiquidationFactor,
-            newConfig.supplyCap
-          )
-      ).to.not.be.reverted;
-      // try to update the whitelisted collateral asset when called by the dao
-      await expect(
-        sandboxController
-          .connect(dao)
-          .updateWhitelistedCollateralAsset(
-            tokenCollateralTest.address,
-            newConfig.minBorrowCF,
-            newConfig.maxBorrowCF,
-            newConfig.minLiquidateCF,
-            newConfig.maxLiquidateCF,
-            newConfig.minLiquidationFactor,
-            newConfig.maxLiquidationFactor,
-            newConfig.supplyCap
-          )
-      ).to.not.be.reverted;
-    });
   });
 
   describe("setConfiguration", function () {
@@ -1338,15 +1123,21 @@ describe("3. SandboxController", function () {
       };
     });
 
-    it("reverts if caller is not owner", async function () {
-      await expect(sandboxController.connect(attacker).setConfiguration(newConfig)).to.be.revertedWithCustomError(
-        sandboxController,
-        "NotOwner"
-      );
+    it("reverts if caller is not dao", async function () {
+      await expect(sandboxController.connect(attacker).setConfiguration(newConfig))
+        .to.be.revertedWithCustomError(sandboxController, "NotDao")
+        .withArgs(attacker.address);
     });
 
-    it("reverts for dao (if caller is not owner)", async function () {
-      await expect(sandboxController.connect(dao).setConfiguration(newConfig)).to.be.revertedWithCustomError(sandboxController, "NotOwner");
+    it("reverts for contractor (if caller is not dao)", async function () {
+      const snapshot: SnapshotRestorer = await takeSnapshot();
+
+      await sandboxController.grantContractorRole(contractor.address);
+      await expect(sandboxController.connect(contractor).setConfiguration(newConfig))
+        .to.be.revertedWithCustomError(sandboxController, "NotDao")
+        .withArgs(contractor.address);
+
+      await snapshot.restore();
     });
 
     it("reverts if storeFrontPriceFactor > 1e18", async function () {
@@ -1413,16 +1204,14 @@ describe("3. SandboxController", function () {
     before(async function () {
       testToken = await makeMockERC20({ name: "TT", symbol: "TT" });
       const feed = await makePriceFeed(testToken.address);
-      await sandboxController
-        .connect(owner)
-        .whitelistBaseAsset(
-          testToken.address,
-          feed.address,
-          makeValidCurve(),
-          100,
-          suggestedAmountOfSeedReserves,
-          suggestedLockTimeOfSeedReserves
-        );
+      await sandboxController.whitelistBaseAsset(
+        testToken.address,
+        feed.address,
+        makeValidCurve(),
+        100,
+        suggestedAmountOfSeedReserves,
+        suggestedLockTimeOfSeedReserves
+      );
     });
 
     it("reverts if caller is not dao", async function () {
@@ -1431,10 +1220,15 @@ describe("3. SandboxController", function () {
       ).to.be.revertedWithCustomError(sandboxController, "NotDao");
     });
 
-    it("reverts for owner (if caller is not dao)", async function () {
+    it("reverts for contractor (if caller is not dao)", async function () {
+      const snapshot: SnapshotRestorer = await takeSnapshot();
+      await sandboxController.connect(dao).grantContractorRole(contractor.address);
+
       await expect(
-        sandboxController.connect(owner).setSeedReserves(testToken.address, newSeedReserves, newLockTime)
+        sandboxController.connect(contractor).setSeedReserves(testToken.address, newSeedReserves, newLockTime)
       ).to.be.revertedWithCustomError(sandboxController, "NotDao");
+
+      await snapshot.restore();
     });
 
     it("reverts if base token = 0", async function () {
@@ -1512,8 +1306,14 @@ describe("3. SandboxController", function () {
       await expect(sandboxController.connect(attacker).setFeeEnabled(true)).to.be.revertedWithCustomError(sandboxController, "NotDao");
     });
 
-    it("reverts for owner (if caller is not dao)", async function () {
-      await expect(sandboxController.connect(owner).setFeeEnabled(true)).to.be.revertedWithCustomError(sandboxController, "NotDao");
+    it("reverts for contractor (if caller is not dao)", async function () {
+      const snapshot: SnapshotRestorer = await takeSnapshot();
+
+      await sandboxController.grantContractorRole(contractor.address);
+      await expect(sandboxController.connect(contractor).setFeeEnabled(true))
+        .to.be.revertedWithCustomError(sandboxController, "NotDao")
+        .withArgs(contractor.address);
+      await snapshot.restore();
     });
 
     it("sets feeEnabled", async function () {
@@ -1546,6 +1346,8 @@ describe("3. SandboxController", function () {
   });
 
   describe("addBaseAssetCurve", function () {
+    /// Note: testset checks general reverts, work with interest rate curves is checked in a separate testset
+
     let tokenTest: any;
     let priceFeedTest: any;
     let curve: BaseAssetCurveStruct = makeValidCurve();
@@ -1553,16 +1355,14 @@ describe("3. SandboxController", function () {
     before(async function () {
       tokenTest = await makeMockERC20({ name: "T9", symbol: "T9" });
       priceFeedTest = await makePriceFeed(tokenTest.address);
-      await sandboxController
-        .connect(owner)
-        .whitelistBaseAsset(
-          tokenTest.address,
-          priceFeedTest.address,
-          curve,
-          10,
-          suggestedAmountOfSeedReserves,
-          suggestedLockTimeOfSeedReserves
-        );
+      await sandboxController.whitelistBaseAsset(
+        tokenTest.address,
+        priceFeedTest.address,
+        curve,
+        10,
+        suggestedAmountOfSeedReserves,
+        suggestedLockTimeOfSeedReserves
+      );
     });
 
     describe("reverts on general checks", function () {
@@ -1589,134 +1389,32 @@ describe("3. SandboxController", function () {
       });
     });
 
-    describe("reverts on invalid curves", function () {
-      afterEach(async function () {
-        curve = makeValidCurve();
-      });
-
-      it("reverts for zero supply kink", async function () {
-        curve.supplyKink = 0;
-
-        expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.false;
-        await expect(sandboxController.addBaseAssetCurve(tokenTest.address, curve)).to.be.revertedWithCustomError(
-          sandboxController,
-          "InvalidCurveConfiguration"
-        );
-      });
-
-      it("reverts for zero borrow kink", async function () {
-        curve.borrowKink = 0;
-
-        expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.false;
-        await expect(sandboxController.addBaseAssetCurve(tokenTest.address, curve)).to.be.revertedWithCustomError(
-          sandboxController,
-          "InvalidCurveConfiguration"
-        );
-      });
-
-      it("reverts for supply kink > 1e18", async function () {
-        curve.supplyKink = parseEther("1").add(1).toString();
-
-        expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.false;
-        await expect(sandboxController.addBaseAssetCurve(tokenTest.address, curve)).to.be.revertedWithCustomError(
-          sandboxController,
-          "InvalidCurveConfiguration"
-        );
-      });
-
-      it("reverts for borrow kink > 1e18", async function () {
-        curve.borrowKink = parseEther("1").add(1).toString();
-
-        expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.false;
-        await expect(sandboxController.addBaseAssetCurve(tokenTest.address, curve)).to.be.revertedWithCustomError(
-          sandboxController,
-          "InvalidCurveConfiguration"
-        );
-      });
-
-      it("reverts for supply slope high = 0", async function () {
-        curve.supplyPerYearInterestRateSlopeHigh = 0;
-
-        expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.false;
-        await expect(sandboxController.addBaseAssetCurve(tokenTest.address, curve)).to.be.revertedWithCustomError(
-          sandboxController,
-          "InvalidCurveConfiguration"
-        );
-      });
-
-      it("reverts for supply slope low = 0", async function () {
-        curve.supplyPerYearInterestRateSlopeLow = 0;
-
-        expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.false;
-        await expect(sandboxController.addBaseAssetCurve(tokenTest.address, curve)).to.be.revertedWithCustomError(
-          sandboxController,
-          "InvalidCurveConfiguration"
-        );
-      });
-
-      it("reverts for borrow slope high = 0", async function () {
-        curve.borrowPerYearInterestRateSlopeHigh = 0;
-
-        expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.false;
-        await expect(sandboxController.addBaseAssetCurve(tokenTest.address, curve)).to.be.revertedWithCustomError(
-          sandboxController,
-          "InvalidCurveConfiguration"
-        );
-      });
-
-      it("reverts for borrow slope low = 0", async function () {
-        curve.borrowPerYearInterestRateSlopeLow = 0;
-
-        expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.false;
-        await expect(sandboxController.addBaseAssetCurve(tokenTest.address, curve)).to.be.revertedWithCustomError(
-          sandboxController,
-          "InvalidCurveConfiguration"
-        );
-      });
-
-      it("reverts for borrow base = 0", async function () {
-        curve.borrowPerYearInterestRateBase = 0;
-
-        expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.false;
-        await expect(sandboxController.addBaseAssetCurve(tokenTest.address, curve)).to.be.revertedWithCustomError(
-          sandboxController,
-          "InvalidCurveConfiguration"
-        );
-      });
-
-      it("reverts for supply base = 0", async function () {
-        curve.supplyPerYearInterestRateBase = 0;
-
-        expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.false;
-        await expect(sandboxController.addBaseAssetCurve(tokenTest.address, curve)).to.be.revertedWithCustomError(
-          sandboxController,
-          "InvalidCurveConfiguration"
-        );
-      });
-    });
-
     describe("happy cases", function () {
-      it("should work for owner", async function () {
-        await expect(sandboxController.connect(owner).addBaseAssetCurve(tokenTest.address, curve)).to.not.be.reverted;
-      });
-
-      it("should work for dao", async function () {
+      it("dao can add curve", async function () {
         await expect(sandboxController.connect(dao).addBaseAssetCurve(tokenTest.address, curve)).to.not.be.reverted;
       });
 
+      it("contractor can add curve", async function () {
+        const snapshot: SnapshotRestorer = await takeSnapshot();
+        await sandboxController.connect(dao).grantContractorRole(contractor.address);
+        await expect(sandboxController.connect(contractor).addBaseAssetCurve(tokenTest.address, curve)).to.not.be.reverted;
+        await snapshot.restore();
+      });
+
       it("should append the curve and set storage", async function () {
+        /// add curve different from default to have clear test
         let curveTest: BaseAssetCurveStruct = {
           supplyKink: ethers.utils.parseEther("0.3").toString(),
           supplyPerYearInterestRateSlopeLow: ethers.BigNumber.from("100"),
           supplyPerYearInterestRateSlopeHigh: ethers.BigNumber.from("2000"),
-          supplyPerYearInterestRateBase: ethers.BigNumber.from("200"),
+          supplyPerYearInterestRateBase: ethers.BigNumber.from("2"),
           borrowKink: ethers.utils.parseEther("0.6").toString(),
           borrowPerYearInterestRateSlopeLow: ethers.BigNumber.from("2000"),
           borrowPerYearInterestRateSlopeHigh: ethers.BigNumber.from("3000"),
           borrowPerYearInterestRateBase: ethers.BigNumber.from("20"),
         };
         let curvesNumBefore = (await sandboxController.curves(tokenTest.address)).length;
-        await sandboxController.connect(owner).addBaseAssetCurve(tokenTest.address, curveTest);
+        await sandboxController.connect(dao).addBaseAssetCurve(tokenTest.address, curveTest);
 
         let curvesNumAfter = (await sandboxController.curves(tokenTest.address)).length;
         expect(curvesNumAfter - curvesNumBefore).to.equal(1);
@@ -1735,7 +1433,7 @@ describe("3. SandboxController", function () {
 
       it("should emit event", async function () {
         let curveExpectedIndex = (await sandboxController.curves(tokenTest.address)).length;
-        expect(await sandboxController.connect(owner).addBaseAssetCurve(tokenTest.address, curve))
+        expect(await sandboxController.connect(dao).addBaseAssetCurve(tokenTest.address, curve))
           .to.emit(sandboxController, "BaseAssetCurveAdded")
           .withArgs(tokenTest.address, curve, curveExpectedIndex);
       });
@@ -1743,6 +1441,8 @@ describe("3. SandboxController", function () {
   });
 
   describe("changeBaseAssetCurve", function () {
+    /// Note: testset checks general reverts, work with interest rate curves is checked in a separate testset
+
     let tokenTest: any;
     let priceFeedTest: any;
     let curve: BaseAssetCurveStruct = makeValidCurve();
@@ -1750,7 +1450,7 @@ describe("3. SandboxController", function () {
       supplyKink: ethers.utils.parseEther("0.3").toString(),
       supplyPerYearInterestRateSlopeLow: ethers.BigNumber.from("100"),
       supplyPerYearInterestRateSlopeHigh: ethers.BigNumber.from("2000"),
-      supplyPerYearInterestRateBase: ethers.BigNumber.from("200"),
+      supplyPerYearInterestRateBase: ethers.BigNumber.from("2"),
       borrowKink: ethers.utils.parseEther("0.6").toString(),
       borrowPerYearInterestRateSlopeLow: ethers.BigNumber.from("2000"),
       borrowPerYearInterestRateSlopeHigh: ethers.BigNumber.from("3000"),
@@ -1762,17 +1462,15 @@ describe("3. SandboxController", function () {
       tokenTest = await makeMockERC20({ name: "T11", symbol: "T11" });
       priceFeedTest = await makePriceFeed(tokenTest.address);
 
-      await sandboxController
-        .connect(owner)
-        .whitelistBaseAsset(
-          tokenTest.address,
-          priceFeedTest.address,
-          curve,
-          10,
-          suggestedAmountOfSeedReserves,
-          suggestedLockTimeOfSeedReserves
-        );
-      await sandboxController.connect(owner).addBaseAssetCurve(tokenTest.address, curveTest);
+      await sandboxController.whitelistBaseAsset(
+        tokenTest.address,
+        priceFeedTest.address,
+        curve,
+        10,
+        suggestedAmountOfSeedReserves,
+        suggestedLockTimeOfSeedReserves
+      );
+      await sandboxController.addBaseAssetCurve(tokenTest.address, curveTest);
 
       curveIndex = (await sandboxController.curves(tokenTest.address)).length - 1;
     });
@@ -1795,13 +1493,7 @@ describe("3. SandboxController", function () {
       it("reverts if caller not authorized", async function () {
         await expect(
           sandboxController.connect(attacker).changeBaseAssetCurve(tokenTest.address, curveIndex, curve)
-        ).to.be.revertedWithCustomError(sandboxController, "NotDao");
-      });
-
-      it("reverts for owner (if caller not authorized)", async function () {
-        await expect(
-          sandboxController.connect(owner).changeBaseAssetCurve(tokenTest.address, curveIndex, curve)
-        ).to.be.revertedWithCustomError(sandboxController, "NotDao");
+        ).to.be.revertedWithCustomError(sandboxController, "Unauthorized");
       });
 
       it("reverts if curve index is to high", async function () {
@@ -1812,105 +1504,17 @@ describe("3. SandboxController", function () {
       });
     });
 
-    describe("reverts on invalid curves", function () {
-      afterEach(async function () {
-        curve = makeValidCurve();
-      });
-
-      it("reverts for zero supply kink", async function () {
-        curve.supplyKink = 0;
-
-        expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.false;
-        await expect(
-          sandboxController.connect(dao).changeBaseAssetCurve(tokenTest.address, curveIndex, curve)
-        ).to.be.revertedWithCustomError(sandboxController, "InvalidCurveConfiguration");
-      });
-
-      it("reverts for zero borrow kink", async function () {
-        curve.borrowKink = 0;
-
-        expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.false;
-        await expect(
-          sandboxController.connect(dao).changeBaseAssetCurve(tokenTest.address, curveIndex, curve)
-        ).to.be.revertedWithCustomError(sandboxController, "InvalidCurveConfiguration");
-      });
-
-      it("reverts for supply kink > 1e18", async function () {
-        curve.supplyKink = parseEther("1").add(1).toString();
-
-        expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.false;
-        await expect(
-          sandboxController.connect(dao).changeBaseAssetCurve(tokenTest.address, curveIndex, curve)
-        ).to.be.revertedWithCustomError(sandboxController, "InvalidCurveConfiguration");
-      });
-
-      it("reverts for borrow kink > 1e18", async function () {
-        curve.borrowKink = parseEther("1").add(1).toString();
-
-        expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.false;
-        await expect(
-          sandboxController.connect(dao).changeBaseAssetCurve(tokenTest.address, curveIndex, curve)
-        ).to.be.revertedWithCustomError(sandboxController, "InvalidCurveConfiguration");
-      });
-
-      it("reverts for supply slope high = 0", async function () {
-        curve.supplyPerYearInterestRateSlopeHigh = 0;
-
-        expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.false;
-        await expect(
-          sandboxController.connect(dao).changeBaseAssetCurve(tokenTest.address, curveIndex, curve)
-        ).to.be.revertedWithCustomError(sandboxController, "InvalidCurveConfiguration");
-      });
-
-      it("reverts for supply slope low = 0", async function () {
-        curve.supplyPerYearInterestRateSlopeLow = 0;
-
-        expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.false;
-        await expect(
-          sandboxController.connect(dao).changeBaseAssetCurve(tokenTest.address, curveIndex, curve)
-        ).to.be.revertedWithCustomError(sandboxController, "InvalidCurveConfiguration");
-      });
-
-      it("reverts for borrow slope high = 0", async function () {
-        curve.borrowPerYearInterestRateSlopeHigh = 0;
-
-        expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.false;
-        await expect(
-          sandboxController.connect(dao).changeBaseAssetCurve(tokenTest.address, curveIndex, curve)
-        ).to.be.revertedWithCustomError(sandboxController, "InvalidCurveConfiguration");
-      });
-
-      it("reverts for borrow slope low = 0", async function () {
-        curve.borrowPerYearInterestRateSlopeLow = 0;
-
-        expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.false;
-        await expect(
-          sandboxController.connect(dao).changeBaseAssetCurve(tokenTest.address, curveIndex, curve)
-        ).to.be.revertedWithCustomError(sandboxController, "InvalidCurveConfiguration");
-      });
-
-      it("reverts for borrow base = 0", async function () {
-        curve.borrowPerYearInterestRateBase = 0;
-
-        expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.false;
-        await expect(
-          sandboxController.connect(dao).changeBaseAssetCurve(tokenTest.address, curveIndex, curve)
-        ).to.be.revertedWithCustomError(sandboxController, "InvalidCurveConfiguration");
-      });
-
-      it("reverts for supply base = 0", async function () {
-        curve.supplyPerYearInterestRateBase = 0;
-
-        expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.false;
-        await expect(
-          sandboxController.connect(dao).changeBaseAssetCurve(tokenTest.address, curveIndex, curve)
-        ).to.be.revertedWithCustomError(sandboxController, "InvalidCurveConfiguration");
-      });
-    });
     describe("happy cases", function () {
-      it("should work for dao", async function () {
+      it("dao can change curve", async function () {
         const snapshot: SnapshotRestorer = await takeSnapshot();
         await expect(sandboxController.connect(dao).changeBaseAssetCurve(tokenTest.address, curveIndex, curve)).to.not.be.reverted;
+        await snapshot.restore();
+      });
+
+      it("contractor can change curve", async function () {
+        const snapshot: SnapshotRestorer = await takeSnapshot();
+        await sandboxController.connect(dao).grantContractorRole(other.address);
+        await expect(sandboxController.connect(other).changeBaseAssetCurve(tokenTest.address, curveIndex, curve)).to.not.be.reverted;
         await snapshot.restore();
       });
 
@@ -1949,125 +1553,269 @@ describe("3. SandboxController", function () {
 
         expect(await sandboxController.connect(dao).changeBaseAssetCurve(tokenTest.address, curveIndex, curve))
           .to.emit(sandboxController, "BaseAssetCurveChanged")
-          .withArgs(tokenTest, curveTest, curve, curveIndex);
+          .withArgs(tokenTest.address, curveTest, curve, curveIndex);
 
         await snapshot.restore();
       });
     });
   });
 
-  describe("transferOwner", function () {
-    it("reverts if caller not owner", async function () {
-      await expect(sandboxController.connect(attacker).transferOwner(attacker.address)).to.be.revertedWithCustomError(
-        sandboxController,
-        "NotOwner"
-      );
+  describe("Interest rate curves validations", function () {
+    let tokenTest1: FaucetToken;
+    let priceFeedTest1: SimplePriceFeed;
+    let tokenTest2: FaucetToken;
+    let priceFeedTest2: SimplePriceFeed;
+    let curve: BaseAssetCurveStruct = makeValidCurve();
+    let snapshot: SnapshotRestorer;
+
+    before(async function () {
+      /// correct function to start with
+      expect(await sandboxController.isCurveConfigurationValid(curve)).to.be.true;
+
+      tokenTest1 = await makeMockERC20({ name: "TestToken1", symbol: "TT1" });
+      priceFeedTest1 = await makePriceFeed(tokenTest1.address);
+
+      /// have fresh asset listed
+      await sandboxController
+        .connect(dao)
+        .whitelistBaseAsset(
+          tokenTest1.address,
+          priceFeedTest1.address,
+          curve,
+          100,
+          suggestedAmountOfSeedReserves,
+          suggestedLockTimeOfSeedReserves
+        );
+
+      /// prepare 2nd asset
+      tokenTest2 = await makeMockERC20({ name: "TestToken2", symbol: "TT2" });
+      priceFeedTest2 = await makePriceFeed(tokenTest2.address);
+
+      snapshot = await takeSnapshot();
     });
 
-    it("reverts for dao (if caller not owner)", async function () {
-      await expect(sandboxController.connect(dao).transferOwner(dao.address)).to.be.revertedWithCustomError(sandboxController, "NotOwner");
+    describe("reverts on invalid curves", function () {
+      function testValidCurves(): { sampleCurve: BaseAssetCurveStruct; descr: string }[] {
+        let testCases: { sampleCurve: BaseAssetCurveStruct; descr: string }[] = [];
+        let _curve = makeValidCurve();
+
+        /// supply kink exceeds 100%
+        _curve.supplyKink = ethers.utils.parseEther("1").add(1);
+
+        testCases.push({ sampleCurve: _curve, descr: "supply kink exceeds 100%" });
+
+        /// borrow king exceeds 100%
+        _curve = makeValidCurve();
+        _curve.borrowKink = ethers.utils.parseEther("1").add(1);
+        /// have higher left slope to exceed the right slope of supply curve
+        _curve.supplyPerYearInterestRateSlopeHigh = ethers.utils.parseEther("2");
+
+        testCases.push({ sampleCurve: _curve, descr: "borrow kink exceeds 100%" });
+
+        /// base supply rate is higher than base borrow rate
+        _curve = makeValidCurve();
+        _curve.supplyPerYearInterestRateBase = (_curve.borrowPerYearInterestRateBase as BigNumber).add(1);
+
+        testCases.push({ sampleCurve: _curve, descr: "base supply rate is higher than base borrow rate" });
+
+        /// left slope for supply intersects left slope of borrow (too high left slope angle)
+        _curve = makeValidCurve();
+        /// with such slope, the curve intersects exectly in 80% kink (for default curves) which is valid
+        _curve.supplyPerYearInterestRateSlopeLow = ethers.utils.parseEther("0.105");
+        /// so we tilt angle to be higher, to force intersection in the left part
+        _curve.supplyPerYearInterestRateSlopeLow = (_curve.supplyPerYearInterestRateSlopeLow as BigNumber).add(10);
+
+        testCases.push({ sampleCurve: _curve, descr: "left slope for supply intersects left slope of borrow (too high left slope angle)" });
+
+        /// right slope for supply intersects left slope of borrow (supply kink < borrow kink)
+        _curve = makeValidCurve();
+        /// with such slope, the curve intersects exectly in 80% kink (for default curves) which is valid
+        _curve.supplyPerYearInterestRateSlopeLow = ethers.utils.parseEther("0.105");
+        /// so we tilt kink to the left, to make the intersection with the right part of the supply curve
+        _curve.supplyKink = (_curve.supplyKink as BigNumber).sub(10);
+
+        testCases.push({
+          sampleCurve: _curve,
+          descr: "right slope for supply intersects left slope of borrow (supply kink < borrow kink)",
+        });
+
+        /// left slope of supply intersects right slope of borrow (too high low slope with supply kink > borrow kink)
+        _curve = makeValidCurve();
+        /// with such slope, the curve intersects exectly in 80% kink (for default curves) which is valid
+        _curve.supplyPerYearInterestRateSlopeLow = ethers.utils.parseEther("0.105");
+        /// so we tilt borrow kink to the left, and make low angle for high slope
+        _curve.borrowKink = ethers.utils.parseEther("0.48");
+        _curve.borrowPerYearInterestRateSlopeHigh = ethers.utils.parseEther("0.0375");
+
+        testCases.push({
+          sampleCurve: _curve,
+          descr: "left supply slope / right slope borrow slope (too high low slope with supply kink > borrow kink",
+        });
+
+        /// right slope of supply intersects right slope of borrow (high slope angle is too high)
+        _curve = makeValidCurve();
+        /// make supply right slope high enough to intersect borrow curve before 200% utilization
+        _curve.supplyPerYearInterestRateSlopeHigh = ethers.utils.parseEther("3.75");
+
+        testCases.push({
+          sampleCurve: _curve,
+          descr: "right supply slope / right slope borrow slope (supply high slope >> borrow high slope",
+        });
+
+        return testCases;
+      }
+
+      let testCases = testValidCurves();
+      testCases.forEach(({ sampleCurve, descr }) => {
+        it(`${descr}: validation function fails`, async function () {
+          expect(await sandboxController.isCurveConfigurationValid(sampleCurve)).to.be.false;
+        });
+
+        it(`${descr}: whitelist asset`, async function () {
+          await expect(
+            sandboxController
+              .connect(dao)
+              .whitelistBaseAsset(
+                tokenTest2.address,
+                priceFeedTest2.address,
+                sampleCurve,
+                10,
+                suggestedAmountOfSeedReserves,
+                suggestedLockTimeOfSeedReserves
+              )
+          ).to.be.revertedWithCustomError(sandboxController, "InvalidCurveConfiguration");
+        });
+
+        it(`${descr}: add curve reverts`, async function () {
+          await expect(sandboxController.connect(dao).addBaseAssetCurve(tokenTest1.address, sampleCurve)).to.be.revertedWithCustomError(
+            sandboxController,
+            "InvalidCurveConfiguration"
+          );
+        });
+
+        it(`${descr}: change curve reverts`, async function () {
+          await expect(
+            sandboxController.connect(dao).changeBaseAssetCurve(tokenTest1.address, 0, sampleCurve)
+          ).to.be.revertedWithCustomError(sandboxController, "InvalidCurveConfiguration");
+        });
+      });
     });
 
-    it("reverts if newOwner = 0", async function () {
-      await expect(sandboxController.connect(owner).transferOwner(ethers.constants.AddressZero)).to.be.revertedWithCustomError(
-        sandboxController,
-        "ZeroAddress"
-      );
-    });
+    describe("edge cases for valid curves", function () {
+      function testValidCurves(): { sampleCurve: BaseAssetCurveStruct; descr: string }[] {
+        let testCases: { sampleCurve: BaseAssetCurveStruct; descr: string }[] = [];
 
-    it("reverts if newOwner is the same address", async function () {
-      await expect(sandboxController.connect(owner).transferOwner(owner.address)).to.be.revertedWithCustomError(
-        sandboxController,
-        "IncorrectSetting"
-      );
-    });
+        let _curve = makeValidCurve();
 
-    it("transfers owner to new address", async function () {
-      const snapshot: SnapshotRestorer = await takeSnapshot();
+        /// valid curve (happy case)
+        testCases.push({ sampleCurve: _curve, descr: "valid curve (happy case)" });
 
-      expect(await sandboxController.owner()).to.equal(owner.address);
+        /// supply kink = 0 (low utilization is not rewarded)
+        _curve = makeValidCurve();
+        _curve.supplyKink = 0;
+        /// low angle for the right slope to not intersect left side of the borrow curve
+        _curve.supplyPerYearInterestRateSlopeHigh = ethers.utils.parseEther("0.05");
 
-      await expect(sandboxController.connect(owner).transferOwner(other.address)).to.not.be.reverted;
-      expect(await sandboxController.owner()).to.equal(other.address);
+        testCases.push({ sampleCurve: _curve, descr: "supply kink = 0 (low utilization is not rewarded)" });
 
-      await snapshot.restore();
-    });
+        /// borrow kink = 0 (low utilization is not rewarded)
+        _curve = makeValidCurve();
+        _curve.borrowKink = 0;
 
-    it("emits event", async function () {
-      const snapshot: SnapshotRestorer = await takeSnapshot();
+        testCases.push({ sampleCurve: _curve, descr: "borrow kink = 0 (low utilization is not rewarded)" });
 
-      expect(await sandboxController.owner()).to.equal(owner.address);
-      expect(await sandboxController.connect(owner).transferOwner(other.address))
-        .to.emit(sandboxController, "OwnerTransferred")
-        .withArgs(owner.address, other.address);
-      expect(await sandboxController.owner()).to.equal(other.address);
+        /// supply kink > borrow kink (happy case)
+        _curve = makeValidCurve();
+        _curve.supplyKink = ethers.utils.parseEther("0.85");
 
-      await snapshot.restore();
-    });
-  });
+        testCases.push({ sampleCurve: _curve, descr: "supply kink > borrow kink (happy case)" });
 
-  describe("transferDao", function () {
-    it("reverts if caller not dao", async function () {
-      await expect(sandboxController.connect(attacker).transferDao(attacker.address)).to.be.revertedWithCustomError(
-        sandboxController,
-        "NotDao"
-      );
-    });
+        /// supply slopes = 0 (flat interest)
+        _curve = makeValidCurve();
+        _curve.supplyPerYearInterestRateSlopeHigh = 0;
+        _curve.supplyPerYearInterestRateSlopeLow = 0;
 
-    it("reverts for owner (if caller not dao)", async function () {
-      await expect(sandboxController.connect(owner).transferDao(other.address)).to.be.revertedWithCustomError(sandboxController, "NotDao");
-    });
+        testCases.push({ sampleCurve: _curve, descr: "supply slopes = 0 (flat interest)" });
 
-    it("reverts if newDao = 0", async function () {
-      await expect(sandboxController.connect(dao).transferDao(ethers.constants.AddressZero)).to.be.revertedWithCustomError(
-        sandboxController,
-        "ZeroAddress"
-      );
-    });
+        /// borrow slopes = 0 (flat interest)
+        _curve = makeValidCurve();
+        _curve.borrowPerYearInterestRateSlopeHigh = 0;
+        _curve.borrowPerYearInterestRateSlopeLow = 0;
+        _curve.borrowPerYearInterestRateBase = ethers.utils.parseEther("0.05");
 
-    it("reverts if newDao is the same address", async function () {
-      await expect(sandboxController.connect(dao).transferDao(dao.address)).to.be.revertedWithCustomError(
-        sandboxController,
-        "IncorrectSetting"
-      );
-    });
+        /// make supply high slope = 0 to avoid intersection
+        _curve.supplyPerYearInterestRateSlopeLow = ethers.utils.parseEther("0.001");
+        _curve.supplyPerYearInterestRateSlopeHigh = 0;
 
-    it("transfers dao to new address", async function () {
-      const snapshot: SnapshotRestorer = await takeSnapshot();
+        testCases.push({ sampleCurve: _curve, descr: "borrow slopes = 0 (flat interest)" });
 
-      expect(await sandboxController.dao()).to.equal(dao.address);
+        /// curves intersect out of 200% utilization
+        _curve = makeValidCurve();
+        _curve.borrowPerYearInterestRateSlopeHigh = 0;
+        _curve.borrowPerYearInterestRateSlopeLow = 0;
+        _curve.borrowPerYearInterestRateBase = ethers.utils.parseEther("0.05");
 
-      await expect(sandboxController.connect(dao).transferDao(other.address)).to.not.be.reverted;
-      expect(await sandboxController.dao()).to.equal(other.address);
+        /// make supply high slope = 0 to avoid intersection
+        _curve.supplyPerYearInterestRateSlopeLow = ethers.utils.parseEther("0.001");
+        _curve.supplyPerYearInterestRateSlopeHigh = ethers.utils.parseEther("0.032");
 
-      await snapshot.restore();
-    });
+        testCases.push({ sampleCurve: _curve, descr: "curves intersect out of 200% utilization" });
 
-    it("emits event", async function () {
-      const snapshot: SnapshotRestorer = await takeSnapshot();
+        return testCases;
+      }
 
-      expect(await sandboxController.dao()).to.equal(dao.address);
-      expect(await sandboxController.connect(dao).transferDao(other.address))
-        .to.emit(sandboxController, "DaoTransferred")
-        .withArgs(dao.address, other.address);
-      expect(await sandboxController.dao()).to.equal(other.address);
+      let testCases = testValidCurves();
+      testCases.forEach(({ sampleCurve, descr }) => {
+        it(`${descr}: validation function`, async function () {
+          expect(await sandboxController.isCurveConfigurationValid(sampleCurve)).to.be.true;
+        });
 
-      await snapshot.restore();
+        it(`${descr}: whitelist asset`, async function () {
+          await expect(
+            sandboxController
+              .connect(dao)
+              .whitelistBaseAsset(
+                tokenTest2.address,
+                priceFeedTest2.address,
+                sampleCurve,
+                10,
+                suggestedAmountOfSeedReserves,
+                suggestedLockTimeOfSeedReserves
+              )
+          ).to.not.be.reverted;
+
+          await snapshot.restore();
+        });
+
+        it(`${descr}: add curve`, async function () {
+          await expect(sandboxController.connect(dao).addBaseAssetCurve(tokenTest1.address, sampleCurve)).to.not.be.reverted;
+          await snapshot.restore();
+        });
+
+        it(`${descr}: change curve`, async function () {
+          await expect(sandboxController.connect(dao).changeBaseAssetCurve(tokenTest1.address, 0, sampleCurve)).to.not.be.reverted;
+          await snapshot.restore();
+        });
+      });
     });
   });
 
   describe("Reserve Commission and Thresholds", function () {
     describe("setMarketStateCommissions", function () {
-      it("reverts if caller is not owner", async function () {
-        await expect(
-          sandboxController.connect(attacker).setMarketStateCommissions(0, parseEther("0.5"), parseEther("0.2"))
-        ).to.be.revertedWithCustomError(sandboxController, "NotOwner");
+      it("reverts if caller is not dao", async function () {
+        await expect(sandboxController.connect(attacker).setMarketStateCommissions(0, parseEther("0.5"), parseEther("0.2")))
+          .to.be.revertedWithCustomError(sandboxController, "NotDao")
+          .withArgs(attacker.address);
       });
 
-      it("reverts for dao (if caller is not owner)", async function () {
-        await expect(
-          sandboxController.connect(dao).setMarketStateCommissions(0, parseEther("0.5"), parseEther("0.2"))
-        ).to.be.revertedWithCustomError(sandboxController, "NotOwner");
+      it("reverts for contractor (if caller is not dao)", async function () {
+        const snapshot: SnapshotRestorer = await takeSnapshot();
+
+        await sandboxController.grantContractorRole(contractor.address);
+        await expect(sandboxController.connect(contractor).setMarketStateCommissions(0, parseEther("0.5"), parseEther("0.2")))
+          .to.be.revertedWithCustomError(sandboxController, "NotDao")
+          .withArgs(contractor.address);
+        await snapshot.restore();
       });
 
       it("reverts if sum of commissions exceed 80% (pair 1)", async function () {
@@ -2156,16 +1904,14 @@ describe("3. SandboxController", function () {
 
         const priceFeedTest = await makePriceFeed(baseToken.address);
 
-        await sandboxController
-          .connect(owner)
-          .whitelistBaseAsset(
-            token,
-            priceFeedTest.address,
-            makeValidCurve(),
-            10,
-            suggestedAmountOfSeedReserves,
-            suggestedLockTimeOfSeedReserves
-          );
+        await sandboxController.whitelistBaseAsset(
+          token,
+          priceFeedTest.address,
+          makeValidCurve(),
+          10,
+          suggestedAmountOfSeedReserves,
+          suggestedLockTimeOfSeedReserves
+        );
 
         await sandboxController.setMarketStateCommissions(0, ethers.utils.parseEther("0.1"), ethers.utils.parseEther("0.2"));
         await sandboxController.setMarketStateCommissions(1, ethers.utils.parseEther("0.2"), ethers.utils.parseEther("0.4"));
@@ -2242,19 +1988,178 @@ describe("3. SandboxController", function () {
     });
   });
 
-  describe("setTreasury", function () {
-    it("reverts if caller is not owner", async function () {
-      await expect(sandboxController.connect(attacker).setTreasury(attacker.address)).to.be.revertedWithCustomError(
+  describe("proposeDao", function () {
+    let snapshot: SnapshotRestorer;
+
+    before(async function () {
+      snapshot = await takeSnapshot();
+    });
+
+    it("should allow to propose new DAO", async function () {
+      await sandboxController.proposeDao(other.address);
+      expect(await sandboxController.proposedDao()).to.equal(other.address);
+
+      await snapshot.restore();
+    });
+
+    it("should emit event", async function () {
+      expect(await sandboxController.proposeDao(other.address))
+        .to.emit(sandboxController, "DaoProposed")
+        .withArgs(dao.address, other.address);
+
+      await snapshot.restore();
+    });
+
+    it("should allow to set zero address (to disregard the proposal)", async function () {
+      await sandboxController.proposeDao(other.address);
+      expect(await sandboxController.proposedDao()).to.equal(other.address);
+
+      await expect(sandboxController.proposeDao(ethers.constants.AddressZero)).to.not.be.reverted;
+      expect(await sandboxController.proposedDao()).to.equal(ethers.constants.AddressZero);
+
+      await snapshot.restore();
+    });
+
+    it("should revert if proposed DAO is proposed twice", async function () {
+      await sandboxController.proposeDao(other.address);
+      await expect(sandboxController.proposeDao(other.address)).to.be.revertedWithCustomError(sandboxController, "IncorrectSetting");
+
+      await snapshot.restore();
+    });
+
+    it("should revert if proposed DAO is the same as current", async function () {
+      await expect(sandboxController.proposeDao(dao.address)).to.be.revertedWithCustomError(sandboxController, "IncorrectSetting");
+    });
+
+    it("should revert for caller other than dao", async function () {
+      await expect(sandboxController.connect(attacker).proposeDao(other.address)).to.be.revertedWithCustomError(
         sandboxController,
-        "NotOwner"
+        "NotDao"
       );
     });
 
-    it("reverts for dao (if caller is not owner)", async function () {
-      await expect(sandboxController.connect(dao).setTreasury(attacker.address)).to.be.revertedWithCustomError(
+    it("should revert for contractor (caller other than dao)", async function () {
+      await sandboxController.connect(dao).grantContractorRole(contractor.address);
+
+      await expect(sandboxController.connect(contractor).proposeDao(other.address)).to.be.revertedWithCustomError(
         sandboxController,
-        "NotOwner"
+        "NotDao"
       );
+
+      await snapshot.restore();
+    });
+  });
+
+  describe("acceptDao", function () {
+    let snapshot: SnapshotRestorer;
+
+    before(async function () {
+      await sandboxController.proposeDao(other.address);
+      snapshot = await takeSnapshot();
+    });
+
+    afterEach(async () => await snapshot.restore());
+
+    it("should allow to accept dao role", async function () {
+      await sandboxController.connect(other).acceptDao();
+
+      expect(await sandboxController.dao()).to.equal(other.address);
+    });
+
+    it("should emit event", async function () {
+      expect(await sandboxController.connect(other).acceptDao())
+        .to.emit(sandboxController, "DaoTransferred")
+        .withArgs(dao.address, other.address);
+    });
+
+    it("proposed dao should be cleared after accepting", async function () {
+      await sandboxController.connect(other).acceptDao();
+
+      expect(await sandboxController.proposedDao()).to.equal(ethers.constants.AddressZero);
+    });
+
+    it("should revert if caller is not proposed dao", async function () {
+      await expect(sandboxController.connect(attacker).acceptDao())
+        .to.be.revertedWithCustomError(sandboxController, "NotProposedDao")
+        .withArgs(attacker.address);
+    });
+  });
+
+  describe("grantContractorRole", function () {
+    let snapshot: SnapshotRestorer;
+
+    before(async function () {
+      snapshot = await takeSnapshot();
+    });
+
+    it("should allow dao to grant contractor role", async function () {
+      await sandboxController.connect(dao).grantContractorRole(other.address);
+      expect(await sandboxController.contractor()).to.be.eq(other.address);
+
+      await snapshot.restore();
+    });
+
+    it("should allow dao to set zero address", async function () {
+      await sandboxController.connect(dao).grantContractorRole(other.address);
+      expect(await sandboxController.contractor()).to.be.eq(other.address);
+
+      await sandboxController.connect(dao).grantContractorRole(ethers.constants.AddressZero);
+      expect(await sandboxController.contractor()).to.be.eq(ethers.constants.AddressZero);
+
+      await snapshot.restore();
+    });
+
+    it("should emit event", async function () {
+      expect(await sandboxController.connect(dao).grantContractorRole(other.address))
+        .to.emit(sandboxController, "ContractorGranted")
+        .withArgs(ethers.constants.AddressZero, other.address);
+
+      await snapshot.restore();
+    });
+
+    it("reverts if caller is not dao", async function () {
+      await expect(sandboxController.connect(attacker).grantContractorRole(other.address))
+        .to.be.revertedWithCustomError(sandboxController, "NotDao")
+        .withArgs(attacker.address);
+    });
+
+    it("reverts for current contractor (if caller is not dao)", async function () {
+      await sandboxController.connect(dao).grantContractorRole(other.address);
+
+      await expect(sandboxController.connect(other).grantContractorRole(contractor.address))
+        .to.be.revertedWithCustomError(sandboxController, "NotDao")
+        .withArgs(other.address);
+
+      await snapshot.restore();
+    });
+
+    it("reverts for the same value assinged twice", async function () {
+      await sandboxController.connect(dao).grantContractorRole(other.address);
+
+      await expect(sandboxController.connect(dao).grantContractorRole(other.address)).to.be.revertedWithCustomError(
+        sandboxController,
+        "IncorrectSetting"
+      );
+
+      await snapshot.restore();
+    });
+  });
+
+  describe("setTreasury", function () {
+    it("reverts if caller is not dao", async function () {
+      await expect(sandboxController.connect(attacker).setTreasury(attacker.address))
+        .to.be.revertedWithCustomError(sandboxController, "NotDao")
+        .withArgs(attacker.address);
+    });
+
+    it("reverts for contractor (if caller is not dao)", async function () {
+      const snapshot: SnapshotRestorer = await takeSnapshot();
+
+      await sandboxController.grantContractorRole(contractor.address);
+      await expect(sandboxController.connect(contractor).setTreasury(attacker.address))
+        .to.be.revertedWithCustomError(sandboxController, "NotDao")
+        .withArgs(contractor.address);
+      await snapshot.restore();
     });
 
     it("reverts if _treasury is the zero address", async function () {
@@ -2265,7 +2170,8 @@ describe("3. SandboxController", function () {
     });
 
     it("reverts if same treasury is set", async function () {
-      await expect(sandboxController.setTreasury(treasury.address)).to.be.revertedWithCustomError(sandboxController, "IncorrectSetting");
+      const currentTreasury = await sandboxController.treasury();
+      await expect(sandboxController.setTreasury(currentTreasury)).to.be.revertedWithCustomError(sandboxController, "IncorrectSetting");
     });
 
     it("sets treasury and emits TreasuryChanged event", async function () {

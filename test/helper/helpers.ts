@@ -101,8 +101,6 @@ export type CollateralConfig = {
 };
 
 export type SandboxControllerOpts = {
-  admin: string;
-  dao: string;
   treasury: string;
 
   feeEnabled?: boolean;
@@ -176,14 +174,14 @@ export async function makePriceFeed(underlyingToken: string, amount?: string, de
 
 export function makeValidCurve(): BaseAssetCurveStruct {
   return {
-    supplyKink: ethers.utils.parseEther("0.8").toString(),
-    supplyPerYearInterestRateSlopeLow: ethers.utils.parseEther("0.05").toString(),
-    supplyPerYearInterestRateSlopeHigh: ethers.utils.parseEther("2").toString(),
-    supplyPerYearInterestRateBase: ethers.utils.parseEther("0.001").toString(),
-    borrowKink: ethers.utils.parseEther("0.8").toString(),
-    borrowPerYearInterestRateSlopeLow: ethers.utils.parseEther("0.1").toString(),
-    borrowPerYearInterestRateSlopeHigh: ethers.utils.parseEther("3").toString(),
-    borrowPerYearInterestRateBase: ethers.utils.parseEther("0.005").toString(),
+    supplyKink: ethers.utils.parseEther("0.8"),
+    supplyPerYearInterestRateSlopeLow: ethers.utils.parseEther("0.05"),
+    supplyPerYearInterestRateSlopeHigh: ethers.utils.parseEther("2"),
+    supplyPerYearInterestRateBase: ethers.utils.parseEther("0.001"),
+    borrowKink: ethers.utils.parseEther("0.8"),
+    borrowPerYearInterestRateSlopeLow: ethers.utils.parseEther("0.1"),
+    borrowPerYearInterestRateSlopeHigh: ethers.utils.parseEther("3"),
+    borrowPerYearInterestRateBase: ethers.utils.parseEther("0.005"),
   };
 }
 
@@ -250,8 +248,6 @@ export function defaultCollateralConfig(): CollateralConfig {
 
 export function defaultSandboxControllerOpts(partial?: Partial<SandboxControllerOpts>): SandboxControllerOpts {
   return {
-    admin: partial?.admin,
-    dao: partial?.dao,
     treasury: partial?.treasury,
     feeEnabled: partial?.feeEnabled ?? false,
     config: {
@@ -265,17 +261,15 @@ export function defaultSandboxControllerOpts(partial?: Partial<SandboxController
   };
 }
 
-export async function makeSandboxController(opts: SandboxControllerOpts, factory?): Promise<SandboxController> {
+export async function makeSandboxController(opts: SandboxControllerOpts, dao: SignerWithAddress, factory?): Promise<SandboxController> {
   let SandboxControllerFactory;
   if (factory) {
     SandboxControllerFactory = factory;
   } else {
-    SandboxControllerFactory = (await ethers.getContractFactory("SandboxController")) as SandboxController__factory;
+    SandboxControllerFactory = (await ethers.getContractFactory("SandboxController", dao)) as SandboxController__factory;
   }
 
   const sandboxController = await SandboxControllerFactory.deploy(
-    opts.admin,
-    opts.dao,
     opts.treasury,
     opts.feeEnabled,
     opts.config,
@@ -412,8 +406,6 @@ export async function makeConfigController(opts: ProtocolOpts): Promise<Protocol
 
   /// --- Deploy sandbox controller
   const sandboxControllerOpts = defaultSandboxControllerOpts({
-    admin: opts.owner.address,
-    dao: opts.dao.address,
     treasury: opts.treasury,
     feeEnabled: false,
     config: opts.config,
@@ -421,7 +413,7 @@ export async function makeConfigController(opts: ProtocolOpts): Promise<Protocol
     protocolCommissions: opts.protocolCommissions,
   });
 
-  const sandboxController = await makeSandboxController(sandboxControllerOpts);
+  const sandboxController = await makeSandboxController(sandboxControllerOpts, opts.dao);
 
   // --- Whitelist the base token ---
   await sandboxListBaseAsset(

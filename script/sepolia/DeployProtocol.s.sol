@@ -41,7 +41,7 @@ contract DeployProtocol is Script {
         address configControllerImplementation = deployConfigControllerImplementation();
 
         // Deploy SandboxController
-        address sandboxController = deploySandboxController(owner);
+        address sandboxController = deploySandboxController();
 
         // Deploy factories
         address configControllerFactory = deployConfigControllerFactory(sandboxController, configControllerImplementation);
@@ -199,17 +199,16 @@ contract DeployProtocol is Script {
         return address(configControllerFactory);
     }
 
-    function deploySandboxController(address owner_) internal returns (address) {
+    function deploySandboxController() internal returns (address) {
+        // Create SandboxController configuration
         ISandboxController.SandboxControllerConfiguration memory config = ISandboxController.SandboxControllerConfiguration({
             targetPercent: 2e17, // 20%
             storeFrontPriceFactor: 6e17, // 60%
             minUpdateTime: 300, // 5 minutes
-            maxUpdateTime: 3600 // 1 hour
+            maxUpdateTime: 3600, // 1 hour
         });
         // Deploy SandboxController with valid parameters
         SandboxController sandboxController = new SandboxController(
-            owner_, // owner
-            address(1), // dao (different from owner)
             address(2), // treasury (for now random address)
             true, // feeEnabled
             config,
