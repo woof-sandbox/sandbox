@@ -50,6 +50,7 @@ contract SandboxController is ISandboxController {
     mapping(address => BaseAssetConfiguration) internal _baseAssets;
     /// @notice collateral asset configurations.
     /// Holds:
+    /// supplyCap
     /// priceFeed,
     /// decimals,
     /// maxBorrowCollateralFactor,
@@ -331,7 +332,7 @@ contract SandboxController is ISandboxController {
         uint8 decimals = IERC20Metadata(token).decimals(); // aderyn-fp(reentrancy-state-change)
 
         CollateralAssetConfiguration memory assetConfig = CollateralAssetConfiguration({
-            collateralToken: token,
+            supplyCap: supplyCap,
             priceFeed: priceFeed,
             decimals: decimals,
             maxBorrowCollateralFactor: maxBorrowCollateralFactor,
@@ -339,8 +340,7 @@ contract SandboxController is ISandboxController {
             minLiquidateCollateralFactor: minLiquidateCollateralFactor,
             maxLiquidateCollateralFactor: maxLiquidateCollateralFactor,
             minLiquidationFactor: minLiquidationFactor,
-            maxLiquidationFactor: maxLiquidationFactor,
-            supplyCap: supplyCap
+            maxLiquidationFactor: maxLiquidationFactor
         });
 
         _collateralAssets[token] = assetConfig;

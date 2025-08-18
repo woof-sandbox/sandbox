@@ -37,23 +37,20 @@ interface ISandboxController is ISandboxErrors {
 
     struct CollateralAssetConfiguration {
         /// First 256 bits (32 bytes)
-        address collateralToken; // 20 bytes
-        /// Wasted space 12 bytes
+        uint256 supplyCap; // 32 bytes
         /// Second 256 bits (32 bytes)
         address priceFeed; // 20 bytes
         uint8 decimals; // 1 byte
-        /// Wasted space 11 bytes
-        /// Third 256 bits (32 bytes)
         uint64 maxBorrowCollateralFactor; // 8 bytes
+        /// Wasted space 3 bytes
+        /// Third 256 bits (32 bytes)
         uint64 minBorrowCollateralFactor; // 8 bytes
         uint64 minLiquidateCollateralFactor; // 8 bytes
         uint64 maxLiquidateCollateralFactor; // 8 bytes
-        /// Fourth 256 bits (32 bytes)
         uint64 minLiquidationFactor; // 8 bytes
+        /// Fourth 256 bits (32 bytes)
         uint64 maxLiquidationFactor; // 8 bytes
-        /// "Free" space 16 bytes
-        /// Fifth 256 bits (32 bytes)
-        uint256 supplyCap; // 32 bytes
+        /// "Free" space 24 bytes
     }
 
     struct SandboxControllerConfiguration {

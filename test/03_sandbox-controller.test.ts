@@ -885,7 +885,6 @@ describe("3. SandboxController", function () {
 
     it("should update state for collateral token", async function () {
       const data = await sandboxController.collateralAssets(tokenCollateralTest.address);
-      expect(data.collateralToken).to.equal(tokenCollateralTest.address);
       expect(data.priceFeed).to.equal(priceFeedCollateralTest.address);
       expect(data.decimals).to.equal(18);
     });
@@ -1001,6 +1000,276 @@ describe("3. SandboxController", function () {
     });
   });
 
+  describe("updateWhitelistedCollateralAsset - reverts", function () {
+    let tokenCollateralTest: FaucetToken;
+    let priceFeedCollateralTest: SimplePriceFeed;
+    let totalTestSupply: BigNumber = BigNumber.from(exp(1e9, 18));
+    let supplyCap: BigNumber;
+
+    let collateralConfig: AssetLimits = defaultAssetLimits();
+
+    before(async function () {
+      tokenCollateralTest = await makeMockERC20({ name: "CollateralToken", symbol: "CT", supply: totalTestSupply });
+      priceFeedCollateralTest = await makePriceFeed(tokenCollateralTest.address);
+      supplyCap = totalTestSupply.mul(15).div(100); // 15% of total supply
+
+      await sandboxController.whitelistCollateralAsset(
+        tokenCollateralTest.address,
+        priceFeedCollateralTest.address,
+        collateralConfig.minBorrowCF,
+        collateralConfig.maxBorrowCF,
+        collateralConfig.minLiquidateCF,
+        collateralConfig.maxLiquidateCF,
+        collateralConfig.minLiquidationFactor,
+        collateralConfig.maxLiquidationFactor,
+        supplyCap
+      );
+    });
+
+    it("should revert if not dao or not contractor", async function () {
+      await expect(
+        sandboxController
+          .connect(attacker)
+          .updateWhitelistedCollateralAsset(
+            tokenCollateralTest.address,
+            collateralConfig.minBorrowCF,
+            collateralConfig.maxBorrowCF,
+            collateralConfig.minLiquidateCF,
+            collateralConfig.maxLiquidateCF,
+            collateralConfig.minLiquidationFactor,
+            collateralConfig.maxLiquidationFactor,
+            supplyCap
+          )
+      ).to.be.revertedWithCustomError(sandboxController, "Unauthorized");
+    });
+
+    it("should revert for zero address", async function () {
+      await expect(
+        sandboxController.updateWhitelistedCollateralAsset(
+          ethers.constants.AddressZero,
+          collateralConfig.minBorrowCF,
+          collateralConfig.maxBorrowCF,
+          collateralConfig.minLiquidateCF,
+          collateralConfig.maxLiquidateCF,
+          collateralConfig.minLiquidationFactor,
+          collateralConfig.maxLiquidationFactor,
+          supplyCap
+        )
+      ).to.be.revertedWithCustomError(sandboxController, "ZeroAddress");
+    });
+
+    it("should revert for non whitelised token", async function () {
+      const token = await makeMockERC20({ name: "CT", symbol: "CT", supply: totalTestSupply });
+
+      await expect(
+        sandboxController.updateWhitelistedCollateralAsset(
+          token.address,
+          collateralConfig.minBorrowCF,
+          collateralConfig.maxBorrowCF,
+          collateralConfig.minLiquidateCF,
+          collateralConfig.maxLiquidateCF,
+          collateralConfig.minLiquidationFactor,
+          collateralConfig.maxLiquidationFactor,
+          supplyCap
+        )
+      ).to.be.revertedWithCustomError(sandboxController, "CollateralTokenNotWhitelisted");
+    });
+
+    describe("reverts on invalid borrow factors", function () {
+      afterEach(async function () {
+        collateralConfig = defaultAssetLimits();
+      });
+
+      it("reverts if minBorrowCollateralFactor < 10%", async function () {
+        collateralConfig.minBorrowCF = ethers.utils.parseEther("0.1").sub(1).toString();
+
+        await expect(
+          sandboxController.updateWhitelistedCollateralAsset(
+            tokenCollateralTest.address,
+            collateralConfig.minBorrowCF,
+            collateralConfig.maxBorrowCF,
+            collateralConfig.minLiquidateCF,
+            collateralConfig.maxLiquidateCF,
+            collateralConfig.minLiquidationFactor,
+            collateralConfig.maxLiquidationFactor,
+            supplyCap
+          )
+        ).to.be.revertedWithCustomError(sandboxController, "InvalidFactors");
+      });
+
+      it("reverts if minBorrowCollateralFactor > minLiquidateCollateralFactor", async function () {
+        collateralConfig.minBorrowCF = ethers.utils.parseEther("0.75").toString();
+
+        await expect(
+          sandboxController.updateWhitelistedCollateralAsset(
+            tokenCollateralTest.address,
+            collateralConfig.minBorrowCF,
+            collateralConfig.maxBorrowCF,
+            collateralConfig.minLiquidateCF,
+            collateralConfig.maxLiquidateCF,
+            collateralConfig.minLiquidationFactor,
+            collateralConfig.maxLiquidationFactor,
+            supplyCap
+          )
+        ).to.be.revertedWithCustomError(sandboxController, "InvalidFactors");
+      });
+
+      it("reverts if minLiquidateCollateralFactor > minLiquidationFactor", async function () {
+        collateralConfig.minLiquidateCF = ethers.utils.parseEther("0.8").toString();
+
+        await expect(
+          sandboxController.updateWhitelistedCollateralAsset(
+            tokenCollateralTest.address,
+            collateralConfig.minBorrowCF,
+            collateralConfig.maxBorrowCF,
+            collateralConfig.minLiquidateCF,
+            collateralConfig.maxLiquidateCF,
+            collateralConfig.minLiquidationFactor,
+            collateralConfig.maxLiquidationFactor,
+            supplyCap
+          )
+        ).to.be.revertedWithCustomError(sandboxController, "InvalidFactors");
+      });
+
+      it("reverts if maxBorrowCollateralFactor > maxLiquidateCollateralFactor", async function () {
+        collateralConfig.maxBorrowCF = ethers.utils.parseEther("0.92").toString();
+
+        await expect(
+          sandboxController.updateWhitelistedCollateralAsset(
+            tokenCollateralTest.address,
+            collateralConfig.minBorrowCF,
+            collateralConfig.maxBorrowCF,
+            collateralConfig.minLiquidateCF,
+            collateralConfig.maxLiquidateCF,
+            collateralConfig.minLiquidationFactor,
+            collateralConfig.maxLiquidationFactor,
+            supplyCap
+          )
+        ).to.be.revertedWithCustomError(sandboxController, "InvalidFactors");
+      });
+
+      it("reverts if maxLiquidateCollateralFactor > maxLiquidationFactor", async function () {
+        collateralConfig.maxLiquidateCF = ethers.utils.parseEther("0.96").toString();
+
+        await expect(
+          sandboxController.updateWhitelistedCollateralAsset(
+            tokenCollateralTest.address,
+            collateralConfig.minBorrowCF,
+            collateralConfig.maxBorrowCF,
+            collateralConfig.minLiquidateCF,
+            collateralConfig.maxLiquidateCF,
+            collateralConfig.minLiquidationFactor,
+            collateralConfig.maxLiquidationFactor,
+            supplyCap
+          )
+        ).to.be.revertedWithCustomError(sandboxController, "InvalidFactors");
+      });
+
+      it("reverts if maxLiquidationFactor > 100%", async function () {
+        collateralConfig.maxLiquidationFactor = ethers.utils.parseEther("1").add(1).toString();
+
+        await expect(
+          sandboxController.updateWhitelistedCollateralAsset(
+            tokenCollateralTest.address,
+            collateralConfig.minBorrowCF,
+            collateralConfig.maxBorrowCF,
+            collateralConfig.minLiquidateCF,
+            collateralConfig.maxLiquidateCF,
+            collateralConfig.minLiquidationFactor,
+            collateralConfig.maxLiquidationFactor,
+            supplyCap
+          )
+        ).to.be.revertedWithCustomError(sandboxController, "InvalidFactors");
+      });
+
+      it("reverts if minBorrowCollateralFactor > maxBorrowCollateralFactor", async function () {
+        collateralConfig.minBorrowCF = ethers.utils.parseEther("0.6").toString();
+        collateralConfig.maxBorrowCF = ethers.utils.parseEther("0.5").toString();
+
+        await expect(
+          sandboxController.updateWhitelistedCollateralAsset(
+            tokenCollateralTest.address,
+            collateralConfig.minBorrowCF,
+            collateralConfig.maxBorrowCF,
+            collateralConfig.minLiquidateCF,
+            collateralConfig.maxLiquidateCF,
+            collateralConfig.minLiquidationFactor,
+            collateralConfig.maxLiquidationFactor,
+            supplyCap
+          )
+        ).to.be.revertedWithCustomError(sandboxController, "InvalidFactors");
+      });
+
+      it("reverts if minLiquidateCollateralFactor > maxLiquidateCollateralFactor", async function () {
+        collateralConfig.maxBorrowCF = ethers.utils.parseEther("0.65").toString();
+        collateralConfig.minLiquidateCF = ethers.utils.parseEther("0.7").toString();
+        collateralConfig.maxLiquidateCF = ethers.utils.parseEther("0.65").toString();
+
+        await expect(
+          sandboxController.updateWhitelistedCollateralAsset(
+            tokenCollateralTest.address,
+            collateralConfig.minBorrowCF,
+            collateralConfig.maxBorrowCF,
+            collateralConfig.minLiquidateCF,
+            collateralConfig.maxLiquidateCF,
+            collateralConfig.minLiquidationFactor,
+            collateralConfig.maxLiquidationFactor,
+            supplyCap
+          )
+        ).to.be.revertedWithCustomError(sandboxController, "InvalidFactors");
+      });
+
+      it("reverts if minLiquidationFactor > maxLiquidationFactor", async function () {
+        collateralConfig.maxLiquidateCF = ethers.utils.parseEther("0.85").toString();
+        collateralConfig.minLiquidationFactor = ethers.utils.parseEther("0.9").toString();
+        collateralConfig.maxLiquidationFactor = ethers.utils.parseEther("0.85").toString();
+
+        await expect(
+          sandboxController.updateWhitelistedCollateralAsset(
+            tokenCollateralTest.address,
+            collateralConfig.minBorrowCF,
+            collateralConfig.maxBorrowCF,
+            collateralConfig.minLiquidateCF,
+            collateralConfig.maxLiquidateCF,
+            collateralConfig.minLiquidationFactor,
+            collateralConfig.maxLiquidationFactor,
+            supplyCap
+          )
+        ).to.be.revertedWithCustomError(sandboxController, "InvalidFactors");
+      });
+
+      it("reverts if supplyCap > 30% of totalSupply", async function () {
+        await expect(
+          sandboxController.updateWhitelistedCollateralAsset(
+            tokenCollateralTest.address,
+            collateralConfig.minBorrowCF,
+            collateralConfig.maxBorrowCF,
+            collateralConfig.minLiquidateCF,
+            collateralConfig.maxLiquidateCF,
+            collateralConfig.minLiquidationFactor,
+            collateralConfig.maxLiquidationFactor,
+            totalTestSupply.mul(30).div(100).add(1) // even 1 wei more than the pre-calculated cap
+          )
+        ).to.be.revertedWithCustomError(sandboxController, "SupplyCapTooHigh");
+      });
+
+      it("reverts if supplyCap equals zero", async function () {
+        await expect(
+          sandboxController.updateWhitelistedCollateralAsset(
+            tokenCollateralTest.address,
+            collateralConfig.minBorrowCF,
+            collateralConfig.maxBorrowCF,
+            collateralConfig.minLiquidateCF,
+            collateralConfig.maxLiquidateCF,
+            collateralConfig.minLiquidationFactor,
+            collateralConfig.maxLiquidationFactor,
+            ethers.constants.Zero
+          )
+        ).to.be.revertedWithCustomError(sandboxController, "SupplyCapCantBeZero");
+      });
+    });
+  });
+
   describe("updateWhitelistedCollateralAsset - happy cases", function () {
     let tokenCollateralTest: FaucetToken;
     let priceFeedCollateralTest: SimplePriceFeed;
@@ -1056,7 +1325,7 @@ describe("3. SandboxController", function () {
 
     it("should not update state for three parameters", async function () {
       const data = await sandboxController.collateralAssets(tokenCollateralTest.address);
-      expect(data.collateralToken).to.equal(tokenCollateralTest.address);
+
       expect(data.priceFeed).to.equal(priceFeedCollateralTest.address);
       expect(data.decimals).to.equal(18);
     });
@@ -1108,6 +1377,46 @@ describe("3. SandboxController", function () {
       )
         .to.emit(sandboxController, "CollateralAssetUpdated")
         .withArgs(token.address);
+    });
+
+    it("should work for contractor", async function () {
+      const snapshot: SnapshotRestorer = await takeSnapshot();
+
+      const token = await makeMockERC20({ name: "C3", symbol: "C3", supply: totalTestSupply });
+      const priceFeed = await makePriceFeed(token.address);
+
+      // whitelist the collateral asset
+      await sandboxController.whitelistCollateralAsset(
+        token.address,
+        priceFeed.address,
+        collateralConfig.minBorrowCF,
+        collateralConfig.maxBorrowCF,
+        collateralConfig.minLiquidateCF,
+        collateralConfig.maxLiquidateCF,
+        collateralConfig.minLiquidationFactor,
+        collateralConfig.maxLiquidationFactor,
+        supplyCap // supplyCap (15% of total supply)
+      );
+
+      await sandboxController.grantContractorRole(contractor.address);
+
+      // update the collateral asset by contractor
+      await expect(
+        sandboxController
+          .connect(contractor)
+          .updateWhitelistedCollateralAsset(
+            tokenCollateralTest.address,
+            newConfig.minBorrowCF,
+            newConfig.maxBorrowCF,
+            newConfig.minLiquidateCF,
+            newConfig.maxLiquidateCF,
+            newConfig.minLiquidationFactor,
+            newConfig.maxLiquidationFactor,
+            newConfig.supplyCap
+          )
+      ).to.not.be.reverted;
+
+      await snapshot.restore();
     });
   });
 

@@ -214,6 +214,13 @@ describe("2. System Params Validation", function () {
         );
       });
 
+      it("should revert if the collateral token supply cap is higher than allowed", async () => {
+        const allowedCap: BigNumber = (await sandboxController.collateralAssets(collateralTokens[0].collateralToken)).supplyCap;
+        marketConfig.collateralTokens[0].supplyCap = allowedCap.add(1);
+
+        await expect(configController.createComet(marketConfig)).to.be.revertedWithCustomError(configController, "SupplyCapTooHigh");
+      });
+
       it("should revert if the collateral token supply cap is zero", async () => {
         marketConfig.collateralTokens[0].supplyCap = 0;
 
