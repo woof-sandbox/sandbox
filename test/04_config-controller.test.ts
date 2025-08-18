@@ -38,11 +38,11 @@ describe("4. ConfigController", () => {
 
     baseToken = opts.baseToken;
 
-    const asset = Object.keys(opts.collaterals)[0];
     const collateralConfig: CollateralConfig = defaultCollateralConfig();
-    const supplyCap = (await opts.collaterals[asset].totalSupply()).mul(15).div(100); // 15% of total supply
+
+    const supplyCap = (await opts.collaterals["COMP"].totalSupply()).mul(15).div(100); // 15% of total supply
     collateralTokens.push({
-      collateralToken: opts.collaterals[asset].address,
+      collateralToken: opts.collaterals["COMP"].address,
       borrowCollateralFactor: collateralConfig.borrowCF,
       liquidateCollateralFactor: collateralConfig.liquidateCF,
       liquidationFactor: collateralConfig.liquidationFactor,

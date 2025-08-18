@@ -387,7 +387,9 @@ contract SandboxController is ISandboxController {
         uint256 supplyCap
     ) external override onlyAuthorized {
         if (token == address(0)) revert ZeroAddress();
-        if (!isCollateralTokenWhitelisted(assetConfig.collateralToken)) revert CollateralTokenNotWhitelisted();
+        if (!isCollateralTokenWhitelisted(token)) revert CollateralTokenNotWhitelisted();
+
+        CollateralAssetConfiguration memory assetConfig = _collateralAssets[token];
 
         _validateCollateralFactors(
             minBorrowCollateralFactor,
@@ -409,6 +411,8 @@ contract SandboxController is ISandboxController {
         assetConfig.supplyCap = supplyCap;
 
         emit CollateralAssetUpdated(token);
+
+        _collateralAssets[token] = assetConfig;
     }
 
     /**
@@ -677,6 +681,8 @@ contract SandboxController is ISandboxController {
      */
     function _validateSupplyCap(address token, uint256 supplyCap) private view {
         if (supplyCap == 0) revert SupplyCapCantBeZero();
+        /// Check is bound to a token's total supply, and thus it can be applied to tokens with no fixed cap. In that case
+        /// tokens will require an update updateWhitelistedCollateralAsset() once the supply growth enough
         if (supplyCap > (IERC20Metadata(token).totalSupply() * MAX_SUPPLY_CAP_PERCENT) / PARAMETERS_SCALE) revert SupplyCapTooHigh();
     }
 }

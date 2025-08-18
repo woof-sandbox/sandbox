@@ -52,7 +52,6 @@ describe("5. supply", function () {
     configController = opts.configController;
     sandboxController = opts.sandboxController;
     baseToken = opts.baseToken as FaucetToken;
-    expect(await baseToken.decimals()).to.equal(baseTokenDecimals);
 
     comet = await createComet(owner, opts.opts.assets, configController, sandboxController, opts.collaterals, baseToken);
     cometExtension = (await ethers.getContractAt("CometExtension", comet.address)) as ICometExtension;

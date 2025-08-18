@@ -192,8 +192,7 @@ describe("3. SandboxController", function () {
     it("reverts if different price feed already used for token", async function () {
       const snapshot: SnapshotRestorer = await takeSnapshot();
 
-      const token1 = await makeMockERC20({ name: "C1", symbol: "C1" });
-      const totalSupply = await token1.totalSupply();
+      const token1 = await makeMockERC20({ name: "C1", symbol: "C1", supply: exp(1e9, 18) });
       const priceFeedChainlink = await makePriceFeed(token1.address);
       const priceFeedRedStone = await makePriceFeed(token1.address);
       /// Whitelist token with one price feed vender(for example RedStone)
@@ -206,7 +205,7 @@ describe("3. SandboxController", function () {
         exp(1.4, 17),
         exp(1.5, 17),
         exp(1.6, 17),
-        totalSupply.mul(15).div(100) // supplyCap (15% of total supply)
+        exp(150000, 18) // supplyCap (15% of total supply)
       );
       /// Try to whitelist token with different price feed vender(for example Chainlink)
       await expect(
@@ -438,14 +437,13 @@ describe("3. SandboxController", function () {
 
   describe("whitelistBaseAsset - happy cases", function () {
     let tokenTest: FaucetToken;
-    let totalTestSupply: BigNumber;
+    let totalTestSupply: BigNumber = BigNumber.from(exp(1e9, 18));
     let priceFeedTest: SimplePriceFeed;
     const curve: BaseAssetCurveStruct = makeValidCurve();
     const minBorrow = 777;
 
     before(async function () {
-      tokenTest = await makeMockERC20({ name: "TestToken2", symbol: "TT2" });
-      totalTestSupply = await tokenTest.totalSupply();
+      tokenTest = await makeMockERC20({ name: "TestToken2", symbol: "TT2", supply: totalTestSupply });
       priceFeedTest = await makePriceFeed(tokenTest.address);
     });
 
@@ -547,8 +545,7 @@ describe("3. SandboxController", function () {
     it("whitelists same base asset if collateral asset is already registered", async function () {
       const snapshot: SnapshotRestorer = await takeSnapshot();
 
-      const token = await makeMockERC20({ name: "C1", symbol: "C1" });
-      const totalSupply = await token.totalSupply();
+      const token = await makeMockERC20({ name: "C1", symbol: "C1", supply: totalTestSupply });
       const priceFeed = await makePriceFeed(token.address);
 
       await sandboxController.whitelistCollateralAsset(
@@ -560,7 +557,7 @@ describe("3. SandboxController", function () {
         exp(1.4, 17),
         exp(1.5, 17),
         exp(1.6, 17),
-        totalSupply.mul(15).div(100) // supplyCap (15% of total supply)
+        totalTestSupply.mul(15).div(100) // supplyCap (15% of total supply)
       );
 
       await expect(
@@ -617,16 +614,15 @@ describe("3. SandboxController", function () {
 
   describe("whitelistCollateralAsset - reverts", function () {
     let tokenCollateralTest: FaucetToken;
-    let totalTestSupply: BigNumber;
+    let totalTestSupply: BigNumber = BigNumber.from(exp(1e9, 18));
     let priceFeedCollateralTest: SimplePriceFeed;
 
     let collateralConfig: AssetLimits = defaultAssetLimits();
     let supplyCap: BigNumber;
 
     before(async function () {
-      tokenCollateralTest = await makeMockERC20({ name: "CollateralToken", symbol: "CT" });
+      tokenCollateralTest = await makeMockERC20({ name: "CollateralToken", symbol: "CT", supply: totalTestSupply });
       priceFeedCollateralTest = await makePriceFeed(tokenCollateralTest.address);
-      totalTestSupply = await tokenCollateralTest.totalSupply();
       supplyCap = totalTestSupply.mul(15).div(100); // 15% of total supply
     });
 
@@ -767,40 +763,18 @@ describe("3. SandboxController", function () {
     });
 
     it("reverts if feed not a valid aggregator (mock example)", async function () {
-      const token = await makeMockERC20({ name: "C5", symbol: "C5" });
-      const totalSupply = await token.totalSupply();
+      const token = await makeMockERC20({ name: "C5", symbol: "C5", supply: totalTestSupply });
       const badFeed = await makeMockERC20({ name: "FakeFeed2", symbol: "FF2" });
       await expect(
-        sandboxController.whitelistCollateralAsset(
-          token.address,
-          badFeed.address,
-          8000,
-          5000,
-          6000,
-          9000,
-          7000,
-          9500,
-          totalSupply.mul(15).div(100)
-        )
+        sandboxController.whitelistCollateralAsset(token.address, badFeed.address, 8000, 5000, 6000, 9000, 7000, 9500, supplyCap)
       ).to.be.reverted;
     });
 
     it("reverts if invalid price feed (answer=0)", async function () {
-      const token = await makeMockERC20({ name: "T6", symbol: "T6" });
-      const totalSupply = await token.totalSupply();
+      const token = await makeMockERC20({ name: "T6", symbol: "T6", supply: totalTestSupply });
       const badPriceFeed = await makePriceFeed(token.address, "0");
       await expect(
-        sandboxController.whitelistCollateralAsset(
-          token.address,
-          badPriceFeed.address,
-          5000,
-          8000,
-          6000,
-          9000,
-          7000,
-          9500,
-          totalSupply.mul(15).div(100)
-        )
+        sandboxController.whitelistCollateralAsset(token.address, badPriceFeed.address, 5000, 8000, 6000, 9000, 7000, 9500, supplyCap)
       ).to.be.revertedWithCustomError(sandboxController, "InvalidPriceFeed");
     });
 
@@ -987,7 +961,7 @@ describe("3. SandboxController", function () {
             collateralConfig.maxLiquidateCF,
             collateralConfig.minLiquidationFactor,
             collateralConfig.maxLiquidationFactor,
-            totalTestSupply.mul(40).div(100) // supplyCap (40% of total supply)
+            totalTestSupply.mul(30).div(100).add(1) // even 1 wei more than the pre-calculated cap
           )
         ).to.be.revertedWithCustomError(sandboxController, "SupplyCapTooHigh");
       });
@@ -1013,14 +987,15 @@ describe("3. SandboxController", function () {
   describe("whitelistCollateralAsset - happy cases", function () {
     let tokenCollateralTest: FaucetToken;
     let priceFeedCollateralTest: SimplePriceFeed;
+    let totalTestSupply: BigNumber = BigNumber.from(exp(1e9, 18));
     let supplyCap: BigNumber;
 
     const collateralConfig: AssetLimits = defaultAssetLimits();
 
     before(async function () {
-      tokenCollateralTest = await makeMockERC20({ name: "CollateralToken", symbol: "CT" });
+      tokenCollateralTest = await makeMockERC20({ name: "CollateralToken", symbol: "CT", supply: totalTestSupply });
       priceFeedCollateralTest = await makePriceFeed(tokenCollateralTest.address);
-      supplyCap = (await tokenCollateralTest.totalSupply()).mul(15).div(100); // 15% of total supply
+      supplyCap = totalTestSupply.mul(15).div(100); // 15% of total supply
 
       await sandboxController.whitelistCollateralAsset(
         tokenCollateralTest.address,
@@ -1062,8 +1037,7 @@ describe("3. SandboxController", function () {
     });
 
     it("should emit CollateralAssetWhitelisted event with correct args", async function () {
-      const token = await makeMockERC20({ name: "C2", symbol: "C2" });
-      const totalSupply = await token.totalSupply();
+      const token = await makeMockERC20({ name: "C2", symbol: "C2", supply: totalTestSupply });
       const priceFeed = await makePriceFeed(token.address);
 
       expect(
@@ -1076,7 +1050,7 @@ describe("3. SandboxController", function () {
           collateralConfig.maxLiquidateCF,
           collateralConfig.minLiquidationFactor,
           collateralConfig.maxLiquidationFactor,
-          totalSupply.mul(15).div(100) // supplyCap (15% of total supply
+          supplyCap // supplyCap (15% of total supply
         )
       )
         .to.emit(sandboxController, "CollateralAssetWhitelisted")
@@ -1084,8 +1058,7 @@ describe("3. SandboxController", function () {
     });
 
     it("owner can do it, dao can do it", async function () {
-      const token1 = await makeMockERC20({ name: "C3", symbol: "C3" });
-      const totalSupply1 = await token1.totalSupply();
+      const token1 = await makeMockERC20({ name: "C3", symbol: "C3", supply: totalTestSupply });
       const feed1 = await makePriceFeed(token1.address);
 
       await expect(
@@ -1098,12 +1071,11 @@ describe("3. SandboxController", function () {
           collateralConfig.maxLiquidateCF,
           collateralConfig.minLiquidationFactor,
           collateralConfig.maxLiquidationFactor,
-          totalSupply1.mul(15).div(100) // supplyCap (15% of total supply)
+          supplyCap // supplyCap (15% of total supply)
         )
       ).to.not.be.reverted;
 
-      const token2 = await makeMockERC20({ name: "C4", symbol: "C4" });
-      const totalSupply2 = await token2.totalSupply();
+      const token2 = await makeMockERC20({ name: "C4", symbol: "C4", supply: totalTestSupply });
       const feed2 = await makePriceFeed(token2.address);
       await expect(
         sandboxController.connect(dao).whitelistCollateralAsset(
@@ -1115,14 +1087,13 @@ describe("3. SandboxController", function () {
           collateralConfig.maxLiquidateCF,
           collateralConfig.minLiquidationFactor,
           collateralConfig.maxLiquidationFactor,
-          totalSupply2.mul(15).div(100) // supplyCap (15% of total supply)
+          supplyCap // supplyCap (15% of total supply)
         )
       ).to.not.be.reverted;
     });
 
     it("should list collateral with min borrow factor = 10%", async function () {
-      const token = await makeMockERC20({ name: "C5", symbol: "C5" });
-      const totalSupply = await token.totalSupply();
+      const token = await makeMockERC20({ name: "C5", symbol: "C5", supply: totalTestSupply });
       const priceFeed = await makePriceFeed(token.address);
 
       await expect(
@@ -1135,14 +1106,13 @@ describe("3. SandboxController", function () {
           collateralConfig.maxLiquidateCF,
           collateralConfig.minLiquidationFactor,
           collateralConfig.maxLiquidationFactor,
-          totalSupply.mul(15).div(100) // supplyCap (15% of total supply)
+          supplyCap // supplyCap (15% of total supply)
         )
       ).to.not.be.reverted;
     });
 
     it("should list collateral with max liq factor = 100%", async function () {
-      const token = await makeMockERC20({ name: "C6", symbol: "C6" });
-      const totalSupply = await token.totalSupply();
+      const token = await makeMockERC20({ name: "C6", symbol: "C6", supply: totalTestSupply });
       const priceFeed = await makePriceFeed(token.address);
 
       await expect(
@@ -1155,14 +1125,13 @@ describe("3. SandboxController", function () {
           collateralConfig.maxLiquidateCF,
           collateralConfig.minLiquidationFactor,
           ethers.utils.parseEther("1"),
-          totalSupply.mul(15).div(100) // supplyCap (15% of total supply)
+          supplyCap // supplyCap (15% of total supply)
         )
       ).to.not.be.reverted;
     });
 
     it("should list collateral with extreem factors", async function () {
-      const token = await makeMockERC20({ name: "C7", symbol: "C7" });
-      const totalSupply = await token.totalSupply();
+      const token = await makeMockERC20({ name: "C7", symbol: "C7", supply: totalTestSupply });
       const priceFeed = await makePriceFeed(token.address);
 
       await expect(
@@ -1175,12 +1144,11 @@ describe("3. SandboxController", function () {
           ethers.utils.parseEther("1"),
           ethers.utils.parseEther("1"),
           ethers.utils.parseEther("1"),
-          totalSupply.mul(15).div(100) // supplyCap (15% of total supply)
+          supplyCap // supplyCap (15% of total supply)
         )
       ).to.not.be.reverted;
 
-      const token2 = await makeMockERC20({ name: "C8", symbol: "C8" });
-      const totalSupply2 = await token2.totalSupply();
+      const token2 = await makeMockERC20({ name: "C8", symbol: "C8", supply: totalTestSupply });
       const priceFeed2 = await makePriceFeed(token2.address);
 
       await expect(
@@ -1193,7 +1161,7 @@ describe("3. SandboxController", function () {
           ethers.utils.parseEther("0.1"),
           ethers.utils.parseEther("0.1"),
           ethers.utils.parseEther("0.1"),
-          totalSupply2.mul(15).div(100) // supplyCap (15% of total supply)
+          supplyCap // supplyCap (15% of total supply)
         )
       ).to.not.be.reverted;
     });
@@ -1202,14 +1170,16 @@ describe("3. SandboxController", function () {
   describe("updateWhitelistedCollateralAsset - happy cases", function () {
     let tokenCollateralTest: FaucetToken;
     let priceFeedCollateralTest: SimplePriceFeed;
+    let totalTestSupply: BigNumber = BigNumber.from(exp(1e9, 18));
     let supplyCap: BigNumber;
 
     const collateralConfig: AssetLimits = defaultAssetLimits();
+    let newConfig: AssetLimits;
 
     before(async function () {
-      tokenCollateralTest = await makeMockERC20({ name: "CollateralToken", symbol: "CT" });
+      tokenCollateralTest = await makeMockERC20({ name: "CollateralToken", symbol: "CT", supply: totalTestSupply });
       priceFeedCollateralTest = await makePriceFeed(tokenCollateralTest.address);
-      supplyCap = (await tokenCollateralTest.totalSupply()).mul(15).div(100); // 15% of total supply
+      supplyCap = totalTestSupply.mul(15).div(100); // 15% of total supply
 
       await sandboxController.whitelistCollateralAsset(
         tokenCollateralTest.address,
@@ -1224,15 +1194,25 @@ describe("3. SandboxController", function () {
       );
 
       // update the collateral asset
+      newConfig = {
+        minBorrowCF: BigNumber.from(collateralConfig.minBorrowCF).div(2),
+        maxBorrowCF: BigNumber.from(collateralConfig.maxBorrowCF).div(2),
+        minLiquidateCF: BigNumber.from(collateralConfig.minLiquidateCF).div(2),
+        maxLiquidateCF: BigNumber.from(collateralConfig.maxLiquidateCF).div(2),
+        minLiquidationFactor: BigNumber.from(collateralConfig.minLiquidationFactor).div(2),
+        maxLiquidationFactor: BigNumber.from(collateralConfig.maxLiquidationFactor).div(2),
+        supplyCap: supplyCap.div(2),
+      };
+
       await sandboxController.updateWhitelistedCollateralAsset(
         tokenCollateralTest.address,
-        BigNumber.from(collateralConfig.minBorrowCF).div(2),
-        BigNumber.from(collateralConfig.maxBorrowCF).div(2),
-        BigNumber.from(collateralConfig.minLiquidateCF).div(2),
-        BigNumber.from(collateralConfig.maxLiquidateCF).div(2),
-        BigNumber.from(collateralConfig.minLiquidationFactor).div(2),
-        BigNumber.from(collateralConfig.maxLiquidationFactor).div(2),
-        supplyCap.div(2)
+        newConfig.minBorrowCF,
+        newConfig.maxBorrowCF,
+        newConfig.minLiquidateCF,
+        newConfig.maxLiquidateCF,
+        newConfig.minLiquidationFactor,
+        newConfig.maxLiquidationFactor,
+        newConfig.supplyCap
       );
     });
 
@@ -1250,12 +1230,12 @@ describe("3. SandboxController", function () {
     it("should update collateral token factors", async function () {
       const data = await sandboxController.collateralAssets(tokenCollateralTest.address);
 
-      expect(data.minBorrowCollateralFactor).to.equal(BigNumber.from(collateralConfig.minBorrowCF).div(2));
-      expect(data.maxBorrowCollateralFactor).to.equal(BigNumber.from(collateralConfig.maxBorrowCF).div(2));
-      expect(data.minLiquidateCollateralFactor).to.equal(BigNumber.from(collateralConfig.minLiquidateCF).div(2));
-      expect(data.maxLiquidateCollateralFactor).to.equal(BigNumber.from(collateralConfig.maxLiquidateCF).div(2));
-      expect(data.minLiquidationFactor).to.equal(BigNumber.from(collateralConfig.minLiquidationFactor).div(2));
-      expect(data.maxLiquidationFactor).to.equal(BigNumber.from(collateralConfig.maxLiquidationFactor).div(2));
+      expect(data.minBorrowCollateralFactor).to.equal(newConfig.minBorrowCF);
+      expect(data.maxBorrowCollateralFactor).to.equal(newConfig.maxBorrowCF);
+      expect(data.minLiquidateCollateralFactor).to.equal(newConfig.minLiquidateCF);
+      expect(data.maxLiquidateCollateralFactor).to.equal(newConfig.maxLiquidateCF);
+      expect(data.minLiquidationFactor).to.equal(newConfig.minLiquidationFactor);
+      expect(data.maxLiquidationFactor).to.equal(newConfig.maxLiquidationFactor);
     });
 
     it("should not record collateral token price feed", async function () {
@@ -1263,8 +1243,7 @@ describe("3. SandboxController", function () {
     });
 
     it("should emit CollateralAssetWhitelisted event with correct args", async function () {
-      const token = await makeMockERC20({ name: "C2", symbol: "C2" });
-      const totalSupply = await token.totalSupply();
+      const token = await makeMockERC20({ name: "C2", symbol: "C2", supply: totalTestSupply });
       const priceFeed = await makePriceFeed(token.address);
 
       // whitelist the collateral asset
@@ -1277,20 +1256,20 @@ describe("3. SandboxController", function () {
         collateralConfig.maxLiquidateCF,
         collateralConfig.minLiquidationFactor,
         collateralConfig.maxLiquidationFactor,
-        totalSupply.mul(15).div(100) // supplyCap (15% of total supply)
+        supplyCap // supplyCap (15% of total supply)
       );
 
       // update the collateral asset
       expect(
         await sandboxController.updateWhitelistedCollateralAsset(
           tokenCollateralTest.address,
-          BigNumber.from(collateralConfig.minBorrowCF).div(2),
-          BigNumber.from(collateralConfig.maxBorrowCF).div(2),
-          BigNumber.from(collateralConfig.minLiquidateCF).div(2),
-          BigNumber.from(collateralConfig.maxLiquidateCF).div(2),
-          BigNumber.from(collateralConfig.minLiquidationFactor).div(2),
-          BigNumber.from(collateralConfig.maxLiquidationFactor).div(2),
-          supplyCap.div(2)
+          newConfig.minBorrowCF,
+          newConfig.maxBorrowCF,
+          newConfig.minLiquidateCF,
+          newConfig.maxLiquidateCF,
+          newConfig.minLiquidationFactor,
+          newConfig.maxLiquidationFactor,
+          newConfig.supplyCap
         )
       )
         .to.emit(sandboxController, "CollateralAssetUpdated")
@@ -1298,8 +1277,7 @@ describe("3. SandboxController", function () {
     });
 
     it("owner can do it, dao can do it", async function () {
-      const token1 = await makeMockERC20({ name: "C3", symbol: "C3" });
-      const totalSupply1 = await token1.totalSupply();
+      const token1 = await makeMockERC20({ name: "C3", symbol: "C3", supply: totalTestSupply });
       const feed1 = await makePriceFeed(token1.address);
 
       // whitelist the collateral asset
@@ -1312,7 +1290,7 @@ describe("3. SandboxController", function () {
         collateralConfig.maxLiquidateCF,
         collateralConfig.minLiquidationFactor,
         collateralConfig.maxLiquidationFactor,
-        totalSupply1.mul(15).div(100) // supplyCap (15% of total supply)
+        supplyCap // supplyCap (15% of total supply)
       );
 
       // try to update the whitelisted collateral asset when called by the owner
@@ -1321,13 +1299,13 @@ describe("3. SandboxController", function () {
           .connect(owner)
           .updateWhitelistedCollateralAsset(
             tokenCollateralTest.address,
-            BigNumber.from(collateralConfig.minBorrowCF).div(2),
-            BigNumber.from(collateralConfig.maxBorrowCF).div(2),
-            BigNumber.from(collateralConfig.minLiquidateCF).div(2),
-            BigNumber.from(collateralConfig.maxLiquidateCF).div(2),
-            BigNumber.from(collateralConfig.minLiquidationFactor).div(2),
-            BigNumber.from(collateralConfig.maxLiquidationFactor).div(2),
-            supplyCap.div(2)
+            newConfig.minBorrowCF,
+            newConfig.maxBorrowCF,
+            newConfig.minLiquidateCF,
+            newConfig.maxLiquidateCF,
+            newConfig.minLiquidationFactor,
+            newConfig.maxLiquidationFactor,
+            newConfig.supplyCap
           )
       ).to.not.be.reverted;
       // try to update the whitelisted collateral asset when called by the dao
@@ -1336,13 +1314,13 @@ describe("3. SandboxController", function () {
           .connect(dao)
           .updateWhitelistedCollateralAsset(
             tokenCollateralTest.address,
-            BigNumber.from(collateralConfig.minBorrowCF).div(2),
-            BigNumber.from(collateralConfig.maxBorrowCF).div(2),
-            BigNumber.from(collateralConfig.minLiquidateCF).div(2),
-            BigNumber.from(collateralConfig.maxLiquidateCF).div(2),
-            BigNumber.from(collateralConfig.minLiquidationFactor).div(2),
-            BigNumber.from(collateralConfig.maxLiquidationFactor).div(2),
-            supplyCap.div(2)
+            newConfig.minBorrowCF,
+            newConfig.maxBorrowCF,
+            newConfig.minLiquidateCF,
+            newConfig.maxLiquidateCF,
+            newConfig.minLiquidationFactor,
+            newConfig.maxLiquidationFactor,
+            newConfig.supplyCap
           )
       ).to.not.be.reverted;
     });
