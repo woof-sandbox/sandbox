@@ -860,22 +860,47 @@ contract SandboxComet is CometCore, ISandboxComet {
         if (asset == address(0)) revert ZeroAddress();
         // Note: we do not check if asset is registered, as it might be already delisted collateral
         // and there is no difference between base asset or collateral
-
-        uint256 amount;
-        address dao = ISandboxController(sandboxController).dao(); // aderyn-fp(reentrancy-state-change)
-
-        if (msg.sender == dao) {
-            amount = assetFeesDAO[asset];
-            assetFeesDAO[asset] = 0;
-        } else if (msg.sender == configController) {
-            amount = assetFeesController[asset];
-            assetFeesController[asset] = 0;
+        if (msg.sender == configController) {
+            _extractFeesController(asset);
+        } else if (msg.sender == ISandboxController(sandboxController).dao()) {
+            _extractFeesDAO(asset);
         } else revert Unauthorized();
+    }
 
-        if (amount == 0) revert AmountTooSmall();
+    /**
+     * @notice Extracts fees to the DAO.
+     * @param asset The address of the asset to extract fees from.
+     */
+    function _extractFeesDAO(address asset) internal {
+        uint256 _amount = assetFeesDAO[asset];
+        if (_amount == 0) revert AmountTooSmall();
 
-        IERC20(asset).safeTransfer(msg.sender, amount);
-        emit FeesExtracted(address(this), asset, amount, msg.sender);
+        IERC20(asset).safeTransfer(msg.sender, _amount);
+        assetFeesDAO[asset] = 0;
+
+        emit FeesExtracted(address(this), asset, _amount, msg.sender);
+    }
+
+    /**
+     * @notice Extracts fees from the controller to the owner and curator.
+     * @param asset The address of the asset to extract fees from.
+     */
+    function _extractFeesController(address asset) internal {
+        address _owner = IConfigController(configController).owner();
+        address _curator = IConfigController(configController).curator();
+        uint256 _curatorFee = IConfigController(configController).curatorFee();
+        uint256 _amount = assetFeesController[asset];
+        if (_amount == 0) revert AmountTooSmall();
+
+        uint256 ownerAmount = _amount * _curatorFee / 10000;
+        uint256 curatorAmount = _amount - ownerAmount;
+
+        IERC20(asset).safeTransfer(_owner, ownerAmount);
+        IERC20(asset).safeTransfer(_curator, curatorAmount);
+
+        assetFeesController[asset] = 0;
+
+        emit FeesExtracted(address(this), asset, _amount, msg.sender);
     }
 
     /**
@@ -1752,14 +1777,19 @@ contract SandboxComet is CometCore, ISandboxComet {
         // Note: Re-entrancy can skip the reserves check above on a second buyCollateral call.
 
         if (amountOut < minAmount) revert TooMuchSlippage();
-
+        console.log("amountOut", amountOut);
+        console.log("feeProtocol", feeProtocol);
+        console.log("feeController", feeController);
+        console.log("getCollateralReserves(asset)", getCollateralReserves(asset));
         // Note: we do no use the reserve part of the profit, as it stays in the Comet anyway
         if (amountOut + feeProtocol + feeController > getCollateralReserves(asset)) revert InsufficientReserves();
 
         if (feeProtocol > 0) {
             assetFeesDAO[asset] += feeController;
         }
+        console.log("feeController", feeController);
         if (feeController > 0) {
+            _extractFeesController(asset);
             assetFeesController[asset] += feeController;
         }
 

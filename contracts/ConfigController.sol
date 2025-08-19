@@ -861,14 +861,22 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
     /// @notice Extracts fees to a self and distributes it
     /// @param comet Comet which should be registered in Controller
     /// @param asset Asset (collateral or base asset) to extract
-    function extractFees(address comet, address asset) external onlyOwner {
+    /// @dev Just duplicate the function from the comet.
+    function extractFees(address comet, address asset) external onlyOwnerOrCurator {
         if (comet == address(0)) revert ZeroAddress();
         if (!isCometOwned(comet)) revert UnknownComet();
 
         ISandboxCometConfig(comet).extractFees(asset);
         /// Note: Comet emits the respective event
 
-        /// TODO: extend method once fee distribution is finished
+        if (IERC20(asset).balanceOf(address(this)) > 0) {
+            uint256 amount = IERC20(asset).balanceOf(address(this));
+            uint256 ownerAmount = amount * curatorFee / FEE_DIVISOR;
+            uint256 curatorAmount = amount - ownerAmount;
+
+            IERC20(asset).safeTransfer(owner, ownerAmount);
+            IERC20(asset).safeTransfer(curator, curatorAmount);
+        }
     }
 
     /// @notice Transfers ownership of the protocol to a new address
