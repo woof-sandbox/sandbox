@@ -57,6 +57,7 @@ function toBigInt(f: bigint | BigNumber): bigint {
 export const DEFAULT_UPDATE_TIME = 7 * 24 * 60 * 60;
 export const MIN_UPDATE_TIME = 300;
 export const DEFAULT_LOCK_TIME = 7 * 24 * 60 * 60;
+export const DEFAULT_PRICEFEED_DECIMALS = 8;
 
 /// ---------------------
 
@@ -166,7 +167,7 @@ export async function makeMockERC20(opts: MockERC20Params): Promise<FaucetToken>
 
 export async function makePriceFeed(underlyingToken: string, amount?: string, decimals?: number): Promise<SimplePriceFeed> {
   const PriceFeedFactory = (await ethers.getContractFactory("SimplePriceFeed")) as SimplePriceFeed__factory;
-  const priceFeed = await PriceFeedFactory.deploy(amount ?? "100000000", decimals ?? 8, underlyingToken);
+  const priceFeed = await PriceFeedFactory.deploy(amount ?? "100000000", decimals ?? DEFAULT_PRICEFEED_DECIMALS, underlyingToken);
   await priceFeed.deployed();
   return priceFeed;
 }
@@ -191,9 +192,15 @@ export function defaultAssets(): { [symbol: string]: Asset } {
       symbol: "COMP",
       decimals: 18,
 
-      initial: 1e7,
+      initial: exp(1e6, 18),
       initialPrice: 175,
-      liquidationFactor: exp(0.8, 18),
+
+      collateralConfig: {
+        borrowCF: ethers.utils.parseEther("0.8"),
+        liquidateCF: ethers.utils.parseEther("0.85"),
+        liquidationFactor: ethers.utils.parseEther("0.9"),
+        supplyCap: exp(150000, 18),
+      },
     }),
     USDC: Object.assign({
       name: "USDC",
@@ -201,7 +208,6 @@ export function defaultAssets(): { [symbol: string]: Asset } {
       decimals: 6,
 
       initial: 1e6,
-      liquidationFactor: exp(0.8, 18),
     }),
     WETH: Object.assign({
       name: "WETH",
@@ -209,8 +215,7 @@ export function defaultAssets(): { [symbol: string]: Asset } {
       decimals: 18,
 
       initial: 1e4,
-      initialPrice: 3000,
-      liquidationFactor: exp(0.8, 18),
+      initialPrice: 4000,
     }),
     WBTC: Object.assign({
       name: "WBTC",
@@ -219,7 +224,6 @@ export function defaultAssets(): { [symbol: string]: Asset } {
 
       initial: 1e3,
       initialPrice: 41000,
-      liquidationFactor: exp(0.8, 18),
     }),
   };
 }
@@ -290,7 +294,7 @@ export async function sandboxListBaseAsset(
 ) {
   const baseBorrowMin_ = baseBorrowMin || exp(1, await baseAsset.decimals());
   const curve_ = curve || makeValidCurve();
-  const suggestedReserves_ = suggestedReserves || exp(1e5, 6); //100$ in USDC
+  const suggestedReserves_ = suggestedReserves || exp(1e5, 6); //100k$ in USDC
   const lockTime_ = lockTime || DEFAULT_LOCK_TIME;
 
   // --- Whitelist the base token ---
@@ -383,8 +387,8 @@ export async function makeConfigController(opts: ProtocolOpts): Promise<Protocol
   let tokenAddress: string;
   const PriceFeedFactory = (await ethers.getContractFactory("SimplePriceFeed")) as SimplePriceFeed__factory;
   for (const symbol in assets) {
-    const initialPrice = exp(assets[symbol].initialPrice || 1, 8);
-    const priceFeedDecimals = assets[symbol].priceFeedDecimals || 8;
+    const initialPrice = exp(assets[symbol].initialPrice || 1, DEFAULT_PRICEFEED_DECIMALS);
+    const priceFeedDecimals = assets[symbol].priceFeedDecimals || DEFAULT_PRICEFEED_DECIMALS;
 
     if (symbol == baseTokenSymbol) {
       tokenAddress = baseToken.address;

@@ -13,8 +13,13 @@ contract CometStorage is ICometStructures {
 
     /// @dev The max number of assets this contract is hardcoded to support
     ///  Do not change this variable without updating all the fields throughout the contract,
-    //    including the size of UserBasic.assetsIn and corresponding integer conversions.
+    ///  including the size of UserBasic.assetsIn and corresponding integer conversions.
     uint8 public constant MAX_ASSETS = 24;
+
+    /// @dev The protocol only supports 200% utilization on which borrows are allowed
+    ///      It keeps healthy state of the market, with no over-utilization leading to illiquidity,
+    ///      and keeps protocol reserves from exhaustion
+    uint256 public constant MAX_SUPPORTED_UTILIZATION = 2e18;
 
     /// @dev The max number of decimals base token can have
     ///  Note this cannot just be increased arbitrarily.

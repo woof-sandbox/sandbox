@@ -28,7 +28,9 @@ import { BigNumber } from "ethers";
 
 // Note: isolated supply functionality, withdraw and repay are tested in separate testsets
 describe("5. supply", function () {
-  let owner, dao, curator, treasury, guardian, alice, bob: SignerWithAddress;
+  let owner: SignerWithAddress, dao: SignerWithAddress;
+  let curator: SignerWithAddress, treasury: SignerWithAddress, guardian: SignerWithAddress;
+  let alice: SignerWithAddress, bob: SignerWithAddress;
   let comet: SandboxComet;
   let cometExtension: ICometExtension;
   let configController: ConfigController;
