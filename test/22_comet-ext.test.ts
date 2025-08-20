@@ -11,7 +11,7 @@ interface ExtendedCometHarness extends SandboxComet {
 }
 
 // todo: fix test
-describe.skip("20. CometExtension", () => {
+describe.skip("22. CometExtension", () => {
   let comet: ExtendedCometHarness;
   //let user: SignerWithAddress;
   //let tokens: Record<string, FaucetToken | NonStandardFaucetFeeToken>;

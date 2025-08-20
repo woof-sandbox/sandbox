@@ -31,7 +31,7 @@ import { CometConfigStruct, CollateralTokenConfigStruct } from "../../build/type
 
 // Snapshot
 export type { SnapshotRestorer } from "@nomicfoundation/hardhat-network-helpers";
-export { takeSnapshot } from "@nomicfoundation/hardhat-network-helpers";
+export { takeSnapshot, time } from "@nomicfoundation/hardhat-network-helpers";
 
 export { ethers, expect, hre };
 
@@ -354,7 +354,7 @@ async function makeCometFactory(cometImpl: string, configControllerFactory: stri
   return cometFactory;
 }
 
-export async function makeConfigController(opts: ProtocolOpts): Promise<Protocol> {
+export async function makeConfigController(opts: ProtocolOpts, configControllerImpl?: string): Promise<Protocol> {
   const assets = opts.assets || defaultAssets();
   const baseTokenSymbol = opts.baseTokenSymbol || "USDC";
   let baseToken: FaucetToken | NonStandardFaucetFeeToken;
@@ -440,7 +440,10 @@ export async function makeConfigController(opts: ProtocolOpts): Promise<Protocol
   const cometImpl = await cometFactory_.deploy();
   await cometImpl.deployed();
 
-  const configControllerFactory: ConfigControllerFactory = await makeConfigControllerFactory(sandboxController.address);
+  const configControllerFactory: ConfigControllerFactory = await makeConfigControllerFactory(
+    sandboxController.address,
+    configControllerImpl
+  );
   const cometFactory = await makeCometFactory(cometImpl.address, configControllerFactory.address);
 
   await configControllerFactory.createConfigController(
