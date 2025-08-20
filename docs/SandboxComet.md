@@ -127,7 +127,7 @@ Accrue interest and rewards for an account
 ### getSupplyRate
 
 ```solidity
-function getSupplyRate(uint64 utilization) public view returns (uint64)
+function getSupplyRate(uint256 utilization) public view returns (uint64)
 ```
 
 _Note: Does not accrue interest first_
@@ -136,7 +136,7 @@ _Note: Does not accrue interest first_
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-| utilization | uint64 | The utilization to check the supply rate for |
+| utilization | uint256 | The utilization to check the supply rate for |
 
 #### Return Values
 
@@ -147,7 +147,7 @@ _Note: Does not accrue interest first_
 ### getBorrowRate
 
 ```solidity
-function getBorrowRate(uint64 utilization) public view returns (uint64)
+function getBorrowRate(uint256 utilization) public view returns (uint64)
 ```
 
 _Note: Does not accrue interest first_
@@ -156,7 +156,7 @@ _Note: Does not accrue interest first_
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-| utilization | uint64 | The utilization to check the borrow rate for |
+| utilization | uint256 | The utilization to check the borrow rate for |
 
 #### Return Values
 
@@ -167,7 +167,7 @@ _Note: Does not accrue interest first_
 ### getUtilization
 
 ```solidity
-function getUtilization() public view returns (uint64)
+function getUtilization() public view returns (uint256)
 ```
 
 _Note: Does not accrue interest first_
@@ -176,7 +176,7 @@ _Note: Does not accrue interest first_
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-| [0] | uint64 | _ The utilization rate of the base asset. 1e18 corresponds to 100% utilization. Return type is shortened to uint64 (approx 18 * 1e18) with 1800% as max possible value which is unlikely to be reached. |
+| [0] | uint256 | _ The utilization rate of the base asset. 1e18 corresponds to 100% utilization. Return type is kept as uint256 as it may peak over 1800% (uint64 max possible) for initial deposits. |
 
 ### getPrice
 
@@ -250,6 +250,8 @@ function isLiquidatable(address account) public view returns (bool)
 
 Check whether an account has enough collateral to not be liquidated
 
+_The function expeсts that indexes are alredy accrued before its call_
+
 #### Parameters
 
 | Name | Type | Description |
@@ -260,7 +262,7 @@ Check whether an account has enough collateral to not be liquidated
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-| [0] | bool | Whether the account is minimally collateralized enough to not be liquidated |
+| [0] | bool | _ Whether the account is minimally collateralized enough to not be liquidated |
 
 ### repayAndSupplyAmount
 

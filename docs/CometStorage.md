@@ -11,7 +11,18 @@ uint8 MAX_ASSETS
 ```
 
 _The max number of assets this contract is hardcoded to support
- Do not change this variable without updating all the fields throughout the contract,_
+ Do not change this variable without updating all the fields throughout the contract,
+ including the size of UserBasic.assetsIn and corresponding integer conversions._
+
+### MAX_SUPPORTED_UTILIZATION
+
+```solidity
+uint256 MAX_SUPPORTED_UTILIZATION
+```
+
+_The protocol only supports 200% utilization on which borrows are allowed
+     It keeps healthy state of the market, with no over-utilization leading to illiquidity,
+     and keeps protocol reserves from exhaustion_
 
 ### MAX_BASE_DECIMALS
 
