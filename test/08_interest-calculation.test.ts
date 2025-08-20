@@ -774,5 +774,24 @@ describe.only("8. interest calculation", function () {
         // wip
       });
     });
+
+    describe("accrue within the same block (no time elapsed)", function () {
+      it("..", async () => {
+        // wip
+      });
+    });
+
+    describe("max for uint40 for timestamp", function () {
+      /// await fastForward(2 ** 40);
+      it("supports up to the maximum timestamp then breaks", async () => {
+        // wip
+      });
+    });
+
+    describe("index overflow for uint64", function () {
+      it("..", async () => {
+        // wip
+      });
+    });
   });
 });
