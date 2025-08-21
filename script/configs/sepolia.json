@@ -3,15 +3,15 @@
   "dao": "0x44908EF517c28DE800222A9F2030efbb01eE9aFe",
   "treasury": "0x0309004C4fB9943797f5C530abd8cddE564A9fD4",
   "curator": "0x0309004C4fB9943797f5C530abd8cddE564A9fD4",
-  "SandboxController": "0xe19826607Fdd4122fd324188926551f4a04cDE12",
-  "ConfigControllerImplementation": "0x4bda4c450E65E52b013c82a21e64fb7eC77a74ea",
-  "ConfigControllerFactory": "0x56853b53ECb360bFD0f42BE4c20081a606304453",
-  "CometImplementation": "0xc0563B83e9e93fDF444b7b4C051A8CCcB3E428c3",
-  "SandboxCometFactory": "0xD2eC5581A763B96590c078CA4d46505F38f44d74",
+  "SandboxController": "0x6966656C1C4275E1dF930f50B7bD1BF1EbFfdaa9",
+  "ConfigControllerImplementation": "0xD9178eb03E24e2897650Ee0785A20AE07e368AE6",
+  "ConfigControllerFactory": "0xe2276Bc225f6fe4E80124c7603C7D6A727fD9042",
+  "CometImplementation": "0x82d6d815810a76B13ed1bB9F98CBFE0Af7B19cC4",
+  "SandboxCometFactory": "0xb054CEdA0A526245742EC58dbc3f9b31d83fae96",
   "assets": {
     "USDC": {
-      "address": "0xB09c256c99e6145715B5853dFa5b98194dF0eF6d",
-      "priceFeed": "0xE60E54E4de715b80d47fec4C185949bC6D3AC5d4",
+      "address": "0x4bccDFff0F71e8033be817935816A60Cb8C06a39",
+      "priceFeed": "0x42E5C26a1642f18AfF399054d8324853C1bee195",
       "chainlinkPriceFeed": "0xA2F78ab2355fe2f984D808B5CeE7FD0A93D5270E",
       "fallbackPriceFeed": "0x0000000000000000000000000000000000000000",
       "minBorrowCF": 5.5e17,
@@ -22,8 +22,8 @@
       "maxLiquidationF": 8.5e17
     },
     "WBTC": {
-      "address": "0x92Dc4Fbe389EBDd16cb0f83DBb9003588b78e019",
-      "priceFeed": "0xC633B3FaF212EbD85e95CD60e1CAEA22Ff053715",
+      "address": "0x5e32B853fa89F3A96A3eA5da78E1736B542C868F",
+      "priceFeed": "0xf077b9acCEF4566250Cf5B7Ab8C4BefB8238ff53",
       "chainlinkPriceFeed": "0x1b44F3514812d835EB1BDB0acB33d3fA3351Ee43",
       "fallbackPriceFeed": "0x0000000000000000000000000000000000000000",
       "minBorrowCF": 7e17,
@@ -34,8 +34,8 @@
       "maxLiquidationF": 1e18
     },
     "WETH": {
-      "address": "0x984bBE92186122e04edb9dd0943cbC155dC641A8",
-      "priceFeed": "0x4e17442211684B492cA098648D939eeC3E4b1D73",
+      "address": "0x5aF99e5C511D1Be51e974e70A960E30271054eFc",
+      "priceFeed": "0xB7cFfD304526181643Dc91627bE81C7DeB457d8A",
       "chainlinkPriceFeed": "0x694AA1769357215DE4FAC081bf1f309aDC325306",
       "fallbackPriceFeed": "0x0000000000000000000000000000000000000000",
       "minBorrowCF": 7.8e17,
@@ -46,8 +46,8 @@
       "maxLiquidationF": 1e18
     },
     "LINK": {
-      "address": "0x636E888FdAB6bA6157058E4c13c63Ba8BCdc3f91",
-      "priceFeed": "0x14B7A75FB2Eca74904DCab5D888ea29abbb14411",
+      "address": "0x2b61683B2c4c11F3f7bB53E2e0c5E930508B0D6f",
+      "priceFeed": "0x4140B37f58Ed87741555265Ec53253940e53df1E",
       "chainlinkPriceFeed": "0xc59E3633BAAC79493d908e63626716e204A45EdF",
       "fallbackPriceFeed": "0x0000000000000000000000000000000000000000",
       "minBorrowCF": 7.5e17,
@@ -58,8 +58,8 @@
       "maxLiquidationF": 1e18
     },
     "stETH": {
-      "address": "0xcbf99B521560f56A1e2A8CF1a38bdF72f4DB1757",
-      "priceFeed": "0x5a3372a160b29497f2494cB7e9Edc47aa3264b91",
+      "address": "0x3fE28Ae879B1F77c199798a33990A0605621B4B2",
+      "priceFeed": "0x4f8389C61B6463eF02f899A77dD8D9Cdc0447F84",
       "chainlinkPriceFeed": "0x694AA1769357215DE4FAC081bf1f309aDC325306",
       "fallbackPriceFeed": "0x0000000000000000000000000000000000000000",
       "minBorrowCF": 7.8e17,
@@ -70,8 +70,8 @@
       "maxLiquidationF": 1e18
     },
     "wstETH": {
-      "address": "0xEc47Afc18862ADC7a698C447367E4345e2C67947",
-      "priceFeed": "0xdA44399549535285b0eca6C33B9A2940DA44ac30",
+      "address": "0xd64bf85186D2AAd57DFAE7005AaE09b699a72ed2",
+      "priceFeed": "0xD9de533948ab0d3D1F8Ae3496613d680B9848C9E",
       "chainlinkPriceFeed": "0xaaabb530434B0EeAAc9A42E25dbC6A22D7bE218E",
       "fallbackPriceFeed": "0x0000000000000000000000000000000000000000",
       "minBorrowCF": 7.8e17,
@@ -82,8 +82,8 @@
       "maxLiquidationF": 1e18
     },
     "sUSDe": {
-      "address": "0xd065F95D82B1CD701B8f22cA15082C9cB244ED3E",
-      "priceFeed": "0x21b78Eb1502d3F88f023c6DF58616bB81687D9a0",
+      "address": "0xF44e660462999c3ae3a9d478fDE8550F77981287",
+      "priceFeed": "0xB546864715c485e0DB9F31ef8Bc09aFF993b3d36",
       "chainlinkPriceFeed": "0x6f7be09227d98Ce1Df812d5Bc745c0c775507E92",
       "fallbackPriceFeed": "0x0000000000000000000000000000000000000000",
       "minBorrowCF": 5.5e17,
@@ -94,8 +94,8 @@
       "maxLiquidationF": 8.5e17
     },
     "SNX": {
-      "address": "0xFdea80Cf495bedDF07A3fc3Cc3Cbe1F2A5d7Be81",
-      "priceFeed": "0x1A4E24216c2FE5B949B7d987f740F2073966b554",
+      "address": "0xa5C5426ab43C2A8a808D8a717CCA5848B00993bD",
+      "priceFeed": "0xE825891Cf7FAa2818C25aa12f69409322e2A007F",
       "chainlinkPriceFeed": "0xc0F82A46033b8BdBA4Bb0B0e28Bc2006F64355bC",
       "fallbackPriceFeed": "0x0000000000000000000000000000000000000000",
       "minBorrowCF": 7.5e17,
@@ -106,8 +106,8 @@
       "maxLiquidationF": 1e18
     },
     "JPY": {
-      "address": "0x35827480b2830Dee604ce74D13E4a49E2dE9aE8B",
-      "priceFeed": "0xe9FEA7b9Cc215089cbCC27817b1F011DECD71Da7",
+      "address": "0x81CdF487D2C934f21605173FbF0D5848CbE40b6f",
+      "priceFeed": "0xc583933aD303fE4D5A4Fa2c17794e052843D4936",
       "chainlinkPriceFeed": "0x8A6af2B75F23831ADc973ce6288e5329F63D86c6",
       "fallbackPriceFeed": "0x0000000000000000000000000000000000000000",
       "minBorrowCF": 5.5e17,
@@ -118,9 +118,9 @@
       "maxLiquidationF": 8.5e17
     },
     "oETH": {
-      "address": "0x9085EaAAF6262C82265386e5DC93689447269ADd",
-      "priceFeed": "0x6f4a7c5aa05fB295C52F50fC6450d253f16eF78E",
-      "chainlinkPriceFeed": "0x4e17442211684B492cA098648D939eeC3E4b1D73",
+      "address": "0xF3ccB60B5FB7F9d1ab1Ed46eDfdea76db32025B8",
+      "priceFeed": "0x9DeB0159190a1D7632b0FA4b9555C3584B9542fD",
+      "chainlinkPriceFeed": "0x694AA1769357215DE4FAC081bf1f309aDC325306",
       "fallbackPriceFeed": "0x0000000000000000000000000000000000000000",
       "minBorrowCF": 7.8e17,
       "maxBorrowCF": 8.5e17,
