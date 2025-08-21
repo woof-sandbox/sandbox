@@ -3,8 +3,9 @@ import {
   exp,
   expect,
   defaultSandboxControllerOpts,
+  defaultCollateralConfig,
   makeSandboxController,
-  makeToken,
+  makeMockERC20,
   makePriceFeed,
   sandboxListBaseAsset,
   sandboxListCollateralAsset,
@@ -23,6 +24,7 @@ import {
   SandboxComet__factory,
   SandboxCometFactory__factory,
   SandboxController__factory,
+  SandboxController,
 } from "../build/types";
 import { CollateralTokenConfigStruct, CometConfigStruct } from "../build/types/ConfigController";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
@@ -56,7 +58,7 @@ describe("1. System Initialization", function () {
     _proposalDuration: DEFAULT_UPDATE_TIME,
   };
 
-  let opts: SandboxControllerOpts = {};
+  let opts: SandboxControllerOpts;
 
   before(async function () {
     _ConfigControllerFactory = (await ethers.getContractFactory("ConfigControllerFactory")) as ConfigControllerFactory__factory;
@@ -78,7 +80,7 @@ describe("1. System Initialization", function () {
     dao = signers[3];
     treasury = signers[4];
     /// Options of the sandbox controller
-    opts = defaultSandboxControllerOpts({ owner: owner, dao: dao, treasury: treasury, feeEnabled: true });
+    opts = defaultSandboxControllerOpts({owner: owner.address, treasury: treasury.address, feeEnabled: true, dao: dao.address});
   });
 
   describe("Config Controller Factory deployment", function () {
@@ -168,13 +170,20 @@ describe("1. System Initialization", function () {
   describe("Config Controller deployment", function () {
     let configControllerFactory: ConfigControllerFactory;
     let sandboxCometFactory: SandboxCometFactory;
-    let sandboxController;
+    let sandboxController: SandboxController;
     let configControllersCount = 0;
 
     before(async function () {
-      sandboxController = (await makeSandboxController(defaultSandboxControllerOpts())).sandboxController;
-      configControllerFactory = await _ConfigControllerFactory.deploy(sandboxController.address, configControllerImpl.address);
-      sandboxCometFactory = await _SandboxCometFactory.deploy(sandboxCometImpl.address, configControllerFactory.address);
+      sandboxController = await makeSandboxController(opts, owner);
+
+      configControllerFactory = await _ConfigControllerFactory.deploy(
+        sandboxController.address, 
+        configControllerImpl.address
+      );
+      sandboxCometFactory = await _SandboxCometFactory.deploy(
+        sandboxCometImpl.address, 
+        configControllerFactory.address
+      );
     });
 
     it("should not recognize external controller if no Controllers deployed", async function () {
@@ -422,8 +431,8 @@ describe("1. System Initialization", function () {
         expect(proposal.proposer).to.eq(owner.address);
         expect(proposal.proposalType).to.eq(0);
         expect(proposal.expirationTime).to.eq(blockTime + (await configController.PROPOSE_CURATOR_LIFETIME()));
-        expect(proposal.maturityTime).to.eq(blockTime + (await configController.PROPOSE_CURATOR_MATURITY()));
-        expect(proposal.timelock).to.eq(blockTime + (await configController.PROPOSE_CURATOR_TIMELOCK()));
+        expect(proposal.maturityTime).to.eq(0);
+        expect(proposal.timelock).to.eq(0);
         expect(proposal.comet).to.eq(ethers.constants.AddressZero);
       });
 
@@ -466,7 +475,7 @@ describe("1. System Initialization", function () {
     let marketConfig: CometConfigStruct;
 
     before(async function () {
-      sandboxController = (await makeSandboxController(defaultSandboxControllerOpts())).sandboxController;
+      sandboxController = await makeSandboxController(opts, owner);
 
       const configControllerFactory = await _ConfigControllerFactory.deploy(sandboxController.address, configControllerImpl.address);
       sandboxCometFactory = await _SandboxCometFactory.deploy(sandboxCometImpl.address, configControllerFactory.address);
@@ -497,25 +506,30 @@ describe("1. System Initialization", function () {
       )) as ConfigControllerInitializeTest;
 
       // deploy comet
-      const baseToken = await makeToken({
+      const baseToken = await makeMockERC20({
+        name: "Base",
         symbol: "BASE",
-        initialMint: ethers.utils.parseEther("50000").toString(),
+        supply: ethers.utils.parseEther("50000").toString(),
       });
-      const collateralToken = await makeToken({ symbol: "COL" });
+      const collateralToken = await makeMockERC20({ name: "Collateral", symbol: "COL" });
       const priceFeedBase = await makePriceFeed(baseToken.address);
       const priceFeedCol = await makePriceFeed(collateralToken.address);
 
       await sandboxListBaseAsset(sandboxController, baseToken, priceFeedBase.address);
       await sandboxListCollateralAsset(sandboxController, collateralToken, priceFeedCol.address);
 
+      const colConfig = defaultCollateralConfig();
+
       let collateralTokens: CollateralTokenConfigStruct[] = [];
       collateralTokens.push({
         collateralToken: collateralToken.address,
-        borrowCollateralFactor: exp(0.6, 18),
-        liquidateCollateralFactor: exp(0.7, 18),
-        liquidationFactor: exp(0.8, 18),
-        supplyCap: exp(1e9, 18),
+        borrowCollateralFactor: colConfig.borrowCF,
+        liquidateCollateralFactor: colConfig.liquidateCF,
+        liquidationFactor: colConfig.liquidationFactor,
+        supplyCap: colConfig.supplyCap,
       });
+
+      const seedReserves = ethers.utils.parseUnits("5000", await baseToken.decimals());
 
       marketConfig = {
         baseToken: baseToken.address,
@@ -524,6 +538,8 @@ describe("1. System Initialization", function () {
         name: "Comet",
         amountOfSeedReserves: amountOfSeedReserves,
       };
+
+      await baseToken.approve(configController.address, seedReserves.mul(2));
 
       cometAddress = await configController.callStatic.createComet(marketConfig);
       await configController.createComet(marketConfig);
@@ -615,6 +631,8 @@ describe("1. System Initialization", function () {
     });
 
     it("should emit event on Comet deployment", async function () {
+      // approve is handled in the before function
+
       const _cometAddress = await configController.callStatic.createComet(marketConfig);
       const numOfComets = await configController.cometsLength();
       // deploy config controller
@@ -628,31 +646,7 @@ describe("1. System Initialization", function () {
     type DeployParams = Parameters<typeof _SandboxControllerFactory.deploy>;
 
     beforeEach(async function () {
-      opts = defaultSandboxControllerOpts({ dao: dao.address, owner: owner.address, treasury: treasury.address });
-    });
-
-    it("reverts if owner = 0", async function () {
-      opts.owner = ethers.constants.AddressZero;
-      await expect(_SandboxControllerFactory.connect(dao).deploy(...(Object.values(opts) as DeployParams))).to.be.revertedWithCustomError(
-        _SandboxControllerFactory,
-        "ZeroAddress"
-      );
-    });
-
-    it("reverts if dao = 0", async function () {
-      opts.dao = ethers.constants.AddressZero;
-      await expect(_SandboxControllerFactory.deploy(...(Object.values(opts) as DeployParams))).to.be.revertedWithCustomError(
-        _SandboxControllerFactory,
-        "ZeroAddress"
-      );
-    });
-
-    it("reverts if dao = owner", async function () {
-      opts.dao = opts.owner;
-      await expect(_SandboxControllerFactory.deploy(...(Object.values(opts) as DeployParams))).to.be.revertedWithCustomError(
-        _SandboxControllerFactory,
-        "IncorrectSetting"
-      );
+      opts = defaultSandboxControllerOpts({ dao: dao.address, treasury: treasury.address, owner: owner.address });
     });
 
     it("reverts if treasury = 0", async function () {
@@ -720,40 +714,8 @@ describe("1. System Initialization", function () {
       );
     });
 
-    it("reverts if minUpdateTime = 0", async function () {
-      opts.config.minUpdateTime = 0;
-      await expect(_SandboxControllerFactory.deploy(...(Object.values(opts) as DeployParams))).to.be.revertedWithCustomError(
-        _SandboxControllerFactory,
-        "IncorrectSetting"
-      );
-    });
-
-    it("reverts if minUpdateTime > maxUpdateTime", async function () {
-      opts.config.minUpdateTime = DEFAULT_UPDATE_TIME + 1;
-      await expect(_SandboxControllerFactory.deploy(...(Object.values(opts) as DeployParams))).to.be.revertedWithCustomError(
-        _SandboxControllerFactory,
-        "IncorrectSetting"
-      );
-    });
-
-    it("reverts if suggestedAmountOfSeedReserves = 0", async function () {
-      opts.config.suggestedAmountOfSeedReserves = "0";
-      await expect(_SandboxControllerFactory.deploy(...(Object.values(opts) as DeployParams))).to.be.revertedWithCustomError(
-        _SandboxControllerFactory,
-        "IncorrectSetting"
-      );
-    });
-
-    it("reverts if suggestedLockTimeOfSeedReserves = 0", async function () {
-      opts.config.suggestedLockTimeOfSeedReserves = 0;
-      await expect(_SandboxControllerFactory.deploy(...(Object.values(opts) as DeployParams))).to.be.revertedWithCustomError(
-        _SandboxControllerFactory,
-        "IncorrectSetting"
-      );
-    });
-
     it("initializes state with correct values", async function () {
-      const { sandboxController } = await makeSandboxController(opts);
+      const sandboxController = await makeSandboxController(opts, owner);
       expect(await sandboxController.owner()).to.equal(owner.address);
       expect(await sandboxController.dao()).to.equal(dao.address);
       expect(await sandboxController.treasury()).to.equal(treasury.address);
@@ -766,10 +728,6 @@ describe("1. System Initialization", function () {
       expect(await sandboxController.protocolCommission(2)).to.equal(exp(0.03, 18));
       expect((await sandboxController.config()).targetPercent).to.equal(parseEther("0.5").toString());
       expect((await sandboxController.config()).storeFrontPriceFactor).to.equal(parseEther("0.6").toString());
-      expect((await sandboxController.config()).minUpdateTime).to.equal(MIN_UPDATE_TIME);
-      expect((await sandboxController.config()).maxUpdateTime).to.equal(DEFAULT_UPDATE_TIME);
-      expect((await sandboxController.config()).suggestedAmountOfSeedReserves).to.equal(ethers.utils.parseEther("500").toString());
-      expect((await sandboxController.config()).suggestedLockTimeOfSeedReserves).to.equal(86400);
     });
   });
 });

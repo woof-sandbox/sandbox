@@ -10,6 +10,7 @@ import { expect, defaultSandboxControllerOpts, makeSandboxController, makeConfig
 
 describe("25. Curator Proposal", () => {
     let configController: ConfigController;
+    let sandboxController: any; // Add this line
     let snapshot: SnapshotRestorer;
     let owner: SignerWithAddress;
     let curator: SignerWithAddress;
@@ -35,12 +36,11 @@ describe("25. Curator Proposal", () => {
 
         // Create SandboxController
         const sandboxControllerOpts = defaultSandboxControllerOpts({
-            owner: owner,
-            dao: dao,
-            treasury: users[0]
+            owner: owner.address,
+            dao: dao.address,
+            treasury: users[0].address
         });
-        const sandboxControllerInfo = await makeSandboxController(sandboxControllerOpts);
-        const sandboxController = sandboxControllerInfo.sandboxController;
+        sandboxController = await makeSandboxController(sandboxControllerOpts, owner);
 
         // Create ConfigController implementation and factory
         const ConfigControllerImpl: ConfigController__factory = await ethers.getContractFactory("ConfigController") as ConfigController__factory;

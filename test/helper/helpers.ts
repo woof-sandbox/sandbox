@@ -1,10 +1,8 @@
 import hre from "hardhat";
 import { ethers } from "hardhat";
 import { expect } from "chai";
-import { Block } from "@ethersproject/abstract-provider";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import {
-  CometHarness__factory,
   EvilToken__factory,
   FaucetToken,
   FaucetToken__factory,
@@ -18,24 +16,22 @@ import {
   ISandboxCometFactory,
   ConfigControllerFactory,
   ConfigControllerFactory__factory,
-  SandboxComet,
-  SandboxComet__factory,
   CometExtension,
   CometExtension__factory,
+  SandboxComet,
+  SandboxComet__factory,
   ISandboxComet,
   SandboxCometFactory,
   SandboxCometFactory__factory,
   SandboxController,
   SandboxController__factory,
-  CometHarness,
 } from "../../build/types";
 
-import { BaseAssetCurveStruct, SandboxControllerConfigurationStruct } from "../../build/types/SandboxController";
-import { TotalsBasicStructOutput } from "../../build/types/CometHarness";
 import { Provider } from "@ethersproject/providers";
-import { CometConfigStruct } from "../../build/types/ConfigController";
-import { TransactionReceipt, TransactionResponse } from "@ethersproject/abstract-provider";
-import { BigNumber, Contract, ContractReceipt, ContractTransaction, Signer } from "ethers";
+import { BaseAssetCurveStruct, SandboxControllerConfigurationStruct } from "../../build/types/SandboxController";
+import { BigNumber, BigNumberish, ContractTransaction, ContractReceipt, Signer } from "ethers";
+import { Block, TransactionReceipt, TransactionResponse } from "@ethersproject/abstract-provider";
+import { CometConfigStruct, CollateralTokenConfigStruct } from "../../build/types/ConfigController";
 
 // The function to connect to a combined contract
 export type CombinedComet = SandboxComet & CometExtension;
@@ -58,7 +54,6 @@ export function getCombinedComet(sandboxCometAddress: string, signerOrProvider: 
     },
   }) as CombinedComet;
 }
-
 // Snapshot
 export type { SnapshotRestorer } from "@nomicfoundation/hardhat-network-helpers";
 export { takeSnapshot } from "@nomicfoundation/hardhat-network-helpers";
@@ -67,167 +62,8 @@ export { ethers, expect, hre };
 
 export type Numeric = number | bigint;
 
-// Combined interface that includes SandboxComet and needed methods from CometExtension
-export interface SandboxCometWithExtension extends SandboxComet {
-  // Additional methods from CometExtension that we need
-  collateralBalanceOf(account: string, asset: string): Promise<BigNumber>;
-  targetBorrowCollateralFactor(): Promise<BigNumber>;
-  targetLiquidateCollateralFactor(): Promise<BigNumber>;
-  isCollateralRemovalInProgress(): Promise<boolean>;
-}
-
-export enum ReentryAttack {
-  TransferFrom = 0,
-  WithdrawFrom = 1,
-  SupplyFrom = 2,
-  BuyCollateral = 3,
-}
-
-export type TokenOpts = {
-  symbol?: string;
-  name?: string;
-  decimals?: Numeric;
-  initialMint?: string;
-};
-
-export type ProtocolOpts = {
-  start?: number;
-  assets?: {
-    [symbol: string]: {
-      name?: string;
-      initial?: Numeric;
-      decimals?: Numeric;
-      minBorrowCF?: Numeric;
-      maxBorrowCF?: Numeric;
-      minLiquidateCF?: Numeric;
-      maxLiquidateCF?: Numeric;
-      minLiquidationFactor?: Numeric;
-      maxLiquidationFactor?: Numeric;
-      borrowCF?: Numeric;
-      liquidateCF?: Numeric;
-      liquidationFactor?: Numeric;
-      supplyCap?: Numeric;
-      initialPrice?: number;
-      priceFeedDecimals?: number;
-      factory?: FaucetToken__factory | EvilToken__factory | NonStandardFaucetFeeToken__factory;
-    };
-  };
-  feeEnabled?: boolean;
-  name?: string;
-  symbol?: string;
-  owner?: SignerWithAddress;
-  treasury?: SignerWithAddress;
-  curator?: SignerWithAddress;
-  guardian?: SignerWithAddress;
-  dao?: SignerWithAddress;
-  base?: string;
-  supplyKink?: Numeric;
-  supplyInterestRateBase?: Numeric;
-  supplyInterestRateSlopeLow?: Numeric;
-  supplyInterestRateSlopeHigh?: Numeric;
-  borrowKink?: Numeric;
-  borrowInterestRateBase?: Numeric;
-  borrowInterestRateSlopeLow?: Numeric;
-  borrowInterestRateSlopeHigh?: Numeric;
-  trackingIndexScale?: Numeric;
-  baseTrackingSupplySpeed?: Numeric;
-  baseTrackingBorrowSpeed?: Numeric;
-  baseMinForRewards?: Numeric;
-  baseBorrowMin?: Numeric;
-  baseTokenBalance?: Numeric;
-  config?: SandboxControllerConfigurationStruct;
-  reserveCommissions?: [bigint, bigint, bigint];
-  protocolCommissions?: [bigint, bigint, bigint];
-  amountOfSeedReserves?: string;
-};
-
-export type Protocol = {
-  opts: ProtocolOpts;
-  users: SignerWithAddress[];
-  base: string;
-  comet: SandboxComet;
-  tokens: {
-    [symbol: string]: FaucetToken | NonStandardFaucetFeeToken;
-  };
-  baseToken: FaucetToken | NonStandardFaucetFeeToken;
-  assets: {
-    [symbol: string]: {
-      name?: string;
-      initial?: Numeric;
-      decimals?: Numeric;
-      minBorrowCF?: Numeric;
-      maxBorrowCF?: Numeric;
-      minLiquidateCF?: Numeric;
-      maxLiquidateCF?: Numeric;
-      minLiquidationFactor?: Numeric;
-      maxLiquidationFactor?: Numeric;
-      borrowCF?: Numeric;
-      liquidateCF?: Numeric;
-      liquidationFactor?: Numeric;
-      supplyCap?: Numeric;
-      initialPrice?: number;
-      priceFeedDecimals?: number;
-      factory?: FaucetToken__factory | EvilToken__factory | NonStandardFaucetFeeToken__factory;
-    };
-  };
-  unsupportedToken: FaucetToken;
-  priceFeeds: {
-    [symbol: string]: SimplePriceFeed;
-  };
-  configControllerFactory: ConfigControllerFactory;
-  configController: ConfigController;
-  sandboxController: ISandboxController;
-  cometImpl: ISandboxComet;
-  cometFactory: ISandboxCometFactory;
-  owner: SignerWithAddress;
-  curator: SignerWithAddress;
-  guardian: SignerWithAddress;
-  dao: SignerWithAddress;
-  curve: any;
-  seedReserves: string;
-};
-
-export interface SandboxControllerOpts {
-  owner?: any;
-  dao?: any;
-  treasury?: any;
-  feeEnabled?: boolean;
-  config?: SandboxControllerConfigurationStruct;
-  reserveCommissions?: [bigint, bigint, bigint];
-  protocolCommissions?: [bigint, bigint, bigint];
-  removalCollateralDuration?: number;
-}
-
-export type SandboxControllerInfo = {
-  opts: SandboxControllerOpts;
-  sandboxController: SandboxController;
-};
-
-interface MockERC20Params {
-  name: string;
-  symbol: string;
-}
-
-export function dfn<T>(x: T | undefined | null, dflt: T): T {
-  return x == undefined ? dflt : x;
-}
-
 export function exp(i: number, d: Numeric = 0, r: Numeric = 6): bigint {
   return (BigInt(Math.floor(i * 10 ** Number(r))) * 10n ** BigInt(d)) / 10n ** BigInt(r);
-}
-
-export function factor(f: number): bigint {
-  return exp(f, factorDecimals);
-}
-
-export function defactor(f: bigint | BigNumber): number {
-  return Number(toBigInt(f)) / 1e18;
-}
-
-// Truncates a factor to a certain number of decimals
-export function truncateDecimals(factor: bigint | BigNumber, decimals = 4) {
-  const descaleFactor = factorScale / exp(1, decimals);
-  return (toBigInt(factor) / descaleFactor) * descaleFactor;
 }
 
 export function mulPrice(n: bigint, price: bigint | BigNumber, fromScale: bigint | BigNumber): bigint {
@@ -242,422 +78,116 @@ function toBigInt(f: bigint | BigNumber): bigint {
   }
 }
 
-export function annualize(n: bigint | BigNumber, secondsPerYear = 31536000n): number {
-  return defactor(toBigInt(n) * secondsPerYear);
-}
-
-export function toYears(seconds: number, secondsPerYear = 31536000): number {
-  return seconds / secondsPerYear;
-}
-
-export function defaultAssets(overrides = {}, perAssetOverrides = {}) {
-  return {
-    COMP: Object.assign(
-      {
-        initial: 1e7,
-        decimals: 18,
-        initialPrice: 175,
-      },
-      overrides,
-      perAssetOverrides["COMP"] || {}
-    ),
-    USDC: Object.assign(
-      {
-        initial: 1e6,
-        decimals: 6,
-      },
-      overrides,
-      perAssetOverrides["USDC"] || {}
-    ),
-    WETH: Object.assign(
-      {
-        initial: 1e4,
-        decimals: 18,
-        initialPrice: 3000,
-      },
-      overrides,
-      perAssetOverrides["WETH"] || {}
-    ),
-    WBTC: Object.assign(
-      {
-        initial: 1e3,
-        decimals: 8,
-        initialPrice: 41000,
-      },
-      overrides,
-      perAssetOverrides["WBTC"] || {}
-    ),
-  };
-}
-
-export const factorDecimals = 18;
-export const factorScale = factor(1);
-export const ONE = factorScale;
-export const ZERO = factor(0);
-
+/// Exported constants
 export const DEFAULT_UPDATE_TIME = 7 * 24 * 60 * 60;
 export const MIN_UPDATE_TIME = 300;
+export const DEFAULT_LOCK_TIME = 7 * 24 * 60 * 60;
 
-export async function getBlock(n?: number, ethers_ = ethers): Promise<Block> {
-  const blockNumber = n == undefined ? await ethers_.provider.getBlockNumber() : n;
-  return ethers_.provider.getBlock(blockNumber);
-}
+/// ---------------------
 
-export async function fastForward(seconds: number, ethers_ = ethers): Promise<Block> {
-  const block = await getBlock();
-  await ethers_.provider.send("evm_setNextBlockTimestamp", [block.timestamp + seconds]);
-  return block;
-}
+/// Exported types -----------------------
 
-export async function makeMockComet(): Promise<CometHarness> {
-  const CometHarness_factory: CometHarness__factory = (await ethers.getContractFactory("CometHarness")) as CometHarness__factory;
-  const cometHarness: CometHarness = await CometHarness_factory.deploy();
-  await cometHarness.deployed();
-
-  return cometHarness;
-}
-
-export async function makeConfigControllerFactory(
-  sandboxController: string,
-  configControllerImpl?: string
-): Promise<ConfigControllerFactory> {
-  const _configControllerFactory = (await ethers.getContractFactory("ConfigControllerFactory")) as ConfigControllerFactory__factory;
-
-  let configControllerImplAddress: string;
-  if (configControllerImpl) {
-    configControllerImplAddress = configControllerImpl;
-  } else {
-    const _configController = (await ethers.getContractFactory("ConfigController")) as ConfigController__factory;
-    configControllerImplAddress = (await _configController.deploy()).address;
-  }
-
-  const configControllerFactory = await _configControllerFactory.deploy(sandboxController, configControllerImplAddress);
-  await configControllerFactory.deployed();
-
-  return configControllerFactory;
-}
-
-export async function makeCometFactory(cometImpl: string, configControllerFactory: string): Promise<SandboxCometFactory> {
-  const CometFactory_factory: SandboxCometFactory__factory = (await ethers.getContractFactory(
-    "SandboxCometFactory"
-  )) as SandboxCometFactory__factory;
-  const cometFactory: SandboxCometFactory = await CometFactory_factory.deploy(cometImpl, configControllerFactory);
-  await cometFactory.deployed();
-
-  return cometFactory;
-}
-
-export async function makeConfigController(
-  opts: ProtocolOpts = {},
-  acceptCurator?: boolean,
-  harness?: boolean
-): Promise<Partial<Protocol>> {
-  const signers = await ethers.getSigners();
-
-  const assets = opts.assets || defaultAssets();
-  const owner = opts.owner || signers[0];
-  const curator = opts.curator || signers[1];
-  const guardian = opts.guardian || signers[2];
-  const dao = opts.dao || signers[3];
-  const users = signers.slice(4);
-  const base = opts.base || "USDC";
-
-  const FaucetFactory = (await ethers.getContractFactory("FaucetToken")) as FaucetToken__factory;
-  const tokens = {};
-  for (const symbol in assets) {
-    const config = assets[symbol];
-    const decimals = config.decimals || 18;
-    const initial = (config.initial != undefined && config.initial.toString()) || 1e6;
-    const name = config.name || symbol;
-    const factory = config.factory || FaucetFactory;
-    let token: FaucetToken;
-    token = tokens[symbol] = (await factory.deploy(initial, name, decimals, symbol)) as FaucetToken;
-    await token.deployed();
-  }
-
-  const unsupportedToken = await FaucetFactory.deploy(1e6, "Unsupported Token", 6, "USUP");
-  // --- Price feeds ---
-  let priceFeeds = {};
-  const PriceFeedFactory = (await ethers.getContractFactory("SimplePriceFeed")) as SimplePriceFeed__factory;
-  for (const asset in assets) {
-    const initialPrice = exp(assets[asset].initialPrice || 1, 8);
-    const priceFeedDecimals = assets[asset].priceFeedDecimals || 8;
-    const priceFeed = await PriceFeedFactory.deploy(initialPrice, priceFeedDecimals, tokens[asset].address);
-    await priceFeed.deployed();
-    priceFeeds[asset] = priceFeed;
-  }
-
-  const priceFeed = await PriceFeedFactory.deploy(1, 6, unsupportedToken.address);
-  await priceFeed.deployed();
-  priceFeeds["USUP"] = priceFeed;
-
-  // --- Parameters ---
-  const supplyKink = dfn(opts.supplyKink, exp(0.8, 18));
-  const supplyPerYearInterestRateBase = dfn(opts.supplyInterestRateBase, exp(0.001, 18));
-  const supplyPerYearInterestRateSlopeLow = dfn(opts.supplyInterestRateSlopeLow, exp(0.05, 18));
-  const supplyPerYearInterestRateSlopeHigh = dfn(opts.supplyInterestRateSlopeHigh, exp(2, 18));
-  const borrowKink = dfn(opts.borrowKink, exp(0.8, 18));
-  const borrowPerYearInterestRateBase = dfn(opts.borrowInterestRateBase, exp(0.005, 18));
-  const borrowPerYearInterestRateSlopeLow = dfn(opts.borrowInterestRateSlopeLow, exp(0.1, 18));
-  const borrowPerYearInterestRateSlopeHigh = dfn(opts.borrowInterestRateSlopeHigh, exp(3, 18));
-  const baseBorrowMin = dfn(opts.baseBorrowMin, exp(1, assets[base].decimals));
-  const baseToken: FaucetToken = tokens[base];
-
-  const sandboxControllerOpts = defaultSandboxControllerOpts({
-    owner: owner,
-    dao: dao,
-    treasury: opts.treasury,
-    feeEnabled: false,
-    config: opts.config,
-    reserveCommissions: opts.reserveCommissions,
-    protocolCommissions: opts.protocolCommissions,
-  });
-
-  const sandboxController = (await makeSandboxController(sandboxControllerOpts)).sandboxController;
-  await baseToken.allocateTo(owner.address, sandboxControllerOpts.config.suggestedAmountOfSeedReserves);
-
-  // --- Whitelist the base token ---
-  const curve = {
-    supplyKink,
-    supplyPerYearInterestRateBase,
-    supplyPerYearInterestRateSlopeLow,
-    supplyPerYearInterestRateSlopeHigh,
-    borrowKink,
-    borrowPerYearInterestRateBase,
-    borrowPerYearInterestRateSlopeLow,
-    borrowPerYearInterestRateSlopeHigh,
-  };
-  await sandboxController.whitelistBaseAsset(tokens[base].address, priceFeeds[base].address, curve, baseBorrowMin);
-
-  // --- Whitelist the collateral assets ---
-  for (const asset in assets) {
-    const priceFeed = priceFeeds[asset];
-    // Price feed is not deployed, deploy it
-    if (!priceFeed) {
-      priceFeeds[asset] = await PriceFeedFactory.deploy(1, 6, assets[asset].address);
-    }
-    // Skip the base token
-    if (asset == base) continue;
-    await sandboxController.whitelistCollateralAsset(
-      tokens[asset].address,
-      priceFeeds[asset].address,
-      opts.assets?.[asset].minBorrowCF ?? exp(0.5, 18),
-      opts.assets?.[asset].maxBorrowCF ?? exp(0.6, 18),
-      opts.assets?.[asset].minLiquidateCF ?? exp(0.6, 18),
-      opts.assets?.[asset].maxLiquidateCF ?? exp(0.7, 18),
-      opts.assets?.[asset].minLiquidationFactor ?? exp(0.8, 18),
-      opts.assets?.[asset].maxLiquidationFactor ?? exp(1, 18)
-    );
-  }
-
-  let cometFactory_;
-
-  if (harness) {
-    cometFactory_ = (await ethers.getContractFactory("CometHarness")) as CometHarness__factory;
-  } else {
-    cometFactory_ = (await ethers.getContractFactory("SandboxComet")) as SandboxComet__factory;
-  }
-  const cometImpl = await cometFactory_.deploy();
-  await cometImpl.deployed();
-
-  const configControllerFactory: ConfigControllerFactory = await makeConfigControllerFactory(sandboxController.address);
-  const cometFactory = await makeCometFactory(cometImpl.address, configControllerFactory.address);
-
-  await configControllerFactory.createConfigController(
-    curator.address,
-    guardian.address,
-    cometFactory.address,
-    1000,
-    "ConfigController"   
-  );
-
-  const configController: ConfigController = (await ethers.getContractAt(
-    "ConfigController",
-    await configControllerFactory.controllerAddresses(0)
-  )) as ConfigController;
-
-  if (acceptCurator) {
-    await configController.connect(curator).acceptProposal(0);
-  }
-
-  return {
-    opts,
-    base: await baseToken.symbol(),
-    users,
-    tokens,
-    baseToken,
-    assets,
-    unsupportedToken,
-    priceFeeds,
-    configControllerFactory,
-    configController,
-    sandboxController,
-    cometImpl,
-    cometFactory,
-    owner,
-    curator,
-    guardian,
-    dao,
-    curve,
-    seedReserves: sandboxControllerOpts.config.suggestedAmountOfSeedReserves.toString(),
-  };
-}
-
-async function createComet2(
-  opts: ProtocolOpts,
-  configController: ConfigController,
-  tokens: Record<string, FaucetToken | NonStandardFaucetFeeToken>,
-  baseToken: FaucetToken | NonStandardFaucetFeeToken
-) {
-  const baseSymbol = await baseToken.symbol();
-
-  const collateralTokens: CometConfigStruct["collateralTokens"] = [];
-  for (let token of Object.keys(tokens)) {
-    if (token !== baseSymbol) {
-      const assetConfig = opts.assets?.[token];
-
-      collateralTokens.push({
-        collateralToken: tokens[token].address,
-        borrowCollateralFactor: assetConfig?.borrowCF ?? exp(0.6, 18),
-        liquidateCollateralFactor: assetConfig?.liquidateCF ?? exp(0.7, 18),
-        liquidationFactor: assetConfig?.liquidationFactor ?? exp(0.8, 18),
-        supplyCap: assetConfig?.supplyCap ?? exp(1e9, 18),
-      });
-    }
-  }
-
-  let marketConfig: CometConfigStruct = {
-    baseToken: baseToken.address,
-    collateralTokens: collateralTokens,
-    baseTokenCurveId: 0n,
-    name: opts.name || "Comet",
-    amountOfSeedReserves: dfn(opts.amountOfSeedReserves, "100000000"),
-  };
-
-  await configController.createComet(marketConfig);
-
-  return configController.comets(0);
-}
-
-export async function createComet(
-  configController: ConfigController,
-  tokens: Record<string, FaucetToken | NonStandardFaucetFeeToken>,
-  baseToken: FaucetToken | NonStandardFaucetFeeToken,
-  amountOfSeedReserves = "100000000"
-): Promise<string> {
-  let marketConfig: CometConfigStruct = {
-    baseToken: baseToken.address,
-    collateralTokens: [],
-    baseTokenCurveId: 0n,
-    name: "Comet",
-    amountOfSeedReserves: amountOfSeedReserves,
-  };
-
-  for (let token in tokens) {
-    if (token != (await baseToken.symbol())) {
-      marketConfig.collateralTokens.push({
-        collateralToken: tokens[token].address,
-        borrowCollateralFactor: factor(0.6),
-        liquidateCollateralFactor: factor(0.7),
-        liquidationFactor: factor(0.8),
-        supplyCap: exp(1e9, 18),
-      });
-    }
-  }
-
-  const createCometTx: ContractTransaction = await configController.createComet(marketConfig);
-  const createCometReceipt: ContractReceipt = await createCometTx.wait();
-  const [createCometEvents] = createCometReceipt.events.filter(event => event.event === "MarketCreated");
-  const marketAddress: string = createCometEvents.args.market;
-  return marketAddress;
-}
-
-export const makeProtocol = async (opts: ProtocolOpts = {}) => {
-  const {
-    configController,
-    tokens,
-    baseToken,
-    priceFeeds,
-    dao,
-    sandboxController,
-    seedReserves,
-    users,
-    guardian,
-    owner,
-    unsupportedToken,
-  } = await makeConfigController(opts, true, true);
-
-  await baseToken.allocateTo(owner.address, seedReserves);
-  await baseToken.approve(configController.address, seedReserves);
-
-  const market = await createComet2(opts, configController, tokens, baseToken);
-
-  const comet = (await ethers.getContractAt("CometHarness", market)) as CometHarness;
-  return {
-    comet,
-    configController,
-    tokens,
-    baseToken,
-    base: opts.base,
-    priceFeeds,
-    dao,
-    market,
-    users,
-    guardian,
-    owner,
-    unsupportedToken,
-    seedReserves,
-    sandboxController,
-  };
+export type MockERC20Params = {
+  name: string;
+  symbol: string;
+  decimals?: number;
+  supply?: BigNumberish;
 };
 
-export async function makeMockERC20({ name, symbol }: MockERC20Params): Promise<FaucetToken> {
+export type AssetLimits = {
+  minBorrowCF: BigNumberish;
+  maxBorrowCF: BigNumberish;
+  minLiquidateCF: BigNumberish;
+  maxLiquidateCF: BigNumberish;
+  minLiquidationFactor: BigNumberish;
+  maxLiquidationFactor: BigNumberish;
+};
+
+export type Asset = {
+  name: string;
+  symbol: string;
+  decimals: number;
+
+  initial?: BigNumberish;
+  assetLimits?: AssetLimits;
+
+  collateralConfig?: CollateralConfig;
+  initialPrice?: number;
+  priceFeedDecimals?: number;
+  factory?: FaucetToken__factory | EvilToken__factory | NonStandardFaucetFeeToken__factory;
+};
+
+export type CollateralConfig = {
+  borrowCF: BigNumberish;
+  liquidateCF: BigNumberish;
+  liquidationFactor: BigNumberish;
+  supplyCap: BigNumberish;
+};
+
+export type SandboxControllerOpts = {
+  owner: string;
+  dao: string;
+  treasury: string;
+
+  feeEnabled?: boolean;
+
+  config?: SandboxControllerConfigurationStruct;
+  reserveCommissions?: [bigint, bigint, bigint];
+  protocolCommissions?: [bigint, bigint, bigint];
+  removalCollateralDuration?: number | bigint;
+};
+
+export type ProtocolOpts = {
+  owner: SignerWithAddress;
+  treasury: string;
+  curator: SignerWithAddress;
+  guardian: SignerWithAddress;
+  dao: SignerWithAddress;
+
+  name?: string;
+  baseTokenSymbol?: string;
+  assets?: {
+    [symbol: string]: Asset;
+  };
+
+  curve?: BaseAssetCurveStruct;
+  baseBorrowMin?: Numeric;
+
+  config?: SandboxControllerConfigurationStruct;
+  reserveCommissions?: [bigint, bigint, bigint];
+  protocolCommissions?: [bigint, bigint, bigint];
+  acceptCurator?: boolean;
+};
+
+export type Protocol = {
+  opts: ProtocolOpts;
+  baseTokenSymbol: string;
+  baseToken: FaucetToken | NonStandardFaucetFeeToken;
+
+  collaterals: {
+    [symbol: string]: FaucetToken | NonStandardFaucetFeeToken;
+  };
+
+  priceFeeds: {
+    [symbol: string]: SimplePriceFeed;
+  };
+
+  configControllerFactory: ConfigControllerFactory;
+  configController: ConfigController;
+  sandboxController: ISandboxController;
+  cometImpl: ISandboxComet;
+  cometFactory: ISandboxCometFactory;
+};
+
+/// ---------------------
+
+/// Atomic helpers ---------------------------
+
+export async function makeMockERC20(opts: MockERC20Params): Promise<FaucetToken> {
   const FaucetFactory = (await ethers.getContractFactory("FaucetToken")) as FaucetToken__factory;
-  const token = await FaucetFactory.deploy(1e12, name, 18, symbol);
+  const token = await FaucetFactory.deploy(opts.supply || 1e12, opts.name, opts.decimals || 18, opts.symbol);
   await token.deployed();
   return token;
-}
-
-export function makeValidCurve(): BaseAssetCurveStruct {
-  return {
-    supplyKink: ethers.utils.parseEther("0.5").toString(),
-    supplyPerYearInterestRateSlopeLow: ethers.BigNumber.from("500"),
-    supplyPerYearInterestRateSlopeHigh: ethers.BigNumber.from("1000"),
-    supplyPerYearInterestRateBase: ethers.BigNumber.from("100"),
-    borrowKink: ethers.utils.parseEther("0.5").toString(),
-    borrowPerYearInterestRateSlopeLow: ethers.BigNumber.from("1000"),
-    borrowPerYearInterestRateSlopeHigh: ethers.BigNumber.from("2000"),
-    borrowPerYearInterestRateBase: ethers.BigNumber.from("1"),
-  };
-}
-
-/// TODO: add opts when testing curves
-export async function sandboxListBaseAsset(sandboxController: SandboxController, baseAsset: FaucetToken, priceFeed: string) {
-  const baseBorrowMin = exp(1, await baseAsset.decimals());
-
-  // --- Whitelist the base token ---
-  await sandboxController.whitelistBaseAsset(baseAsset.address, priceFeed, makeValidCurve(), baseBorrowMin);
-}
-
-/// TODO: add opts when testing curves
-export async function sandboxListCollateralAsset(sandboxController: SandboxController, collateralAsset: FaucetToken, priceFeed: string) {
-  const minBorrowCF = exp(0.5, 18);
-  const maxBorrowCF = exp(0.7, 18);
-  const minLiquidateCF = exp(0.7, 18);
-  const maxLiquidateCF = exp(0.8, 18);
-  const minLiquidationFactor = exp(0.8, 18);
-  const maxLiquidationFactor = exp(1, 18);
-
-  await sandboxController.whitelistCollateralAsset(
-    collateralAsset.address,
-    priceFeed,
-    minBorrowCF,
-    maxBorrowCF,
-    minLiquidateCF,
-    maxLiquidateCF,
-    minLiquidationFactor,
-    maxLiquidationFactor
-  );
 }
 
 export async function makePriceFeed(underlyingToken: string, amount?: string, decimals?: number): Promise<SimplePriceFeed> {
@@ -667,18 +197,77 @@ export async function makePriceFeed(underlyingToken: string, amount?: string, de
   return priceFeed;
 }
 
-export async function makeToken(opts: TokenOpts = {}): Promise<FaucetToken> {
-  const decimals = opts.decimals || 18;
-  const name = opts.name || "TestToken";
-  const symbol = opts.symbol || "TKN";
-  const initial = opts.initialMint || "0";
+export function makeValidCurve(): BaseAssetCurveStruct {
+  return {
+    supplyKink: ethers.utils.parseEther("0.8").toString(),
+    supplyPerYearInterestRateSlopeLow: ethers.utils.parseEther("0.05").toString(),
+    supplyPerYearInterestRateSlopeHigh: ethers.utils.parseEther("2").toString(),
+    supplyPerYearInterestRateBase: ethers.utils.parseEther("0.001").toString(),
+    borrowKink: ethers.utils.parseEther("0.8").toString(),
+    borrowPerYearInterestRateSlopeLow: ethers.utils.parseEther("0.1").toString(),
+    borrowPerYearInterestRateSlopeHigh: ethers.utils.parseEther("3").toString(),
+    borrowPerYearInterestRateBase: ethers.utils.parseEther("0.005").toString(),
+  };
+}
 
-  const factory = (await ethers.getContractFactory("FaucetToken")) as FaucetToken__factory;
+export function defaultAssets(): { [symbol: string]: Asset } {
+  return {
+    COMP: Object.assign({
+      name: "COMP",
+      symbol: "COMP",
+      decimals: 18,
 
-  let token = await factory.deploy(initial, name, decimals, symbol);
-  await token.deployed();
+      initial: 1e7,
+      initialPrice: 175,
+      liquidationFactor: exp(0.8, 18),
+    }),
+    USDC: Object.assign({
+      name: "USDC",
+      symbol: "USDC",
+      decimals: 6,
 
-  return token;
+      initial: 1e6,
+      liquidationFactor: exp(0.8, 18),
+    }),
+    WETH: Object.assign({
+      name: "WETH",
+      symbol: "WETH",
+      decimals: 18,
+
+      initial: 1e4,
+      initialPrice: 3000,
+      liquidationFactor: exp(0.8, 18),
+    }),
+    WBTC: Object.assign({
+      name: "WBTC",
+      symbol: "WBTC",
+      decimals: 8,
+
+      initial: 1e3,
+      initialPrice: 41000,
+      liquidationFactor: exp(0.8, 18),
+    }),
+  };
+}
+
+export function defaultAssetLimits(): AssetLimits {
+  return {
+    minBorrowCF: exp(0.5, 18),
+    maxBorrowCF: exp(0.8, 18),
+    minLiquidateCF: exp(0.7, 18),
+    maxLiquidateCF: exp(0.9, 18),
+    minLiquidationFactor: exp(0.75, 18),
+    maxLiquidationFactor: exp(0.95, 18),
+  };
+}
+
+export function defaultCollateralConfig(): CollateralConfig {
+  return {
+    borrowCF: exp(0.6, 18),
+    liquidateCF: exp(0.75, 18),
+    liquidationFactor: exp(0.85, 18),
+    supplyCap: exp(1e9, 18),
+  };
 }
 
 export function defaultSandboxControllerOpts(partial?: Partial<SandboxControllerOpts>): SandboxControllerOpts {
@@ -690,10 +279,6 @@ export function defaultSandboxControllerOpts(partial?: Partial<SandboxController
     config: {
       targetPercent: partial?.config?.targetPercent ?? ethers.utils.parseEther("0.5").toString(),
       storeFrontPriceFactor: partial?.config?.storeFrontPriceFactor ?? ethers.utils.parseEther("0.6").toString(),
-      minUpdateTime: partial?.config?.minUpdateTime ?? MIN_UPDATE_TIME,
-      maxUpdateTime: partial?.config?.maxUpdateTime ?? DEFAULT_UPDATE_TIME,
-      suggestedAmountOfSeedReserves: partial?.config?.suggestedAmountOfSeedReserves ?? ethers.utils.parseEther("500").toString(),
-      suggestedLockTimeOfSeedReserves: partial?.config?.suggestedLockTimeOfSeedReserves ?? 86400,
       transitionDuration: partial?.config?.transitionDuration ?? 86400,
     },
     reserveCommissions: partial?.reserveCommissions ?? [exp(0.01, 18), exp(0.02, 18), exp(0.03, 18)],
@@ -727,23 +312,18 @@ export async function makeOnlyConfigController(
   return configControllerAddress;
 }
 
-export async function makeSandboxController(opts: SandboxControllerOpts, factory?): Promise<SandboxControllerInfo> {
-  const signers = await ethers.getSigners();
-  const admin = opts.owner || signers[0];
-  const dao = opts.dao || signers[1];
-  const treasury = opts.treasury || signers[2];
-
+export async function makeSandboxController(opts: SandboxControllerOpts, owner: SignerWithAddress, factory?): Promise<SandboxController> {
   let SandboxControllerFactory;
   if (factory) {
     SandboxControllerFactory = factory;
   } else {
-    SandboxControllerFactory = (await ethers.getContractFactory("SandboxController")) as SandboxController__factory;
+    SandboxControllerFactory = (await ethers.getContractFactory("SandboxController", owner)) as SandboxController__factory;
   }
-
+  
   const sandboxController = await SandboxControllerFactory.deploy(
-    admin.address || admin,
-    dao.address || dao,
-    treasury.address || treasury,
+    opts.owner,
+    opts.dao,
+    opts.treasury,
     opts.feeEnabled,
     opts.config,
     opts.reserveCommissions,
@@ -751,48 +331,252 @@ export async function makeSandboxController(opts: SandboxControllerOpts, factory
     opts.removalCollateralDuration
   );
   await sandboxController.deployed();
+  return sandboxController;
+}
+
+export async function sandboxListBaseAsset(
+  sandboxController: SandboxController,
+  baseAsset: FaucetToken | NonStandardFaucetFeeToken,
+  priceFeed: string,
+  baseBorrowMin?: BigNumberish,
+  curve?: BaseAssetCurveStruct,
+  suggestedReserves?: BigNumberish,
+  lockTime?: BigNumberish
+) {
+  const baseBorrowMin_ = baseBorrowMin || exp(1, await baseAsset.decimals());
+  const curve_ = curve || makeValidCurve();
+  const suggestedReserves_ = suggestedReserves || exp(1e5, 6); //100$ in USDC
+  const lockTime_ = lockTime || DEFAULT_LOCK_TIME;
+
+  // --- Whitelist the base token ---
+  await sandboxController.whitelistBaseAsset(baseAsset.address, priceFeed, curve_, baseBorrowMin_, suggestedReserves_, lockTime_);
+}
+
+export async function sandboxListCollateralAsset(
+  sandboxController: SandboxController,
+  collateralAsset: FaucetToken,
+  priceFeed: string,
+  limits?: AssetLimits
+) {
+  const limits_: AssetLimits = limits || defaultAssetLimits();
+
+  await sandboxController.whitelistCollateralAsset(
+    collateralAsset.address,
+    priceFeed,
+    limits_.minBorrowCF,
+    limits_.maxBorrowCF,
+    limits_.minLiquidateCF,
+    limits_.maxLiquidateCF,
+    limits_.minLiquidationFactor,
+    limits_.maxLiquidationFactor
+  );
+}
+
+/// ---------------------
+
+/// Protocol setup --------------
+
+export async function makeConfigControllerFactory(sandboxController: string, configControllerImpl?: string): Promise<ConfigControllerFactory> {
+  const _configControllerFactory = (await ethers.getContractFactory("ConfigControllerFactory")) as ConfigControllerFactory__factory;
+
+  let configControllerImplAddress: string;
+  if (configControllerImpl) {
+    configControllerImplAddress = configControllerImpl;
+  } else {
+    const _configController = (await ethers.getContractFactory("ConfigController")) as ConfigController__factory;
+    configControllerImplAddress = (await _configController.deploy()).address;
+  }
+
+  const configControllerFactory = await _configControllerFactory.deploy(sandboxController, configControllerImplAddress);
+  await configControllerFactory.deployed();
+
+  return configControllerFactory;
+}
+
+export async function makeCometFactory(cometImpl: string, configControllerFactory: string): Promise<SandboxCometFactory> {
+  const CometFactory_factory: SandboxCometFactory__factory = (await ethers.getContractFactory(
+    "SandboxCometFactory"
+  )) as SandboxCometFactory__factory;
+  const cometFactory: SandboxCometFactory = await CometFactory_factory.deploy(cometImpl, configControllerFactory);
+  await cometFactory.deployed();
+
+  return cometFactory;
+}
+
+export async function makeConfigController(opts: ProtocolOpts): Promise<Protocol> {
+  const assets = opts.assets || defaultAssets();
+  const baseTokenSymbol = opts.baseTokenSymbol || "USDC";
+  let baseToken: FaucetToken | NonStandardFaucetFeeToken;
+
+  const acceptCurator = opts.acceptCurator === undefined || opts.acceptCurator;
+
+  // --- deploy tokens ---
+  const FaucetFactory = (await ethers.getContractFactory("FaucetToken")) as FaucetToken__factory;
+
+  const collaterals = {};
+  for (const symbol in assets) {
+    const config = assets[symbol];
+    const decimals = config.decimals || 18;
+    const initial = (config.initial != undefined && config.initial.toString()) || 1e6;
+    const name = config.name || symbol;
+    const factory = config.factory || FaucetFactory;
+
+    let token: FaucetToken | NonStandardFaucetFeeToken;
+    token = await factory.deploy(initial, name, decimals, symbol);
+
+    await token.deployed();
+
+    if (symbol == baseTokenSymbol) {
+      baseToken = token;
+    } else {
+      collaterals[symbol] = token;
+    }
+  }
+
+  // --- Price feeds ---
+  let priceFeeds = {};
+  let tokenAddress: string;
+  const PriceFeedFactory = (await ethers.getContractFactory("SimplePriceFeed")) as SimplePriceFeed__factory;
+  for (const symbol in assets) {
+    const initialPrice = exp(assets[symbol].initialPrice || 1, 8);
+    const priceFeedDecimals = assets[symbol].priceFeedDecimals || 8;
+
+    if (symbol == baseTokenSymbol) {
+      tokenAddress = baseToken.address;
+    } else {
+      tokenAddress = collaterals[symbol].address;
+    }
+
+    const priceFeed = await PriceFeedFactory.deploy(initialPrice, priceFeedDecimals, tokenAddress);
+    await priceFeed.deployed();
+
+    priceFeeds[symbol] = priceFeed;
+  }
+
+  /// --- Deploy sandbox controller
+  const sandboxControllerOpts = defaultSandboxControllerOpts({
+    owner: opts.owner.address,
+    dao: opts.dao.address,
+    treasury: opts.treasury,
+    feeEnabled: false,
+    config: opts.config,
+    reserveCommissions: opts.reserveCommissions,
+    protocolCommissions: opts.protocolCommissions,
+  });
+
+  const sandboxController = await makeSandboxController(sandboxControllerOpts, opts.dao);
+
+  // --- Whitelist the base token ---
+  await sandboxListBaseAsset(
+    sandboxController,
+    baseToken,
+    priceFeeds[baseTokenSymbol].address,
+    opts.baseBorrowMin,
+    opts.curve
+  );
+
+  // --- Whitelist the collateral assets ---
+  for (const symbol in assets) {
+    // Skip the base token
+    if (symbol == baseTokenSymbol) continue;
+
+    await sandboxListCollateralAsset(sandboxController, collaterals[symbol], priceFeeds[symbol].address, opts.assets?.[symbol].assetLimits);
+  }
+
+  // --- deploy config controller ---
+  const cometFactory_ = (await ethers.getContractFactory("SandboxComet")) as SandboxComet__factory;
+
+  const cometImpl = await cometFactory_.deploy();
+  await cometImpl.deployed();
+
+  const configControllerFactory: ConfigControllerFactory = await makeConfigControllerFactory(sandboxController.address);
+  const cometFactory = await makeCometFactory(cometImpl.address, configControllerFactory.address);
+
+  await configControllerFactory.createConfigController(
+    opts.curator.address,
+    opts.guardian.address,
+    cometFactory.address,
+    1000,
+    "ConfigController"
+  );
+
+  const configController: ConfigController = (await ethers.getContractAt(
+    "ConfigController",
+    await configControllerFactory.controllerAddresses(0)
+  )) as ConfigController;
+
+  if (acceptCurator) {
+    await configController.connect(opts.curator).acceptProposal(0);
+  }
 
   return {
     opts,
+    baseTokenSymbol: await baseToken.symbol(),
+    baseToken,
+    collaterals,
+    priceFeeds,
+    configControllerFactory,
+    configController,
     sandboxController,
+    cometImpl,
+    cometFactory,
   };
 }
 
-export async function bumpTotalsCollateral(
-  comet: CometHarness,
-  token: FaucetToken | NonStandardFaucetFeeToken,
-  delta: bigint
-): Promise<BigNumber> {
-  const totalCollateralBefore = await comet.totalsCollateral(token.address);
+export async function createComet(
+  owner: SignerWithAddress,
+  assets: {
+    [symbol: string]: Asset;
+  },
+  configController: ConfigController,
+  sandboxController: ISandboxController,
+  collaterals: {
+    [symbol: string]: FaucetToken | NonStandardFaucetFeeToken;
+  },
+  baseToken: FaucetToken | NonStandardFaucetFeeToken,
+  amountOfSeedReserves: BigNumberish,
+  name?: string
+): Promise<SandboxComet> {
+  const _assets = assets || defaultAssets();
+  const defaultConfig: CollateralConfig = defaultCollateralConfig();
 
-  const totalCollateralAfter = totalCollateralBefore.add(delta);
-  await token.allocateTo(comet.address, delta);
-  await wait(comet.setTotalsCollateral(token.address, totalCollateralAfter));
+  const collateralTokens: CollateralTokenConfigStruct[] = [];
 
-  return totalCollateralAfter;
-}
+  for (let symbol in collaterals) {
+    const assetConfig = _assets[symbol];
 
-export async function setTotalsBasic(comet: CometHarness, overrides = {}): Promise<TotalsBasicStructOutput> {
-  const t0 = await comet.totalsBasic();
-  const t1 = Object.assign({}, t0, overrides);
-  await wait(comet.setTotalsBasic(t1));
-  return t1;
-}
-
-export function objectify(arrayObject) {
-  const obj = {};
-  for (const key in arrayObject) {
-    if (isNaN(Number(key))) {
-      const value = arrayObject[key];
-      if (value._isBigNumber) {
-        obj[key] = BigInt(value);
-      } else {
-        obj[key] = value;
-      }
-    }
+    collateralTokens.push({
+      collateralToken: collaterals[symbol].address,
+      borrowCollateralFactor: assetConfig?.collateralConfig?.borrowCF || defaultConfig.borrowCF,
+      liquidateCollateralFactor: assetConfig?.collateralConfig?.liquidateCF || defaultConfig.liquidateCF,
+      liquidationFactor: assetConfig?.collateralConfig?.liquidationFactor || defaultConfig.liquidationFactor,
+      supplyCap: assetConfig?.collateralConfig?.supplyCap || defaultConfig.supplyCap,
+    });
   }
-  return obj;
+
+  let marketConfig: CometConfigStruct = {
+    baseToken: baseToken.address,
+    collateralTokens: collateralTokens,
+    baseTokenCurveId: 0n,
+    name: name || "Comet",
+    amountOfSeedReserves: amountOfSeedReserves,
+  };
+
+  const amount = await sandboxController.suggestedAmountOfSeedReserves(baseToken.address);
+  await baseToken.connect(owner).allocateTo(owner.address, amount);
+  await baseToken.connect(owner).approve(configController.address, amount);
+
+  await configController.createComet(marketConfig);
+
+  const lastComet = await configController.cometsLength();
+  const cometAddr = await configController.comets(lastComet.sub(1));
+
+  return (await ethers.getContractAt("SandboxComet", cometAddr)) as SandboxComet;
 }
+
+/// ---------------------
+
+/// Balance helpers --------------
 
 export async function baseBalanceOf(comet: ISandboxComet, account: string): Promise<bigint> {
   const balanceOf = await comet.balanceOf(account);
@@ -809,15 +593,6 @@ type Portfolio = {
   };
 };
 
-type TotalsAndReserves = {
-  totals: {
-    [symbol: string]: bigint;
-  };
-  reserves: {
-    [symbol: string]: bigint;
-  };
-};
-
 export async function portfolio({ comet, base, tokens }, account): Promise<Portfolio> {
   const internal = { [base]: await baseBalanceOf(comet, account) };
   const external = { [base]: BigInt(await tokens[base].balanceOf(account)) };
@@ -828,20 +603,6 @@ export async function portfolio({ comet, base, tokens }, account): Promise<Portf
     }
   }
   return { internal, external };
-}
-
-export async function totalsAndReserves({ comet, base, tokens }): Promise<TotalsAndReserves> {
-  const totals = {
-    [base]: BigInt((await comet.totalsBasic()).totalSupplyBase),
-  };
-  const reserves = { [base]: BigInt(await comet.getReserves()) };
-  for (const symbol in tokens) {
-    if (symbol != base) {
-      totals[symbol] = BigInt((await comet.totalsCollateral(tokens[symbol].address)).totalSupplyAsset);
-      reserves[symbol] = BigInt(await comet.getCollateralReserves(tokens[symbol].address));
-    }
-  }
-  return { totals, reserves };
 }
 
 export interface TransactionResponseExt extends TransactionResponse {
@@ -892,14 +653,25 @@ export function getGasUsed(tx: TransactionResponseExt): bigint {
   return tx.receipt.gasUsed.mul(tx.receipt.effectiveGasPrice).toBigInt();
 }
 
-/**
- * Skip time and accrue interest for a specific account.
- * @param comet The Comet instance.
- * @param seconds The number of seconds to skip.
- * @param account The account to accrue interest for.
- * @returns A promise that resolves when the operation is complete.
- */
-export function skipTimeAndAccrueAccount(comet: CometHarness, seconds: number, account: string): Promise<void> {
+export async function getBlock(n?: number, ethers_ = ethers): Promise<Block> {
+  const blockNumber =
+    n == undefined ? await ethers_.provider.getBlockNumber() : n;
+  return ethers_.provider.getBlock(blockNumber);
+}
+
+
+export async function fastForward(
+  seconds: number,
+  ethers_ = ethers
+): Promise<Block> {
+  const block = await getBlock();
+  await ethers_.provider.send("evm_setNextBlockTimestamp", [
+    block.timestamp + seconds,
+  ]);
+  return block;
+}
+
+export function skipTimeAndAccrueAccount(comet: SandboxComet, seconds: number, account: string): Promise<void> {
   return new Promise(async (resolve) => {
       await fastForward(seconds);
       await comet.accrueAccount(account);

@@ -4,11 +4,10 @@ import {
   expect,
   defaultSandboxControllerOpts,
   makeSandboxController,
-  makeToken,
+  makeMockERC20,
   makePriceFeed,
   sandboxListBaseAsset,
   sandboxListCollateralAsset,
-  ZERO,
   CombinedComet,
   getCombinedComet,
 } from "./helper/helpers";
@@ -49,6 +48,7 @@ describe("21. withdraw reserves", function () {
   let firstUser: SignerWithAddress;
   let secondUser: SignerWithAddress;
   let randomCaller: SignerWithAddress;
+  let treasury: string;
 
   let configController: ConfigControllerTest;
   let sandboxCometFactory: SandboxCometFactory;
@@ -64,20 +64,17 @@ describe("21. withdraw reserves", function () {
   let priceFeedBase: SimplePriceFeed;
 
   const provider = ethers.provider;
-
-  const _minUpdateTime = time.duration.days(7);
-
+  
   const amountOfSeedReserves = exp(5000, 18).toString(); // 5000 tokens with 18 decimals
 
   const configControllerOpts = {
     _curatorFee: 1000,
-    _name: "ConfigController",
-    _curatorProposalDuration: time.duration.days(7),
-    _proposalDuration: time.duration.days(7),
+    _name: "ConfigController"
   };
 
   before(async function () {
     [owner, curator, dao, guardian, firstUser, secondUser, randomCaller] = await ethers.getSigners();
+    treasury = ethers.Wallet.createRandom().address;
 
     const configControllerFactory_factory = new ConfigControllerFactory__factory(owner);
     const configController_factory = new ConfigControllerTest__factory(owner);
@@ -93,10 +90,11 @@ describe("21. withdraw reserves", function () {
 
     sandboxController = (
       await makeSandboxController(
-        defaultSandboxControllerOpts({ dao: dao.address, minUpdateTime: _minUpdateTime }),
+        defaultSandboxControllerOpts({ dao: dao.address, treasury: treasury, owner: owner.address }),
+        owner,
         SandboxControllerFactoryTest
       )
-    ).sandboxController;
+    );
 
     const configControllerFactory = await configControllerFactory_factory.deploy(sandboxController.address, configControllerImpl.address);
     sandboxCometFactory = await sandboxCometFactory_factory.deploy(sandboxCometImpl.address, configControllerFactory.address);
@@ -107,8 +105,6 @@ describe("21. withdraw reserves", function () {
       sandboxCometFactory.address,
       configControllerOpts._curatorFee,
       configControllerOpts._name,
-      configControllerOpts._curatorProposalDuration,
-      configControllerOpts._proposalDuration
     );
 
     // deploy config controller
@@ -118,14 +114,14 @@ describe("21. withdraw reserves", function () {
       sandboxCometFactory.address,
       configControllerOpts._curatorFee,
       configControllerOpts._name,
-      configControllerOpts._curatorProposalDuration,
-      configControllerOpts._proposalDuration
     );
     configController = ConfigControllerTest__factory.connect(configControllerAddress, owner);
 
-    baseToken = await makeToken({
+    baseToken = await makeMockERC20({
       symbol: "WETH",
-      initialMint: ethers.utils.parseEther("50000").toString(),
+      name: "Wrapped Ether",
+      decimals: 18,
+      supply: ethers.utils.parseEther("50000").toString(),
     });
 
     priceFeedBase = await makePriceFeed(baseToken.address, ethers.utils.parseUnits("3200", 8).toString());
@@ -134,7 +130,7 @@ describe("21. withdraw reserves", function () {
     const tokenSymbolList = ["USDT", "DAI", "USDC"];
 
     for (const symbol of tokenSymbolList) {
-      const collateralToken = await makeToken({ symbol: symbol });
+      const collateralToken = await makeMockERC20({ name: symbol, symbol: symbol});
       const priceFeedCol = await makePriceFeed(collateralToken.address, ethers.utils.parseUnits("1600", 8).toString());
 
       await sandboxListCollateralAsset(sandboxController, collateralToken, priceFeedCol.address);
@@ -153,7 +149,8 @@ describe("21. withdraw reserves", function () {
     // Take snapshot after initial setup
     snapshot = await takeSnapshot();
   });
-
+  
+  // TODO: MOVE THIS FUNCTION TO HELPER FILE
   async function createComet(collateralTokenConfig?: CollateralTokenConfigStruct[]): Promise<CombinedComet> {
     // Set the market configuration with all collateral tokens
     marketConfig = {
@@ -164,6 +161,8 @@ describe("21. withdraw reserves", function () {
       amountOfSeedReserves: amountOfSeedReserves,
     };
     // Create a new comet instance with the current market configuration
+    await baseToken.connect(owner).allocateTo(owner.address, amountOfSeedReserves);
+    await baseToken.connect(owner).approve(configController.address, amountOfSeedReserves);
     const cometAddress = await configController.callStatic.createComet(marketConfig);
     await configController.createComet(marketConfig);
     // Connect to the combined comet instance: SandboxComet and CometExtension
@@ -306,7 +305,7 @@ describe("21. withdraw reserves", function () {
       await supplyCollateralTo(cometContract, user, assetIndex, amountOfCollateral);
       // Borrow base token from the comet
       await borrowBaseTokenTo(cometContract, user, borrowBaseTokenAmount);
-      expect(await cometContract.borrowBalanceOf(user.address)).to.not.equal(ZERO);
+      expect(await cometContract.borrowBalanceOf(user.address)).to.not.equal(ethers.constants.Zero);
     }
 
     // Increase the time to ensure that the seed reserves are accumulated
@@ -320,7 +319,7 @@ describe("21. withdraw reserves", function () {
       // Liquidate the user
       await globalComet.connect(owner).absorb(owner.address, [user.address]);
       // Check the user's borrow balance after liquidation
-      expect(await cometContract.borrowBalanceOf(user.address)).to.equal(ZERO);
+      expect(await cometContract.borrowBalanceOf(user.address)).to.equal(ethers.constants.Zero);
     }
     // Change the price feed of base token to increase its price
     await priceFeedBase.setRoundData(0, exp(3200, 8), 0, 0, 0);
@@ -414,7 +413,7 @@ describe("21. withdraw reserves", function () {
           .to.emit(globalComet, "FreeSeedReservesWithdrawn")
           .withArgs(configController.address, allCurrentSeedReserves);
 
-        expect(await globalComet.seedReserves()).to.equal(ZERO);
+        expect(await globalComet.seedReserves()).to.equal(ethers.constants.Zero);
       });
     });
 
@@ -467,7 +466,7 @@ describe("21. withdraw reserves", function () {
         const collateralTokensConfig: CollateralTokenConfigStruct[] = [];
         // Create collateral tokens and price feeds
         for (let i = 0; i < maxAssets; i++) {
-          const collateralToken = await makeToken({ symbol: `TOKEN${i}` });
+          const collateralToken = await makeMockERC20({ name: `TOKEN${i}`, symbol: `TOKEN${i}` });
           const priceFeedCol = await makePriceFeed(collateralToken.address, "2");
 
           await sandboxListCollateralAsset(sandboxController, collateralToken, priceFeedCol.address);

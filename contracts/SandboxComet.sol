@@ -9,8 +9,7 @@ import "./interfaces/ISandboxComet.sol";
 import "./interfaces/IPriceFeed.sol";
 import "./interfaces/IConfigController.sol";
 import "./interfaces/ISandboxController.sol";
-
-import "hardhat/console.sol";
+import "./interfaces/IRewardsV2.sol";
 
 /**
  * @title Compound's Comet Contract
@@ -25,7 +24,7 @@ contract SandboxComet is CometCore, ISandboxComet {
     /// @param _configController legal address of the config controller which triggered the factory
     /// @param _ext extension deployed by the same factory
     // aderyn-fp-next-line(state-change-without-event)
-    function factoryInit(address _configController, address _ext) external override {
+    function factoryInit(address _configController, address _ext) external {
         if (factory != address(0) || configController != address(0)) revert AlreadyInitialized();
         if (_configController == address(0) || _ext == address(0)) revert IncorrectInitialization();
 
@@ -45,7 +44,7 @@ contract SandboxComet is CometCore, ISandboxComet {
     function initialize(
         IConfigController.CometConfig calldata cometConfig,
         IConfigController.CometGlobalParamsConfig calldata globalConfig
-    ) external override {
+    ) external {
         /// Relies on fact that factory provides correct controller and that it is set by the time of this call
         if (msg.sender != configController) revert IncorrectInitialization();
         // aderyn-fp-next-line(reentrancy-state-change)
@@ -63,7 +62,6 @@ contract SandboxComet is CometCore, ISandboxComet {
 
         baseScale = uint64(10 ** _decimals); // aderyn-fp(literal-instead-of-constant)
         if (baseScale < BASE_ACCRUAL_SCALE) revert BadDecimals();
-        accrualDescaleFactor = baseScale / BASE_ACCRUAL_SCALE;
 
         // aderyn-fp-next-line(reentrancy-state-change)
         address _baseTokenPriceFeed = ISandboxController(sandboxController).tokenToPriceFeed(cometConfig.baseToken);
@@ -93,8 +91,8 @@ contract SandboxComet is CometCore, ISandboxComet {
 
         /// It can be safely assumed, that reserve parameters are validated in Sandbox Controller
         targetPercent = globalConfig.targetPercent;
-        seedReserves = globalConfig.suggestedAmountOfSeedReserves;
-        unlockTimestamp = safe64(block.timestamp + globalConfig.suggestedLockTimeOfSeedReserves);
+        seedReserves = cometConfig.amountOfSeedReserves;
+        unlockTimestamp = safe64(block.timestamp + ISandboxController(sandboxController).suggestedLockTimeOfSeedReserves(cometConfig.baseToken));
         transitionDuration = globalConfig.transitionDuration;
 
         /// Interest rate curve
@@ -120,18 +118,9 @@ contract SandboxComet is CometCore, ISandboxComet {
         }
 
         /// Indexes
-        ///
-
         lastAccrualTime = getNowInternal();
         baseSupplyIndex = BASE_INDEX_SCALE;
         baseBorrowIndex = BASE_INDEX_SCALE;
-
-        /// Rewards are disabled by default
-        trackingIndexScale = 1;
-        baseMinForRewards = type(uint256).max;
-        /// to avoid explicit initialization
-        /// baseTrackingSupplySpeed = 0;
-        /// baseTrackingBorrowSpeed = 0;
 
         /// Note: event is generated in ConfigController
     }
@@ -231,6 +220,9 @@ contract SandboxComet is CometCore, ISandboxComet {
         return (baseSupplyIndex_, baseBorrowIndex_);
     }
 
+    /**
+     * @dev Accrue interest (and rewards) in base token supply and borrows
+     */
     function accrueInternal() internal {
         uint40 now_ = getNowInternal();
         uint40 timeElapsed = now_ - lastAccrualTime;
@@ -241,15 +233,102 @@ contract SandboxComet is CometCore, ISandboxComet {
         
         if (deprecationStatus == DeprecationStatus.InProgress) _prepareDeprecation();
 
-        if (timeElapsed != 0) {
-            (baseSupplyIndex, baseBorrowIndex) = accruedInterestIndices(timeElapsed);
-            if (totalSupplyBase >= baseMinForRewards) {
-                trackingSupplyIndex += safe64(divBaseWei(baseTrackingSupplySpeed * timeElapsed, totalSupplyBase));
-            }
-            if (totalBorrowBase >= baseMinForRewards) {
-                trackingBorrowIndex += safe64(divBaseWei(baseTrackingBorrowSpeed * timeElapsed, totalBorrowBase));
-            }
-            lastAccrualTime = now_;
+        (baseSupplyIndex, baseBorrowIndex) = accruedInterestIndices(timeElapsed);
+
+        lastAccrualTime = now_;
+    }
+
+    /**
+     * @notice Linearly interpolates a curve parameter value during a transition period.
+     * @dev
+     * This function is used to smoothly update protocol curve parameters (such as supplyKink, interest rate slopes, etc.)
+     * from a starting value to a target value over a specified duration. It ensures that the parameter changes
+     * at a constant rate, providing a predictable and gradual transition rather than an abrupt jump.
+     *
+     * The algorithm works for both increasing and decreasing transitions. At any point during the transition,
+     * the value is calculated as a function of the elapsed time since the start of the transition.
+     *
+     * The formula used in this implementation is:
+     *   if (targetValue > startValue):
+     *       interpolated = currentValue + (((targetValue - startValue) * elapsed / duration) - (currentValue - startValue))
+     *   else:
+     *       interpolated = currentValue - (((startValue - targetValue) * elapsed / duration) - (startValue - currentValue))
+     *
+     * This means:
+     * - At the start (elapsed = 0):      interpolated = startValue
+     * - At the end (elapsed = duration): interpolated = targetValue
+     * - In between:                      interpolated is proportionally between startValue and targetValue
+     *
+     * Example 1: Increasing transition
+     *   Suppose we want to transition supplyKink from 200 to 800 over 10 seconds.
+     *   - startValue = 200
+     *   - targetValue = 800
+     *   - duration = 10
+     *
+     *   At elapsed = 0, currentValue = 200:
+     *     interpolated = 200 + ((800 - 200) * 0 / 10 - (200 - 200))
+     *                  = 200 + (0 - 0)
+     *                  = 200
+     *
+     *   At elapsed = 5, currentValue = 500:
+     *     interpolated = 500 + ((800 - 200) * 5 / 10 - (500 - 200))
+     *                  = 500 + (300 - 300)
+     *                  = 500
+     *
+     *   At elapsed = 10, currentValue = 800:
+     *     interpolated = 800 + ((800 - 200) * 10 / 10 - (800 - 200))
+     *                  = 800 + (600 - 600)
+     *                  = 800
+     *
+     * Example 2: Decreasing transition
+     *   Suppose we want to transition supplyKink from 900 to 300 over 10 seconds.
+     *   - startValue = 900
+     *   - targetValue = 300
+     *   - duration = 10
+     *
+     *   At elapsed = 0, currentValue = 900:
+     *     interpolated = 900 - ((900 - 300) * 0 / 10 - (900 - 900))
+     *                  = 900 - (0 - 0)
+     *                  = 900
+     *
+     *   At elapsed = 4, currentValue = 660:
+     *     interpolated = 660 - ((900 - 300) * 4 / 10 - (900 - 660))
+     *                  = 660 - (240 - 240)
+     *                  = 660
+     *
+     *   At elapsed = 10, currentValue = 300:
+     *     interpolated = 300 - ((900 - 300) * 10 / 10 - (900 - 300))
+     *                  = 300 - (600 - 600)
+     *                  = 300
+     *
+     * Example 3: No change
+     *   If startValue = targetValue = 500, duration = 10, any elapsed, currentValue = 500:
+     *     interpolated = 500 + ((500 - 500) * elapsed / 10 - (500 - 500))
+     *                  = 500 + (0 - 0)
+     *                  = 500
+     *
+     * Usage:
+     *   This function is called internally by the protocol during a curve transition, typically in a function like
+     *   `progressTransition(now_)`, to update each curve parameter to its correct value for the current time.
+     *
+     * @param startValue   The value of the parameter at the start of the transition.
+     * @param targetValue  The value of the parameter at the end of the transition.
+     * @param currentValue The current value of the parameter (used for incremental calculation).
+     * @param elapsed      The time elapsed since the start of the transition, in seconds.
+     * @param duration     The total duration of the transition, in seconds.
+     * @return The interpolated value as a uint64, representing the parameter's value at the current elapsed time.
+     */
+    function interpolateValue(
+        uint256 startValue,
+        uint256 targetValue,
+        uint256 currentValue,
+        uint40 elapsed,
+        uint40 duration
+    ) internal pure returns (uint64) {
+        if (targetValue > startValue) {
+            return safe64(currentValue + ((((targetValue - startValue) * elapsed) / duration) - (currentValue - startValue)));
+        } else {
+            return safe64(currentValue - ((((startValue - targetValue) * elapsed) / duration) - (startValue - currentValue)));
         }
     }
 
@@ -348,100 +427,6 @@ contract SandboxComet is CometCore, ISandboxComet {
     }
 
     /**
-     * @notice Linearly interpolates a curve parameter value during a transition period.
-     * @dev
-     * This function is used to smoothly update protocol curve parameters (such as supplyKink, interest rate slopes, etc.)
-     * from a starting value to a target value over a specified duration. It ensures that the parameter changes
-     * at a constant rate, providing a predictable and gradual transition rather than an abrupt jump.
-     *
-     * The algorithm works for both increasing and decreasing transitions. At any point during the transition,
-     * the value is calculated as a function of the elapsed time since the start of the transition.
-     *
-     * The formula used in this implementation is:
-     *   if (targetValue > startValue):
-     *       interpolated = currentValue + (((targetValue - startValue) * elapsed / duration) - (currentValue - startValue))
-     *   else:
-     *       interpolated = currentValue - (((startValue - targetValue) * elapsed / duration) - (startValue - currentValue))
-     *
-     * This means:
-     * - At the start (elapsed = 0):      interpolated = startValue
-     * - At the end (elapsed = duration): interpolated = targetValue
-     * - In between:                      interpolated is proportionally between startValue and targetValue
-     *
-     * Example 1: Increasing transition
-     *   Suppose we want to transition supplyKink from 200 to 800 over 10 seconds.
-     *   - startValue = 200
-     *   - targetValue = 800
-     *   - duration = 10
-     *
-     *   At elapsed = 0, currentValue = 200:
-     *     interpolated = 200 + ((800 - 200) * 0 / 10 - (200 - 200))
-     *                  = 200 + (0 - 0)
-     *                  = 200
-     *
-     *   At elapsed = 5, currentValue = 500:
-     *     interpolated = 500 + ((800 - 200) * 5 / 10 - (500 - 200))
-     *                  = 500 + (300 - 300)
-     *                  = 500
-     *
-     *   At elapsed = 10, currentValue = 800:
-     *     interpolated = 800 + ((800 - 200) * 10 / 10 - (800 - 200))
-     *                  = 800 + (600 - 600)
-     *                  = 800
-     *
-     * Example 2: Decreasing transition
-     *   Suppose we want to transition supplyKink from 900 to 300 over 10 seconds.
-     *   - startValue = 900
-     *   - targetValue = 300
-     *   - duration = 10
-     *
-     *   At elapsed = 0, currentValue = 900:
-     *     interpolated = 900 - ((900 - 300) * 0 / 10 - (900 - 900))
-     *                  = 900 - (0 - 0)
-     *                  = 900
-     *
-     *   At elapsed = 4, currentValue = 660:
-     *     interpolated = 660 - ((900 - 300) * 4 / 10 - (900 - 660))
-     *                  = 660 - (240 - 240)
-     *                  = 660
-     *
-     *   At elapsed = 10, currentValue = 300:
-     *     interpolated = 300 - ((900 - 300) * 10 / 10 - (900 - 300))
-     *                  = 300 - (600 - 600)
-     *                  = 300
-     *
-     * Example 3: No change
-     *   If startValue = targetValue = 500, duration = 10, any elapsed, currentValue = 500:
-     *     interpolated = 500 + ((500 - 500) * elapsed / 10 - (500 - 500))
-     *                  = 500 + (0 - 0)
-     *                  = 500
-     *
-     * Usage:
-     *   This function is called internally by the protocol during a curve transition, typically in a function like
-     *   `_progressTransition(now_)`, to update each curve parameter to its correct value for the current time.
-     *
-     * @param startValue   The value of the parameter at the start of the transition.
-     * @param targetValue  The value of the parameter at the end of the transition.
-     * @param currentValue The current value of the parameter (used for incremental calculation).
-     * @param elapsed      The time elapsed since the start of the transition, in seconds.
-     * @param duration     The total duration of the transition, in seconds.
-     * @return The interpolated value as a uint64, representing the parameter's value at the current elapsed time.
-     */
-    function interpolateValue(
-        uint256 startValue,
-        uint256 targetValue,
-        uint256 currentValue,
-        uint40 elapsed,
-        uint40 duration
-    ) internal pure returns (uint64) {
-        if (targetValue > startValue) {
-            return safe64(currentValue + ((((targetValue - startValue) * elapsed) / duration) - (currentValue - startValue)));
-        } else {
-            return safe64(currentValue - ((((startValue - targetValue) * elapsed) / duration) - (startValue - currentValue)));
-        }
-    }
-
-    /**
      * @notice Initiates the collateral removal process for a given collateral asset.
      * @dev
      * This function begins a controlled and gradual removal process of a collateral asset from the protocol.
@@ -513,6 +498,14 @@ contract SandboxComet is CometCore, ISandboxComet {
      */
     function initiateCollateralRemoval(address removalAsset) external override {
         if (msg.sender != configController) revert Unauthorized();
+
+        // Check if the comet is in curve transition status
+        if (isTransitionActive) revert TransitionAlreadyActive();
+        
+        // Check if the comet is deprecated
+        if (deprecationStatus != DeprecationStatus.NotStarted) {
+            revert InvalidDeprecationState(uint8(deprecationStatus));
+        }
 
         CollateralRemovalState memory collateralRemovalState_ = _collateralRemovalState;
         if (removalInProgress) {
@@ -631,8 +624,7 @@ contract SandboxComet is CometCore, ISandboxComet {
     function accrueAccount(address account) external override {
         accrueInternal();
 
-        UserBasic memory basic = userBasic[account];
-        updateBasePrincipal(account, basic, basic.principal);
+        updateUserRewards(account);
     }
 
     /**
@@ -641,6 +633,9 @@ contract SandboxComet is CometCore, ISandboxComet {
      * @return The per second supply rate at `utilization`
      */
     function getSupplyRate(uint utilization) public view override returns (uint64) {
+        /// No supply - no supply interest
+        if (totalSupplyBase == 0) return 0;
+
         if (utilization <= supplyKink) {
             // interestRateBase + interestRateSlopeLow * utilization
             return safe64(supplyPerSecondInterestRateBase + mulFactor(supplyPerSecondInterestRateSlopeLow, utilization));
@@ -792,8 +787,12 @@ contract SandboxComet is CometCore, ISandboxComet {
      * @dev The change in principal broken into repay and supply amounts
      */
     function repayAndSupplyAmount(int104 oldPrincipal, int104 newPrincipal) internal pure returns (uint104, uint104) {
-        // If the new principal is less than the old principal, then no amount has been repaid or supplied
-        if (newPrincipal < oldPrincipal) return (0, 0);
+        // If during supply the new principal is less than the old principal, than rounding error occured
+        // and caused no-effect call because of too low supply amount (lower that 1e15). Original Comet had
+        // a workaround to neglect such calls and just 0 principal delta. We revert in such situations, thus user
+        // should provide higher supply amount. While the case can occur only for supplied amount == 0 and that is
+        // prohibited in this version of Comet, this error works as additional safeguard for such cases
+        if (newPrincipal < oldPrincipal) revert PrincipalDecreaseOnSupply();
 
         if (newPrincipal <= 0) {
             return (uint104(newPrincipal - oldPrincipal), 0);
@@ -831,7 +830,7 @@ contract SandboxComet is CometCore, ISandboxComet {
      * @param absorbPaused Boolean for pausing absorb actions
      * @param buyPaused Boolean for pausing buy actions
      */
-    function pause(bool supplyPaused, bool transferPaused, bool withdrawPaused, bool absorbPaused, bool buyPaused) external override {
+    function pause(bool supplyPaused, bool transferPaused, bool withdrawPaused, bool absorbPaused, bool buyPaused) external {
         address caller = msg.sender;
         address dao = ISandboxController(sandboxController).dao(); // aderyn-fp(reentrancy-state-change)
         if (caller != configController && caller != dao) revert Unauthorized();
@@ -856,7 +855,7 @@ contract SandboxComet is CometCore, ISandboxComet {
      * @dev access control check is within the function and restricts it to dao and controller only
      * @param asset Asset (collateral or base) to extract
      */
-    function extractFees(address asset) external override {
+    function extractFees(address asset) external {
         if (asset == address(0)) revert ZeroAddress();
         // Note: we do not check if asset is registered, as it might be already delisted collateral
         // and there is no difference between base asset or collateral
@@ -992,33 +991,11 @@ contract SandboxComet is CometCore, ISandboxComet {
     }
 
     /**
-     * @dev Write updated principal to store and tracking participation
+     * @dev Encapsulation of user's rewards update
      */
-    function updateBasePrincipal(address account, UserBasic memory basic, int104 principalNew) internal {
-        int104 principal = basic.principal;
-        basic.principal = principalNew;
-
-        uint indexDelta;
-
-        if (principal >= 0) {
-            indexDelta = uint256(trackingSupplyIndex - basic.baseTrackingIndex);
-        } else {
-            indexDelta = uint256(trackingBorrowIndex - basic.baseTrackingIndex);
-            principal = -principal;
-        }
-
-        // 0 delta means the same block or disabled rewards
-        if (indexDelta > 0) {
-            basic.baseTrackingAccrued += safe64((uint104(principal) * indexDelta) / trackingIndexScale / accrualDescaleFactor);
-        }
-
-        if (principalNew >= 0) {
-            basic.baseTrackingIndex = trackingSupplyIndex;
-        } else {
-            basic.baseTrackingIndex = trackingBorrowIndex;
-        }
-
-        userBasic[account] = basic;
+    function updateUserRewards(address account) internal {
+        /// @dev: rewards contract will get all necessary values
+        if (rewardAddress != address(0)) IRewardsV2(rewardAddress).accrue(account);
     }
 
     /**
@@ -1038,7 +1015,7 @@ contract SandboxComet is CometCore, ISandboxComet {
      * @param amount The quantity to supply
      */
     function supply(address asset, uint256 amount) external override {
-        return supplyInternal(msg.sender, msg.sender, msg.sender, asset, amount, false);
+        return supplyInternal(msg.sender, msg.sender, asset, amount, false);
     }
 
     /**
@@ -1048,7 +1025,7 @@ contract SandboxComet is CometCore, ISandboxComet {
      * @param amount The quantity to supply
      */
     function supplyTo(address dst, address asset, uint256 amount) external override {
-        return supplyInternal(msg.sender, msg.sender, dst, asset, amount, false);
+        return supplyInternal(msg.sender, dst, asset, amount, false);
     }
 
     /**
@@ -1059,7 +1036,7 @@ contract SandboxComet is CometCore, ISandboxComet {
      * @param amount The quantity to supply
      */
     function supplyFrom(address from, address dst, address asset, uint256 amount) external override {
-        return supplyInternal(msg.sender, from, dst, asset, amount, false);
+        return supplyInternal(from, dst, asset, amount, false);
     }
 
     /**
@@ -1068,13 +1045,17 @@ contract SandboxComet is CometCore, ISandboxComet {
      * @param dst The address which will hold the balance (can be the same from address)
      */
     function repayAllFrom(address from, address dst) external override {
-        return supplyInternal(msg.sender, from, dst, baseToken, borrowBalanceOf(dst), true);
+        return supplyInternal(from, dst, baseToken, borrowBalanceOf(dst), true);
     }
 
     /**
      * @dev Supply either collateral or base asset, depending on the asset, if operator is allowed
      */
-    function supplyInternal(address operator, address from, address dst, address asset, uint256 amount, bool isAll) internal nonReentrant {
+    function supplyInternal(address from, address dst, address asset, uint256 amount, bool isAll) internal nonReentrant {
+        // operator is always msg.sender
+        address operator = msg.sender;
+
+        if (from == address(0) || dst == address(0) || asset == address(0)) revert ZeroAddress();
         if (amount == 0) revert ZeroAmount();
         if (isSupplyPaused()) revert Paused();
 
@@ -1109,10 +1090,16 @@ contract SandboxComet is CometCore, ISandboxComet {
         totalSupplyBase += supplyAmount;
         totalBorrowBase -= repayAmount;
 
-        updateBasePrincipal(dst, dstUser, dstPrincipalNew);
+        /// @dev rewards should be updated with previous principal
+        updateUserRewards(dst);
+        userBasic[dst].principal = dstPrincipalNew;
 
         emit Supply(from, dst, amount);
 
+        /// Note: we use the present value from the principal delta instead of the token amount in the argument
+        /// principalValue() performs rounding down, thus it is possible to have post-supply present value
+        /// 1 wei lower than the actual supplied amount. Thus the present value of principal change is reported
+        /// The rounding error is small enough to be compensated from the supply interest in the next block.
         if (supplyAmount > 0) {
             emit Transfer(address(0), dst, presentValueSupply(baseSupplyIndex, supplyAmount));
         }
@@ -1127,6 +1114,7 @@ contract SandboxComet is CometCore, ISandboxComet {
             revert InvalidDeprecationState(uint8(deprecationStatus));
         }
         amount = doTransferIn(asset, from, amount);
+        accrueInternal();
 
         (CollateralAsset memory assetInfo, uint8 index) = getAssetInfoByAddress(asset);
         uint256 totals = totalsCollateral[asset];
@@ -1232,8 +1220,13 @@ contract SandboxComet is CometCore, ISandboxComet {
         totalSupplyBase = totalSupplyBase + supplyAmount - withdrawAmount;
         totalBorrowBase = totalBorrowBase + borrowAmount - repayAmount;
 
-        updateBasePrincipal(src, srcUser, srcPrincipalNew);
-        updateBasePrincipal(dst, dstUser, dstPrincipalNew);
+        /// @dev rewards should be updated with previous principal
+        updateUserRewards(src);
+        userBasic[src].principal = srcPrincipalNew;
+
+        /// @dev rewards should be updated with previous principal
+        updateUserRewards(dst);
+        userBasic[dst].principal = dstPrincipalNew;
 
         if (srcBalance < 0) {
             if (uint256(-srcBalance) < baseBorrowMin) revert BorrowTooSmall();
@@ -1346,7 +1339,9 @@ contract SandboxComet is CometCore, ISandboxComet {
         totalSupplyBase -= withdrawAmount;
         totalBorrowBase += borrowAmount;
 
-        updateBasePrincipal(src, srcUser, srcPrincipalNew);
+        /// @dev rewards should be updated with previous principal
+        updateUserRewards(src);
+        userBasic[src].principal = srcPrincipalNew;
 
         if (srcBalance < 0) {
             if (uint256(-srcBalance) < baseBorrowMin) revert BorrowTooSmall();
@@ -1410,7 +1405,7 @@ contract SandboxComet is CometCore, ISandboxComet {
      *      be withdrawn over time as they accumulate. Reserves cannot be withdrawn from user balances.
      * @param amount The amount of free seed reserves to withdraw
      */
-    function withdrawFreeSeedReserves(uint256 amount) external override nonReentrant {
+    function withdrawFreeSeedReserves(uint256 amount) external nonReentrant {
         address caller = msg.sender;
         if (caller != configController) revert Unauthorized();
         /// Note: Allowed to withdraw of seed reserves only if the market is devalued
@@ -1644,7 +1639,10 @@ contract SandboxComet is CometCore, ISandboxComet {
         }
 
         int104 newPrincipal = principalValue(newBalance);
-        updateBasePrincipal(account, accountUser, newPrincipal);
+
+        /// @dev rewards should be updated with previous principal
+        updateUserRewards(account);
+        userBasic[account].principal = newPrincipal;
 
         // reset assetsIn
         userBasic[account].assetsIn = 0;
@@ -1714,6 +1712,19 @@ contract SandboxComet is CometCore, ISandboxComet {
     function initiateCurveTransition(uint8 curveId) external override {
         if (msg.sender != configController) revert Unauthorized();
         if (isTransitionActive) revert TransitionAlreadyActive();
+        
+        // Check if the comet is in collateral removal process
+        if (removalInProgress) revert CollateralRemovalInProgress(
+            _collateralRemovalState.collateralToken,
+            _collateralRemovalState.startTime,
+            _collateralRemovalState.startTime + _collateralRemovalState.duration
+        );
+        
+        // Check if the comet is deprecated
+        if (deprecationStatus != DeprecationStatus.NotStarted) {
+            revert InvalidDeprecationState(uint8(deprecationStatus));
+        }
+        
         // Double check that the curveId is valid.
         if (curveId >= ISandboxController(sandboxController).baseAssets(baseToken).baseAssetCurves.length) revert InvalidCurveId();
 
@@ -1777,17 +1788,12 @@ contract SandboxComet is CometCore, ISandboxComet {
         // Note: Re-entrancy can skip the reserves check above on a second buyCollateral call.
 
         if (amountOut < minAmount) revert TooMuchSlippage();
-        console.log("amountOut", amountOut);
-        console.log("feeProtocol", feeProtocol);
-        console.log("feeController", feeController);
-        console.log("getCollateralReserves(asset)", getCollateralReserves(asset));
         // Note: we do no use the reserve part of the profit, as it stays in the Comet anyway
         if (amountOut + feeProtocol + feeController > getCollateralReserves(asset)) revert InsufficientReserves();
 
         if (feeProtocol > 0) {
             assetFeesDAO[asset] += feeController;
         }
-        console.log("feeController", feeController);
         if (feeController > 0) {
             _extractFeesController(asset);
             assetFeesController[asset] += feeController;
@@ -1813,11 +1819,10 @@ contract SandboxComet is CometCore, ISandboxComet {
         uint256 assetPrice = getPrice(assetInfo.priceFeed);
         // Store front discount is derived from the collateral asset's liquidationFactor and storeFrontPriceFactor
         // discount = storeFrontPriceFactor * (1e18 - liquidationFactor)
+        // TODO: if storeFrontPriceFactor is 1e18 (100%), then we don`t have profit
+        // TODO: 100% - storeFrontPriceFactor > 100% - liquidationFactor
         uint256 discountFactor = mulFactor(storeFrontPriceFactor, FACTOR_SCALE - assetInfo.liquidationFactor);
-        console.log("discountFactor", discountFactor);
         uint256 assetPriceDiscounted = mulFactor(assetPrice, FACTOR_SCALE - discountFactor);
-        console.log("assetPrice", assetPrice);
-        console.log("assetPriceDiscounted", assetPriceDiscounted);
         uint256 basePrice = getPrice(baseTokenPriceFeed);
         // # of collateral assets
         // = (TotalValueOfBaseAmount / DiscountedPriceOfCollateralAsset) * assetScale
@@ -1873,31 +1878,33 @@ contract SandboxComet is CometCore, ISandboxComet {
         3.6% of the base asset value supplied during purchase can be extracted from the collateral reserves as a profit
         */
         uint256 calculateFactorScale = (2 * FACTOR_SCALE - assetInfo.liquidationFactor);
-        console.log("FACTOR_SCALE", FACTOR_SCALE);
         uint256 liquidationFactor = assetInfo.liquidationFactor;
-        console.log("liquidationFactor", liquidationFactor);
-        console.log("calculateFactorScale", calculateFactorScale);
 
         // @todo testing
         // uint256 scaledBaseAmount = mulFactor(baseAmount, assetInfo.liquidationFactor);
         uint256 scaledBaseAmount = mulFactor(baseAmount, 2 * FACTOR_SCALE - assetInfo.liquidationFactor);
-        console.log("scaledBaseAmount", scaledBaseAmount);
 
         // @note amountOut = (baseAmount * basePrice * assetInfo.scale) / assetPriceDiscounted / baseScale;
         uint256 scaledCollateralValue = (scaledBaseAmount * basePrice * assetInfo.scale) / assetPrice / baseScale;
         // @todo testing
         // uint256 scaledCollateralValue = (scaledBaseAmount * basePrice * assetInfo.scale) / assetPriceDiscounted / baseScale;
-        console.log("scaledCollateralValue", scaledCollateralValue);
-        console.log("amountOut", amountOut);
 
         // @todo testing
         // uint256 profit = amountOut - scaledCollateralValue;
         uint256 profit = scaledCollateralValue - amountOut; // << overflow
-        console.log("Profit", profit);
-        console.logString("----------------------");
 
         // function guarantees that reserve+protocol+controller == profit
         (feeReserve, feeProtocol, feeController) = _distributeProfit(profit);
+    }
+
+    /**
+     * @notice Get the total number of tokens in circulation
+     * @dev Note: uses updated interest indices to calculate
+     * @return The supply of tokens
+     **/
+    function totalSupply() external view returns (uint256) {
+        (uint64 baseSupplyIndex_, ) = accruedInterestIndices(getNowInternal() - lastAccrualTime);
+        return presentValueSupply(baseSupplyIndex_, totalSupplyBase);
     }
 
     /**
@@ -1937,7 +1944,7 @@ contract SandboxComet is CometCore, ISandboxComet {
      * @param account The account whose balance to query
      * @return The present day base balance magnitude of the account, if negative
      */
-    function borrowBalanceOf(address account) public view override returns (uint256) {
+    function borrowBalanceOf(address account) public view returns (uint256) {
         (, uint64 baseBorrowIndex_) = accruedInterestIndices(getNowInternal() - lastAccrualTime);
         int104 principal = userBasic[account].principal;
         return principal < 0 ? presentValueBorrow(baseBorrowIndex_, unsigned104(-principal)) : 0;
@@ -1957,7 +1964,7 @@ contract SandboxComet is CometCore, ISandboxComet {
         uint256 reservesUsd = (reserves * basePrice) / baseScale;
         uint256 targetUsd = (targetReserves() * basePrice) / baseScale;
 
-        (uint64 reservePct, uint64 protocolPct) = ISandboxController(sandboxController).getCommissions(reservesUsd, targetUsd);
+        (uint64 reservePct, uint64 protocolPct) = ISandboxController(sandboxController).getCommissions(reservesUsd, targetUsd, baseToken);
         _reserveFee = mulFactor(profitAmount, uint256(reservePct));
         _daoFee = mulFactor(profitAmount, uint256(protocolPct));
         _controllerFee = IConfigController(configController).cometFeeEnabled(address(this)) ? profitAmount - _reserveFee - _daoFee : 0;
@@ -1978,11 +1985,21 @@ contract SandboxComet is CometCore, ISandboxComet {
      *      - Users can still supply base asset to close existing debt positions
      *      - Once deprecation completes, the market becomes permanently deprecated
      */
-    function initiateDeprecation() external override {
+    function initiateDeprecation() external {
         if (msg.sender != configController) revert Unauthorized();
         if (deprecationStatus != DeprecationStatus.NotStarted) {
             revert InvalidDeprecationState(uint8(deprecationStatus));
         }
+        // Check if the comet is in curve transition status
+        if (isTransitionActive) revert TransitionAlreadyActive();
+        
+        // Check if the comet is in collateral removal process
+        if (removalInProgress) revert CollateralRemovalInProgress(
+            _collateralRemovalState.collateralToken,
+            _collateralRemovalState.startTime,
+            _collateralRemovalState.startTime + _collateralRemovalState.duration
+        );
+        
         /// Note: All pause flags are cleared
         pauseFlags = 0;
 

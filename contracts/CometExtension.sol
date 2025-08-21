@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
-import "./interfaces/ICometExtension.sol";
+import { ICometExtension } from "contracts/interfaces/ICometExtension.sol";
 
 contract CometExtension is ICometExtension {
     /** Public constants **/
@@ -16,6 +16,10 @@ contract CometExtension is ICometExtension {
     /// @dev The EIP-712 typehash for allowBySig Authorization
     bytes32 internal constant AUTHORIZATION_TYPEHASH =
         keccak256("Authorization(address owner,address manager,address asset,uint256 amount,uint256 nonce,uint256 expiry)");
+
+    /// @dev The EIP-712 typehash for allowAllBySig Authorization
+    bytes32 internal constant AUTHORIZATION_ALL_TYPEHASH =
+        keccak256("AuthorizationAll(address owner,address manager,bool approved,uint256 nonce,uint256 expiry)");
 
     /// @dev The highest valid value for s in an ECDSA signature pair (0 < s < secp256k1n ÷ 2 + 1)
     ///  See https://ethereum.github.io/yellowpaper/paper.pdf #307)
@@ -73,14 +77,12 @@ contract CometExtension is ICometExtension {
     function totalsBasic() public view override returns (TotalsBasic memory) {
         return
             TotalsBasic({
-                baseSupplyIndex: baseSupplyIndex,
-                baseBorrowIndex: baseBorrowIndex,
-                trackingSupplyIndex: trackingSupplyIndex,
-                trackingBorrowIndex: trackingBorrowIndex,
                 totalSupplyBase: totalSupplyBase,
                 totalBorrowBase: totalBorrowBase,
                 lastAccrualTime: lastAccrualTime,
-                pauseFlags: pauseFlags
+                pauseFlags: pauseFlags,
+                baseSupplyIndex: baseSupplyIndex,
+                baseBorrowIndex: baseBorrowIndex
             });
     }
 
@@ -107,26 +109,9 @@ contract CometExtension is ICometExtension {
     }
 
     /**
-     * @notice Query the current collateral balance of an account
-     * @param account The account whose balance to query
-     * @param asset The collateral asset to check the balance for
-     * @return The collateral balance of the account
-     */
-    function collateralBalanceOf(address account, address asset) external view override returns (uint256) {
-        return userCollateral[account][asset];
-    }
-
-    /**
-     * @notice Query the total accrued base rewards for an account
-     * @param account The account to query
-     * @return The accrued rewards, scaled by `BASE_ACCRUAL_SCALE`
-     */
-    function baseTrackingAccrued(address account) external view override returns (uint64) {
-        return userBasic[account].baseTrackingAccrued;
-    }
-
-    /**
-     * @notice Approve a spender to transfer a specific amount of an asset on behalf of the sender
+     * @notice Approve or disallow `spender` to transfer on sender's behalf
+     * @dev Note: this binary approval is unlike most other ERC20 tokens
+     * @dev Note: this grants full approval for spender to manage *all* the owner's assets
      * @param spender The address of the account which may transfer tokens
      * @param asset The address of the asset being approved
      * @param amount The amount of the asset that the spender is allowed to manage
@@ -137,11 +122,11 @@ contract CometExtension is ICometExtension {
 
     /**
      * @notice Approve a spender to transfer multiple amounts of assets on behalf of the sender
-     * note This function assumes that the first asset is the baseToken and the rest are collateral assets
      * @param spender The address of the account which may transfer tokens
-     * @param amounts The amounts of each asset that the spender is allowed to manage
-     * @dev Note: The first amount corresponds to the baseToken, followed by each collateral asset in order
-     * @dev The length of the amounts array must match the number of assets (baseToken + collateralAssets)
+     * @param baseTokenAmount The amount of the base token that the spender is allowed to manage
+     * @param amounts The amounts of each collateral asset that the spender is allowed to manage
+     * @dev The length of `amounts` must match the number of collateral assets
+     * @dev Collateral assets are ordered by their index in the `collateralAssets` array
      */
     function approveAllTokens(address spender, uint256 baseTokenAmount, uint256[] calldata amounts) external override {
         uint256 len = collateralAssets.length;
@@ -203,6 +188,57 @@ contract CometExtension is ICometExtension {
         allowInternal(signatory, manager, asset, amount);
     }
 
+    /**
+     * @notice Sets authorization status for a manager via signature from signatory
+     * @param owner The address that signed the signature
+     * @param manager The address to authorize (or rescind authorization from)
+     * @param approved Whether the manager is approved or revoked
+     * @param nonce The next expected nonce value for the signatory
+     * @param expiry Expiration time for the signature
+     * @param v The recovery byte of the signature
+     * @param r Half of the ECDSA signature pair
+     * @param s Half of the ECDSA signature pair
+     */
+    function allowAllBySig(
+        address owner,
+        address manager,
+        bool approved,
+        uint256 nonce,
+        uint256 expiry,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) external override {
+        if (uint256(s) > MAX_VALID_ECDSA_S) revert InvalidValueS();
+        // v ∈ {27, 28} (source: https://ethereum.github.io/yellowpaper/paper.pdf #308)
+        if (v != 27 && v != 28) revert InvalidValueV();
+        bytes32 domainSeparator = keccak256(
+            abi.encode(DOMAIN_TYPEHASH, keccak256(bytes(name())), keccak256(bytes(version)), block.chainid, address(this))
+        );
+        bytes32 structHash = keccak256(abi.encode(AUTHORIZATION_ALL_TYPEHASH, owner, manager, approved, nonce, expiry));
+        bytes32 digest = keccak256(abi.encodePacked("\x19\x01", domainSeparator, structHash));
+        address signatory = ecrecover(digest, v, r, s);
+        if (signatory == address(0)) revert BadSignatory();
+        if (owner != signatory) revert BadSignatory();
+        if (nonce != userNonce[signatory]++) revert BadNonce();
+        if (block.timestamp >= expiry) revert SignatureExpired();
+        allowAllInternal(signatory, manager, approved);
+    }
+
+    /**
+     * @notice Sets the rewards contract for a comet
+     * @param _rewards The address of the rewards contract to set
+     */
+    // aderyn-fp-next-line(state-change-without-event)
+    function setRewards(address _rewards) external {
+        if (msg.sender != configController) revert Unauthorized();
+
+        /// @dev: Can be set as zero address to disable rewards
+        rewardAddress = _rewards; // aderyn-fp(state-no-address-check)
+
+        /// @dev: event is emitted in config controller
+    }
+
     /// @notice Returns the current configuration of the market
     /// @return Configuration struct containing all market parameters
     function getConfiguration() external view returns (Configuration memory) {
@@ -221,11 +257,7 @@ contract CometExtension is ICometExtension {
                 borrowPerYearInterestRateSlopeHigh: borrowPerSecondInterestRateSlopeHigh * SECONDS_PER_YEAR,
                 borrowPerYearInterestRateBase: borrowPerSecondInterestRateBase * SECONDS_PER_YEAR,
                 storeFrontPriceFactor: storeFrontPriceFactor,
-                trackingIndexScale: safe64(trackingIndexScale),
-                baseTrackingSupplySpeed: safe64(baseTrackingSupplySpeed),
-                baseTrackingBorrowSpeed: safe64(baseTrackingBorrowSpeed),
-                baseMinForRewards: safe104(baseMinForRewards),
-                baseBorrowMin: safe104(baseBorrowMin),
+                baseBorrowMin: uint104(baseBorrowMin),
                 targetPercent: targetPercent,
                 seedReserves: safe104(seedReserves),
                 unlockTimestamp: unlockTimestamp,

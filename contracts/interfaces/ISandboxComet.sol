@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity 0.8.28;
 
 import "./IConfigController.sol";
@@ -46,8 +46,6 @@ interface ISandboxComet {
 
     function absorb(address absorber, address[] calldata accounts) external;
 
-    function buyCollateral(address asset, uint minAmount, uint baseAmount, address recipient) external;
-
     function quoteCollateral(address asset, uint baseAmount) external view returns (uint, uint, uint, uint);
 
     function getPrice(address priceFeed) external view returns (uint);
@@ -58,6 +56,8 @@ interface ISandboxComet {
 
     function totalBorrow() external view returns (uint256);
 
+    function totalSupply() external view returns (uint256);
+
     function balanceOf(address owner) external view returns (uint256);
 
     function borrowBalanceOf(address account) external view returns (uint256);
@@ -67,6 +67,8 @@ interface ISandboxComet {
     function getCollateralReserves(address asset) external view returns (uint);
         
     function getReserves() external view returns (int);
+
+    function buyCollateral(address asset, uint minAmount, uint baseAmount, address recipient) external;
 
     function initiateCurveTransition(uint8 curveId) external;
 

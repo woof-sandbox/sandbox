@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity 0.8.28;
 
 import "./ISandboxErrors.sol";
@@ -58,11 +58,6 @@ interface ISandboxController is ISandboxErrors {
         /// First 256 bits (32 bytes) (8+8+5+5+5 = 31 bytes)
         uint64 targetPercent; // 8 bytes
         uint64 storeFrontPriceFactor; // 8 bytes
-        uint40 minUpdateTime; // 5 bytes
-        uint40 maxUpdateTime; // 5 bytes
-        uint40 suggestedLockTimeOfSeedReserves; // 5 bytes
-        /// 2nd 256 bits (32 bytes)
-        uint256 suggestedAmountOfSeedReserves; // 32 bytes
         /// 3rd 256 bits (32 bytes)
         uint40 transitionDuration; // 5 bytes
     }
@@ -92,6 +87,7 @@ interface ISandboxController is ISandboxErrors {
     event CommissionChanged(MarketState state, uint64 oldReserveCommission, uint64 newReserveCommission, uint64 oldProtocolCommission, uint64 newProtocolCommission);
     event TreasuryChanged(address oldTreasury, address newTreasury);
     event ConfigurationChanged(SandboxControllerConfiguration oldConfig, SandboxControllerConfiguration newConfig);
+    event SeedReservesSet(address baseToken, uint256 suggestedAmount, uint40 lockTime);
     event FeeEnabledSet(bool feeEnabled);
     event OwnerTransferred(address oldOwner, address newOwner);
     event DaoTransferred(address oldDao, address newDao);
@@ -106,8 +102,6 @@ interface ISandboxController is ISandboxErrors {
 
     function feeEnabled() external view returns (bool);
 
-    function proposalBoundaries() external view returns (uint40, uint40);
-
     function removalCollateralDuration() external view returns (uint40);
 
     function tokenToPriceFeed(address) external view returns (address);
@@ -116,9 +110,16 @@ interface ISandboxController is ISandboxErrors {
 
     function protocolCommission(uint256) external view returns (uint64);
 
-    function getCommissions(uint256, uint256) external view returns (uint64, uint64);
+    function getCommissions(uint256, uint256, address) external view returns (uint64, uint64);
 
-    function whitelistBaseAsset(address token, address priceFeed, BaseAssetCurve memory baseAssetCurve, uint256 minBorrow) external;
+    function whitelistBaseAsset(
+        address token,
+        address priceFeed,
+        BaseAssetCurve memory baseAssetCurve,
+        uint256 minBorrow,
+        uint256 amountOfSeedReserves,
+        uint40 lockTimeOfSeedReserves
+    ) external;
 
     function whitelistCollateralAsset(
         address token,
@@ -149,8 +150,6 @@ interface ISandboxController is ISandboxErrors {
 
     function setTreasury(address _treasury) external;
 
-    function setConfiguration(SandboxControllerConfiguration memory _config) external;
-
     function setFeeEnabled(bool _feeEnabled) external;
 
     function setCollateralRemovalDuration(uint40 _removalCollateralDuration) external;
@@ -172,4 +171,10 @@ interface ISandboxController is ISandboxErrors {
     function curves(address token) external view returns (BaseAssetCurve[] memory);
 
     function config() external view returns (SandboxControllerConfiguration memory);
+
+    function suggestedAmountOfSeedReserves(address token) external view returns (uint256);
+
+    function suggestedLockTimeOfSeedReserves(address token) external view returns (uint40);
+
+    function baseTokenSuggestedSeedReserves(address token) external view returns (uint256, uint40);
 }

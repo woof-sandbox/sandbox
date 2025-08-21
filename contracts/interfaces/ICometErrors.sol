@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity 0.8.28;
 
 interface ICometErrors {
@@ -139,6 +139,8 @@ interface ICometErrors {
 
     /// @notice Error thrown when a curveId is invalid
     error InvalidCurveId();
+    error PrincipalDecreaseOnSupply();
+
     // /**
     //  * @notice Error thrown when the market is deprecated
     //  */

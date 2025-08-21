@@ -11,7 +11,7 @@ import {
 } from "../build/types";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { ethers } from "hardhat";
-import { expect, exp, defaultAssets, defaultSandboxControllerOpts, makeSandboxController, makeConfigControllerFactory, makeCometFactory } from "./helper/helpers";
+import { expect, exp, defaultAssets, defaultSandboxControllerOpts, makeSandboxController, makeConfigControllerFactory, makeCometFactory, sandboxListBaseAsset } from "./helper/helpers";
 import { CollateralTokenConfigStruct, ProposeNewCollateralTokenEvent } from "../build/types/ConfigController";
 import { CollateralAssetStruct } from "../build/types/SandboxComet";
 
@@ -84,31 +84,18 @@ describe("26. Create Add Collateral Proposal", () => {
 
         // Create SandboxController
         const sandboxControllerOpts = defaultSandboxControllerOpts({
-            owner: owner,
-            dao: dao,
-            treasury: users[0]
+            owner: owner.address,
+            dao: dao.address,
+            treasury: users[0].address
         });
-        const sandboxControllerInfo = await makeSandboxController(sandboxControllerOpts);
-        sandboxController = sandboxControllerInfo.sandboxController;
+        sandboxController = await makeSandboxController(sandboxControllerOpts, owner);
 
         // Allocate base token to owner and approve
-        await baseToken.allocateTo(owner.address, sandboxControllerOpts.config.suggestedAmountOfSeedReserves);
+        const seedReservesAmount = await sandboxController.suggestedAmountOfSeedReserves(baseToken.address);
+        await baseToken.allocateTo(owner.address, seedReservesAmount);
         
-        await sandboxController.whitelistBaseAsset(
-            baseToken.address,
-            priceFeeds["USDC"].address,
-            {
-                supplyKink: exp(0.8, 18),
-                supplyPerYearInterestRateSlopeLow: exp(0.05, 18),
-                supplyPerYearInterestRateSlopeHigh: exp(0.2, 18),
-                supplyPerYearInterestRateBase: exp(0.001, 18),
-                borrowKink: exp(0.8, 18),
-                borrowPerYearInterestRateSlopeLow: exp(0.1, 18),
-                borrowPerYearInterestRateSlopeHigh: exp(0.3, 18),
-                borrowPerYearInterestRateBase: exp(0.005, 18),
-            },
-            exp(1, await baseToken.decimals())
-        );
+        // Whitelist base asset using the helper function
+        await sandboxListBaseAsset(sandboxController, baseToken, priceFeeds["USDC"].address);
 
         // Whitelist collateral assets (excluding the one we'll add via proposal)
         for (const symbol in assets) {
@@ -161,7 +148,11 @@ describe("26. Create Add Collateral Proposal", () => {
         // Accept curator proposal
         await configController.connect(curator).acceptProposal(0);
 
-        // Create Comet
+        // Allocate base token to owner and approve for ConfigController
+        await baseToken.allocateTo(owner.address, seedReservesAmount);
+        await baseToken.approve(configController.address, seedReservesAmount);
+
+        // Create comet
         const collateralTokens = [];
         for (const symbol in assets) {
             if (symbol !== "USDC" && symbol !== "WETH" && symbol !== "WBTC") {
@@ -180,7 +171,7 @@ describe("26. Create Add Collateral Proposal", () => {
             baseToken: baseToken.address,
             baseTokenCurveId: 0,
             collateralTokens: collateralTokens,
-            amountOfSeedReserves: ethers.utils.parseEther("100"),
+            amountOfSeedReserves: seedReservesAmount,
             name: "Test Market"
         };
 
@@ -239,7 +230,7 @@ describe("26. Create Add Collateral Proposal", () => {
             expect(proposal.call).to.equal(calldata1);
             expect(proposal.maturityTime).to.equal(blockTimestamp + PROPOSE_NEW_COLLATERAL_MATURITY);
             expect(proposal.expirationTime).to.equal(blockTimestamp + PROPOSE_NEW_COLLATERAL_LIFETIME);
-            expect(proposal.timelock).to.equal(blockTimestamp + PROPOSE_NEW_COLLATERAL_TIMELOCK);
+            expect(proposal.timelock).to.equal(0);
         });
 
         it("should emit the event when the proposal is created", async () => {
@@ -906,28 +897,14 @@ describe("Check the proposal revert on the SandboxComet side.", () => {
         await priceFeed.deployed();
         // Create SandboxController
         const sandboxControllerOpts = defaultSandboxControllerOpts({
-            owner: owner,
-            dao: dao,
+            owner: owner.address,
+            dao: dao.address,
             treasury: ethers.Wallet.createRandom().address
         });
-        const sandboxControllerInfo = await makeSandboxController(sandboxControllerOpts);
-        sandboxController = sandboxControllerInfo.sandboxController;
+        sandboxController = await makeSandboxController(sandboxControllerOpts, owner);
+
         // Whitelist base token
-        await sandboxController.whitelistBaseAsset(
-            baseToken.address,
-            basePriceFeed.address,
-            {
-                supplyKink: ethers.utils.parseEther("0.8"),
-                supplyPerYearInterestRateBase: ethers.utils.parseEther("0.001"),
-                supplyPerYearInterestRateSlopeLow: ethers.utils.parseEther("0.05"),
-                supplyPerYearInterestRateSlopeHigh: ethers.utils.parseEther("2"),
-                borrowKink: ethers.utils.parseEther("0.8"),
-                borrowPerYearInterestRateBase: ethers.utils.parseEther("0.005"),
-                borrowPerYearInterestRateSlopeLow: ethers.utils.parseEther("0.1"),
-                borrowPerYearInterestRateSlopeHigh: ethers.utils.parseEther("3"),
-            },
-            ethers.utils.parseUnits("1", 6) // baseBorrowMin
-        );
+        await sandboxListBaseAsset(sandboxController, baseToken, basePriceFeed.address);
 
         // Whitelist collateral token
         await sandboxController.whitelistCollateralAsset(
@@ -952,8 +929,8 @@ describe("Check the proposal revert on the SandboxComet side.", () => {
         await configControllerFactory.deployed();
 
         // Create CometFactory
-        const CometFactory = await ethers.getContractFactory("CometHarness");
-        const cometImpl = await CometFactory.deploy();
+        const SandboxCometImpl = await ethers.getContractFactory("SandboxComet");
+        const cometImpl = await SandboxCometImpl.deploy();
         const SandboxCometFactoryFactory = await ethers.getContractFactory("SandboxCometFactory");
         cometFactory = await SandboxCometFactoryFactory.deploy(
             cometImpl.address, 
@@ -978,6 +955,11 @@ describe("Check the proposal revert on the SandboxComet side.", () => {
         // Accept curator proposal
         await configControllerProposalTest.connect(curator).acceptProposal(await configControllerProposalTest.proposalCounter());
 
+        // Allocate base token to owner and approve for ConfigController
+        const seedReservesAmount = await sandboxController.suggestedAmountOfSeedReserves(baseToken.address);
+        await baseToken.allocateTo(owner.address, seedReservesAmount);
+        await baseToken.approve(configControllerProposalTest.address, seedReservesAmount);
+
         // Create comet with only one collateral token
         const cometConfig = {
             name: "Test Comet",
@@ -990,7 +972,7 @@ describe("Check the proposal revert on the SandboxComet side.", () => {
                 liquidationFactor: ethers.utils.parseEther("0.8"),
             }],
             baseTokenCurveId: 0n,
-            amountOfSeedReserves: ethers.utils.parseEther("100"),
+            amountOfSeedReserves: await sandboxController.suggestedAmountOfSeedReserves(baseToken.address),
         };
 
         await configControllerProposalTest.createComet(cometConfig);

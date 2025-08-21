@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
-import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import "./interfaces/IConfigController.sol";
@@ -10,10 +9,10 @@ import "./interfaces/IConfigControllerEvents.sol";
 
 import "./interfaces/IConfigControllerFactory.sol";
 import "./interfaces/ISandboxController.sol";
-import "./interfaces/ISandboxCometConfig.sol";
+import "./interfaces/ICometForController.sol";
 import "./interfaces/ISandboxCometFactory.sol";
 
-import "hardhat/console.sol";
+
 
 /**
  * @title ConfigController
@@ -21,7 +20,7 @@ import "hardhat/console.sol";
  * @notice Manages protocol configuration, comet creation, and curator governance
  * @dev This contract handles the core configuration of the protocol, including:
  * - Comet creation and management
- * - Curator role management
+ * -_sandboxConfig Curator role management
  * - Revenue distribution
  * - Proposal system for comet configuration changes
  * - Comet transfer proposals
@@ -100,18 +99,6 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
     /// @notice Modifier to restrict access to owner only
     modifier onlyOwner() {
         if (msg.sender != owner) revert Unauthorized();
-        _;
-    }
-
-    /// @notice Modifier to restrict access to owner or curator
-    modifier onlyOwnerOrCurator() {
-        if (msg.sender != owner && msg.sender != curator) revert Unauthorized();
-        _;
-    }
-
-    /// @notice Modifier to restrict access to guardian only
-    modifier onlyGuardian() {
-        if (msg.sender != guardian) revert Unauthorized();
         _;
     }
 
@@ -242,13 +229,16 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
              * - We can't add the baseToken as collateral token.
              * - Validate the collateral token configuration using internal function.
              * - We can't add more than MAX_ASSETS collateral tokens.
+             * - Check if the comet is in curve transition status.
+             * - Check if the comet is in collateral removal process.
+             * - Check if the comet is deprecated.
              */
             bytes4 selector = bytes4(_calldata);
             if (selector != ADD_COLLATERAL_SELECTOR) revert InvalidSelector();
 
             CollateralTokenConfig memory collateralConfig = abi.decode(_calldata[4:], (CollateralTokenConfig));
 
-            ISandboxCometConfig comet = ISandboxCometConfig(_comet);
+            ICometForController comet = ICometForController(_comet);
             try comet.getAssetInfoByAddress(collateralConfig.collateralToken) {
                 revert CollateralTokenAlreadyAdded();
             }
@@ -260,6 +250,15 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
             _validateCollateralTokenConfig(collateralConfig);
 
             if (comet.numAssets() >= comet.MAX_ASSETS()) revert MaxCollateralTokensReached();
+
+            // Check if the comet is in curve transition status
+            if (comet.isTransitionActive()) revert CurveTransitionAlreadyInitiated();
+
+            // Check if the comet is in collateral removal process
+            if (comet.removalInProgress()) revert CollateralRemovalInProgress();
+
+            // Check if the comet is deprecated
+            if (comet.isDeprecated()) revert MarketAlreadyDeprecated();
 
             // Create the proposal
             proposals[proposalId] = Proposal({
@@ -308,6 +307,9 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
              * --- Before creating the proposal checks ---
              * - Check if the selector is valid.
              * - Check if the collateral is the part of the comet collateral list.
+             * - Check if the comet is in curve transition status.
+             * - Check if the comet is in collateral removal process.
+             * - Check if the comet is deprecated.
              * Note: We don't check if the removal is already initiated, because it can be ended before the proposal is accepted.
              */
             bytes4 selector = bytes4(_calldata);
@@ -315,11 +317,20 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
 
             address collateralToken = abi.decode(_calldata[4:], (address));
             /// Inside the comet, the function getAssetInfoByAddress will revert if the collateral token is not added.
-            try ISandboxCometConfig(_comet).getAssetInfoByAddress(collateralToken) {
+            try ICometForController(_comet).getAssetInfoByAddress(collateralToken) {
             }
             catch {
                 revert CollateralTokenNotAdded();
             }
+
+            // Check if the comet is in curve transition status
+            if (ICometForController(_comet).isTransitionActive()) revert CurveTransitionAlreadyInitiated();
+
+            // Check if the comet is in collateral removal process
+            if (ICometForController(_comet).removalInProgress()) revert CollateralRemovalInProgress();
+
+            // Check if the comet is deprecated
+            if (ICometForController(_comet).isDeprecated()) revert MarketAlreadyDeprecated();
 
             // Create the proposal   
             proposals[proposalId] = Proposal({
@@ -338,13 +349,21 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
              * --- Before creating the proposal checks ---
              * - Check if the selector is valid.
              * - Check if the curveId is valid.
+             * - Check if the comet is in collateral removal process.
+             * - Check if the comet is deprecated.
              */
             bytes4 selector = bytes4(_calldata);
             if (selector != CURVE_TRANSITION_SELECTOR) revert InvalidSelector();
 
             uint8 curveId = abi.decode(_calldata[4:], (uint8));
-            ISandboxCometConfig comet = ISandboxCometConfig(_comet);
+            ICometForController comet = ICometForController(_comet);
             if (curveId >= ISandboxController(sandboxController).baseAssets(comet.baseToken()).baseAssetCurves.length) revert InvalidCurveId();
+
+            // Check if the comet is in collateral removal process
+            if (comet.removalInProgress()) revert CollateralRemovalInProgress();
+
+            // Check if the comet is deprecated
+            if (comet.isDeprecated()) revert MarketAlreadyDeprecated();
 
             // Create the proposal
             proposals[proposalId] = Proposal({
@@ -364,12 +383,21 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
              * - Check if the selector is valid.
              * - Check if the market in the close process.
              * - Check if the market is already closed.
+             * - Check if the comet is in curve transition status.
+             * - Check if the comet is in collateral removal process.
+             * - Check if the comet is deprecated.
              */
             bytes4 selector = bytes4(_calldata);
             if (selector != MARKET_DEPRECATION_SELECTOR) revert InvalidSelector();
 
             // Check if the market is already deprecated
-            if (ISandboxCometConfig(_comet).isDeprecated()) revert MarketAlreadyDeprecated();
+            if (ICometForController(_comet).isDeprecated()) revert MarketAlreadyDeprecated();
+
+            // Check if the comet is in curve transition status
+            if (ICometForController(_comet).isTransitionActive()) revert CurveTransitionAlreadyInitiated();
+
+            // Check if the comet is in collateral removal process
+            if (ICometForController(_comet).removalInProgress()) revert CollateralRemovalInProgress();
 
             // Create the proposal
             proposals[proposalId] = Proposal({
@@ -387,11 +415,23 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
             /**
              * --- Before creating the proposal checks ---
              * - Check if the _configController is address.
+             * - Check if the comet is in curve transition status.
+             * - Check if the comet is in collateral removal process.
+             * - Check if the comet is deprecated.
              */
             address _configController = abi.decode(_calldata, (address));
             if (_configController == address(0)) revert InvalidConfigController();
             if (_configController == address(this)) revert InvalidConfigController();
             if (!IConfigControllerFactory(configControllerFactory).isController(_configController)) revert InvalidConfigController();
+
+            // Check if the comet is in curve transition status
+            if (ICometForController(_comet).isTransitionActive()) revert CurveTransitionAlreadyInitiated();
+
+            // Check if the comet is in collateral removal process
+            if (ICometForController(_comet).removalInProgress()) revert CollateralRemovalInProgress();
+
+            // Check if the comet is deprecated
+            if (ICometForController(_comet).isDeprecated()) revert MarketAlreadyDeprecated();
             
             // Create the proposal
             proposals[proposalId] = Proposal({
@@ -521,7 +561,7 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
             CollateralTokenConfig memory collateralConfig = abi.decode(params, (CollateralTokenConfig));
             _validateCollateralTokenConfig(collateralConfig);
 
-            ISandboxCometConfig comet = ISandboxCometConfig(_proposal.comet);
+            ICometForController comet = ICometForController(_proposal.comet);
             /// Inside the comet, the function getAssetInfoByAddress will revert if the collateral token is not added.
             try comet.getAssetInfoByAddress(collateralConfig.collateralToken) {
                 revert CollateralTokenAlreadyAdded();
@@ -555,7 +595,7 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
              */
             if (msg.sender != owner && msg.sender != curator) revert Unauthorized();
             if (!isCometOwned(_proposal.comet)) revert UnknownComet();
-            if (ISandboxCometConfig(_proposal.comet).removalInProgress()) revert CollateralRemovalInProgress();
+            if (ICometForController(_proposal.comet).removalInProgress()) revert CollateralRemovalInProgress();
 
             if (_proposal.timelock == 0) {
                 _proposal.timelock = uint40(block.timestamp + PROPOSE_COLLATERAL_REMOVAL_TIMELOCK);
@@ -575,7 +615,7 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
                 address collateralToken = abi.decode(collateralTokenBytes, (address));
 
                 /// Inside the comet, the function getAssetInfoByAddress will revert if the collateral token is not added.
-                try ISandboxCometConfig(_proposal.comet).getAssetInfoByAddress(collateralToken) {
+                try ICometForController(_proposal.comet).getAssetInfoByAddress(collateralToken) {
                     // Collateral token is still part of the comet collateral list
                 }
                 catch {
@@ -604,7 +644,7 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
              */
             if (msg.sender != owner && msg.sender != curator) revert Unauthorized();
             if (!isCometOwned(_proposal.comet)) revert UnknownComet();
-            if (ISandboxCometConfig(_proposal.comet).isTransitionActive()) revert CurveTransitionAlreadyInitiated();
+            if (ICometForController(_proposal.comet).isTransitionActive()) revert CurveTransitionAlreadyInitiated();
             
             // Copy the parameters (skip the first 4 bytes which is the selector)
             bytes memory curveIdBytes = new bytes(_proposal.call.length - 4);
@@ -635,7 +675,7 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
              */
             if (msg.sender != owner) revert Unauthorized();
             if (!isCometOwned(_proposal.comet)) revert UnknownComet();
-            if (ISandboxCometConfig(_proposal.comet).isDeprecated()) revert MarketAlreadyDeprecated();
+            if (ICometForController(_proposal.comet).isDeprecated()) revert MarketAlreadyDeprecated();
             
             // The proposal is not timelocked. Buy we must have the timelock period.
             if (_proposal.timelock == 0) {
@@ -766,29 +806,28 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
     /// @param _cometConfig The configuration parameters for the new comet
     /// @return The address of the newly created comet
     function createComet(CometConfig memory _cometConfig) external override onlyOwner returns (address) {
+        address baseToken = _cometConfig.baseToken;
+        uint256 baseTokenCurveId = _cometConfig.baseTokenCurveId;
         /// Check base token
         ///
-        if (_cometConfig.baseToken == address(0)) revert ZeroAddress();
+        if (baseToken == address(0)) revert ZeroAddress();
         // aderyn-fp-next-line(reentrancy-state-change)
-        if (!ISandboxController(sandboxController).isBaseTokenWhitelisted(_cometConfig.baseToken)) revert BaseTokenNotWhitelisted();
-        /// Token decimals and price feed decimal are validated on the Comet, as it may be an individual setting
+        ISandboxController _sandboxController = ISandboxController(sandboxController);
 
+        if (!_sandboxController.isBaseTokenWhitelisted(baseToken)) revert BaseTokenNotWhitelisted();
+        /// Token decimals and price feed decimal are validated on the Comet, as it may be an individual setting
         /// Check interest curve
         ///
         // aderyn-fp-next-line(reentrancy-state-change)
-        ISandboxController.BaseAssetConfiguration memory baseAssetConfig = ISandboxController(sandboxController).baseAssets(
-            _cometConfig.baseToken
-        );
-
+        ISandboxController.BaseAssetConfiguration memory baseAssetConfig = _sandboxController.baseAssets(baseToken);
         if (baseAssetConfig.baseAssetCurves.length == 0) revert NoCurveRegistered();
-        if (_cometConfig.baseTokenCurveId >= baseAssetConfig.baseAssetCurves.length) revert InvalidCurveId();
+        if (baseTokenCurveId >= baseAssetConfig.baseAssetCurves.length) revert InvalidCurveId();
 
         /// Check collaterals
         ///
         uint256 _length = _cometConfig.collateralTokens.length;
         CollateralTokenConfig memory collateralTokenConfig;
         address[] memory addedCollateralTokens = new address[](_length);
-
         /// Upper boundary for collateral tokens number is checked in Comet, as different Comets may be supported
         if (_length == 0) revert ZeroCollateralAssets();
         // aderyn-fp-next-line(require-revert-in-loop)
@@ -798,7 +837,7 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
 
             /// Quick checks first
             if (_collateralToken == address(0)) revert ZeroAddress();
-            if (_collateralToken == _cometConfig.baseToken) revert WrongCollateralTokenSettings();
+            if (_collateralToken == baseToken) revert WrongCollateralTokenSettings();
 
             for (uint8 j = 0; j < i; ) {
                 if (addedCollateralTokens[j] == _collateralToken) revert CollateralTokenAlreadyAdded();
@@ -814,28 +853,22 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
                 ++i;
             }
         }
-
         // aderyn-fp-next-line(reentrancy-state-change)
-        ISandboxController.SandboxControllerConfiguration memory _sandboxConfig = ISandboxController(sandboxController).config();
+        ISandboxController.SandboxControllerConfiguration memory _sandboxConfig = _sandboxController.config();
         CometGlobalParamsConfig memory _globalConfig = CometGlobalParamsConfig(
             _sandboxConfig.targetPercent,
             _sandboxConfig.storeFrontPriceFactor,
-            _sandboxConfig.suggestedAmountOfSeedReserves,
-            _sandboxConfig.suggestedLockTimeOfSeedReserves,
             _sandboxConfig.transitionDuration
         );
-
         address comet = ISandboxCometFactory(cometFactory).createComet(_cometConfig.name); // aderyn-fp(reentrancy-state-change)
-        ISandboxCometConfig(comet).initialize(_cometConfig, _globalConfig); // aderyn-fp(reentrancy-state-change)
-
+        ICometForController(comet).initialize(_cometConfig, _globalConfig); // aderyn-fp(reentrancy-state-change)
+        if (_cometConfig.amountOfSeedReserves > 0) {
+            IERC20(baseToken).safeTransferFrom(msg.sender, comet, _cometConfig.amountOfSeedReserves);
+        }
         uint256 cometsNum = comets.length;
         comets.push(comet);
         cometId[comet] = cometsNum;
-
-        if (_cometConfig.amountOfSeedReserves > 0) {
-            IERC20(_cometConfig.baseToken).safeTransferFrom(msg.sender, comet, _cometConfig.amountOfSeedReserves);
-        }
-
+        
         emit CometCreated(comet, _cometConfig.baseToken, baseAssetConfig.priceFeed, cometsNum + 1, _cometConfig.baseTokenCurveId);
 
         return comet;
@@ -858,15 +891,29 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
         emit CometFeeEnabled(address(this), comet, feeEnabled);
     }
 
+    /// @notice Sets the rewards contract for a specific comet
+    /// @param _comet Comet which should be registered in Controller
+    /// @param _rewards The address of the rewards contract
+    function setRewards(address _comet, address _rewards) external onlyOwner {
+        /// Note: rewards can be set to address(0), meaning rewards are disabled for that comet
+        if (_comet == address(0)) revert ZeroAddress();
+        if (!isCometOwned(_comet)) revert UnknownComet();
+
+        ICometForController(_comet).setRewards(_rewards);
+
+        emit RewardsSet(_comet, _rewards);
+    }
+
     /// @notice Extracts fees to a self and distributes it
     /// @param comet Comet which should be registered in Controller
     /// @param asset Asset (collateral or base asset) to extract
     /// @dev Just duplicate the function from the comet.
-    function extractFees(address comet, address asset) external onlyOwnerOrCurator {
+    function extractFees(address comet, address asset) external {
+        if (msg.sender != owner && msg.sender != curator) revert Unauthorized();
         if (comet == address(0)) revert ZeroAddress();
         if (!isCometOwned(comet)) revert UnknownComet();
 
-        ISandboxCometConfig(comet).extractFees(asset);
+        ICometForController(comet).extractFees(asset);
         /// Note: Comet emits the respective event
 
         if (IERC20(asset).balanceOf(address(this)) > 0) {
@@ -885,6 +932,8 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
     function grantOwnership(address _newOwner) external onlyOwner {
         if (_newOwner == address(0)) revert ZeroAddress();
         address oldOwner = owner;
+
+        if (_newOwner == oldOwner) revert IncorrectValue();
         owner = _newOwner;
 
         emit OwnershipGranted(oldOwner, _newOwner);
@@ -974,7 +1023,7 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
         if (comet == address(0)) revert ZeroAddress();
         if (!isCometOwned(comet)) revert UnknownComet();
 
-        ISandboxCometConfig(comet).pause(supplyPaused, transferPaused, withdrawPaused, absorbPaused, buyPaused);
+        ICometForController(comet).pause(supplyPaused, transferPaused, withdrawPaused, absorbPaused, buyPaused);
         /// Note: Comet emits the respective event
     }
 
@@ -988,7 +1037,7 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
         if (comet == address(0)) revert ZeroAddress();
         if (!isCometOwned(comet)) revert UnknownComet();
 
-        ISandboxCometConfig(comet).withdrawFreeSeedReserves(amount);
+        ICometForController(comet).withdrawFreeSeedReserves(amount);
         /// Note: Comet emits the respective event
     }
 }

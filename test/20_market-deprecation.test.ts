@@ -4,13 +4,12 @@ import {
   expect,
   defaultSandboxControllerOpts,
   makeSandboxController,
-  makeToken,
   makePriceFeed,
   sandboxListBaseAsset,
   sandboxListCollateralAsset,
-  ZERO,
   CombinedComet,
   getCombinedComet,
+  makeMockERC20,
 } from "./helper/helpers";
 import {
   SandboxController,
@@ -89,10 +88,11 @@ describe("20. market depreciation", function () {
 
     sandboxController = (
       await makeSandboxController(
-        defaultSandboxControllerOpts({ dao: dao.address}),
+        defaultSandboxControllerOpts( { owner: owner.address, dao: dao.address, treasury: ethers.Wallet.createRandom().address}),
+        owner,
         SandboxControllerFactoryTest
       )
-    ).sandboxController;
+    );
 
     const configControllerFactory = await configControllerFactory_factory.deploy(sandboxController.address, configControllerImpl.address);
     sandboxCometFactory = await sandboxCometFactory_factory.deploy(sandboxCometImpl.address, configControllerFactory.address);
@@ -115,18 +115,34 @@ describe("20. market depreciation", function () {
     );
     configController = ConfigControllerTest__factory.connect(configControllerAddress, owner);
 
-    baseToken = await makeToken({
+    // Accept the curator proposal
+    await configController.connect(curator).acceptProposal(0);
+    
+    baseToken = await makeMockERC20({
       symbol: "WETH",
-      initialMint: ethers.utils.parseEther("50000").toString(),
+      name: "Wrapped Ether",
+      supply: ethers.utils.parseEther("50000").toString(),
     });
-
+  
     const priceFeedBase = await makePriceFeed(baseToken.address, ethers.utils.parseUnits("3200", 8).toString());
     await sandboxListBaseAsset(sandboxController, baseToken, priceFeedBase.address);
+
+    // Add base asset curve - this is required before creating a comet
+    await sandboxController.addBaseAssetCurve(baseToken.address, {
+      supplyKink: exp(0.8, 18),
+      supplyPerYearInterestRateSlopeLow: exp(0.05, 18),
+      supplyPerYearInterestRateSlopeHigh: exp(2, 18),
+      supplyPerYearInterestRateBase: exp(0.001, 18),
+      borrowKink: exp(0.8, 18),
+      borrowPerYearInterestRateSlopeLow: exp(0.1, 18),
+      borrowPerYearInterestRateSlopeHigh: exp(3, 18),
+      borrowPerYearInterestRateBase: exp(0.005, 18),
+    });
 
     const tokenSymbolList = ["USDT", "DAI", "USDC"];
 
     for (const symbol of tokenSymbolList) {
-      const collateralToken: FaucetToken = await makeToken({ symbol: symbol });
+      const collateralToken: FaucetToken = await makeMockERC20({ name: symbol, symbol: symbol });
       const priceFeedCol: SimplePriceFeed = await makePriceFeed(collateralToken.address, ethers.utils.parseUnits("1600", 8).toString());
 
       await sandboxListCollateralAsset(sandboxController, collateralToken, priceFeedCol.address);
@@ -139,7 +155,6 @@ describe("20. market depreciation", function () {
         supplyCap: exp(1e9, 18),
       });
     }
-
     // Create a new comet instance with the current market configuration
     comet = await createComet(collateralTokens);
 
@@ -152,13 +167,15 @@ describe("20. market depreciation", function () {
     marketConfig = {
       baseToken: baseToken.address,
       collateralTokens: collateralTokenConfig ? collateralTokenConfig : collateralTokens.map(obj => ({ ...obj })),
-      baseTokenCurveId: 0n,
+      baseTokenCurveId: 0n, // Revert back to 0 as used in working test
       name: "Comet",
-      amountOfSeedReserves: amountOfSeedReserves,
+      amountOfSeedReserves: await sandboxController.suggestedAmountOfSeedReserves(baseToken.address),
     };
+    await baseToken.connect(owner).allocateTo(owner.address, marketConfig.amountOfSeedReserves);
+    await baseToken.connect(owner).approve(configController.address, marketConfig.amountOfSeedReserves);
     // Create a new comet instance with the current market configuration
     const cometAddress = await configController.callStatic.createComet(marketConfig);
-    await configController.createComet(marketConfig);
+    await configController.connect(owner).createComet(marketConfig);
     // Connect to the combined comet instance: SandboxComet and CometExtension
     return getCombinedComet(cometAddress, provider);
   }
@@ -231,56 +248,56 @@ describe("20. market depreciation", function () {
 
     it("should set the supply per second interest rate slope low to zero", async () => {
       // Check the initial value of supply per second interest rate slope low
-      expect(await comet.supplyPerSecondInterestRateSlopeLow()).to.above(ZERO);
+      expect(await comet.supplyPerSecondInterestRateSlopeLow()).to.above(ethers.constants.Zero);
       // Initiate the deprecation market
       await configController.initiateDeprecationMarket(comet.address);
       // Check that the value is set to zero
-      expect(await comet.supplyPerSecondInterestRateSlopeLow()).to.equal(ZERO);
+      expect(await comet.supplyPerSecondInterestRateSlopeLow()).to.equal(ethers.constants.Zero);
     });
 
     it("should set the supply per second interest rate slope high to zero", async () => {
       // Check the initial value of supply per second interest rate slope high
-      expect(await comet.supplyPerSecondInterestRateSlopeHigh()).to.above(ZERO);
+      expect(await comet.supplyPerSecondInterestRateSlopeHigh()).to.above(ethers.constants.Zero);
       // Initiate the deprecation market
       await configController.initiateDeprecationMarket(comet.address);
       // Check that the value is set to zero
-      expect(await comet.supplyPerSecondInterestRateSlopeHigh()).to.equal(ZERO);
+      expect(await comet.supplyPerSecondInterestRateSlopeHigh()).to.equal(ethers.constants.Zero);
     });
 
     it("should set the supply per second interest rate base to zero", async () => {
       // Check the initial value of supply per second interest rate base
-      expect(await comet.supplyPerSecondInterestRateBase()).to.above(ZERO);
+      expect(await comet.supplyPerSecondInterestRateBase()).to.above(ethers.constants.Zero);
       // Initiate the deprecation market
       await configController.initiateDeprecationMarket(comet.address);
       // Check that the value is set to zero
-      expect(await comet.supplyPerSecondInterestRateBase()).to.equal(ZERO);
+      expect(await comet.supplyPerSecondInterestRateBase()).to.equal(ethers.constants.Zero);
     });
 
     it("should set the borrow per second interest rate slope low to zero", async () => {
       // Check the initial value of borrow per second interest rate slope low
-      expect(await comet.borrowPerSecondInterestRateSlopeLow()).to.above(ZERO);
+      expect(await comet.borrowPerSecondInterestRateSlopeLow()).to.above(ethers.constants.Zero);
       // Initiate the deprecation market
       await configController.initiateDeprecationMarket(comet.address);
       // Check that the value is set to zero
-      expect(await comet.borrowPerSecondInterestRateSlopeLow()).to.equal(ZERO);
+      expect(await comet.borrowPerSecondInterestRateSlopeLow()).to.equal(ethers.constants.Zero);
     });
 
     it("should set the borrow per second interest rate slope high to zero", async () => {
       // Check the initial value of borrow per second interest rate slope high
-      expect(await comet.borrowPerSecondInterestRateSlopeHigh()).to.above(ZERO);
+      expect(await comet.borrowPerSecondInterestRateSlopeHigh()).to.above(ethers.constants.Zero);
       // Initiate the deprecation market
       await configController.initiateDeprecationMarket(comet.address);
       // Check that the value is set to zero
-      expect(await comet.borrowPerSecondInterestRateSlopeHigh()).to.equal(ZERO);
+      expect(await comet.borrowPerSecondInterestRateSlopeHigh()).to.equal(ethers.constants.Zero);
     });
 
     it("should set the borrow per second interest rate base to zero", async () => {
       // Check the initial value of borrow per second interest rate base
-      expect(await comet.borrowPerSecondInterestRateBase()).to.above(ZERO);
+      expect(await comet.borrowPerSecondInterestRateBase()).to.above(ethers.constants.Zero);
       // Initiate the deprecation market
       await configController.initiateDeprecationMarket(comet.address);
       // Check that the value is set to zero
-      expect(await comet.borrowPerSecondInterestRateBase()).to.equal(ZERO);
+        expect(await comet.borrowPerSecondInterestRateBase()).to.equal(ethers.constants.Zero);
     });
 
     it("should set the liquidate collateral factor to zero for all collateral assets", async () => {
@@ -294,7 +311,7 @@ describe("20. market depreciation", function () {
       // Check that the value is set to zero for all collateral assets
       for (const [index, _] of collateralTokens.entries()) {
         const currentLiquidateCollateralFactor = await comet.getAssetInfo(index).then(info => info.liquidateCollateralFactor);
-        expect(currentLiquidateCollateralFactor).to.equal(ZERO);
+        expect(currentLiquidateCollateralFactor).to.equal(ethers.constants.Zero);
       }
     });
   });
@@ -404,7 +421,7 @@ describe("20. market depreciation", function () {
       // Close the borrow position by repaying the borrowed base token amount
       await comet.connect(secondUser).supply(baseToken.address, supplyAmount);
       // Check the user's borrow balance after repayment
-      expect(await comet.borrowBalanceOf(secondUser.address)).to.equal(ZERO);
+      expect(await comet.borrowBalanceOf(secondUser.address)).to.equal(ethers.constants.Zero);
     });
 
     it("should change the liquidation factor of the collaterals", async () => {
@@ -532,7 +549,7 @@ describe("20. market depreciation", function () {
       // Close the borrow position by repaying the borrowed base token amount
       await comet.connect(secondUser).supply(baseToken.address, supplyAmount);
       // Check the user's borrow balance after repayment
-      expect(await comet.borrowBalanceOf(secondUser.address)).to.equal(ZERO);
+      expect(await comet.borrowBalanceOf(secondUser.address)).to.equal(ethers.constants.Zero);
     });
 
     it("should allow withdraw collateral", async () => {
@@ -697,8 +714,8 @@ describe("20. market depreciation", function () {
         const maxAssets: number = 24;
         const collateralTokensConfig: CollateralTokenConfigStruct[] = [];
         // Create collateral tokens and price feeds
-        for (let i = 0; i < maxAssets; i++) {
-          const collateralToken: FaucetToken = await makeToken({ symbol: `TOKEN${i}` });
+        for (let i = 0; i < maxAssets; i++) { 
+          const collateralToken: FaucetToken = await makeMockERC20({ name: `TOKEN${i}`, symbol: `TOKEN${i}` });
           const priceFeedCol: SimplePriceFeed = await makePriceFeed(collateralToken.address, "2");
 
           await sandboxListCollateralAsset(sandboxController, collateralToken, priceFeedCol.address);

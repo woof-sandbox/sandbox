@@ -1,11 +1,11 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity 0.8.28;
 
 import "./IConfigController.sol";
 
 interface IConfigControllerEvents {
-    event CometCreated(address comet, address baseToken, address priceFeed, uint cometId, uint baseTokenCurveId);
-    event CuratorProposed(uint256 indexed proposalId, address indexed currentCurator, address indexed proposedCurator, uint expiry);
+    event CometCreated(address comet, address baseToken, address priceFeed, uint256 cometId, uint256 baseTokenCurveId);
+    event CuratorProposed(uint256 indexed proposalId, address indexed currentCurator, address indexed proposedCurator, uint256 expiry);
     event CuratorAccepted(uint256 indexed proposalId, address indexed oldCurator, address indexed newCurator);
     event CuratorCanceled(address indexed oldCurator);
     event CuratorProposalCancelled(address indexed proposedCurator);
@@ -13,13 +13,6 @@ interface IConfigControllerEvents {
     event CometFeeEnabled(address configController, address _comet, bool _enabled);
 
     event ProposeNewCollateralToken(uint256 indexed proposalId, address indexed proposer);
-
-    event ProposalDurationsUpdated(
-        uint oldCuratorDuration,
-        uint newCuratorDuration,
-        uint oldProposalDuration,
-        uint newProposalDuration
-    );
 
     event ProposalAccepted(
         uint8 indexed proposalType,
@@ -56,4 +49,6 @@ interface IConfigControllerEvents {
     event ProposeTransferOwnership(uint256 indexed proposalId, address indexed proposer, address indexed newOwner);
 
     event ProposeTransferOwnershipAccepted(uint256 indexed proposalId, address indexed accepter, address indexed newOwner);
+    
+    event RewardsSet(address indexed comet, address indexed rewards);
 }

@@ -11,6 +11,6 @@ contract ConfigControllerCallerTest is ConfigController {
         address _comet,
         CollateralTokenConfig memory _assetConfig
     ) external {
-        ISandboxCometConfig(_comet).addCollateralAsset( _assetConfig);
+        ICometForController(_comet).addCollateralAsset( _assetConfig);
     }
 }

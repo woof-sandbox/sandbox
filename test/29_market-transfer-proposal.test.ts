@@ -12,7 +12,7 @@ import {
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { ethers } from "hardhat";
 import { ContractTransaction, ContractReceipt, Event, BigNumber } from "ethers";
-import { expect, exp, defaultAssets, defaultSandboxControllerOpts, makeSandboxController, makeConfigControllerFactory, makeCometFactory } from "./helper/helpers";
+import { expect, exp, defaultAssets, defaultSandboxControllerOpts, makeSandboxController, makeConfigControllerFactory, makeCometFactory, sandboxListBaseAsset } from "./helper/helpers";
 
 const iface = new ethers.utils.Interface(["function transferMarket(address)"]);
 
@@ -77,31 +77,18 @@ describe("29. Market Transfer Proposal", () => {
 
         // Create SandboxController
         const sandboxControllerOpts = defaultSandboxControllerOpts({
-            owner: owner,
-            dao: dao,
-            treasury: users[0]
+            owner: owner.address,
+            dao: dao.address,
+            treasury: users[0].address
         });
-        const sandboxControllerInfo = await makeSandboxController(sandboxControllerOpts);
-        sandboxController = sandboxControllerInfo.sandboxController;
+        sandboxController = await makeSandboxController(sandboxControllerOpts, owner);
 
         // Allocate base token to owner and approve
-        await baseToken.allocateTo(owner.address, sandboxControllerOpts.config.suggestedAmountOfSeedReserves);
+        const seedReservesAmount = await sandboxController.suggestedAmountOfSeedReserves(baseToken.address);
+        await baseToken.allocateTo(owner.address, seedReservesAmount);
         
-        await sandboxController.whitelistBaseAsset(
-            baseToken.address,
-            priceFeeds["USDC"].address,
-            {
-                supplyKink: exp(0.8, 18),
-                supplyPerYearInterestRateSlopeLow: exp(0.05, 18),
-                supplyPerYearInterestRateSlopeHigh: exp(0.2, 18),
-                supplyPerYearInterestRateBase: exp(0.001, 18),
-                borrowKink: exp(0.8, 18),
-                borrowPerYearInterestRateSlopeLow: exp(0.1, 18),
-                borrowPerYearInterestRateSlopeHigh: exp(0.3, 18),
-                borrowPerYearInterestRateBase: exp(0.005, 18),
-            },
-            exp(1, await baseToken.decimals())
-        );
+        // Whitelist base asset using the helper function
+        await sandboxListBaseAsset(sandboxController, baseToken, priceFeeds["USDC"].address);
 
         // Whitelist collateral assets
         for (const symbol in tokens) {
@@ -183,7 +170,7 @@ describe("29. Market Transfer Proposal", () => {
         timelockPeriod = await configController.PROPOSE_MARKET_TRANSFER_TIMELOCK(); 
 
         // Approve base token for ConfigController
-        await baseToken.approve(configController.address, sandboxControllerOpts.config.suggestedAmountOfSeedReserves);
+        await baseToken.approve(configController.address, seedReservesAmount);
 
         // Create comet in first controller
         const collateralTokens = [];
@@ -204,7 +191,7 @@ describe("29. Market Transfer Proposal", () => {
             collateralTokens: collateralTokens,
             baseTokenCurveId: 0n,
             name: "Comet 1",
-            amountOfSeedReserves: ethers.utils.parseEther("100"),
+            amountOfSeedReserves: seedReservesAmount,
         };
 
         await configController.createComet(marketConfig);

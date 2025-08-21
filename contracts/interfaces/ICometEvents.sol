@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity 0.8.28;
 
 import "./ICometStructures.sol";
@@ -62,6 +62,9 @@ interface ICometEvents is ICometStructures {
     /// @notice Event emitted when collateral removal is finalized
     event CollateralRemovalFinalized(uint8 removedAssetIndex, address indexed removedAsset);
     
+    /// @notice Event emitted when the rewards contract is set
+    event RewardsSet(address indexed rewards);
+
     /// @notice Event emitted when initiate deprecation process
     event DeprecationInitiated(uint256 indexed startTimestamp, uint256 indexed endTimestamp);
 

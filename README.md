@@ -202,9 +202,11 @@ These tests are explicitly included in `tsconfig.json` and are checked during:
 - `02_system-params-validation.test.ts` - Parameter validation
 - `03_sandbox-controller.test.ts` - Controller functionality
 - `04_config-controller.test.ts` - Configuration management
-- `5_supply.test.ts` - Supply operations
-- `6_withdraw.test.ts` - Withdrawal operations
-- `7_absorb.test.ts` - Absorption mechanics
+- `05_supply.test.ts` - Supply operations
+- `06_withdraw.test.ts` - Withdrawal operations
+- `07_repay-debt.test.ts` - Debt coverage operations
+- `08_interest-calculations.test.ts` - Interest rate mechanics
+- `09_absorb.test.ts` - Absorption mechanics
 - `8_comet-ext.test.ts` - Comet extensions
 - `9_asset-info.test.ts` - Asset information
 - `10_is-liquidatable.test.ts` - Liquidation checks
@@ -236,7 +238,6 @@ npx tsc
 
 ## 📚 Documentation
 
-- **[SPEC.md](./SPEC.md)** - Detailed protocol specification
 - **[deploy-flow.md](./deploy-flow.md)** - Deployment instructions
 - **[ADERYN_REPORT.md](./ADERYN_REPORT.md)** - Security analysis report
 
@@ -267,5 +268,4 @@ This project is licensed under the BUSL-1.1 License - see the [LICENSE](./LICENS
 For questions and support:
 - Create an issue in the repository
 - Check the documentation in the `docs/` directory
-- Review the specification in `SPEC.md`
 # Test comment

@@ -12,7 +12,7 @@ import {
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { ethers } from "hardhat";
 import { ContractReceipt } from "ethers";
-import { expect, exp, defaultAssets, defaultSandboxControllerOpts, makeSandboxController, makeConfigControllerFactory, makeCometFactory } from "./helper/helpers";
+import { expect, exp, defaultAssets, defaultSandboxControllerOpts, makeSandboxController, makeConfigControllerFactory, makeCometFactory, sandboxListBaseAsset } from "./helper/helpers";
 
 // Interface for initiateCurveTransition function
 const iface = new ethers.utils.Interface([
@@ -79,32 +79,18 @@ describe("27. Create Change Curve Proposal", () => {
 
         // Create SandboxController
         const sandboxControllerOpts = defaultSandboxControllerOpts({
-            owner: owner,
-            dao: dao,
-            treasury: users[0]
+            owner: owner.address,
+            dao: dao.address,
+            treasury: users[0].address
         });
-        const sandboxControllerInfo = await makeSandboxController(sandboxControllerOpts);
-        sandboxController = sandboxControllerInfo.sandboxController;
+        sandboxController = await makeSandboxController(sandboxControllerOpts, owner);
 
         // Allocate base token to owner and approve
-        await baseToken.allocateTo(owner.address, ethers.BigNumber.from(sandboxControllerOpts.config.suggestedAmountOfSeedReserves).mul(2));
+        const seedReservesAmount = await sandboxController.suggestedAmountOfSeedReserves(baseToken.address);
+        await baseToken.allocateTo(owner.address, ethers.BigNumber.from(seedReservesAmount).mul(2));
         
-        // Whitelist base asset with multiple curves
-        await sandboxController.whitelistBaseAsset(
-            baseToken.address,
-            priceFeeds["USDC"].address,
-            {
-                supplyKink: exp(0.8, 18),
-                supplyPerYearInterestRateSlopeLow: exp(0.05, 18),
-                supplyPerYearInterestRateSlopeHigh: exp(0.2, 18),
-                supplyPerYearInterestRateBase: exp(0.001, 18),
-                borrowKink: exp(0.8, 18),
-                borrowPerYearInterestRateSlopeLow: exp(0.1, 18),
-                borrowPerYearInterestRateSlopeHigh: exp(0.3, 18),
-                borrowPerYearInterestRateBase: exp(0.005, 18),
-            },
-            exp(1, await baseToken.decimals())
-        );
+        // Whitelist base asset using the helper function
+        await sandboxListBaseAsset(sandboxController, baseToken, priceFeeds["USDC"].address);
 
         // Add a second curve for testing transitions
         await sandboxController.addBaseAssetCurve(
@@ -172,6 +158,10 @@ describe("27. Create Change Curve Proposal", () => {
         // Accept curator proposal
         await configController.connect(curator).acceptProposal(0);
 
+        // Allocate base token to owner and approve for ConfigController
+        await baseToken.allocateTo(owner.address, seedReservesAmount);
+        await baseToken.approve(configController.address, seedReservesAmount);
+
         // Create Comet
         const collateralTokens = [];
         for (const symbol in assets) {
@@ -192,7 +182,7 @@ describe("27. Create Change Curve Proposal", () => {
             baseTokenCurveId: 0,
             collateralTokens: collateralTokens,
             name: "Test Market",
-            amountOfSeedReserves: ethers.utils.parseEther("100"),
+            amountOfSeedReserves: seedReservesAmount,
         };
 
         await configController.createComet(marketConfig);
@@ -235,7 +225,7 @@ describe("27. Create Change Curve Proposal", () => {
             expect(proposal.call).to.equal(calldata);
             expect(proposal.maturityTime).to.equal(blockTimestamp + CHANGE_CURVE_MATURITY);
             expect(proposal.expirationTime).to.equal(blockTimestamp + CHANGE_CURVE_LIFETIME);
-            expect(proposal.timelock).to.equal(blockTimestamp + CHANGE_CURVE_TIMELOCK);
+            expect(proposal.timelock).to.equal(0);
         });
 
         it("should emit the event when the proposal is created", async () => {

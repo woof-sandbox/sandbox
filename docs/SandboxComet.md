@@ -22,7 +22,7 @@ can be legally deployed only via the factory which provides correct config contr
 ### initialize
 
 ```solidity
-function initialize(struct IConfigController.CometConfig comet, struct IConfigController.CometGlobalParamsConfig config) external
+function initialize(struct IConfigController.CometConfig cometConfig, struct IConfigController.CometGlobalParamsConfig globalConfig) external
 ```
 
 can be called only from Config Controller, as factoryInit prevents any other callers
@@ -31,8 +31,8 @@ can be called only from Config Controller, as factoryInit prevents any other cal
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-| comet | struct IConfigController.CometConfig | Base token, interest rate curve, collaterals |
-| config | struct IConfigController.CometGlobalParamsConfig | Global Comet reserve parameters |
+| cometConfig | struct IConfigController.CometConfig | Base token, interest rate curve, collaterals |
+| globalConfig | struct IConfigController.CometGlobalParamsConfig | Global Comet reserve parameters |
 
 ### nonReentrant
 
@@ -114,6 +114,11 @@ _Calculate accrued interest indices for base token supply and borrows_
 function accrueInternal() internal
 ```
 
+<<<<<<< HEAD
+=======
+_Accrue interest (and rewards) in base token supply and borrows_
+
+>>>>>>> origin4/feat/close-market
 ### interpolateValue
 
 ```solidity
@@ -208,6 +213,7 @@ Usage:
 | ---- | ---- | ----------- |
 | [0] | uint64 | The interpolated value as a uint64, representing the parameter's value at the current elapsed time. |
 
+<<<<<<< HEAD
 ### initiateCollateralRemoval
 
 ```solidity
@@ -330,6 +336,8 @@ Check whether a collateral removal process is in progress
 | ---- | ---- | ----------- |
 | [0] | bool | Whether a collateral removal process is currently ongoing |
 
+=======
+>>>>>>> origin4/feat/close-market
 ### accrueAccount
 
 ```solidity
@@ -642,13 +650,13 @@ function updateAssetsIn(address account, uint8 index, uint256 initialUserBalance
 
 _Update assetsIn bit vector if user has entered or exited an asset_
 
-### updateBasePrincipal
+### updateUserRewards
 
 ```solidity
-function updateBasePrincipal(address account, struct ICometStructures.UserBasic basic, int104 principalNew) internal
+function updateUserRewards(address account) internal
 ```
 
-_Write updated principal to store and tracking participation_
+_Encapsulation of user's rewards update_
 
 ### doTransferIn
 
@@ -726,7 +734,7 @@ Repay the whole debt in base asset to the protocol from `from` to dst, if allowe
 ### supplyInternal
 
 ```solidity
-function supplyInternal(address operator, address from, address dst, address asset, uint256 amount, bool isAll) internal
+function supplyInternal(address from, address dst, address asset, uint256 amount, bool isAll) internal
 ```
 
 _Supply either collateral or base asset, depending on the asset, if operator is allowed_
@@ -951,6 +959,59 @@ _Spend allowance for an asset, either all for base asset or a specific amount_
 | amount | uint256 | The amount of the asset to be spent, or 0 for all |
 | isAll | bool | Whether to spend all of the allowance for the base asset |
 
+### withdrawFreeSeedReserves
+
+```solidity
+function withdrawFreeSeedReserves(uint256 amount) external
+```
+
+Withdraw free seed reserves from the protocol
+
+_Only the config controller can withdraw free reserves. Withdrawal is allowed only if the market
+     is closed or the unlock timestamp has been reached. The amount withdrawn is limited to the
+     current seed reserves or total reserves, whichever is smaller. If insufficient free reserves
+     are available, the available amount will be returned if it's non-zero. Remaining reserves can
+     be withdrawn over time as they accumulate. Reserves cannot be withdrawn from user balances._
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| amount | uint256 | The amount of free seed reserves to withdraw |
+
+### withdrawSurplusSeedReserves
+
+```solidity
+function withdrawSurplusSeedReserves() external
+```
+
+Withdraw surplus seed reserves from the protocol above the seed reserves threshold
+
+_Only the DAO can withdraw surplus reserves when the market is deprecated and no active supply exists.
+     Surplus reserves are defined as total reserves minus seed reserves. If total reserves are less than
+     or equal to seed reserves, no surplus exists and the transaction will revert. This function ensures
+     that surplus reserves can only be extracted after market deprecation and all supply positions are closed.
+     The withdrawn amount is sent to the protocol treasury._
+
+### withdrawSurplusCollateralReserves
+
+```solidity
+function withdrawSurplusCollateralReserves(address[] assets) external
+```
+
+Withdraw surplus collateral reserves from the protocol for a specific asset
+
+_Only the DAO can withdraw surplus collateral reserves when the market is deprecated
+     and no active collateral positions exist for the asset. Surplus reserves are defined
+     as total collateral reserves minus any fees and user balances. This function allows
+     recovery of excess collateral that remains after market deprecation._
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| assets | address[] | The addresses of the collateral assets to withdraw surplus reserves for |
+
 ### absorb
 
 ```solidity
@@ -973,6 +1034,60 @@ function absorbInternal(address absorber, address account) internal
 ```
 
 _Transfer user's collateral and debt to the protocol itself._
+
+### _absorbCollateralPartial
+
+```solidity
+function _absorbCollateralPartial(address absorber, address account, uint24 assetsIn, int256 oldBalance, uint256 basePrice) internal returns (uint256 deltaValue)
+```
+
+_Absorb collateral with partial seizure (when market is finalized)_
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| absorber | address | The absorber address |
+| account | address | The account to absorb |
+| assetsIn | uint24 | The assets bitmap |
+| oldBalance | int256 | The old balance of the account |
+| basePrice | uint256 | The base token price |
+
+#### Return Values
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| deltaValue | uint256 | The total value absorbed |
+
+### _absorbCollateralFull
+
+```solidity
+function _absorbCollateralFull(address absorber, address account, uint24 assetsIn) internal returns (uint256 deltaValue)
+```
+
+_Absorb collateral with full seizure (normal liquidation)_
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| absorber | address | The absorber address |
+| account | address | The account to absorb |
+| assetsIn | uint24 | The assets bitmap |
+
+#### Return Values
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| deltaValue | uint256 | The total value absorbed |
+
+### _processAbsorption
+
+```solidity
+function _processAbsorption(address absorber, address account, struct ICometStructures.UserBasic accountUser, int104 oldPrincipal, int256 oldBalance, uint256 deltaValue, uint256 basePrice) internal
+```
+
+_Process the final steps of absorption_
 
 ### buyCollateral
 
@@ -1004,6 +1119,22 @@ function quoteCollateral(address asset, uint256 baseAmount) public view returns 
 | ---- | ---- | ----------- |
 | asset | address | The collateral asset to get the quote for |
 | baseAmount | uint256 | The amount of the base asset to get the quote for |
+
+### totalSupply
+
+```solidity
+function totalSupply() external view returns (uint256)
+```
+
+Get the total number of tokens in circulation
+
+_Note: uses updated interest indices to calculate_
+
+#### Return Values
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| [0] | uint256 | The supply of tokens |
 
 ### totalBorrow
 
@@ -1104,6 +1235,50 @@ _Internal function for calculation over the liquidation profit or interest profi
 | _reserveFee | uint256 | Profit accumulated in Comet's reserves |
 | _daoFee | uint256 | Fee on profit in favour of DAO |
 | _controllerFee | uint256 | Fee on profit in favour of Config Controller |
+
+### initiateDeprecation
+
+```solidity
+function initiateDeprecation() external
+```
+
+Initiate the gradual deprecation of collateral assets to prepare for market closure
+
+_Only the config controller can initiate deprecation. Once started, collateral factors will
+     gradually decrease over the deprecation period until they reach target values and the market
+     is permanently deprecated. All pause flags are cleared when deprecation begins.
+     During deprecation:
+     - Collateral liquidation factors gradually decrease to target values over time
+     - Users cannot transfer assets or supply new collateral
+     - Users can still supply base asset to close existing debt positions
+     - Once deprecation completes, the market becomes permanently deprecated_
+
+### _prepareDeprecation
+
+```solidity
+function _prepareDeprecation() internal
+```
+
+This internal function is called during interest accrual to gradually reduce collateral factors
+        over the deprecation period. If the deprecation duration has elapsed, it finalizes the deprecation.
+        During the deprecation period, collateral factors are linearly interpolated from their starting
+        values to target values, making positions easier to liquidate over time.
+
+_Progress the deprecation process by updating collateral factors or finalizing if duration is complete_
+
+### _finalizeDeprecation
+
+```solidity
+function _finalizeDeprecation() internal
+```
+
+This internal function finalizes the market deprecation by setting all collateral liquidation
+        factors to their target values and permanently deprecating the market. Once finalized:
+        - All collateral assets have minimum liquidation factors for maximum liquidation efficiency
+        - The market is permanently deprecated and cannot be reopened
+        - Users can only close positions and withdraw assets with no debt
+
+_Complete the deprecation process by setting final collateral factors and marking the market as deprecated_
 
 ### fallback
 

@@ -4,12 +4,11 @@ import {
   expect,
   defaultSandboxControllerOpts,
   makeSandboxController,
-  makeToken,
   makePriceFeed,
   sandboxListBaseAsset,
   sandboxListCollateralAsset,
-  ZERO,
-  SandboxCometWithExtension,
+  CombinedComet,
+  getCombinedComet,
 } from "./helper/helpers";
 import {
   SandboxController,
@@ -23,7 +22,6 @@ import {
   SandboxControllerNoCurvesTest__factory,
   FaucetToken,
   FaucetToken__factory,
-  CometHarness__factory,
 } from "../build/types";
 
 import { time } from "@nomicfoundation/hardhat-network-helpers";
@@ -52,7 +50,7 @@ describe("18. initiateCollateralRemoval", function () {
   let baseToken: FaucetToken;
   let marketConfig: CometConfigStruct;
 
-  let comet: SandboxCometWithExtension;
+  let comet: CombinedComet;
 
 
   const configControllerOpts = {
@@ -79,7 +77,14 @@ describe("18. initiateCollateralRemoval", function () {
       "SandboxControllerNoCurvesTest"
     )) as SandboxControllerNoCurvesTest__factory;
 
-    sandboxController = (await makeSandboxController(defaultSandboxControllerOpts(), SandboxControllerFactoryTest)).sandboxController;
+    // Fix: Provide required parameters to defaultSandboxControllerOpts
+    const sandboxControllerOpts = defaultSandboxControllerOpts({
+      owner: owner.address,
+      dao: curator.address,
+      treasury: ethers.Wallet.createRandom().address
+    });
+    
+    sandboxController = await makeSandboxController(sandboxControllerOpts, owner, SandboxControllerFactoryTest);
 
     const configControllerFactory = await configControllerFactory_factory.deploy(sandboxController.address, configControllerImpl.address);
     sandboxCometFactory = await sandboxCometFactory_factory.deploy(sandboxCometImpl.address, configControllerFactory.address);
@@ -102,18 +107,51 @@ describe("18. initiateCollateralRemoval", function () {
     );
     configController = (await ethers.getContractAt("ConfigControllerTest", configControllerAddress)) as ConfigControllerTest;
 
-    baseToken = await makeToken({
-      symbol: "WETH",
-      initialMint: ethers.utils.parseEther("50000").toString(),
-    });
+    // Accept the curator proposal
+    await configController.connect(curator).acceptProposal(0);
+    
+    // Fix: Replace makeToken with proper token creation
+    const FaucetFactory = (await ethers.getContractFactory("FaucetToken")) as FaucetToken__factory;
+    baseToken = (await FaucetFactory.deploy(
+      ethers.utils.parseEther("50000").toString(),
+      "WETH",
+      18,
+      "WETH"
+    )) as FaucetToken;
+    await baseToken.deployed();
+    
+    // Allocate base token to owner and approve for ConfigController
+    const seedReservesAmount = await sandboxController.suggestedAmountOfSeedReserves(baseToken.address);
+    await baseToken.connect(owner).allocateTo(owner.address, seedReservesAmount);
+    await baseToken.connect(owner).approve(configController.address, seedReservesAmount);
 
     const priceFeedBase = await makePriceFeed(baseToken.address, "2");
     await sandboxListBaseAsset(sandboxController, baseToken, priceFeedBase.address);
 
+    // Add base asset curve - this is required before creating a comet
+    await sandboxController.addBaseAssetCurve(baseToken.address, {
+      supplyKink: exp(0.8, 18),
+      supplyPerYearInterestRateSlopeLow: exp(0.05, 18),
+      supplyPerYearInterestRateSlopeHigh: exp(2, 18),
+      supplyPerYearInterestRateBase: exp(0.001, 18),
+      borrowKink: exp(0.8, 18),
+      borrowPerYearInterestRateSlopeLow: exp(0.1, 18),
+      borrowPerYearInterestRateSlopeHigh: exp(3, 18),
+      borrowPerYearInterestRateBase: exp(0.005, 18),
+    });
+
     const tokenSymbolList = ["USDT", "DAI", "USDC"];
 
     for (const symbol of tokenSymbolList) {
-      const collateralToken = await makeToken({ symbol: symbol });
+      // Fix: Replace makeToken with proper token creation
+      const collateralToken = (await FaucetFactory.deploy(
+        exp(1e9, 18).toString(),
+        symbol,
+        18,
+        symbol
+      )) as FaucetToken;
+      await collateralToken.deployed();
+      
       const priceFeedCol = await makePriceFeed(collateralToken.address, "2");
 
       await sandboxListCollateralAsset(sandboxController, collateralToken, priceFeedCol.address);
@@ -133,14 +171,15 @@ describe("18. initiateCollateralRemoval", function () {
     marketConfig = {
       baseToken: baseToken.address,
       collateralTokens: collateralTokens.map(obj => ({ ...obj })),
-      baseTokenCurveId: 0n,
+      baseTokenCurveId: 0n, // Revert back to 0 as used in working test
       name: "Comet",
+      amountOfSeedReserves: await sandboxController.suggestedAmountOfSeedReserves(baseToken.address),
     };
     // Create a new comet instance with the current market configuration
     const cometAddress = await configController.callStatic.createComet(marketConfig);
     await configController.createComet(marketConfig);
     // Connect to the newly created comet instance
-    comet = CometHarness__factory.connect(cometAddress, provider) as unknown as SandboxCometWithExtension;
+    comet = getCombinedComet(cometAddress, provider);
 
     await baseToken.allocateTo(comet.address, exp(100000, 18));
   }
@@ -199,7 +238,7 @@ describe("18. initiateCollateralRemoval", function () {
       expect(await comet.removalInProgress()).to.be.true;
 
       const assetInfo = await comet.collateralAssets(assetIndex);
-      expect(assetInfo.supplyCap).to.equal(ZERO);
+      expect(assetInfo.supplyCap).to.equal(ethers.constants.Zero);
     });
 
     it("should not allow re-initiating collateral removal", async () => {
@@ -466,7 +505,7 @@ describe("18. initiateCollateralRemoval", function () {
       // Update accrue interest and rewards for an account
       await comet.connect(firstUser).accrueAccount(firstUser.address);
       // Check the user's balance before withdrawing the collateral
-      expect(await comet.collateralBalanceOf(secondUser.address, removalCollateralTokenAddress)).to.equal(supplyAmount);
+      expect(await comet.userCollateral(secondUser.address, removalCollateralTokenAddress)).to.equal(supplyAmount);
       // Withdraw the removed collateral asset
       const tx = await comet.connect(secondUser).withdraw(removalCollateralTokenAddress, supplyAmount);
       // Expect the event to be emitted
@@ -474,7 +513,7 @@ describe("18. initiateCollateralRemoval", function () {
         .to.emit(comet, "WithdrawCollateral")
         .withArgs(secondUser.address, secondUser.address, removalCollateralTokenAddress, supplyAmount);
       // Check the user's balance after withdrawing the collateral
-      expect(await comet.collateralBalanceOf(secondUser.address, removalCollateralTokenAddress)).to.equal(ZERO);
+      expect(await comet.userCollateral(secondUser.address, removalCollateralTokenAddress)).to.equal(ethers.constants.Zero);
     });
   });
 
@@ -523,7 +562,7 @@ describe("18. initiateCollateralRemoval", function () {
       await configController.initiateCollateralRemovalOnComet(comet.address, removalCollateralTokenAddress);
       expect(await comet.removalInProgress()).to.be.true;
       // Check the user's collateral balance and borrow balance
-      expect(await comet.collateralBalanceOf(firstUser.address, removalCollateralTokenAddress)).to.equal(supplyAmount);
+      expect(await comet.userCollateral(firstUser.address, removalCollateralTokenAddress)).to.equal(supplyAmount);
       const tolerance = borrowAmount.div(1000); // 0.1% tolerance
       expect((await comet.borrowBalanceOf(firstUser.address)).sub(borrowAmount).abs().lte(tolerance)).to.be.true;
 
@@ -573,7 +612,7 @@ describe("18. initiateCollateralRemoval", function () {
       // Initiate the collateral removal
       await configController.initiateCollateralRemovalOnComet(comet.address, removalCollateralTokenAddress);
       // Check the user's collateral balance and borrow balance
-      expect(await comet.collateralBalanceOf(firstUser.address, removalCollateralTokenAddress)).to.equal(supplyAmount);
+      expect(await comet.userCollateral(firstUser.address, removalCollateralTokenAddress)).to.equal(supplyAmount);
       // Try to open a borrow position
       const borrowAmount = exp(150, 18);
       // Update accrue interest and rewards for an account

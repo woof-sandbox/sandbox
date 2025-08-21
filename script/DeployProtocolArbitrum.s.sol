@@ -163,20 +163,19 @@ contract DeployProtocol is Script {
     }
 
     function deploySandboxController(address owner_) internal returns (address) {
+        ISandboxController.SandboxControllerConfiguration memory config = ISandboxController.SandboxControllerConfiguration({
+            targetPercent: 2e17, // 20%
+            storeFrontPriceFactor: 6e17, // 60%
+            minUpdateTime: 300, // 5 minutes
+            maxUpdateTime: 3600 // 1 hour
+        });
         // Deploy SandboxController with valid parameters
         SandboxController sandboxController = new SandboxController(
             owner_, // owner
             address(1), // dao (different from owner)
             address(2), // treasury (for now random address)
             true, // feeEnabled
-            ISandboxController.SandboxControllerConfiguration({
-                targetPercent: 2e17, // targetPercent (20%)
-                storeFrontPriceFactor: 6e17, // storeFrontPriceFactor (60%)
-                minUpdateTime: 300, // minUpdateTime (5 minutes)
-                maxUpdateTime: 3600, // maxUpdateTime (1 hour)
-                suggestedLockTimeOfSeedReserves: 3600, // suggestedLockTimeOfSeedReserves (1 hour)
-                suggestedAmountOfSeedReserves: 250 // suggestedAmountOfSeedReserves
-            }),
+            config,
             [uint64(4e16), uint64(3e16), uint64(2e16)], // reserveCommissions
             [uint64(4e16), uint64(3e16), uint64(2e16)], // protocolCommissions
             7 days // removalCollateralDuration
@@ -205,8 +204,18 @@ contract DeployProtocol is Script {
             borrowPerYearInterestRateBase: 475646879 * SECONDS_PER_YEAR
         });
 
+        uint256 suggestedAmountOfSeedReserves = 3600; // 3600 wei
+        uint40 suggestedLockTimeOfSeedReserves = 604800; // 1 week
+
         // Whitelist base asset
-        sandboxController.whitelistBaseAsset(baseToken, basePriceFeed, curve, 10);
+        sandboxController.whitelistBaseAsset(
+            baseToken,
+            basePriceFeed,
+            curve,
+            10,
+            suggestedAmountOfSeedReserves,
+            suggestedLockTimeOfSeedReserves
+        );
     }
 
     function whitelistCollateralAsset(address sandboxControllerAddr, address collateralToken, address collateralPriceFeed) internal {
@@ -276,7 +285,8 @@ contract DeployProtocol is Script {
             baseToken: baseToken,
             baseTokenCurveId: 0, // Use first curve
             collateralTokens: collateralConfigs,
-            name: "Comet"
+            name: "Comet",
+            amountOfSeedReserves: IERC20(baseToken).totalSupply() / 1000 // 0.1% of total supply
         });
 
         // Create comet

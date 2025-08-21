@@ -4,11 +4,10 @@ import {
     expect,
     defaultSandboxControllerOpts,
     makeSandboxController,
-    makeToken,
     makePriceFeed,
     sandboxListBaseAsset,
     sandboxListCollateralAsset,
-    setTotalsBasic
+    makeMockERC20,
 } from "./helper/helpers";
 import {
     SandboxController,
@@ -29,6 +28,7 @@ import {
 
 import { CollateralTokenConfigStruct, CometConfigStruct } from "../build/types/ConfigController";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
+import { BigNumber } from "ethers";
 
 describe('15. addCollateralAsset', function () {
     let configControllerImpl: ConfigControllerCallerTest;
@@ -42,8 +42,10 @@ describe('15. addCollateralAsset', function () {
     };
 
     let owner: SignerWithAddress;
+    let dao: SignerWithAddress;
     let curator: SignerWithAddress;
     let guardian: SignerWithAddress;
+    let treasury: string;
     let user: SignerWithAddress;
     let randomCaller: SignerWithAddress;
 
@@ -60,10 +62,11 @@ describe('15. addCollateralAsset', function () {
     let cometExtension: CometExtension;
 
     const provider = ethers.provider;
+    let seedReserves: BigNumber;
 
     before(async function () {
-        [owner, curator, guardian, user, randomCaller ] = await ethers.getSigners();
-
+        [owner, dao, curator, guardian, user, randomCaller ] = await ethers.getSigners();
+        treasury = ethers.Wallet.createRandom().address;
         const configControllerFactory_factory = new ConfigControllerFactory__factory(owner);
         const configController_factory = new ConfigControllerCallerTest__factory(owner);
         const comet_factory = new SandboxComet__factory(owner);
@@ -72,16 +75,15 @@ describe('15. addCollateralAsset', function () {
         configControllerImpl = (await configController_factory.deploy()) as ConfigControllerCallerTest;
         sandboxCometImpl = (await comet_factory.deploy()) as SandboxComet;
 
-
         const SandboxControllerFactoryTest = (await ethers.getContractFactory(
             'SandboxControllerNoCurvesTest'
         )) as SandboxControllerNoCurvesTest__factory;
-
+        
         sandboxController = (await makeSandboxController(
-            defaultSandboxControllerOpts(),
+            defaultSandboxControllerOpts({owner: owner.address, dao: dao.address, treasury: treasury}),
+            owner,
             SandboxControllerFactoryTest
-        )
-        ).sandboxController;
+        ));
 
         const configControllerFactory = await configControllerFactory_factory.deploy(
             sandboxController.address,
@@ -113,15 +115,17 @@ describe('15. addCollateralAsset', function () {
             configControllerAddress
         )) as ConfigControllerCallerTest;
 
-        baseToken = await makeToken({
+        baseToken = await makeMockERC20({
             symbol: "WETH",
-            initialMint: ethers.utils.parseEther("50000").toString(),
+            name: "Wrapped Ether",
+            supply: ethers.utils.parseEther("50000").toString(),
         });
-        let collateralToken = await makeToken({ symbol: "DAI" });
+        let collateralToken = await makeMockERC20({ symbol: "DAI", name: "Dai Stablecoin" });
         let priceFeedCol = await makePriceFeed(collateralToken.address, "2");
         const priceFeedBase = await makePriceFeed(baseToken.address, "2");
 
         await sandboxListBaseAsset(sandboxController, baseToken, priceFeedBase.address);
+        seedReserves = await sandboxController.suggestedAmountOfSeedReserves(baseToken.address);
         await sandboxListCollateralAsset(sandboxController, collateralToken, priceFeedCol.address);
 
         collateralTokens.push({
@@ -132,7 +136,7 @@ describe('15. addCollateralAsset', function () {
             supplyCap: exp(1e9, 18)
         });
 
-        collateralToken = await makeToken({ symbol: "USDC" });
+        collateralToken = await makeMockERC20({ symbol: "USDC", name: "USD Coin" });
         priceFeedCol = await makePriceFeed(collateralToken.address, "2");
         await sandboxListCollateralAsset(sandboxController, collateralToken, priceFeedCol.address);
 
@@ -152,7 +156,7 @@ describe('15. addCollateralAsset', function () {
         let priceFeed: string;
 
         before(async function () {
-            newCollateralToken = await makeToken({ symbol: "USDT" });
+            newCollateralToken = await makeMockERC20({ symbol: "USDT", name: "Tether USD" });
             const priceFeedCol = await makePriceFeed(newCollateralToken.address, "2");
             // List the new collateral token in the sandbox controller
             await sandboxListCollateralAsset(sandboxController, newCollateralToken, priceFeedCol.address);
@@ -180,6 +184,8 @@ describe('15. addCollateralAsset', function () {
                 name: "Test Market"
             };
             // Create a new comet instance with the current market configuration
+            await baseToken.allocateTo(owner.address, exp(5000, 18));
+            await baseToken.approve(configController.address, exp(5000, 18));
             const cometAddress = await configController.callStatic.createComet(marketConfig);
             await configController.createComet(marketConfig);
             // Connect to the newly created comet instance
@@ -245,7 +251,7 @@ describe('15. addCollateralAsset', function () {
             await comet.connect(user).supply(newCollateralToken.address, supplyAmount);
 
             // Check the user's balance after supplying collateral
-            expect(await cometExtension.collateralBalanceOf(user.address, newCollateralToken.address))
+            expect(await cometExtension.userCollateral(user.address, newCollateralToken.address))
                 .to.equal(supplyAmount);
 
             // Borrow against the collateral
@@ -271,7 +277,7 @@ describe('15. addCollateralAsset', function () {
             let supplyAmount = await contractToken.balanceOf(user.address);
             await comet.connect(user).supply(collateralAddress, supplyAmount);
             // Check the user's balance after supplying first collateral
-            expect(await cometExtension.collateralBalanceOf(user.address, collateralAddress))
+            expect(await cometExtension.userCollateral(user.address, collateralAddress))
                 .to.equal(supplyAmount);
 
             collateralAddress = collateralTokens[1].collateralToken;
@@ -284,7 +290,7 @@ describe('15. addCollateralAsset', function () {
             supplyAmount = await contractToken.balanceOf(user.address);
             await comet.connect(user).supply(collateralAddress, supplyAmount);
             // Check the user's balance after supplying second collateral
-            expect(await cometExtension.collateralBalanceOf(user.address, collateralAddress))
+            expect(await cometExtension.userCollateral(user.address, collateralAddress))
                 .to.equal(supplyAmount);
 
             // Borrow base token 
@@ -319,7 +325,7 @@ describe('15. addCollateralAsset', function () {
             supplyAmount = await newCollateralToken.balanceOf(user.address);
             await comet.connect(user).supply(newCollateralToken.address, supplyAmount);
             // Check the user's balance after supplying new collateral
-            expect(await cometExtension.collateralBalanceOf(user.address, newCollateralToken.address))
+            expect(await cometExtension.userCollateral(user.address, newCollateralToken.address))
                 .to.equal(supplyAmount);
             // Check the liquidation status after adding new collateral
             expect(await comet.isLiquidatable(user.address)).to.be.false;
@@ -333,7 +339,7 @@ describe('15. addCollateralAsset', function () {
             // Start with 2 collateral tokens already added
             for (let i = 2; i < maxAssets; i++) {
                 const symbol = `ANY_ASSET${i + 1}`;
-                const collateralToken = await makeToken({ symbol });
+                const collateralToken = await makeMockERC20({ symbol, name: `Collateral ${symbol}` });
                 const priceFeedCol = await makePriceFeed(collateralToken.address);
 
                 await sandboxListCollateralAsset(sandboxController, collateralToken, priceFeedCol.address);
@@ -365,7 +371,7 @@ describe('15. addCollateralAsset', function () {
         });
 
         it('should revert when trying to add more than max of collateral assets', async () => {
-            const newCollateralToken = await makeToken({ symbol: "USDT" });
+            const newCollateralToken = await makeMockERC20({ symbol: "USDT", name: "Tether USD" });
             const priceFeed = await makePriceFeed(newCollateralToken.address);
 
             await sandboxListCollateralAsset(sandboxController, newCollateralToken, priceFeed.address);
@@ -391,7 +397,7 @@ describe('15. addCollateralAsset', function () {
         });
 
         it('should revert when trying to add a collateral asset if called by non-controller', async () => {
-            const newCollateralToken = await makeToken({ symbol: "USDT" });
+            const newCollateralToken = await makeMockERC20({ symbol: "USDT", name: "Tether USD" });
             const priceFeed = await makePriceFeed(newCollateralToken.address);
 
             await sandboxListCollateralAsset(sandboxController, newCollateralToken, priceFeed.address);

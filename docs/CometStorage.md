@@ -116,6 +116,7 @@ _The reentrancy guard statuses_
 uint256 REENTRANCY_GUARD_ENTERED
 ```
 
+<<<<<<< HEAD
 ### TARGET_BORROW_COLLATERAL_FACTOR
 
 ```solidity
@@ -124,6 +125,8 @@ uint64 TARGET_BORROW_COLLATERAL_FACTOR
 
 _The target borrow collateral factor for the processing removal of collateral assets_
 
+=======
+>>>>>>> origin4/feat/close-market
 ### TARGET_LIQUIDATE_COLLATERAL_FACTOR
 
 ```solidity
@@ -132,6 +135,27 @@ uint64 TARGET_LIQUIDATE_COLLATERAL_FACTOR
 
 _The target liquidate collateral factor for the processing removal of collateral assets_
 
+<<<<<<< HEAD
+=======
+### TARGET_LIQUIDATION_FACTOR
+
+```solidity
+uint64 TARGET_LIQUIDATION_FACTOR
+```
+
+### DEPRECATION_DURATION
+
+```solidity
+uint40 DEPRECATION_DURATION
+```
+
+### ZERO_INTEREST_RATE
+
+```solidity
+uint64 ZERO_INTEREST_RATE
+```
+
+>>>>>>> origin4/feat/close-market
 ### configController
 
 ```solidity
@@ -155,6 +179,14 @@ address extension
 ```
 
 The address of the extension contract
+
+### rewardAddress
+
+```solidity
+address rewardAddress
+```
+
+The address of the reward contract
 
 ### baseToken
 
@@ -268,58 +300,13 @@ uint64 storeFrontPriceFactor
 
 The fraction of the liquidation penalty that goes to buyers of collateral instead of the protocol
 
-_uint64_
-
 ### baseScale
 
 ```solidity
-uint256 baseScale
+uint64 baseScale
 ```
 
 The scale for base token (must be less than 18 decimals)
-
-_uint64_
-
-### trackingIndexScale
-
-```solidity
-uint256 trackingIndexScale
-```
-
-The scale for reward tracking
-
-_uint64_
-
-### baseTrackingSupplySpeed
-
-```solidity
-uint256 baseTrackingSupplySpeed
-```
-
-The speed at which supply rewards are tracked (in trackingIndexScale)
-
-_uint64_
-
-### baseTrackingBorrowSpeed
-
-```solidity
-uint256 baseTrackingBorrowSpeed
-```
-
-The speed at which borrow rewards are tracked (in trackingIndexScale)
-
-_uint64_
-
-### baseMinForRewards
-
-```solidity
-uint256 baseMinForRewards
-```
-
-The minimum amount of base principal wei for rewards to accrue
-
-_This must be large enough so as to prevent division by base wei from overflowing the 64 bit indices
-uint104_
 
 ### baseBorrowMin
 
@@ -353,13 +340,19 @@ uint64 unlockTimestamp
 
 Unlock timestamp
 
-### accrualDescaleFactor
+### deprecationStatus
 
 ```solidity
-uint256 accrualDescaleFactor
+enum ICometStructures.DeprecationStatus deprecationStatus
 ```
 
-Factor to divide by when accruing rewards in order to preserve 6 decimals (i.e. baseScale / 1e6)
+The deprecation status of the market
+
+### deprecationStartTime
+
+```solidity
+uint40 deprecationStartTime
+```
 
 ### baseSupplyIndex
 
@@ -373,18 +366,6 @@ _Aggregate variables tracked for the entire market_
 
 ```solidity
 uint64 baseBorrowIndex
-```
-
-### trackingSupplyIndex
-
-```solidity
-uint64 trackingSupplyIndex
-```
-
-### trackingBorrowIndex
-
-```solidity
-uint64 trackingBorrowIndex
 ```
 
 ### totalSupplyBase
@@ -521,6 +502,7 @@ Mapping indexes for collateral assets that have been removed
 struct ICometStructures.CollateralAsset[] collateralAssets
 ```
 
+<<<<<<< HEAD
 ### removedCollateralAssets
 
 ```solidity
@@ -529,3 +511,11 @@ struct ICometStructures.CollateralAsset[] removedCollateralAssets
 
 The list of collateral assets that have been removed
 
+=======
+### startLiquidationFactors
+
+```solidity
+mapping(address => uint64) startLiquidationFactors
+```
+
+>>>>>>> origin4/feat/close-market
