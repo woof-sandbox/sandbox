@@ -58,19 +58,25 @@ describe("26. transfer", function () {
     let collateral: FaucetToken;
     let collateralDecimals: number;
     let collateralAmount: bigint;
+    let contextSnapshot: SnapshotRestorer;
 
-    beforeEach(async function () {
+    before(async function () {
+      // Restore initial snapshot after each test
+      await snapshot.restore();
+
       collateral = collaterals[collateralSymbols[0]];
       collateralDecimals = await collateral.decimals();
       collateralAmount = exp(2000, collateralDecimals);
       await collateral.allocateTo(bob.address, collateralAmount);
       await collateral.connect(bob).approve(comet.address, collateralAmount);
       await comet.connect(bob).supply(collateral.address, collateralAmount);
+
+      contextSnapshot = await takeSnapshot();
     });
 
     afterEach(async function () {
-      // Restore snapshot after each test
-      snapshot.restore();
+      // Restore context snapshot after each test
+      await contextSnapshot.restore();
     });
 
     it("should execute collateral transfer successfully", async () => {
@@ -172,8 +178,12 @@ describe("26. transfer", function () {
     let collateral: FaucetToken;
     let collateralDecimals: number;
     let collateralAmount: bigint;
+    let contextSnapshot: SnapshotRestorer;
 
-    beforeEach(async function () {
+    before(async function () {
+      // Restore initial snapshot after each test
+      await snapshot.restore();
+
       // Setup lending position for bob
       lendAmount = exp(2000, baseTokenDecimals);
       await baseToken.allocateTo(bob.address, lendAmount);
@@ -189,11 +199,13 @@ describe("26. transfer", function () {
       await comet.connect(alice).supply(collateral.address, collateralAmount);
       borrowAmount = exp(1000, baseTokenDecimals);
       await comet.connect(alice).withdraw(baseToken.address, borrowAmount);
+
+      contextSnapshot = await takeSnapshot();
     });
 
     afterEach(async function () {
-      // Restore snapshot after each test
-      snapshot.restore();
+      // Restore context snapshot after each test
+      await contextSnapshot.restore();
     });
 
     it("should execute base token transfer successfully", async () => {

@@ -23,7 +23,6 @@ describe("10. isLiquidatable", function () {
   let baseTokenDecimals: number;
   let collaterals: { [symbol: string]: FaucetToken } = {};
 
-  let snapshot: SnapshotRestorer;
   let opts: Protocol;
 
   before(async function () {
@@ -48,16 +47,14 @@ describe("10. isLiquidatable", function () {
       collaterals[asset] = opts.collaterals[asset] as FaucetToken;
       collateralSymbols.push(asset);
     }
-
-    // Take snapshot after initial setup
-    snapshot = await takeSnapshot();
   });
 
   let collateralAmount: bigint;
   let collateralSymbol: string;
   let borrowAmount: bigint;
+  let snapshot: SnapshotRestorer;
 
-  beforeEach(async function () {
+  before(async function () {
     // Setup borrowing position for bob
     collateralSymbol = collateralSymbols[0];
     const collateral = collaterals[collateralSymbol];
@@ -80,11 +77,14 @@ describe("10. isLiquidatable", function () {
     await collateral.connect(charlie).approve(comet.address, collateralAmount);
     await comet.connect(charlie).supply(collateral.address, collateralAmount);
     await comet.connect(charlie).withdraw(baseToken.address, borrowAmount);
+
+    // Take snapshot after setup
+    snapshot = await takeSnapshot();
   });
 
   afterEach(async function () {
     // Restore snapshot after each test
-    snapshot.restore();
+    await snapshot.restore();
   });
 
   it("should not be liquidatable", async () => {

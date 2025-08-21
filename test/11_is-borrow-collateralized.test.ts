@@ -23,8 +23,6 @@ describe("11. isBorrowCollateralized", function () {
   let collaterals: { [symbol: string]: FaucetToken } = {};
   let opts: Protocol;
 
-  let snapshot: SnapshotRestorer;
-
   before(async function () {
     [owner, dao, curator, guardian, treasury, bob, alice, charlie] = await ethers.getSigners();
 
@@ -46,13 +44,7 @@ describe("11. isBorrowCollateralized", function () {
       collaterals[asset] = opts.collaterals[asset] as FaucetToken;
       collateralSymbols.push(asset);
     }
-
-    // Take snapshot after initial setup
-    snapshot = await takeSnapshot();
   });
-
-  let collateralAmount: bigint;
-  let collateralSymbol: string;
 
   async function getMaxAvailableBorrow(user: SignerWithAddress): Promise<bigint> {
     let totalLiquidity: bigint = 0n;
@@ -75,7 +67,11 @@ describe("11. isBorrowCollateralized", function () {
     return baseAmount;
   }
 
-  beforeEach(async function () {
+  let collateralAmount: bigint;
+  let collateralSymbol: string;
+  let snapshot: SnapshotRestorer;
+
+  before(async function () {
     // Setup borrowing position for bob
     collateralSymbol = collateralSymbols[0];
     const collateral = collaterals[collateralSymbol];
@@ -99,11 +95,14 @@ describe("11. isBorrowCollateralized", function () {
     await collateral.connect(charlie).approve(comet.address, collateralAmount);
     await comet.connect(charlie).supply(collateral.address, collateralAmount);
     await comet.connect(charlie).withdraw(baseToken.address, borrowAmount);
+
+    // Take snapshot after setup
+    snapshot = await takeSnapshot();
   });
 
   afterEach(async function () {
     // Restore snapshot after each test
-    snapshot.restore();
+    await snapshot.restore();
   });
 
   it("should not allow borrowing when fully collateralized", async () => {
