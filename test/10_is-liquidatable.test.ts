@@ -1,152 +1,210 @@
-import { expect, exp } from "./helper/helpers";
+import { ethers, expect, exp, makeConfigController, createComet, SnapshotRestorer, takeSnapshot, time, Protocol } from "./helper/helpers";
+import { SandboxComet, ConfigController, FaucetToken, ICometExtension, ISandboxController } from "../build/types";
+import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
-/*
-Prices are set in terms of the base token (USDC with 6 decimals, by default):
+const { Zero } = ethers.constants;
 
-  await comet.setBasePrincipal(alice.address, 1_000_000);
+describe("10. isLiquidatable", function () {
+  let owner: SignerWithAddress,
+    dao: SignerWithAddress,
+    curator: SignerWithAddress,
+    treasury: SignerWithAddress,
+    guardian: SignerWithAddress,
+    bob: SignerWithAddress,
+    alice: SignerWithAddress,
+    charlie: SignerWithAddress;
+  let comet: SandboxComet;
+  let cometExtension: ICometExtension;
+  let configController: ConfigController;
+  let sandboxController: ISandboxController;
+  const collateralSymbols: string[] = [];
 
-But the prices returned are denominated in terms of price scale (USD with 8
-decimals, by default)
+  let baseToken: FaucetToken;
+  let baseTokenDecimals: number;
+  let collaterals: { [symbol: string]: FaucetToken } = {};
 
-*/
+  let opts: Protocol;
 
-describe.skip("10. isLiquidatable", function () {
-  it("defaults to false", async () => {
-    let protocol; // = await makeProtocol();
-    const {
-      comet,
-      users: [alice],
-    } = protocol;
-    expect(await comet.isLiquidatable(alice.address)).to.be.false;
-  });
+  before(async function () {
+    [owner, dao, curator, guardian, treasury, bob, alice, charlie] = await ethers.getSigners();
 
-  it("is false when user is owed principal", async () => {
-    let comet, alice;
-    //    } = await makeProtocol();
-    await comet.setBasePrincipal(alice.address, 1_000_000);
-
-    expect(await comet.isLiquidatable(alice.address)).to.be.false;
-  });
-
-  it("is true when user owes principal", async () => {
-    let comet, alice;
-    //    } = await makeProtocol();
-    await comet.setBasePrincipal(alice.address, -1_000_000);
-
-    expect(await comet.isLiquidatable(alice.address)).to.be.true;
-  });
-
-  it("is false when collateral can cover the borrowed principal", async () => {
-    let comet, tokens, alice;
-    /*    } = await makeProtocol({
-      assets: {
-        USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
-        COMP: {
-          initial: 1e7,
-          decimals: 18,
-          initialPrice: 1,
-          supplyCap: exp(1_000_000, 18),
-        },
-      },
+    opts = await makeConfigController({
+      owner: owner,
+      dao: dao,
+      treasury: treasury.address,
+      curator: curator,
+      guardian: guardian,
     });
-    */
-    const { COMP } = tokens;
-    await COMP.allocateTo(alice.address, exp(100_000, 18));
-    await COMP.connect(alice).approve(comet.address, exp(100_000, 18));
-    await comet.connect(alice).supply(COMP.address, exp(100_000, 18));
-    // user owes $100,000
-    await comet.setBasePrincipal(alice.address, -100_000_000_000);
-    // but has $100,000(effective balance with borrowCF) in COMP to cover.
-    await comet.setCollateralBalance(alice.address, COMP.address, exp(170_000, 18));
+    configController = opts.configController;
+    sandboxController = opts.sandboxController;
+    baseToken = opts.baseToken as FaucetToken;
+    baseTokenDecimals = await baseToken.decimals();
 
-    expect(await comet.isLiquidatable(alice.address)).to.be.false;
+    comet = await createComet(owner, opts.opts.assets, configController, sandboxController, opts.collaterals, baseToken);
+    cometExtension = (await ethers.getContractAt("CometExtension", comet.address)) as ICometExtension;
+
+    for (let asset in opts.collaterals) {
+      collaterals[asset] = opts.collaterals[asset] as FaucetToken;
+      collateralSymbols.push(asset);
+    }
   });
 
-  it("is true when the collateral cannot cover the borrowed principal", async () => {
-    let comet, tokens, alice;
-    /*    } = await makeProtocol({
-      assets: {
-        USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
-        COMP: {
-          initial: 1e7,
-          decimals: 18,
-          initialPrice: 1, // 1 COMP = 1 USDC
-        },
-      },
-    });
-    */
-    const { COMP } = tokens;
+  let collateralAmount: bigint;
+  let collateralSymbol: string;
+  let borrowAmount: bigint;
+  let snapshot: SnapshotRestorer;
 
-    // user owes $100,000 is
-    await comet.setBasePrincipal(alice.address, -100_000_000_000);
-    // and only has $95,000 in COMP
-    await comet.setCollateralBalance(alice.address, COMP.address, exp(95_000, 18));
+  before(async function () {
+    // Setup borrowing position for bob
+    collateralSymbol = collateralSymbols[0];
+    const collateral = collaterals[collateralSymbol];
+    const collateralDecimals = await collateral.decimals();
+    collateralAmount = exp(10, collateralDecimals); // 10 * 175 = 1750
 
-    expect(await comet.isLiquidatable(alice.address)).to.be.true;
+    await collateral.connect(bob).allocateTo(bob.address, collateralAmount);
+    await collateral.connect(bob).approve(comet.address, collateralAmount);
+    await comet.connect(bob).supply(collateral.address, collateralAmount);
+    borrowAmount = exp(1000, baseTokenDecimals);
+    await comet.connect(bob).withdraw(baseToken.address, borrowAmount);
+
+    // Setup collateral for alice
+    await collateral.connect(alice).allocateTo(alice.address, collateralAmount);
+    await collateral.connect(alice).approve(comet.address, collateralAmount);
+    await comet.connect(alice).supply(collateral.address, collateralAmount);
+
+    // Setup borrowing position for charlie
+    await collateral.connect(charlie).allocateTo(charlie.address, collateralAmount);
+    await collateral.connect(charlie).approve(comet.address, collateralAmount);
+    await comet.connect(charlie).supply(collateral.address, collateralAmount);
+    await comet.connect(charlie).withdraw(baseToken.address, borrowAmount);
+
+    // Take snapshot after setup
+    snapshot = await takeSnapshot();
   });
 
-  it("takes liquidateCollateralFactor into account when comparing principal to collateral", async () => {
-    let comet, tokens, alice;
-    /*    } = await makeProtocol({
-      assets: {
-        USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
-        COMP: {
-          initial: 1e7,
-          decimals: 18,
-          initialPrice: 1, // 1 COMP = 1 USDC
-          borrowCF: exp(0.75, 18),
-          liquidateCF: exp(0.8, 18),
-          liquidationFactor: exp(0.9, 18),
-          minBorrowCF: exp(0.6, 18),
-          maxBorrowCF: exp(0.9, 18),
-          minLiquidateCF: exp(0.7, 18),
-          maxLiquidateCF: exp(0.9, 18),
-        },
-      },
-    });
-    */
-    const { COMP } = tokens;
-
-    // user owes $100,000
-    await comet.setBasePrincipal(alice.address, -100_000_000_000);
-    // has $100,000 in COMP to cover, but at a .8 liquidateCollateralFactor
-    await comet.setCollateralBalance(alice.address, COMP.address, exp(100_000, 18));
-
-    expect(await comet.isLiquidatable(alice.address)).to.be.true;
+  afterEach(async function () {
+    // Restore snapshot after each test
+    await snapshot.restore();
   });
 
-  it("changes when the underlying asset price changes", async () => {
-    let comet, tokens, alice, priceFeeds;
-    /*    } = await makeProtocol({
-      assets: {
-        USDC: { initial: 1e6, decimals: 6, initialPrice: 1 },
-        COMP: {
-          initial: 1e7,
-          decimals: 18,
-          initialPrice: 1,
-          supplyCap: exp(1_000_000, 18),
-        },
-      },
-    });
-    */
-    const { COMP } = tokens;
+  it("should not be liquidatable", async () => {
+    expect(await comet.isLiquidatable(bob.address)).to.be.false;
+  });
 
-    // user owes $100,000
-    await comet.setBasePrincipal(alice.address, -100_000_000_000);
-    // has $100,000(effective balance with borrowCF) in COMP to cover
-    await comet.setCollateralBalance(alice.address, COMP.address, exp(170_000, 18));
+  it("should not be liquidatable after long holding period if collateral sufficient", async () => {
+    // Checks that the user is not liquidatable even after a very long holding period, as long as the collateral remains sufficient to secure the debt.
+    const percent = 1n; // 0.0001%
+    const allowedDelta = (borrowAmount * percent) / exp(100, 4);
 
-    expect(await comet.isLiquidatable(alice.address)).to.be.false;
+    expect(await comet.borrowBalanceOf(charlie.address)).to.be.closeTo(borrowAmount, allowedDelta);
+    await time.increase(time.duration.years(500));
+    expect(await comet.borrowBalanceOf(charlie.address)).to.be.greaterThan(borrowAmount * 3n);
 
-    // price drops
-    await priceFeeds.COMP.setRoundData(
-      0, // roundId
-      exp(0.5, 8), // answer
-      0, // startedAt
-      0, // updatedAt
-      0 // answeredInRound
+    expect(await comet.isLiquidatable(charlie.address)).to.be.false;
+  });
+
+  it("should not be liquidatable when collateral value remains sufficient after price drop", async () => {
+    const priceFeeds = opts.priceFeeds[collateralSymbol];
+    const initPrice = (await priceFeeds.latestRoundData())[1].toBigInt();
+    // Simulate a price drop by 20%
+    const newPrice = (initPrice * 80n) / 100n;
+    await priceFeeds.setRoundData(
+      Zero, // roundId
+      newPrice, // answer
+      Zero, // startedAt
+      Zero, // updatedAt
+      Zero // answeredInRound
     );
 
-    expect(await comet.isLiquidatable(alice.address)).to.be.true;
+    expect(await comet.isLiquidatable(bob.address)).to.be.false;
+  });
+
+  it("should be liquidatable when collateral value becomes insufficient after price drop", async () => {
+    const priceFeeds = opts.priceFeeds[collateralSymbol];
+    const initPrice = (await priceFeeds.latestRoundData())[1].toBigInt();
+    // Simulate a price drop by 75%
+    const newPrice = (initPrice * 25n) / 100n;
+    await priceFeeds.setRoundData(
+      Zero, // roundId
+      newPrice, // answer
+      Zero, // startedAt
+      Zero, // updatedAt
+      Zero // answeredInRound
+    );
+
+    expect(await comet.isLiquidatable(bob.address)).to.be.true;
+  });
+
+  it("should not be liquidatable if user has no debt and collateral is worthless", async () => {
+    // Checks that a user cannot be liquidated if they have no debt, even when their collateral price drops almost to zero.
+    const priceFeeds = opts.priceFeeds[collateralSymbol];
+    // Simulate a price drop
+    const newPrice = 1n;
+    await priceFeeds.setRoundData(
+      Zero, // roundId
+      newPrice, // answer
+      Zero, // startedAt
+      Zero, // updatedAt
+      Zero // answeredInRound
+    );
+
+    for (const symbol of collateralSymbols) {
+      expect(await cometExtension.userCollateral(alice.address, collaterals[symbol].address)).to.equal(
+        symbol === collateralSymbol ? collateralAmount : Zero
+      );
+    }
+    expect(await comet.borrowBalanceOf(alice.address)).to.equal(Zero);
+    expect(await comet.isLiquidatable(alice.address)).to.be.false;
+  });
+
+  it("should handle additional collateral after price drop", async () => {
+    // User becomes liquidatable after collateral price drop, then adds new collateral and becomes non-liquidatable
+    const priceFeeds = opts.priceFeeds[collateralSymbol];
+    const initPrice = (await priceFeeds.latestRoundData())[1].toBigInt();
+    // Simulate a price drop
+    const newPrice = initPrice / 4n;
+    await priceFeeds.setRoundData(
+      Zero, // roundId
+      newPrice, // answer
+      Zero, // startedAt
+      Zero, // updatedAt
+      Zero // answeredInRound
+    );
+
+    expect(await comet.isLiquidatable(bob.address)).to.be.true;
+
+    const _collateral = collaterals[collateralSymbols[1]];
+    const _collateralDecimals = await _collateral.decimals();
+    const _collateralAmount = exp(10, _collateralDecimals);
+
+    await _collateral.connect(bob).allocateTo(bob.address, _collateralAmount);
+    await _collateral.connect(bob).approve(comet.address, _collateralAmount);
+    await comet.connect(bob).supply(_collateral.address, _collateralAmount);
+
+    expect(await comet.isLiquidatable(bob.address)).to.be.false;
+  });
+
+  it("should not be liquidatable if other collateral sufficient", async () => {
+    // Checks that the user is not liquidatable if one of their collaterals becomes nearly worthless, but other collateral remains sufficient to secure the debt.
+    const _collateral = collaterals[collateralSymbols[1]];
+    const _collateralDecimals = await _collateral.decimals();
+    const _collateralAmount = exp(10, _collateralDecimals);
+
+    await _collateral.connect(bob).allocateTo(bob.address, _collateralAmount);
+    await _collateral.connect(bob).approve(comet.address, _collateralAmount);
+    await comet.connect(bob).supply(_collateral.address, _collateralAmount);
+
+    const priceFeeds = opts.priceFeeds[collateralSymbols[0]];
+    // Simulate a price drop
+    const newPrice = 1n;
+    await priceFeeds.setRoundData(
+      Zero, // roundId
+      newPrice, // answer
+      Zero, // startedAt
+      Zero, // updatedAt
+      Zero // answeredInRound
+    );
+
+    expect(await comet.isLiquidatable(bob.address)).to.be.false;
   });
 });

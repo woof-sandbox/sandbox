@@ -2,7 +2,7 @@ import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { ConfigController, CometExtension, SandboxComet } from "../build/types";
 import { ethers, expect, makeConfigController, createComet, SnapshotRestorer, takeSnapshot } from "./helper/helpers";
 
-describe("22. Set rewards on Comet", () => {
+describe("23. Set rewards on Comet", () => {
   let snapshot: SnapshotRestorer;
 
   let configController: ConfigController;
