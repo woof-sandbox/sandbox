@@ -581,7 +581,8 @@ describe("1. System Initialization", function () {
         symbol: "BASE",
         supply: ethers.utils.parseEther("50000").toString(),
       });
-      const collateralToken = await makeMockERC20({ name: "Collateral", symbol: "COL" });
+      // allocate initial supply of tokens
+      const collateralToken = await makeMockERC20({ name: "Collateral", symbol: "COL", supply: exp(1e6, 18) });
       const priceFeedBase = await makePriceFeed(baseToken.address);
       const priceFeedCol = await makePriceFeed(collateralToken.address);
 
@@ -596,7 +597,7 @@ describe("1. System Initialization", function () {
         borrowCollateralFactor: colConfig.borrowCF,
         liquidateCollateralFactor: colConfig.liquidateCF,
         liquidationFactor: colConfig.liquidationFactor,
-        supplyCap: colConfig.supplyCap,
+        supplyCap: exp(150000, 18), //15% of supply
       });
 
       marketConfig = {
