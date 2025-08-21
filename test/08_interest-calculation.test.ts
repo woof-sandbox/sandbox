@@ -1,6 +1,16 @@
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
-import { ethers, expect, exp, makeConfigController, createComet, defaultAssets, DEFAULT_PRICEFEED_DECIMALS } from "./helper/helpers";
+import {
+  ethers,
+  expect,
+  exp,
+  makeConfigController,
+  createComet,
+  defaultAssets,
+  DEFAULT_PRICEFEED_DECIMALS,
+  SnapshotRestorer,
+  takeSnapshot,
+} from "./helper/helpers";
 
 import { SandboxComet, ConfigController, FaucetToken, ICometExtension, ISandboxController, SimplePriceFeed } from "../build/types";
 
@@ -1295,6 +1305,7 @@ describe("8. interest calculation", function () {
 
     describe("max for uint40 for timestamp", function () {
       let testComet: SandboxComet;
+      let snapshot: SnapshotRestorer;
 
       before(async function () {
         // keep minimal values
@@ -1310,6 +1321,12 @@ describe("8. interest calculation", function () {
         };
         await sandboxController.connect(dao).addBaseAssetCurve(baseToken.address, newCurve);
         testComet = await createComet(owner, defaultAssets(), configController, sandboxController, collaterals, baseToken, 1);
+
+        snapshot = await takeSnapshot();
+      });
+
+      after(async function () {
+        await snapshot.restore();
       });
 
       it("initial utilization is  for fresh comet", async () => {
