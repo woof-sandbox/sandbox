@@ -404,6 +404,9 @@ contract SandboxController is ISandboxController {
      * @return True if valid, false otherwise.
      */
     function isCurveConfigurationValid(BaseAssetCurve memory curve) public pure override returns (bool) {
+        /// TODO: add validations on minimal possible values (as these values will be divided by year seconds value)
+        /// TODO: add validations on the type overflow in uint64 - add limit from above
+
         /**
          * Note: The protocol can support different sub-types of interest curves:
          * - base rate (for both supply and borrow) can be set to 0 to have curves with no boost for 0 utilization;

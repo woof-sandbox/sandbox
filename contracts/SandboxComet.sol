@@ -202,7 +202,7 @@ contract SandboxComet is CometCore, ISandboxComet {
     /**
      * @return The current timestamp
      **/
-    function getNowInternal() internal view virtual returns (uint40) {
+    function getNowInternal() public view virtual returns (uint40) {
         if (block.timestamp > type(uint40).max) revert TimestampTooLarge();
         return uint40(block.timestamp);
     }
@@ -215,18 +215,15 @@ contract SandboxComet is CometCore, ISandboxComet {
         uint64 baseBorrowIndex_ = baseBorrowIndex;
         if (timeElapsed > 0) {
             uint256 utilization = getUtilization();
-
-            /// TODO: add supplyRate -> if totalSupply >= balanceOf() && totalBorrow == 0
-            /// That will stop the distribution of reserves into early lenders in case of no borrows
-
-            /// if
-            //            uint256 totalSupplyExpected_ = presentValueSupply(baseSupplyIndex_, totalSupplyBase);
-            //if totalSupplyExpected_ >= baseToken.balanceOf(address(this));
             uint64 supplyRate = getSupplyRate(utilization);
             uint64 borrowRate = getBorrowRate(utilization);
             baseSupplyIndex_ += safe64(mulFactor(baseSupplyIndex_, supplyRate * timeElapsed));
             baseBorrowIndex_ += safe64(mulFactor(baseBorrowIndex_, borrowRate * timeElapsed));
         }
+
+        /// TODO: currently supplyRate cut off on reserves exhaustion depends on the last accrual time
+        /// thus it is necessary to return supply index constructed from current balance in case for no borrow
+        /// and reserves exhaustion
         return (baseSupplyIndex_, baseBorrowIndex_);
     }
 
@@ -263,6 +260,22 @@ contract SandboxComet is CometCore, ISandboxComet {
         /// No supply - no supply interest
         if (totalSupplyBase == 0) return 0;
 
+        /// In several situations new market with initial seed reserve an have lenders, but may not have borrows
+        /// In such case, lenders will farm on this market on the base supply per second, until reserves are exhausted
+        /// So, we limit the farming possibility by the size of the initial seed reserves:
+        /// - for the new market with no borrows, the balance consists of seed reserves and supplied base asset
+        /// - totalSupply() will grow based on the base rate until it will reach the available balance
+        /// - once it happens - we cut off the supply rate to avoid illiquidity (when lenders will not be able to
+        ///   withdraw as there is no tokens on the Comet balance
+        /// Note: the accrual happens BEFORE the supply state change, so this check will work only AFTER the last
+        ///       accrual. So it may end in totalSupply() exceeding actual balance. Though it will not allow the
+        ///       supply to grow infinitely, thus limiting potentioal amount necessary for the withdraw to be possible
+        if (utilization == 0 && supplyPerSecondInterestRateBase != 0) {
+            if (presentValueSupply(baseSupplyIndex, totalSupplyBase) >= IERC20(baseToken).balanceOf(address(this))) {
+                return 0;
+            }
+        }
+
         if (utilization <= supplyKink) {
             // interestRateBase + interestRateSlopeLow * utilization
             return safe64(supplyPerSecondInterestRateBase + mulFactor(supplyPerSecondInterestRateSlopeLow, utilization));
@@ -283,7 +296,7 @@ contract SandboxComet is CometCore, ISandboxComet {
      * @return The per second borrow rate at `utilization`
      */
     function getBorrowRate(uint256 utilization) public view override returns (uint64) {
-        /// No sborrow - no borrow interest
+        /// No borrow - no borrow interest
         if (totalBorrowBase == 0) return 0;
 
         if (utilization <= borrowKink) {
@@ -1086,7 +1099,7 @@ contract SandboxComet is CometCore, ISandboxComet {
         if (amountOut + feeProtocol + feeController > getCollateralReserves(asset)) revert InsufficientReserves();
 
         if (feeProtocol > 0) {
-            assetFeesDAO[asset] += feeController;
+            assetFeesDAO[asset] += feeProtocol;
         }
         if (feeController > 0) {
             assetFeesController[asset] += feeController;
@@ -1170,6 +1183,8 @@ contract SandboxComet is CometCore, ISandboxComet {
         3.6% of the base asset value supplied during purchase can be extracted from the collateral reserves as a profit
         */
 
+        /// TODO: there are certain combinations of store front factor and liquidation factor, in which there may be no
+        /// profit for the market. In that case profit calculation will underflow.
         uint256 scaledBaseAmount = mulFactor(baseAmount, 2 * FACTOR_SCALE - assetInfo.liquidationFactor);
         uint256 scaledCollateralValue = (scaledBaseAmount * basePrice * assetInfo.scale) / assetPrice / baseScale;
         uint256 profit = scaledCollateralValue - amountOut;

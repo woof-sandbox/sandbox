@@ -5,8 +5,9 @@ import { ethers, expect, exp, makeConfigController, createComet, defaultAssets, 
 import { SandboxComet, ConfigController, FaucetToken, ICometExtension, ISandboxController, SimplePriceFeed } from "../build/types";
 
 import { BigNumber } from "ethers";
+import { BaseAssetCurveStruct } from "../build/types/ISandboxController";
 
-describe.only("8. interest calculation", function () {
+describe("8. interest calculation", function () {
   let owner: SignerWithAddress, dao: SignerWithAddress;
   let curator: SignerWithAddress, treasury: SignerWithAddress, guardian: SignerWithAddress;
   let alice: SignerWithAddress, bob: SignerWithAddress, charlie: SignerWithAddress, other: SignerWithAddress;
@@ -21,8 +22,8 @@ describe.only("8. interest calculation", function () {
   let priceFeeds: { [symbol: string]: SimplePriceFeed } = {};
   let lastUpdatedTime: number;
 
-  let baseSupplyRate: BigNumber, supplyLowSlope: BigNumber;
-  let baseBorrowRate: BigNumber, borrowLowSlope: BigNumber;
+  let baseSupplyRate: BigNumber, supplyLowSlope: BigNumber, supplyHighSlope: BigNumber, supplyKink: BigNumber;
+  let baseBorrowRate: BigNumber, borrowLowSlope: BigNumber, borrowHighSlope: BigNumber, borrowKink: BigNumber;
 
   before(async function () {
     [owner, dao, treasury, curator, guardian, alice, bob, charlie, other] = await ethers.getSigners();
@@ -52,17 +53,19 @@ describe.only("8. interest calculation", function () {
 
     baseSupplyRate = await comet.supplyPerSecondInterestRateBase();
     supplyLowSlope = await comet.supplyPerSecondInterestRateSlopeLow();
+    supplyHighSlope = await comet.supplyPerSecondInterestRateSlopeHigh();
+    supplyKink = await comet.supplyKink();
 
     baseBorrowRate = await comet.borrowPerSecondInterestRateBase();
     borrowLowSlope = await comet.borrowPerSecondInterestRateSlopeLow();
+    borrowHighSlope = await comet.borrowPerSecondInterestRateSlopeHigh();
+    borrowKink = await comet.borrowKink();
 
     await baseToken.allocateTo(alice.address, exp(1e10, baseDecimals));
     await baseToken.allocateTo(bob.address, exp(1e10, baseDecimals));
+    await collaterals["COMP"].allocateTo(alice.address, exp(1e10, 18));
     await collaterals["COMP"].allocateTo(bob.address, exp(1e10, 18));
-
-    // wait some time
-    await ethers.provider.send("evm_increaseTime", [3600]); // 1 hr
-    await ethers.provider.send("evm_mine", []);
+    await collaterals["COMP"].allocateTo(charlie.address, exp(1e10, 18));
   });
 
   /// Note: testcases in "regular logic" testset are dependent as they form a single flow which can be
@@ -71,14 +74,28 @@ describe.only("8. interest calculation", function () {
   ///       -> supply to decrease utilization
   describe("regular logic", function () {
     const SUPPLY_AMOUNT: BigNumber = BigNumber.from(exp(10000, baseDecimals)); // 10k$
-    const COLLATERAL_VALUE: BigNumber = BigNumber.from(exp(20000, baseDecimals)); // 20k$
+    const SUPPLY_AMOUNT_UNDER_KINK: BigNumber = BigNumber.from(exp(10000, baseDecimals)); // 10k$
+    const COLLATERAL_VALUE: BigNumber = BigNumber.from(exp(90000, baseDecimals)); // 80k$
     let COLLATERAL_AMOUNT: BigNumber; // will be calculated from the price at later testcase
     const BORROW_AMOUNT: BigNumber = BigNumber.from(exp(2000, baseDecimals)); // 2k$
+    const BORROW_AMOUNT_OVER_KINK: BigNumber = BigNumber.from(exp(6100, baseDecimals)); // 6.1k$
+    const BORROW_AMOUNT_OVERUTILIZATION: BigNumber = BigNumber.from(exp(2100, baseDecimals)); // 2.1k$
+    const BORROW_AMOUNT_EXCEEDS_LIMIT: BigNumber = BigNumber.from(exp(10000, baseDecimals)); // 10k$
+
+    const WITHDRAW_AMOUNT_EXCEEDS_LIMIT: BigNumber = BigNumber.from(exp(16000, baseDecimals)); // 12k$
+    const WITHDRAW_AMOUNT_EXTRA: BigNumber = BigNumber.from(exp(2000, baseDecimals)); // 2k$
+
     const AVERAGE_WAIT_TIME = 3600; // 1 hr
 
     let aliceDepositTimestamp: number;
 
     describe("empty market", function () {
+      before(async function () {
+        // wait some time
+        await ethers.provider.send("evm_increaseTime", [AVERAGE_WAIT_TIME]); // 1 hr
+        await ethers.provider.send("evm_mine", []);
+      });
+
       it("utilization is 0 for empty market", async () => {
         expect(await comet.getUtilization()).to.equal(0);
       });
@@ -385,7 +402,7 @@ describe.only("8. interest calculation", function () {
           expect(balance).to.be.approximately(expectedBalance, 1);
         });
 
-        it("bob's displayed borrow (borrowBalanceOf) grows according to the high slope", async () => {
+        it("bob's displayed borrow (borrowBalanceOf) grows according to the low slope", async () => {
           const expectedBorrowRate = baseBorrowRate.add(borrowLowSlope.mul(prevUtilization).div(exp(1, 18)));
           const accruedIndex = prevBorrowIndex.add(prevBorrowIndex.mul(expectedBorrowRate).mul(timeElapsed).div(exp(1, 18)));
 
@@ -404,117 +421,719 @@ describe.only("8. interest calculation", function () {
     });
 
     describe("supplies and borrows (high slope)", function () {
-      it("can borrow to reach the kink", async () => {
-        // wip
+      let prevSupplyIndex: BigNumber, prevBorrowIndex: BigNumber;
+      let prevUtilization: BigNumber;
+      let timeElapsed: number;
+
+      before(async function () {
+        // wait some time
+        await ethers.provider.send("evm_increaseTime", [AVERAGE_WAIT_TIME]); // 1 hr
+        await ethers.provider.send("evm_mine", []);
+
+        prevSupplyIndex = (await cometExtension.totalsBasic()).baseSupplyIndex;
+        prevBorrowIndex = (await cometExtension.totalsBasic()).baseBorrowIndex;
+        prevUtilization = await comet.getUtilization();
+        lastUpdatedTime = (await cometExtension.totalsBasic()).lastAccrualTime;
       });
 
-      it("supply rate for the kink is reached", async () => {
-        // wip
+      it("borrow which pushes utilization over the kink accrues the state (user action in test)", async () => {
+        await comet.connect(bob).withdraw(baseToken.address, BORROW_AMOUNT_OVER_KINK);
+
+        const curUpdatedTime: number = (await cometExtension.totalsBasic()).lastAccrualTime;
+        expect(curUpdatedTime).to.equal((await ethers.provider.getBlock("latest")).timestamp);
+        expect(curUpdatedTime).to.be.greaterThan(lastUpdatedTime);
+
+        timeElapsed = curUpdatedTime - lastUpdatedTime;
+        lastUpdatedTime = curUpdatedTime;
       });
 
-      it("borrow rate for the kink is reached", async () => {
-        // wip
+      it("supply index grows based on the low slope of the interest curve (as supply state is updated after the accrual)", async () => {
+        const expectedSupplyRate = baseSupplyRate.add(supplyLowSlope.mul(prevUtilization).div(exp(1, 18)));
+
+        const accruedIndex = prevSupplyIndex.add(prevSupplyIndex.mul(expectedSupplyRate).mul(timeElapsed).div(exp(1, 18)));
+        const index = (await cometExtension.totalsBasic()).baseSupplyIndex;
+
+        expect(index).to.equal(accruedIndex);
       });
 
-      it("accrue updates indexes while market is on the kink", async () => {
-        // wip
+      it("borrow index grows based on the low slope of the interest curve (as borrow state is updated after the accrual)", async () => {
+        const expectedBorrowRate = baseBorrowRate.add(borrowLowSlope.mul(prevUtilization).div(exp(1, 18)));
+
+        const accruedIndex = prevBorrowIndex.add(prevBorrowIndex.mul(expectedBorrowRate).mul(timeElapsed).div(exp(1, 18)));
+        const index = (await cometExtension.totalsBasic()).baseBorrowIndex;
+
+        expect(index).to.equal(accruedIndex);
       });
 
-      it("can borrow to push utilization over the kink", async () => {
-        // wip
+      it("over the kink utilization is reached", async () => {
+        const curSupplyIndex = (await cometExtension.totalsBasic()).baseSupplyIndex;
+        const curBorrowIndex = (await cometExtension.totalsBasic()).baseBorrowIndex;
+
+        const scaledBorrow = (await comet.userBasic(bob.address)).principal.mul(curBorrowIndex).div(exp(1, 15)).mul(-1); // for borrow
+        const scaledSupply = (await comet.userBasic(alice.address)).principal.mul(curSupplyIndex).div(exp(1, 15));
+        const expectedUtilization = scaledBorrow.mul(exp(1, 18)).div(scaledSupply); // 80% +
+        const currentUtilization: BigNumber = await comet.getUtilization();
+
+        /// we can loose some weis of accuracy based on rounding errors
+        expect(currentUtilization).to.be.approximately(expectedUtilization, exp(1, 4));
+        expect(currentUtilization).to.be.greaterThanOrEqual(supplyKink);
+        expect(currentUtilization).to.be.greaterThanOrEqual(borrowKink);
       });
 
       it("supply rate grows to the high slope of the interest curve", async () => {
-        // wip
+        const curUtilization = await comet.getUtilization();
+        let expectedSupplyRate = baseSupplyRate;
+        expectedSupplyRate = expectedSupplyRate.add(supplyLowSlope.mul(supplyKink).div(exp(1, 18)));
+        expectedSupplyRate = expectedSupplyRate.add(supplyHighSlope.mul(curUtilization.sub(supplyKink)).div(exp(1, 18)));
+
+        const curSupplyRate = await comet.getSupplyRate(curUtilization);
+
+        expect(curSupplyRate).to.equal(expectedSupplyRate);
       });
 
       it("borrow rate grows to the high slope of the interest curve", async () => {
-        // wip
+        const curUtilization = await comet.getUtilization();
+        let expectedBorrowRate = baseBorrowRate;
+        expectedBorrowRate = expectedBorrowRate.add(borrowLowSlope.mul(borrowKink).div(exp(1, 18)));
+        expectedBorrowRate = expectedBorrowRate.add(borrowHighSlope.mul(curUtilization.sub(borrowKink)).div(exp(1, 18)));
+
+        const curBorrowRate = await comet.getBorrowRate(curUtilization);
+
+        expect(curBorrowRate).to.equal(expectedBorrowRate);
       });
 
-      it("accrue updates state of the market", async () => {
-        // wip
+      it("accrue updates state of the market (accrue action in test)", async () => {
+        prevSupplyIndex = (await cometExtension.totalsBasic()).baseSupplyIndex;
+        prevBorrowIndex = (await cometExtension.totalsBasic()).baseBorrowIndex;
+        prevUtilization = await comet.getUtilization();
+        lastUpdatedTime = (await cometExtension.totalsBasic()).lastAccrualTime;
+
+        await comet.accrueAccount(ethers.constants.AddressZero);
+
+        const curUpdatedTime: number = (await cometExtension.totalsBasic()).lastAccrualTime;
+        expect(curUpdatedTime).to.equal((await ethers.provider.getBlock("latest")).timestamp);
+        expect(curUpdatedTime).to.be.greaterThan(lastUpdatedTime);
+
+        timeElapsed = curUpdatedTime - lastUpdatedTime;
+        lastUpdatedTime = curUpdatedTime;
       });
 
       it("supply index grows based on the high slope of the interest curve", async () => {
-        // wip
+        let expectedSupplyRate = baseSupplyRate;
+        expectedSupplyRate = expectedSupplyRate.add(supplyLowSlope.mul(supplyKink).div(exp(1, 18)));
+        expectedSupplyRate = expectedSupplyRate.add(supplyHighSlope.mul(prevUtilization.sub(supplyKink)).div(exp(1, 18)));
+
+        const accruedIndex = prevSupplyIndex.add(prevSupplyIndex.mul(expectedSupplyRate).mul(timeElapsed).div(exp(1, 18)));
+        const index = (await cometExtension.totalsBasic()).baseSupplyIndex;
+
+        expect(index).to.equal(accruedIndex);
       });
 
       it("borrow index grows based on the high slope of the interest curve", async () => {
-        // wip
+        let expectedBorrowRate = baseBorrowRate;
+        expectedBorrowRate = expectedBorrowRate.add(borrowLowSlope.mul(borrowKink).div(exp(1, 18)));
+        expectedBorrowRate = expectedBorrowRate.add(borrowHighSlope.mul(prevUtilization.sub(borrowKink)).div(exp(1, 18)));
+
+        const accruedIndex = prevBorrowIndex.add(prevBorrowIndex.mul(expectedBorrowRate).mul(timeElapsed).div(exp(1, 18)));
+        const index = (await cometExtension.totalsBasic()).baseBorrowIndex;
+
+        expect(index).to.equal(accruedIndex);
+      });
+
+      it("utiization corresponds to the market state", async () => {
+        const curSupplyIndex = (await cometExtension.totalsBasic()).baseSupplyIndex;
+        const curBorrowIndex = (await cometExtension.totalsBasic()).baseBorrowIndex;
+
+        const scaledBorrow = (await comet.userBasic(bob.address)).principal.mul(curBorrowIndex).div(exp(1, 15)).mul(-1); // for borrow
+        const scaledSupply = (await comet.userBasic(alice.address)).principal.mul(curSupplyIndex).div(exp(1, 15));
+        const expectedUtilization = scaledBorrow.mul(exp(1, 18)).div(scaledSupply); // 80% +
+        const currentUtilization: BigNumber = await comet.getUtilization();
+
+        /// we can loose some weis of accuracy based on rounding errors
+        expect(currentUtilization).to.be.approximately(expectedUtilization, exp(1, 4));
       });
 
       it("alice's lend displayed principle (balanceOf) grows according to the high slope", async () => {
-        // wip
+        let expectedSupplyRate = baseSupplyRate;
+        expectedSupplyRate = expectedSupplyRate.add(supplyLowSlope.mul(supplyKink).div(exp(1, 18)));
+        expectedSupplyRate = expectedSupplyRate.add(supplyHighSlope.mul(prevUtilization.sub(supplyKink)).div(exp(1, 18)));
+
+        const accruedIndex = prevSupplyIndex.add(prevSupplyIndex.mul(expectedSupplyRate).mul(timeElapsed).div(exp(1, 18)));
+
+        // healthcheck than current index is re-calculated correctly
+        const index = (await cometExtension.totalsBasic()).baseSupplyIndex;
+        expect(index).to.equal(accruedIndex);
+
+        const principal = (await comet.userBasic(alice.address)).principal;
+        const expectedBalance = principal.mul(accruedIndex).div(exp(1, 15));
+
+        const balance = await comet.balanceOf(alice.address);
+        // 1 wei difference is possible
+        expect(balance).to.be.approximately(expectedBalance, 1);
       });
 
       it("bob's displayed borrow (borrowBalanceOf) grows according to the high slope", async () => {
-        // wip
+        let expectedBorrowRate = baseBorrowRate;
+        expectedBorrowRate = expectedBorrowRate.add(borrowLowSlope.mul(borrowKink).div(exp(1, 18)));
+        expectedBorrowRate = expectedBorrowRate.add(borrowHighSlope.mul(prevUtilization.sub(borrowKink)).div(exp(1, 18)));
+
+        const accruedIndex = prevBorrowIndex.add(prevBorrowIndex.mul(expectedBorrowRate).mul(timeElapsed).div(exp(1, 18)));
+
+        // healthcheck than current index is re-calculated correctly
+        const index = (await cometExtension.totalsBasic()).baseBorrowIndex;
+        expect(index).to.equal(accruedIndex);
+
+        const principal = (await comet.userBasic(bob.address)).principal;
+        const expectedBalance = principal.mul(accruedIndex).div(exp(1, 15)).mul(-1); /// -1 as principal < 0
+
+        const balance = await comet.borrowBalanceOf(bob.address);
+        // 1 wei difference is possible
+        expect(balance).to.be.approximately(expectedBalance, 1);
       });
     });
 
     describe("over utilization", function () {
-      it("can borrow to reach utilization > 100% (borrow from reserves)", async () => {
-        // wip
+      let prevSupplyIndex: BigNumber, prevBorrowIndex: BigNumber;
+      let prevUtilization: BigNumber;
+      let timeElapsed: number;
+
+      before(async function () {
+        // wait some time
+        await ethers.provider.send("evm_increaseTime", [AVERAGE_WAIT_TIME]); // 1 hr
+        await ethers.provider.send("evm_mine", []);
+
+        prevSupplyIndex = (await cometExtension.totalsBasic()).baseSupplyIndex;
+        prevBorrowIndex = (await cometExtension.totalsBasic()).baseBorrowIndex;
+        prevUtilization = await comet.getUtilization();
+        lastUpdatedTime = (await cometExtension.totalsBasic()).lastAccrualTime;
       });
 
-      it("supply rate grows to the high slope of the interest curve (over 100%)", async () => {
-        // wip
+      it("can borrow to reach utilization > 100% (borrow from reserves) (user action in test)", async () => {
+        await comet.connect(bob).withdraw(baseToken.address, BORROW_AMOUNT_OVERUTILIZATION);
+
+        const curUpdatedTime: number = (await cometExtension.totalsBasic()).lastAccrualTime;
+        expect(curUpdatedTime).to.equal((await ethers.provider.getBlock("latest")).timestamp);
+        expect(curUpdatedTime).to.be.greaterThan(lastUpdatedTime);
+
+        timeElapsed = curUpdatedTime - lastUpdatedTime;
+        lastUpdatedTime = curUpdatedTime;
       });
 
-      it("borrow rate grows to the high slope of the interest curve", async () => {
-        // wip
+      it("supply index grows based on the high slope of the interest curve", async () => {
+        let expectedSupplyRate = baseSupplyRate;
+        expectedSupplyRate = expectedSupplyRate.add(supplyLowSlope.mul(supplyKink).div(exp(1, 18)));
+        expectedSupplyRate = expectedSupplyRate.add(supplyHighSlope.mul(prevUtilization.sub(supplyKink)).div(exp(1, 18)));
+
+        const accruedIndex = prevSupplyIndex.add(prevSupplyIndex.mul(expectedSupplyRate).mul(timeElapsed).div(exp(1, 18)));
+        const index = (await cometExtension.totalsBasic()).baseSupplyIndex;
+
+        expect(index).to.equal(accruedIndex);
       });
 
-      it("accrue updates state of the market", async () => {
-        // wip
+      it("borrow index grows based on the high slope of the interest curve", async () => {
+        let expectedBorrowRate = baseBorrowRate;
+        expectedBorrowRate = expectedBorrowRate.add(borrowLowSlope.mul(borrowKink).div(exp(1, 18)));
+        expectedBorrowRate = expectedBorrowRate.add(borrowHighSlope.mul(prevUtilization.sub(borrowKink)).div(exp(1, 18)));
+
+        const accruedIndex = prevBorrowIndex.add(prevBorrowIndex.mul(expectedBorrowRate).mul(timeElapsed).div(exp(1, 18)));
+        const index = (await cometExtension.totalsBasic()).baseBorrowIndex;
+
+        expect(index).to.equal(accruedIndex);
       });
 
-      it("supply index grows based on the high slope of the interest curve (over 100%)", async () => {
-        // wip
+      it("over 100% utilization is reached", async () => {
+        const curSupplyIndex = (await cometExtension.totalsBasic()).baseSupplyIndex;
+        const curBorrowIndex = (await cometExtension.totalsBasic()).baseBorrowIndex;
+
+        const scaledBorrow = (await comet.userBasic(bob.address)).principal.mul(curBorrowIndex).div(exp(1, 15)).mul(-1); // for borrow
+        const scaledSupply = (await comet.userBasic(alice.address)).principal.mul(curSupplyIndex).div(exp(1, 15));
+        const expectedUtilization = scaledBorrow.mul(exp(1, 18)).div(scaledSupply); // 100% +
+        const currentUtilization: BigNumber = await comet.getUtilization();
+
+        /// we can loose some weis of accuracy based on rounding errors
+        expect(currentUtilization).to.be.approximately(expectedUtilization, exp(1, 4));
+        expect(currentUtilization).to.be.greaterThanOrEqual(exp(1, 18)); // > 100%
       });
 
-      it("borrow index grows based on the high slope of the interest curve (over 100%)", async () => {
-        // wip
+      it("supply rate grows to the high slope of the interest curve (> 100%)", async () => {
+        const curUtilization = await comet.getUtilization();
+        let expectedSupplyRate = baseSupplyRate;
+        expectedSupplyRate = expectedSupplyRate.add(supplyLowSlope.mul(supplyKink).div(exp(1, 18)));
+        expectedSupplyRate = expectedSupplyRate.add(supplyHighSlope.mul(curUtilization.sub(supplyKink)).div(exp(1, 18)));
+
+        const curSupplyRate = await comet.getSupplyRate(curUtilization);
+
+        expect(curSupplyRate).to.equal(expectedSupplyRate);
       });
 
-      it("alice's lend displayed principle (balanceOf) grows according to the high slope (over 100%)", async () => {
-        // wip
+      it("borrow rate grows to the high slope of the interest curve (> 100%)", async () => {
+        const curUtilization = await comet.getUtilization();
+        let expectedBorrowRate = baseBorrowRate;
+        expectedBorrowRate = expectedBorrowRate.add(borrowLowSlope.mul(borrowKink).div(exp(1, 18)));
+        expectedBorrowRate = expectedBorrowRate.add(borrowHighSlope.mul(curUtilization.sub(borrowKink)).div(exp(1, 18)));
+
+        const curBorrowRate = await comet.getBorrowRate(curUtilization);
+
+        expect(curBorrowRate).to.equal(expectedBorrowRate);
       });
 
-      it("bob's displayed borrow (borrowBalanceOf) grows according to the high slope (over 100%)", async () => {
-        // wip
+      it("accrue updates state of the market (accrue action in test)", async () => {
+        prevSupplyIndex = (await cometExtension.totalsBasic()).baseSupplyIndex;
+        prevBorrowIndex = (await cometExtension.totalsBasic()).baseBorrowIndex;
+        prevUtilization = await comet.getUtilization();
+        lastUpdatedTime = (await cometExtension.totalsBasic()).lastAccrualTime;
+
+        await comet.accrueAccount(ethers.constants.AddressZero);
+
+        const curUpdatedTime: number = (await cometExtension.totalsBasic()).lastAccrualTime;
+        expect(curUpdatedTime).to.equal((await ethers.provider.getBlock("latest")).timestamp);
+        expect(curUpdatedTime).to.be.greaterThan(lastUpdatedTime);
+
+        timeElapsed = curUpdatedTime - lastUpdatedTime;
+        lastUpdatedTime = curUpdatedTime;
       });
 
-      it("should revert for borrow which reach utilization over 200%", async () => {
-        // wip
+      it("supply index grows based on the high slope of the interest curve (> 100%)", async () => {
+        let expectedSupplyRate = baseSupplyRate;
+        expectedSupplyRate = expectedSupplyRate.add(supplyLowSlope.mul(supplyKink).div(exp(1, 18)));
+        expectedSupplyRate = expectedSupplyRate.add(supplyHighSlope.mul(prevUtilization.sub(supplyKink)).div(exp(1, 18)));
+
+        const accruedIndex = prevSupplyIndex.add(prevSupplyIndex.mul(expectedSupplyRate).mul(timeElapsed).div(exp(1, 18)));
+        const index = (await cometExtension.totalsBasic()).baseSupplyIndex;
+
+        expect(index).to.equal(accruedIndex);
+      });
+
+      it("borrow index grows based on the high slope of the interest curve (> 100%)", async () => {
+        let expectedBorrowRate = baseBorrowRate;
+        expectedBorrowRate = expectedBorrowRate.add(borrowLowSlope.mul(borrowKink).div(exp(1, 18)));
+        expectedBorrowRate = expectedBorrowRate.add(borrowHighSlope.mul(prevUtilization.sub(borrowKink)).div(exp(1, 18)));
+
+        const accruedIndex = prevBorrowIndex.add(prevBorrowIndex.mul(expectedBorrowRate).mul(timeElapsed).div(exp(1, 18)));
+        const index = (await cometExtension.totalsBasic()).baseBorrowIndex;
+
+        expect(index).to.equal(accruedIndex);
+      });
+
+      it("utiization corresponds to the market state (> 100%)", async () => {
+        const curSupplyIndex = (await cometExtension.totalsBasic()).baseSupplyIndex;
+        const curBorrowIndex = (await cometExtension.totalsBasic()).baseBorrowIndex;
+
+        const scaledBorrow = (await comet.userBasic(bob.address)).principal.mul(curBorrowIndex).div(exp(1, 15)).mul(-1); // for borrow
+        const scaledSupply = (await comet.userBasic(alice.address)).principal.mul(curSupplyIndex).div(exp(1, 15));
+        const expectedUtilization = scaledBorrow.mul(exp(1, 18)).div(scaledSupply); // 100% +
+        const currentUtilization: BigNumber = await comet.getUtilization();
+
+        /// we can loose some weis of accuracy based on rounding errors
+        expect(currentUtilization).to.be.approximately(expectedUtilization, exp(1, 4));
+        expect(currentUtilization).to.be.greaterThanOrEqual(exp(1, 18)); // > 100%
+      });
+
+      it("alice's lend displayed principle (balanceOf) grows according to the high slope (> 100%)", async () => {
+        let expectedSupplyRate = baseSupplyRate;
+        expectedSupplyRate = expectedSupplyRate.add(supplyLowSlope.mul(supplyKink).div(exp(1, 18)));
+        expectedSupplyRate = expectedSupplyRate.add(supplyHighSlope.mul(prevUtilization.sub(supplyKink)).div(exp(1, 18)));
+
+        const accruedIndex = prevSupplyIndex.add(prevSupplyIndex.mul(expectedSupplyRate).mul(timeElapsed).div(exp(1, 18)));
+
+        // healthcheck than current index is re-calculated correctly
+        const index = (await cometExtension.totalsBasic()).baseSupplyIndex;
+        expect(index).to.equal(accruedIndex);
+
+        const principal = (await comet.userBasic(alice.address)).principal;
+        const expectedBalance = principal.mul(accruedIndex).div(exp(1, 15));
+
+        const balance = await comet.balanceOf(alice.address);
+        // 1 wei difference is possible
+        expect(balance).to.be.approximately(expectedBalance, 1);
+      });
+
+      it("bob's displayed borrow (borrowBalanceOf) grows according to the high slope (> 100%)", async () => {
+        let expectedBorrowRate = baseBorrowRate;
+        expectedBorrowRate = expectedBorrowRate.add(borrowLowSlope.mul(borrowKink).div(exp(1, 18)));
+        expectedBorrowRate = expectedBorrowRate.add(borrowHighSlope.mul(prevUtilization.sub(borrowKink)).div(exp(1, 18)));
+
+        const accruedIndex = prevBorrowIndex.add(prevBorrowIndex.mul(expectedBorrowRate).mul(timeElapsed).div(exp(1, 18)));
+
+        // healthcheck than current index is re-calculated correctly
+        const index = (await cometExtension.totalsBasic()).baseBorrowIndex;
+        expect(index).to.equal(accruedIndex);
+
+        const principal = (await comet.userBasic(bob.address)).principal;
+        const expectedBalance = principal.mul(accruedIndex).div(exp(1, 15)).mul(-1); /// -1 as principal < 0
+
+        const balance = await comet.borrowBalanceOf(bob.address);
+        // 1 wei difference is possible
+        expect(balance).to.be.approximately(expectedBalance, 1);
+      });
+
+      it("should revert for bob borrow which reach utilization over 200%", async () => {
+        await expect(comet.connect(bob).withdraw(baseToken.address, BORROW_AMOUNT_EXCEEDS_LIMIT)).to.revertedWithCustomError(
+          comet,
+          "ExceedsSupportedUtilization"
+        );
+      });
+
+      it("should revert for any new user pushing utilization over 200%", async () => {
+        await collaterals["COMP"].connect(charlie).approve(comet.address, COLLATERAL_AMOUNT);
+        await comet.connect(charlie).supply(collaterals["COMP"].address, COLLATERAL_AMOUNT);
+        await expect(comet.connect(charlie).withdraw(baseToken.address, BORROW_AMOUNT_EXCEEDS_LIMIT)).to.revertedWithCustomError(
+          comet,
+          "ExceedsSupportedUtilization"
+        );
+      });
+    });
+
+    describe("new supply pushes utilization back under the kink", function () {
+      let prevSupplyIndex: BigNumber, prevBorrowIndex: BigNumber;
+      let prevUtilization: BigNumber;
+      let timeElapsed: number;
+
+      before(async function () {
+        // wait some time
+        await ethers.provider.send("evm_increaseTime", [AVERAGE_WAIT_TIME]); // 1 hr
+        await ethers.provider.send("evm_mine", []);
+
+        prevSupplyIndex = (await cometExtension.totalsBasic()).baseSupplyIndex;
+        prevBorrowIndex = (await cometExtension.totalsBasic()).baseBorrowIndex;
+        prevUtilization = await comet.getUtilization();
+        lastUpdatedTime = (await cometExtension.totalsBasic()).lastAccrualTime;
+      });
+
+      it("supply to the market to decrease utilization accrues state (user action in test)", async () => {
+        await baseToken.connect(alice).approve(comet.address, SUPPLY_AMOUNT_UNDER_KINK);
+        await comet.connect(alice).supply(baseToken.address, SUPPLY_AMOUNT_UNDER_KINK);
+
+        const curUpdatedTime: number = (await cometExtension.totalsBasic()).lastAccrualTime;
+        expect(curUpdatedTime).to.equal((await ethers.provider.getBlock("latest")).timestamp);
+        expect(curUpdatedTime).to.be.greaterThan(lastUpdatedTime);
+
+        timeElapsed = curUpdatedTime - lastUpdatedTime;
+        lastUpdatedTime = curUpdatedTime;
+      });
+
+      it("supply index grows based on the high slope of the interest curve (as supply state is updated after acrrual)", async () => {
+        let expectedSupplyRate = baseSupplyRate;
+        expectedSupplyRate = expectedSupplyRate.add(supplyLowSlope.mul(supplyKink).div(exp(1, 18)));
+        expectedSupplyRate = expectedSupplyRate.add(supplyHighSlope.mul(prevUtilization.sub(supplyKink)).div(exp(1, 18)));
+
+        const accruedIndex = prevSupplyIndex.add(prevSupplyIndex.mul(expectedSupplyRate).mul(timeElapsed).div(exp(1, 18)));
+        const index = (await cometExtension.totalsBasic()).baseSupplyIndex;
+
+        expect(index).to.equal(accruedIndex);
+      });
+
+      it("borrow index grows based on the high slope of the interest curve (as supply state is updated after acrrual)", async () => {
+        let expectedBorrowRate = baseBorrowRate;
+        expectedBorrowRate = expectedBorrowRate.add(borrowLowSlope.mul(borrowKink).div(exp(1, 18)));
+        expectedBorrowRate = expectedBorrowRate.add(borrowHighSlope.mul(prevUtilization.sub(borrowKink)).div(exp(1, 18)));
+
+        const accruedIndex = prevBorrowIndex.add(prevBorrowIndex.mul(expectedBorrowRate).mul(timeElapsed).div(exp(1, 18)));
+        const index = (await cometExtension.totalsBasic()).baseBorrowIndex;
+
+        expect(index).to.equal(accruedIndex);
+      });
+
+      it("utilization is pushed under the kink", async () => {
+        const curSupplyIndex = (await cometExtension.totalsBasic()).baseSupplyIndex;
+        const curBorrowIndex = (await cometExtension.totalsBasic()).baseBorrowIndex;
+
+        const scaledBorrow = (await comet.userBasic(bob.address)).principal.mul(curBorrowIndex).div(exp(1, 15)).mul(-1); // for borrow
+        const scaledSupply = (await comet.userBasic(alice.address)).principal.mul(curSupplyIndex).div(exp(1, 15));
+        const expectedUtilization = scaledBorrow.mul(exp(1, 18)).div(scaledSupply); // 50% +
+        const currentUtilization: BigNumber = await comet.getUtilization();
+
+        /// we can loose some weis of accuracy based on rounding errors
+        expect(currentUtilization).to.be.approximately(expectedUtilization, exp(1, 4));
+        expect(currentUtilization).to.be.lessThanOrEqual(supplyKink);
+        expect(currentUtilization).to.be.lessThanOrEqual(borrowKink);
+      });
+
+      it("supply rate grows based on the low slope of the interest curve", async () => {
+        const curUtilization = await comet.getUtilization();
+        let expectedSupplyRate = baseSupplyRate;
+        expectedSupplyRate = expectedSupplyRate.add(supplyLowSlope.mul(curUtilization).div(exp(1, 18)));
+
+        const curSupplyRate = await comet.getSupplyRate(curUtilization);
+
+        expect(curSupplyRate).to.equal(expectedSupplyRate);
+      });
+
+      it("borrow rate grows based on the low slope of the interest curve", async () => {
+        const curUtilization = await comet.getUtilization();
+        let expectedBorrowRate = baseBorrowRate;
+        expectedBorrowRate = expectedBorrowRate.add(borrowLowSlope.mul(curUtilization).div(exp(1, 18)));
+
+        const curBorrowRate = await comet.getBorrowRate(curUtilization);
+
+        expect(curBorrowRate).to.equal(expectedBorrowRate);
+      });
+
+      it("accrue updates state of the market (accrue action in test)", async () => {
+        prevSupplyIndex = (await cometExtension.totalsBasic()).baseSupplyIndex;
+        prevBorrowIndex = (await cometExtension.totalsBasic()).baseBorrowIndex;
+        prevUtilization = await comet.getUtilization();
+        lastUpdatedTime = (await cometExtension.totalsBasic()).lastAccrualTime;
+
+        await comet.accrueAccount(ethers.constants.AddressZero);
+
+        const curUpdatedTime: number = (await cometExtension.totalsBasic()).lastAccrualTime;
+        expect(curUpdatedTime).to.equal((await ethers.provider.getBlock("latest")).timestamp);
+        expect(curUpdatedTime).to.be.greaterThan(lastUpdatedTime);
+
+        timeElapsed = curUpdatedTime - lastUpdatedTime;
+        lastUpdatedTime = curUpdatedTime;
+      });
+
+      it("supply index grows based on the low slope of the interest curve", async () => {
+        let expectedSupplyRate = baseSupplyRate;
+        expectedSupplyRate = expectedSupplyRate.add(supplyLowSlope.mul(prevUtilization).div(exp(1, 18)));
+
+        const accruedIndex = prevSupplyIndex.add(prevSupplyIndex.mul(expectedSupplyRate).mul(timeElapsed).div(exp(1, 18)));
+        const index = (await cometExtension.totalsBasic()).baseSupplyIndex;
+
+        expect(index).to.equal(accruedIndex);
+      });
+
+      it("borrow index grows based on the low slope of the interest curve", async () => {
+        let expectedBorrowRate = baseBorrowRate;
+        expectedBorrowRate = expectedBorrowRate.add(borrowLowSlope.mul(prevUtilization).div(exp(1, 18)));
+
+        const accruedIndex = prevBorrowIndex.add(prevBorrowIndex.mul(expectedBorrowRate).mul(timeElapsed).div(exp(1, 18)));
+        const index = (await cometExtension.totalsBasic()).baseBorrowIndex;
+
+        expect(index).to.equal(accruedIndex);
+      });
+
+      it("utiization corresponds to the market state (< kink%)", async () => {
+        const curSupplyIndex = (await cometExtension.totalsBasic()).baseSupplyIndex;
+        const curBorrowIndex = (await cometExtension.totalsBasic()).baseBorrowIndex;
+
+        const scaledBorrow = (await comet.userBasic(bob.address)).principal.mul(curBorrowIndex).div(exp(1, 15)).mul(-1); // for borrow
+        const scaledSupply = (await comet.userBasic(alice.address)).principal.mul(curSupplyIndex).div(exp(1, 15));
+        const expectedUtilization = scaledBorrow.mul(exp(1, 18)).div(scaledSupply); // 100% +
+        const currentUtilization: BigNumber = await comet.getUtilization();
+
+        /// we can loose some weis of accuracy based on rounding errors
+        expect(currentUtilization).to.be.approximately(expectedUtilization, exp(1, 4));
+        expect(currentUtilization).to.be.lessThanOrEqual(supplyKink);
+        expect(currentUtilization).to.be.lessThanOrEqual(borrowKink);
+      });
+
+      it("alice's lend displayed principle (balanceOf) grows according to the low slope", async () => {
+        let expectedSupplyRate = baseSupplyRate;
+        expectedSupplyRate = expectedSupplyRate.add(supplyLowSlope.mul(prevUtilization).div(exp(1, 18)));
+
+        const accruedIndex = prevSupplyIndex.add(prevSupplyIndex.mul(expectedSupplyRate).mul(timeElapsed).div(exp(1, 18)));
+
+        // healthcheck than current index is re-calculated correctly
+        const index = (await cometExtension.totalsBasic()).baseSupplyIndex;
+        expect(index).to.equal(accruedIndex);
+
+        const principal = (await comet.userBasic(alice.address)).principal;
+        const expectedBalance = principal.mul(accruedIndex).div(exp(1, 15));
+
+        const balance = await comet.balanceOf(alice.address);
+        // 1 wei difference is possible
+        expect(balance).to.be.approximately(expectedBalance, 1);
+      });
+
+      it("bob's displayed borrow (borrowBalanceOf) grows according to the low slope", async () => {
+        let expectedBorrowRate = baseBorrowRate;
+        expectedBorrowRate = expectedBorrowRate.add(borrowLowSlope.mul(prevUtilization).div(exp(1, 18)));
+
+        const accruedIndex = prevBorrowIndex.add(prevBorrowIndex.mul(expectedBorrowRate).mul(timeElapsed).div(exp(1, 18)));
+
+        // healthcheck than current index is re-calculated correctly
+        const index = (await cometExtension.totalsBasic()).baseBorrowIndex;
+        expect(index).to.equal(accruedIndex);
+
+        const principal = (await comet.userBasic(bob.address)).principal;
+        const expectedBalance = principal.mul(accruedIndex).div(exp(1, 15)).mul(-1); /// -1 as principal < 0
+
+        const balance = await comet.borrowBalanceOf(bob.address);
+        // 1 wei difference is possible
+        expect(balance).to.be.approximately(expectedBalance, 1);
+      });
+    });
+
+    describe("lenders can withdraw from the market even peaking utilization", function () {
+      it("withdraw by lenders does not revert if reaching >200% utilization from regular level in one step", async () => {
+        let curUtilization = await comet.getUtilization();
+        expect(curUtilization).to.be.lessThan(exp(1, 18)); // < 100%
+
+        await expect(comet.connect(alice).withdraw(baseToken.address, WITHDRAW_AMOUNT_EXCEEDS_LIMIT)).to.not.be.reverted;
+
+        // 20k supplied, 8k borrowed -> withdraw of 16k will spike utilization over 200%
+        curUtilization = await comet.getUtilization();
+        expect(curUtilization).to.be.greaterThanOrEqual(exp(2, 18)); // > 200%
+      });
+
+      it("withdraw by lenders does not revert within 200%+ utilization", async () => {
+        let curUtilization = await comet.getUtilization();
+        expect(curUtilization).to.be.greaterThanOrEqual(exp(2, 18)); // > 200%
+
+        await expect(comet.connect(alice).withdraw(baseToken.address, WITHDRAW_AMOUNT_EXTRA)).to.not.be.reverted;
+
+        // 4k supplied, 8k borrowed -> withdraw of 2k will spike utilization over 400%
+        curUtilization = await comet.getUtilization();
+        expect(curUtilization).to.be.greaterThanOrEqual(exp(4, 18)); // > 200%
+      });
+
+      it("withdraw by lenders does not revert if reaching utilization above uint64 limit (> 1900%)", async () => {
+        /// withdraw everything except 1$
+        const curBalance = await comet.balanceOf(alice.address);
+
+        await expect(comet.connect(alice).withdraw(baseToken.address, curBalance.sub(exp(1, baseDecimals)))).to.not.be.reverted;
+
+        // 2k supplied, 8k borrowed -> withdraw of 2k - 1$ will spike utilization over 8000%, exceeding uint64 limit
+        const curUtilization = await comet.getUtilization();
+        expect(curUtilization).to.be.greaterThanOrEqual(exp(80, 18)); // > 8000%, far exceedint uint64 limit
       });
     });
   });
 
-  describe.skip("edge cases", function () {
+  describe("edge cases", function () {
     describe("supply interest will not exceed seed reserves in case of no borrows for new market", function () {
-      it("supply interest will not exceed seed reserves in case of no borrows for new market", async () => {
-        // wip
-        // todo: add changes in code
-        /// No borrows - keep interest until the seed reserves exhaustion
-        /// if (utilization == 0 && totalSupply() >= IERC20(baseToken).balanceOf(address(this))) return 0;
-      });
-    });
-
-    describe("utilization cannot be inflated for empty market", function () {
       let testComet: SandboxComet;
       let testCometExt: ICometExtension;
-      let colPriceInBase: BigNumber;
+      const SUPPLY_AMOUNT: BigNumber = BigNumber.from(exp(1000000, baseDecimals)); // 1mln$
+      const BORROW_AMOUNT: BigNumber = BigNumber.from(exp(2000, baseDecimals)); // 2k$
+      const COLLATERAL_VALUE: BigNumber = BigNumber.from(exp(90000, baseDecimals)); // 80k$
+      let COLLATERAL_AMOUNT: BigNumber; // will be calculated from the price at later testcase
+      let seedReserve: BigNumber;
+      let expectedTimeElapsed: BigNumber;
 
       before(async function () {
         testComet = await createComet(owner, defaultAssets(), configController, sandboxController, collaterals, baseToken);
         testCometExt = (await ethers.getContractAt("CometExtension", testComet.address)) as ICometExtension;
 
-        const colPrice = (await priceFeeds["COMP"].latestRoundData())[1];
-        console.log(1, colPrice.toString());
+        await baseToken.connect(alice).approve(testComet.address, SUPPLY_AMOUNT);
+        await testComet.connect(alice).supply(baseToken.address, SUPPLY_AMOUNT);
 
-        colPriceInBase = colPrice.mul(exp(1, 6)).div(exp(1, DEFAULT_PRICEFEED_DECIMALS)); // as base is USDC its price is 1
+        await baseToken.connect(bob).approve(testComet.address, SUPPLY_AMOUNT);
+        await testComet.connect(bob).supply(baseToken.address, SUPPLY_AMOUNT);
+
+        seedReserve = (await sandboxController.baseTokenSuggestedSeedReserves(baseToken.address))[0];
+
+        const colPrice = (await priceFeeds["COMP"].latestRoundData())[1];
+        const colPriceInBase = colPrice.mul(exp(1, baseDecimals)).div(exp(1, DEFAULT_PRICEFEED_DECIMALS)); // as base is USDC its price is 1
+        COLLATERAL_AMOUNT = BigNumber.from(COLLATERAL_VALUE).mul(exp(1, 18)).div(colPriceInBase);
+
+        await collaterals["COMP"].connect(charlie).approve(testComet.address, COLLATERAL_AMOUNT);
+        await testComet.connect(charlie).supply(collaterals["COMP"].address, COLLATERAL_AMOUNT);
+      });
+
+      it("comet balance is a sum of seed reserves and 2 deposits", async () => {
+        const curBalance = await baseToken.balanceOf(testComet.address);
+
+        expect(curBalance).to.equal(seedReserve.add(SUPPLY_AMOUNT).add(SUPPLY_AMOUNT));
+      });
+
+      it("supply rate corresponds to the base rate", async () => {
+        // cur utilization is 0, as there is no borrows
+        const curSupplyRate = await testComet.getSupplyRate(0);
+        expect(curSupplyRate).to.equal(baseSupplyRate);
+      });
+
+      it("get expected time elapsed on which reserves spend will happen", async () => {
+        // since we deposited just once, we can use the initial principal
+        // if more deposits are performed, it will only speed things up, so we can rely on 1 deposit only
+        const alicePrincipal = (await testComet.userBasic(alice.address)).principal;
+
+        // the balance we want to achieve is deposit + half of reserve (for 2 users)
+        const expectedBalance = seedReserve.div(2).add(SUPPLY_AMOUNT);
+
+        // get the expected supply index
+        // presentValue = principal * supplyIndex / 1e15
+        // => expected index = presentValue * 1e15 / principal
+        const expectedSupplyIndex = expectedBalance.mul(exp(1, 15)).div(alicePrincipal);
+
+        // since utilization = 0, lenders will get only baseRate of interest
+        const expectedSupplyRate = baseSupplyRate;
+
+        // since we started from the initial deposit, the initial index is 1
+        const prevSupplyIndex = BigNumber.from(exp(1, 15));
+
+        // get the time elapsed until the required balance
+        // accrued index = supply index + supply index * supply rate * time elapsed
+        // => time elapsed = (accrued index - supply index) / (supply index * supply rate)
+        expectedTimeElapsed = expectedSupplyIndex.sub(prevSupplyIndex).div(prevSupplyIndex.mul(expectedSupplyRate).div(exp(1, 18)));
+      });
+
+      it("accrue market right after the expected time elapsed", async () => {
+        await ethers.provider.send("evm_increaseTime", [expectedTimeElapsed.toNumber()]);
+        await ethers.provider.send("evm_mine", []);
+
+        await testComet.accrueAccount(ethers.constants.AddressZero);
+      });
+
+      it("supply rate is set to 0 as total reserves are exhaused on the total supply", async () => {
+        expect(await baseToken.balanceOf(testComet.address)).to.be.lessThan(await testComet.totalSupply());
+        expect(await testComet.getSupplyRate(0)).to.equal(0);
+      });
+
+      it("accrue market does not change the supply index", async () => {
+        const prevIndex = (await testCometExt.totalsBasic()).baseSupplyIndex;
+
+        await ethers.provider.send("evm_increaseTime", [60]);
+        await ethers.provider.send("evm_mine", []);
+
+        await testComet.accrueAccount(ethers.constants.AddressZero);
+
+        const curIndex = (await testCometExt.totalsBasic()).baseSupplyIndex;
+
+        expect(curIndex).to.equal(prevIndex);
+      });
+
+      it("charlie borrows some asset and activates the supply rate again", async () => {
+        await testComet.connect(charlie).withdraw(baseToken.address, BORROW_AMOUNT);
+
+        const curUtilization = await testComet.getUtilization();
+        expect(curUtilization).to.be.greaterThan(0);
+      });
+
+      it("supply rate equals the expected supply rate", async () => {
+        const curUtilization = await testComet.getUtilization();
+
+        let expectedSupplyRate = baseSupplyRate;
+        expectedSupplyRate = expectedSupplyRate.add(supplyLowSlope.mul(curUtilization).div(exp(1, 18)));
+
+        expect(await testComet.getSupplyRate(curUtilization)).to.equal(expectedSupplyRate);
+      });
+
+      it("accrue market increases index as expected", async () => {
+        const prevSupplyIndex = (await testCometExt.totalsBasic()).baseSupplyIndex;
+        const prevUtilization = await testComet.getUtilization();
+        const lastAccrualTime = (await testCometExt.totalsBasic()).lastAccrualTime;
+
+        await ethers.provider.send("evm_increaseTime", [60]);
+        await ethers.provider.send("evm_mine", []);
+
+        await testComet.accrueAccount(ethers.constants.AddressZero);
+
+        const timeElapsed = (await testCometExt.totalsBasic()).lastAccrualTime - lastAccrualTime;
+
+        let expectedSupplyRate = baseSupplyRate;
+        expectedSupplyRate = expectedSupplyRate.add(supplyLowSlope.mul(prevUtilization).div(exp(1, 18)));
+
+        const accruedIndex = prevSupplyIndex.add(prevSupplyIndex.mul(expectedSupplyRate).mul(timeElapsed).div(exp(1, 18)));
+
+        // healthcheck than current index is re-calculated correctly
+        const index = (await testCometExt.totalsBasic()).baseSupplyIndex;
+        expect(index).to.equal(accruedIndex);
+      });
+    });
+
+    describe("utilization cannot be inflated for empty market", function () {
+      let testComet: SandboxComet;
+      let colPriceInBase: BigNumber;
+
+      before(async function () {
+        testComet = await createComet(owner, defaultAssets(), configController, sandboxController, collaterals, baseToken);
+
+        const colPrice = (await priceFeeds["COMP"].latestRoundData())[1];
+        colPriceInBase = colPrice.mul(exp(1, baseDecimals)).div(exp(1, DEFAULT_PRICEFEED_DECIMALS)); // as base is USDC its price is 1
       });
 
       it("initial utilization is  for fresh comet", async () => {
@@ -529,59 +1148,36 @@ describe.only("8. interest calculation", function () {
       });
 
       it("bob supplies collateral worth of 10k$", async () => {
-        console.log(11, colPriceInBase.toString());
-        const amount = BigNumber.from(exp(10000, 6)).mul(exp(1, 18)).div(colPriceInBase);
+        const amount = BigNumber.from(exp(10001, baseDecimals)).mul(exp(1, 18)).div(colPriceInBase);
 
-        console.log(12, amount.toString());
-
-        await collaterals["COMP"].allocateTo(bob.address, amount);
         await collaterals["COMP"].connect(bob).approve(testComet.address, amount);
         await testComet.connect(bob).supply(collaterals["COMP"].address, amount);
 
         expect(await testComet.getUtilization()).to.equal(0);
       });
 
-      it("bob borrows base asset at max", async () => {
-        const bobBalanceBefore = await baseToken.balanceOf(bob.address);
-        const aliceDisplayBalanceBefore = await testComet.balanceOf(alice.address);
-        // default collateral factor is set as 60%
-        const amount = BigNumber.from(exp(5000, 6));
-        await testComet.connect(bob).withdraw(baseToken.address, amount);
-        const bobBalanceAfter = await baseToken.balanceOf(bob.address);
+      it("bob borrow of base asset at max will revert due to the utilization spike", async () => {
+        // default collateral factor is set as 80%
+        const amount = BigNumber.from(exp(8000, baseDecimals));
 
-        console.log("alice 0:", aliceDisplayBalanceBefore.toString());
-        console.log("alice 1", (await testComet.balanceOf(alice.address)).toString());
-        console.log("bob 1:", (await testComet.borrowBalanceOf(bob.address)).toString());
-
-        expect(bobBalanceAfter.sub(bobBalanceBefore)).to.equal(amount);
-
-        console.log(0, (await testCometExt.totalsBasic()).totalSupplyBase.toString());
-        console.log(0, (await testCometExt.totalsBasic()).totalBorrowBase.toString());
-
-        console.log("u1:", (await testComet.getUtilization()).div(exp(1, 18)).toString());
-
-        await ethers.provider.send("evm_increaseTime", [600]);
-        await ethers.provider.send("evm_mine", []);
-
-        console.log("alice 2", (await testComet.balanceOf(alice.address)).toString());
-        console.log("bob 2:", (await testComet.borrowBalanceOf(bob.address)).toString());
-        console.log(await testComet.isLiquidatable(bob.address));
-
-        console.log("u2:", (await testComet.getUtilization()).div(exp(1, 18)).toString());
+        await expect(testComet.connect(bob).withdraw(baseToken.address, amount)).to.revertedWithCustomError(
+          testComet,
+          "ExceedsSupportedUtilization"
+        );
       });
     });
 
     describe("chain liquidation cannot be initiated because of the inflated utilization", function () {
       let testComet: SandboxComet;
-      let testCometExt: ICometExtension;
       let colPriceInBase: BigNumber;
 
       before(async function () {
         testComet = await createComet(owner, defaultAssets(), configController, sandboxController, collaterals, baseToken);
-        testCometExt = (await ethers.getContractAt("CometExtension", testComet.address)) as ICometExtension;
 
         const colPrice = (await priceFeeds["COMP"].latestRoundData())[1];
-        colPriceInBase = colPrice.mul(exp(1, 6)).div(exp(1, DEFAULT_PRICEFEED_DECIMALS)); // as base is USDC its price is 1
+        colPriceInBase = colPrice.mul(exp(1, baseDecimals)).div(exp(1, DEFAULT_PRICEFEED_DECIMALS)); // as base is USDC its price is 1
+
+        await baseToken.allocateTo(other.address, exp(1e10, baseDecimals));
       });
 
       it("initial utilization is  for fresh comet", async () => {
@@ -589,7 +1185,6 @@ describe.only("8. interest calculation", function () {
       });
 
       it("lender supplies base asset worth of 10k$", async () => {
-        await baseToken.allocateTo(other.address, exp(10000, baseDecimals));
         await baseToken.connect(other).approve(testComet.address, exp(10000, baseDecimals));
         await testComet.connect(other).supply(baseToken.address, exp(10000, baseDecimals));
 
@@ -599,11 +1194,9 @@ describe.only("8. interest calculation", function () {
       it("alice and bob take supply collateral ~3.5k$ each", async () => {
         const amount = BigNumber.from(exp(3500, baseDecimals)).mul(exp(1, 18)).div(colPriceInBase);
 
-        await collaterals["COMP"].allocateTo(alice.address, amount);
         await collaterals["COMP"].connect(alice).approve(testComet.address, amount);
         await testComet.connect(alice).supply(collaterals["COMP"].address, amount);
 
-        await collaterals["COMP"].allocateTo(bob.address, amount);
         await collaterals["COMP"].connect(bob).approve(testComet.address, amount);
         await testComet.connect(bob).supply(collaterals["COMP"].address, amount);
 
@@ -611,7 +1204,7 @@ describe.only("8. interest calculation", function () {
       });
 
       it("alice and bob borrow assets at max (80% borrow factor)", async () => {
-        const aliceBalanceBefore = await baseToken.balanceOf(bob.address);
+        const aliceBalanceBefore = await baseToken.balanceOf(alice.address);
         const bobBalanceBefore = await baseToken.balanceOf(bob.address);
 
         // default collateral factor is set as 80%
@@ -633,7 +1226,7 @@ describe.only("8. interest calculation", function () {
         expect(currentUtilization).to.be.approximately(exp(56e16), exp(1, 12));
       });
 
-      it("charlie deposits 50k$ worth of collateral", async () => {
+      it("charlie deposits 100k$ worth of collateral", async () => {
         const amount = BigNumber.from(exp(101000, baseDecimals)).mul(exp(1, 18)).div(colPriceInBase);
 
         await collaterals["COMP"].allocateTo(charlie.address, amount);
@@ -646,151 +1239,102 @@ describe.only("8. interest calculation", function () {
         expect(currentUtilization).to.be.approximately(exp(56e16), exp(1, 12));
       });
 
-      it("charlie borrows 40k$ worth of collateral (spiking utilization over 300%)", async () => {
-        console.log(0, (await testCometExt.totalsBasic()).totalSupplyBase.toString());
-        console.log(0, (await testCometExt.totalsBasic()).totalBorrowBase.toString());
-
-        console.log("alice 1:", (await testComet.borrowBalanceOf(bob.address)).toString());
-        console.log("bob   1:", (await testComet.borrowBalanceOf(bob.address)).toString());
-
-        console.log("u1:", (await testComet.getUtilization()).div(exp(1, 16)).toString());
-        console.log(await testComet.isLiquidatable(bob.address));
-
-        console.log("======================");
+      it("increase time to bring alice and bob to 1% from liqudiation", async () => {
         await ethers.provider.send("evm_increaseTime", [3600 * 24 * 360]);
         await ethers.provider.send("evm_mine", []);
-        await testComet.accrueAccount(alice.address);
+        await testComet.accrueAccount(ethers.constants.AddressZero);
 
-        console.log("alice 2:", (await testComet.borrowBalanceOf(alice.address)).toString());
-        console.log("bob   2:", (await testComet.borrowBalanceOf(bob.address)).toString());
-        console.log(await testComet.isLiquidatable(bob.address));
+        expect(await testComet.isLiquidatable(bob.address)).to.be.false;
+        expect(await testComet.isLiquidatable(alice.address)).to.be.false;
+      });
 
-        console.log("u2:", (await testComet.getUtilization()).div(exp(1, 16)).toString());
-
-        let price = await testComet.getPrice(priceFeeds["COMP"].address);
-        let amount = await testComet.userCollateral(alice.address, collaterals["COMP"].address);
-        let colVal = amount.mul(price).div(exp(1, 18));
-        let colValLF = colVal.mul(exp(85, 16)).div(exp(1, 18));
-
-        console.log(price.toString());
-        console.log(amount.toString());
-        console.log("col   :", colVal.toString());
-        console.log("col LF:", colValLF.toString());
-
-        let basePrice = await testComet.getPrice(priceFeeds["USDC"].address);
-        let baseAmount = await testComet.borrowBalanceOf(alice.address);
-        let baseVal = baseAmount.mul(basePrice).div(exp(1, baseDecimals));
-
-        console.log(basePrice.toString());
-        console.log(baseAmount.toString());
-        console.log("base  :", baseVal.toString());
-
-        console.log(colValLF.sub(baseVal).toString());
-
+      it("charlie cannot spike utilization over 200% to force liquidation of users in shortened time", async () => {
         // default collateral factor is set as 80%
         const amount2 = BigNumber.from(exp(80000, baseDecimals));
-        await testComet.connect(charlie).withdraw(baseToken.address, amount2);
+        await expect(testComet.connect(charlie).withdraw(baseToken.address, amount2)).to.revertedWithCustomError(
+          testComet,
+          "ExceedsSupportedUtilization"
+        );
 
-        console.log("======================");
-        console.log("alice 3:", (await testComet.borrowBalanceOf(alice.address)).toString());
-        console.log("bob   3:", (await testComet.borrowBalanceOf(bob.address)).toString());
-        console.log(await testComet.isLiquidatable(bob.address));
+        expect(await testComet.isLiquidatable(bob.address)).to.be.false;
+        expect(await testComet.isLiquidatable(alice.address)).to.be.false;
 
-        console.log("u3:", (await testComet.getUtilization()).div(exp(1, 16)).toString());
-
-        price = await testComet.getPrice(priceFeeds["COMP"].address);
-        amount = await testComet.userCollateral(alice.address, collaterals["COMP"].address);
-        colVal = amount.mul(price).div(exp(1, 18));
-        colValLF = colVal.mul(exp(85, 16)).div(exp(1, 18));
-
-        console.log(price.toString());
-        console.log(amount.toString());
-        console.log("col   :", colVal.toString());
-        console.log("col LF:", colValLF.toString());
-
-        basePrice = await testComet.getPrice(priceFeeds["USDC"].address);
-        baseAmount = await testComet.borrowBalanceOf(alice.address);
-        baseVal = baseAmount.mul(basePrice).div(exp(1, baseDecimals));
-
-        console.log(basePrice.toString());
-        console.log(baseAmount.toString());
-        console.log("base  :", baseVal.toString());
-
-        console.log(colValLF.sub(baseVal).toString());
-
-        console.log(baseVal.mul(100).div(colVal).toString());
-
-        console.log("======================");
-        await ethers.provider.send("evm_increaseTime", [1800]);
+        await ethers.provider.send("evm_increaseTime", [7200]);
         await ethers.provider.send("evm_mine", []);
         await testComet.accrueAccount(alice.address);
 
-        console.log("alice 4:", (await testComet.borrowBalanceOf(alice.address)).toString());
-        console.log("bob   4:", (await testComet.borrowBalanceOf(bob.address)).toString());
-        console.log(await testComet.isLiquidatable(bob.address));
+        expect(await testComet.isLiquidatable(bob.address)).to.be.false;
+        expect(await testComet.isLiquidatable(alice.address)).to.be.false;
+      });
 
-        console.log("u4:", (await testComet.getUtilization()).div(exp(1, 16)).toString());
-
-        price = await testComet.getPrice(priceFeeds["COMP"].address);
-        amount = await testComet.userCollateral(alice.address, collaterals["COMP"].address);
-        colVal = amount.mul(price).div(exp(1, 18));
-        colValLF = colVal.mul(exp(85, 16)).div(exp(1, 18));
-
-        console.log(price.toString());
-        console.log(amount.toString());
-        console.log("col   :", colVal.toString());
-        console.log("col LF:", colValLF.toString());
-
-        basePrice = await testComet.getPrice(priceFeeds["USDC"].address);
-        baseAmount = await testComet.borrowBalanceOf(alice.address);
-        baseVal = baseAmount.mul(basePrice).div(exp(1, baseDecimals));
-
-        console.log(basePrice.toString());
-        console.log(baseAmount.toString());
-        console.log("base  :", baseVal.toString());
-
-        console.log(colValLF.sub(baseVal).toString());
-
-        console.log("======================");
-
-        await ethers.provider.send("evm_increaseTime", [3600 * 24 * 59]);
+      it("alice and bob become liquidatable in regular time", async () => {
+        await ethers.provider.send("evm_increaseTime", [3600 * 24 * 60]);
         await ethers.provider.send("evm_mine", []);
         await testComet.accrueAccount(alice.address);
 
-        console.log("alice 5:", (await testComet.borrowBalanceOf(alice.address)).toString());
-        console.log("bob   5:", (await testComet.borrowBalanceOf(bob.address)).toString());
-        console.log(await testComet.isLiquidatable(bob.address));
-
-        console.log("u4:", (await testComet.getUtilization()).div(exp(1, 16)).toString());
+        expect(await testComet.isLiquidatable(bob.address)).to.be.true;
+        expect(await testComet.isLiquidatable(alice.address)).to.be.true;
       });
     });
 
-    describe("lenders can withdraw from the market even peaking utilization", function () {
-      it("withdraw by lenders does not revert if reaching >200% utilization", async () => {
-        // wip
-      });
-
-      it("withdraw by lenders does not revert if reaching utilization above uint64 limit (> 1800%)", async () => {
-        // wip
-      });
-    });
-
-    describe("accrue within the same block (no time elapsed)", function () {
+    describe.skip("accrue within the same block (no time elapsed)", function () {
+      /// TODO
       it("..", async () => {
         // wip
+      });
+    });
+
+    describe.skip("index overflow for uint64", function () {
+      /// TODO
+      it("..", async () => {
+        /// const maxUint64: BigNumber = BigNumber.from("18446744073709551615");
+        // potential overflow is expected in place of conversion of the intermediate index result into uint64
+        // index * supply rate * time elapsed / 1e18 may result in uin64 overflow
       });
     });
 
     describe("max for uint40 for timestamp", function () {
-      /// await fastForward(2 ** 40);
-      it("supports up to the maximum timestamp then breaks", async () => {
-        // wip
-      });
-    });
+      let testComet: SandboxComet;
 
-    describe("index overflow for uint64", function () {
-      it("..", async () => {
-        // wip
+      before(async function () {
+        // keep minimal values
+        const newCurve: BaseAssetCurveStruct = {
+          supplyKink: exp(8, 17),
+          supplyPerYearInterestRateBase: 365 * 24 * 60 * 60,
+          supplyPerYearInterestRateSlopeLow: 365 * 24 * 60 * 60,
+          supplyPerYearInterestRateSlopeHigh: 365 * 24 * 60 * 60,
+          borrowKink: exp(8, 17),
+          borrowPerYearInterestRateBase: 2 * 365 * 24 * 60 * 60,
+          borrowPerYearInterestRateSlopeLow: 2 * 365 * 24 * 60 * 60,
+          borrowPerYearInterestRateSlopeHigh: 2 * 365 * 24 * 60 * 60,
+        };
+        await sandboxController.connect(dao).addBaseAssetCurve(baseToken.address, newCurve);
+        testComet = await createComet(owner, defaultAssets(), configController, sandboxController, collaterals, baseToken, 1);
+      });
+
+      it("initial utilization is  for fresh comet", async () => {
+        expect(await testComet.getUtilization()).to.equal(0);
+      });
+
+      it("lender supplies base asset worth of 10k$", async () => {
+        await baseToken.connect(alice).approve(testComet.address, exp(10000, baseDecimals));
+        await testComet.connect(alice).supply(baseToken.address, exp(10000, baseDecimals));
+
+        expect(await testComet.getUtilization()).to.equal(0);
+      });
+
+      it("wait for the uint40.max - 1 seconds to check the last possible index", async () => {
+        /// about 300,000 years into the future
+        const uint40max = 1099511627775;
+
+        await ethers.provider.send("evm_setNextBlockTimestamp", [uint40max]);
+        await expect(testComet.accrueAccount(ethers.constants.AddressZero)).to.not.be.reverted;
+      });
+
+      it("supports up to the maximum timestamp then breaks", async () => {
+        await ethers.provider.send("evm_increaseTime", [1]);
+
+        await expect(testComet.accrueAccount(ethers.constants.AddressZero)).to.revertedWithCustomError(testComet, "TimestampTooLarge");
       });
     });
   });

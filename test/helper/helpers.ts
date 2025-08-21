@@ -485,6 +485,7 @@ export async function createComet(
     [symbol: string]: FaucetToken | NonStandardFaucetFeeToken;
   },
   baseToken: FaucetToken | NonStandardFaucetFeeToken,
+  curveNumber?: number,
   name?: string
 ): Promise<SandboxComet> {
   const _assets = assets || defaultAssets();
@@ -507,7 +508,7 @@ export async function createComet(
   let marketConfig: CometConfigStruct = {
     baseToken: baseToken.address,
     collateralTokens: collateralTokens,
-    baseTokenCurveId: 0n,
+    baseTokenCurveId: curveNumber || 0n,
     name: name || "Comet",
   };
 
