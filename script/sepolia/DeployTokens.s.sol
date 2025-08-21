@@ -17,15 +17,16 @@ contract DeployTokens is Script {
                            TOKENS DEPLOYMENT
         //////////////////////////////////////////////////////////////*/
         vm.startBroadcast(ownerPrivateKey);
-        address usdc = address(new MockERC20("USDC", "USDC", 1_000_000e6, 6));
+        address usdc = address(new MockERC20("USDC", "USDC", 10_000_000_000e6, 6));
         address wbtc = address(new MockERC20("WBTC", "WBTC", 1_000_000e8, 8));
         address weth = address(new WETH9());
-        address link = address(new MockERC20("LINK", "LINK", 1_000_000e18, 18));
+        WETH9(payable(weth)).mintTo(msg.sender, 1_000_000e18);
+        address link = address(new MockERC20("LINK", "LINK", 10_000_000_000e18, 18));
         address stETH = address(new MockERC20("stETH", "stETH", 1_000_000e18, 18));
         address wstETH = address(new MockERC20("wstETH", "wstETH", 1_000_000e18, 18));
-        address susde = address(new MockERC20("sUSDe", "sUSDe", 1_000_000e18, 18));
-        address snx = address(new MockERC20("SNX", "SNX", 1_000_000e18, 18));
-        address jpy = address(new MockERC20("JPY", "JPY", 1_000_000e18, 18));
+        address susde = address(new MockERC20("sUSDe", "sUSDe", 10_000_000_000e18, 18));
+        address snx = address(new MockERC20("SNX", "SNX", 10_000_000_000e18, 18));
+        address jpy = address(new MockERC20("JPY", "JPY", 10_000_000_000e18, 18));
         address oETH = address(new MockERC20("oETH", "oETH", 1_000_000e18, 18));
         vm.stopBroadcast();
 

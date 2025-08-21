@@ -9,6 +9,12 @@ import { ConfigControllerFactory } from "contracts/ConfigControllerFactory.sol";
 contract DeployConfigControllerFactory is Script {
     using stdJson for string;
 
+    function run() public {
+        HelperConfig helperConfig = new HelperConfig();
+        HelperConfig.NetworkConfig memory config = helperConfig.getConfig();
+        deployConfigControllerFactory(config);
+    }
+
     function deployConfigControllerFactory(HelperConfig.NetworkConfig memory config) public returns (address configControllerFactory) {
         uint256 configControllerFactoryDeployerPrivateKey = vm.envUint("CONFIG_CONTROLLER_FACTORY_DEPLOYER_PRIVATE_KEY");
 

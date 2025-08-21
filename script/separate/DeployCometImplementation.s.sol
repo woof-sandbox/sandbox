@@ -6,6 +6,10 @@ import { stdJson } from "forge-std/StdJson.sol";
 import { SandboxComet } from "contracts/SandboxComet.sol";
 
 contract DeployCometImplementation is Script {
+    function run() public {
+        deployCometImplementation();
+    }
+
     function deployCometImplementation() public returns (address cometImplementation) {
         uint256 configControllerFactoryDeployerPrivateKey = vm.envUint("CONFIG_CONTROLLER_FACTORY_DEPLOYER_PRIVATE_KEY");
 

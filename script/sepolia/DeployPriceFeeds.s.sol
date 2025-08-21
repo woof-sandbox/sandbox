@@ -146,7 +146,7 @@ contract DeployPriceFeeds is Script {
                 zeroAddress,
                 week,
                 0,
-                18,
+                8,
                 "oETH Price Feed"
             )
         );

@@ -18,21 +18,26 @@ contract DeployProtocol is Script {
         // Deploy SandboxController
         DeploySandboxController deploySandboxController = new DeploySandboxController();
         deploySandboxController.deploySandboxController(config);
+        config = helperConfig.getConfig();
 
         // Deploy Config Controller Implementation
         DeployConfigControllerImplementation deployConfigControllerImplementation = new DeployConfigControllerImplementation();
         deployConfigControllerImplementation.deployConfigControllerImplementation();
+        config = helperConfig.getConfig();
 
         // Deploy Config Controller Factory
         DeployConfigControllerFactory deployConfigControllerFactory = new DeployConfigControllerFactory();
         deployConfigControllerFactory.deployConfigControllerFactory(config);
+        config = helperConfig.getConfig();
 
         // Deploy Comet Implementation
         DeployCometImplementation deployCometImplementation = new DeployCometImplementation();
         deployCometImplementation.deployCometImplementation();
+        config = helperConfig.getConfig();
 
         // Deploy Sandbox Comet Factory
         DeploySandboxCometFactory deploySandboxCometFactory = new DeploySandboxCometFactory();
         deploySandboxCometFactory.deploySandboxCometFactory(config);
+        config = helperConfig.getConfig();
     }
 }

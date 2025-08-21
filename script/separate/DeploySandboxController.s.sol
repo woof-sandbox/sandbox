@@ -9,6 +9,13 @@ import { SandboxController, ISandboxController } from "contracts/SandboxControll
 contract DeploySandboxController is Script {
     using stdJson for string;
 
+    function run() public {
+        HelperConfig helperConfig = new HelperConfig();
+        HelperConfig.NetworkConfig memory config = helperConfig.getConfig();
+
+        deploySandboxController(config);
+    }
+
     function deploySandboxController(HelperConfig.NetworkConfig memory config) public returns (address sandboxController) {
         uint256 sandboxControllerDeployerPrivateKey = vm.envUint("SANDBOX_CONTROLLER_DEPLOYER_PRIVATE_KEY");
 

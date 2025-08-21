@@ -9,6 +9,12 @@ import { HelperConfig } from "script/helpers/HelperConfig.s.sol";
 contract DeploySandboxCometFactory is Script {
     using stdJson for string;
 
+    function run() public {
+        HelperConfig helperConfig = new HelperConfig();
+        HelperConfig.NetworkConfig memory config = helperConfig.getConfig();
+        deploySandboxCometFactory(config);
+    }
+
     function deploySandboxCometFactory(HelperConfig.NetworkConfig memory config) public returns (address sandboxCometFactory) {
         uint256 configControllerFactoryDeployerPrivateKey = vm.envUint("CONFIG_CONTROLLER_FACTORY_DEPLOYER_PRIVATE_KEY");
 

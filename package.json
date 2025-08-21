@@ -39,7 +39,14 @@
     "setup:hooks": "git config core.hooksPath .githooks",
     "load-env": "source .env",
     "sepolia:deploy:fauceteer": "source .env && forge script script/sepolia/DeployFauceteer.s.sol --rpc-url $SEPOLIA_RPC_URL --verify --etherscan-api-key $ETHERSCAN_KEY --broadcast -vvvv",
-    "sepolia:distribute-tokens": "source .env && forge script script/sepolia/DistributeTokens.s.sol --rpc-url $SEPOLIA_RPC_URL --verify --etherscan-api-key $ETHERSCAN_KEY --broadcast -vvvv"
+    "sepolia:distribute-tokens": "source .env && forge script script/sepolia/DistributeTokens.s.sol --rpc-url $SEPOLIA_RPC_URL --broadcast -vvvv",
+    "sepolia:deploy:deploy-protocol": "source .env && forge script script/sepolia/DeployProtocol.s.sol --rpc-url $SEPOLIA_RPC_URL --verify --etherscan-api-key $ETHERSCAN_KEY --broadcast -vvvv",
+    "whitelist-collateral-assets": "source .env && forge script script/separate/WhitelistCollateralAssets.s.sol --rpc-url $RPC_URL --verify --etherscan-api-key $ETHERSCAN_KEY --broadcast -vvvv",
+    "deploy:sandbox-controller": "source .env && forge script script/separate/DeploySandboxController.s.sol --rpc-url $RPC_URL --verify --etherscan-api-key $ETHERSCAN_KEY --broadcast -vvvv",
+    "deploy:config-controller-implementation": "source .env && forge script script/separate/DeployConfigControllerImplementation.s.sol --rpc-url $RPC_URL --verify --etherscan-api-key $ETHERSCAN_KEY --broadcast -vvvv",
+    "deploy:config-controller-factory": "source .env && forge script script/separate/DeployConfigControllerFactory.s.sol --rpc-url $RPC_URL --verify --etherscan-api-key $ETHERSCAN_KEY --broadcast -vvvv",
+    "deploy:comet-implementation": "source .env && forge script script/separate/DeployCometImplementation.s.sol --rpc-url $RPC_URL --verify --etherscan-api-key $ETHERSCAN_KEY --broadcast -vvvv",
+    "deploy:sandbox-comet-factory": "source .env && forge script script/separate/DeploySandboxCometFactory.s.sol --rpc-url $RPC_URL --verify --etherscan-api-key $ETHERSCAN_KEY --broadcast -vvvv"
   },
   "author": "Compound Finance",
   "license": "UNLICENSED",

@@ -11,7 +11,7 @@ contract DistributeTokens is Script {
         HelperConfig helperConfig = new HelperConfig();
         HelperConfig.NetworkConfig memory config = helperConfig.getConfig();
 
-        uint256 deployer = uint256(vm.envUint("FAUCETEER_DEPLOYER_PRIVATE_KEY"));
+        uint256 ownerPrivateKey = uint256(vm.envUint("OWNER_PRIVATE_KEY"));
 
         address[] memory tokens = new address[](10);
         tokens[0] = config.usdc.tokenAddress;
@@ -40,7 +40,7 @@ contract DistributeTokens is Script {
         amounts[8] = 1000e18;
         amounts[9] = 0.05e18;
 
-        vm.startBroadcast(deployer);
+        vm.startBroadcast(ownerPrivateKey);
 
         for (uint256 i = 0; i < tokens.length; i++) {
             if (tokens[i] == config.weth.tokenAddress) {

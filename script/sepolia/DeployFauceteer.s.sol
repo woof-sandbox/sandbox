@@ -4,6 +4,7 @@ pragma solidity 0.8.28;
 import { Script, console } from "forge-std/Script.sol";
 import { Fauceteer } from "contracts/test/Fauceteer.sol";
 import { HelperConfig } from "script/helpers/HelperConfig.s.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract DeployFauceteer is Script {
     function run() public {
@@ -38,7 +39,11 @@ contract DeployFauceteer is Script {
 
         vm.startBroadcast(deployer);
 
-        address fauceteer = address(new Fauceteer(msg.sender, tokens, amounts));
+        address fauceteer = address(new Fauceteer(0x0309004C4fB9943797f5C530abd8cddE564A9fD4, tokens, amounts));
+
+        for (uint256 i = 0; i < tokens.length; i++) {
+            IERC20(tokens[i]).transfer(fauceteer, amounts[i] * 5000);
+        }
 
         vm.stopBroadcast();
 
