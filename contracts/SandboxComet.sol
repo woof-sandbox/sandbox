@@ -4,6 +4,8 @@ pragma solidity 0.8.28;
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
+import "hardhat/console.sol";
+
 import "./CometCore.sol";
 import "./interfaces/ISandboxComet.sol";
 import "./interfaces/IPriceFeed.sol";
@@ -334,8 +336,12 @@ contract SandboxComet is CometCore, ISandboxComet {
         uint totalSupply_ = presentValueSupply(baseSupplyIndex_, totalSupplyBase);
         uint totalBorrow_ = presentValueBorrow(baseBorrowIndex_, totalBorrowBase);
 
-        /// TODO: deduct controller and dao fees
-        return signed256(balance) - signed256(totalSupply_) + signed256(totalBorrow_);
+        return
+            signed256(balance) -
+            signed256(totalSupply_) +
+            signed256(totalBorrow_) -
+            signed256(totalProtocolFeesPerAsset[baseToken]) -
+            signed256(totalControllerFeesPerAsset[baseToken]);
     }
 
     /**
@@ -394,6 +400,28 @@ contract SandboxComet is CometCore, ISandboxComet {
         }
 
         return liquidity < 0;
+    }
+
+    /// @notice Current fee distribution percentages (in units of FACTOR_SCALE).
+    /// @return reservePct   Percentage allocated to reserves
+    /// @return protocolPct  Percentage allocated to the DAO
+    /// @return controllerPct Percentage allocated to the controller (remainder)
+    function getFeePercents() public view override returns (uint64 reservePct, uint64 protocolPct, uint64 controllerPct) {
+        int256 _reserves = getReserves();
+        uint256 reserves = _reserves > 0 ? uint256(_reserves) : 0;
+
+        uint256 basePrice = getPrice(baseTokenPriceFeed);
+        uint256 reservesUsd = (reserves * basePrice) / baseScale;
+        uint256 targetUsd = (targetReserves() * basePrice) / baseScale;
+
+        (reservePct, protocolPct) = ISandboxController(sandboxController).getCommissions(reservesUsd, targetUsd, baseToken);
+
+        if (IConfigController(configController).cometFeeEnabled(address(this))) {
+            controllerPct = FACTOR_SCALE - reservePct - protocolPct;
+        } else {
+            controllerPct = 0;
+            reservePct = FACTOR_SCALE - protocolPct;
+        }
     }
 
     /**
@@ -621,14 +649,30 @@ contract SandboxComet is CometCore, ISandboxComet {
     function supplyFrom(address from, address dst, address asset, uint256 amount) external override {
         return supplyInternal(from, dst, asset, amount, false);
     }
-
     /**
      * @notice Repay the whole debt in base asset to the protocol from `from` to dst, if allowed
      * @param from The supplier address
      * @param dst The address which will hold the balance (can be the same from address)
      */
     function repayAllFrom(address from, address dst) external override {
-        return supplyInternal(from, dst, baseToken, borrowBalanceOf(dst), true);
+        uint256 utilization = getUtilization();
+        uint64 supplyRate = getSupplyRate(utilization);
+        uint64 borrowRate = getBorrowRate(utilization);
+        console.log("repayAllFrom: utilization", utilization);
+        console.log("repayAllFrom: supplyRate", supplyRate);
+        console.log("repayAllFrom: borrowRate", borrowRate);
+
+        uint256 borrowBalance = borrowBalanceOf(dst);
+        console.log("repayAllFrom: borrowBalance Before", borrowBalance);
+        (uint64 reservePct, uint64 protocolPct, uint64 controllerPct) = getFeePercents();
+        console.log("repayAllFrom: reservePct", reservePct);
+        console.log("protocolPct", protocolPct);
+        console.log("controllerPct", controllerPct);
+
+        supplyInternal(from, dst, baseToken, borrowBalanceOf(dst), true);
+
+        borrowBalance = borrowBalanceOf(dst);
+        console.log("repayAllFrom: borrowBalance After", borrowBalance);
     }
 
     /**
@@ -657,62 +701,79 @@ contract SandboxComet is CometCore, ISandboxComet {
      */
     function supplyBase(address from, address dst, uint256 amount) internal {
         amount = doTransferIn(baseToken, from, amount);
+
+        // 1) Capture old indices
+        uint64 oldSIdx = baseSupplyIndex;
+        uint64 oldBIdx = baseBorrowIndex;
+
+        // 2) Accrue (indices move forward)
         accrueInternal();
+        uint64 newSIdx = baseSupplyIndex;
+        uint64 newBIdx = baseBorrowIndex;
 
-        UserBasic memory dstUser = userBasic[dst];
-        int104 dstPrincipal = dstUser.principal;
-        int256 dstBalance = presentValue(dstPrincipal) + signed256(amount);
-        int104 dstPrincipalNew = principalValue(dstBalance);
-        // We must to detect if the user is repaying debt.
-        if (dstPrincipal < 0) {
-            uint256 deltaValue;
+        // 3) Profit from spread = change in PVs due solely to index update
+        //    ΔR = (PV_borrow(new) - PV_borrow(old)) - (PV_supply(new) - PV_supply(old))
+        uint256 supplyPV_before = presentValueSupply(oldSIdx, totalSupplyBase);
+        uint256 supplyPV_after = presentValueSupply(newSIdx, totalSupplyBase);
+        uint256 borrowPV_before = presentValueBorrow(oldBIdx, totalBorrowBase);
+        uint256 borrowPV_after = presentValueBorrow(newBIdx, totalBorrowBase);
 
-            // If the user is repaying not the all debt, we can take the delta value from the amount.
-            if (dstPrincipalNew < 0) {
-                // Get the delta value from the amount. The delta is the difference betwenn the borrow rate and the supply rate.
-                deltaValue = amount;
-            } else {
-                // If the user is repaying the all debt, we must to calcualte the amount of the debt.
-                // Get the delta value from the amount. The delta is the difference betwenn the borrow rate and the supply rate.
-                // Calculate the actual debt amount by converting principal value to present value
-                deltaValue = presentValueBorrow(baseBorrowIndex, uint104(-dstPrincipal));
-            }
+        int256 profitDeltaSigned = signed256(borrowPV_after) -
+            signed256(borrowPV_before) -
+            (signed256(supplyPV_after) - signed256(supplyPV_before));
 
-            // Split the delta into three parts:
-            (uint256 reserveFee, uint256 protocolFee, uint256 controllerFee) = _distributeProfit(deltaValue);
-            // 1. The reserve commission. get the percentage from the SandboxController.getCommissions
-            // 2. The protocol commission. get the percentage from the SandboxController.getCommissions
-            // 3. The config controller commission. The rest of the amount.
-            // Save the protocol commisison to totalProtocolFeesPerAsset[asset] if the fee is enabled.
-            // The reserves commission is not needed to save, because it is already in the reserves.
-            if (protocolFee > 0) {
+        if (profitDeltaSigned > 0) {
+            uint256 profit = uint256(profitDeltaSigned);
+            (uint256 reserveFee, uint256 protocolFee, uint256 controllerFee) = _distributeProfit(profit);
+
+            if (protocolFee != 0) {
                 totalProtocolFeesPerAsset[baseToken] += protocolFee;
             }
-            // Save the config controller commission to totalControllerFeesPerAsset[asset]. if the config controller is enabled.
-            if (controllerFee > 0) {
+            if (controllerFee != 0) {
                 totalControllerFeesPerAsset[baseToken] += controllerFee;
             }
 
             emit FeesCollected(address(this), baseToken, reserveFee, protocolFee, controllerFee);
         }
 
+        // 4) Now do repay/supply math
+        UserBasic memory dstUser = userBasic[dst];
+        int104 dstPrincipal = dstUser.principal;
+        int256 dstBalance = presentValue(dstPrincipal) + signed256(amount);
+        int104 dstPrincipalNew = principalValue(dstBalance);
+
         (uint104 repayAmount, uint104 supplyAmount) = repayAndSupplyAmount(dstPrincipal, dstPrincipalNew);
+
         totalSupplyBase += supplyAmount;
         totalBorrowBase -= repayAmount;
 
-        /// @dev rewards should be updated with previous principal
+        // Rewards and principal update
         updateUserRewards(dst);
         userBasic[dst].principal = dstPrincipalNew;
 
         emit Supply(from, dst, amount);
 
-        /// Note: we use the present value from the principal delta instead of the token amount in the argument
-        /// principalValue() performs rounding down, thus it is possible to have post-supply present value
-        /// 1 wei lower than the actual supplied amount. Thus the present value of principal change is reported
-        /// The rounding error is small enough to be compensated from the supply interest in the next block.
+        // Reuse PV for Transfer to save gas (we already have newSIdx)
         if (supplyAmount > 0) {
-            emit Transfer(address(0), dst, presentValueSupply(baseSupplyIndex, supplyAmount));
+            emit Transfer(address(0), dst, presentValueSupply(newSIdx, supplyAmount));
         }
+
+        // Optional: assert reserves not negative AFTER accounting (uses current indices)
+        // int256 reservesNow = _reservesAt(newSIdx, newBIdx);
+        // if (reservesNow < 0) revert ReservesNegative();
+    }
+
+    // Optional:TODO: consider removing this function, as it is not used
+    function _reservesAt(uint64 sIdx, uint64 bIdx) internal view returns (int256) {
+        uint256 balance = IERC20(baseToken).balanceOf(address(this));
+        uint256 totalSup = presentValueSupply(sIdx, totalSupplyBase);
+        uint256 totalBor = presentValueBorrow(bIdx, totalBorrowBase);
+        return
+            signed256(balance) -
+            signed256(totalSup) +
+            signed256(totalBor) -
+            signed256(totalProtocolFeesPerAsset[baseToken]) -
+            signed256(totalControllerFeesPerAsset[baseToken]);
     }
 
     /**
@@ -1254,19 +1315,11 @@ contract SandboxComet is CometCore, ISandboxComet {
     function _distributeProfit(
         uint256 profitAmount
     ) internal view returns (uint256 _reserveFee, uint256 _protocolFee, uint256 _controllerFee) {
-        int256 _reserves = getReserves();
-        uint256 reserves = _reserves > 0 ? uint256(_reserves) : 0;
-
-        uint256 basePrice = getPrice(baseTokenPriceFeed);
-        uint256 reservesUsd = (reserves * basePrice) / baseScale;
-        uint256 targetUsd = (targetReserves() * basePrice) / baseScale;
-
-        (uint64 reservePct, uint64 protocolPct) = ISandboxController(sandboxController).getCommissions(reservesUsd, targetUsd, baseToken);
-
-        _reserveFee = mulFactor(profitAmount, uint256(reservePct));
+        (, uint64 protocolPct, uint64 controllerPct) = getFeePercents();
 
         _protocolFee = mulFactor(profitAmount, uint256(protocolPct));
-        _controllerFee = IConfigController(configController).cometFeeEnabled(address(this)) ? profitAmount - _reserveFee - _protocolFee : 0;
+        _controllerFee = mulFactor(profitAmount, uint256(controllerPct));
+        _reserveFee = profitAmount - _protocolFee - _controllerFee;
     }
 
     /**

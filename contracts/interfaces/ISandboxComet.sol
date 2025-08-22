@@ -48,6 +48,8 @@ interface ISandboxComet {
 
     function isLiquidatable(address account) external view returns (bool);
 
+    function getFeePercents() external view returns (uint64 reservePct, uint64 protocolPct, uint64 controllerPct);
+
     function totalBorrow() external view returns (uint256);
 
     function totalSupply() external view returns (uint256);
