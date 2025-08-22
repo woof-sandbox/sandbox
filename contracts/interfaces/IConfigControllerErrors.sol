@@ -40,4 +40,5 @@ interface IConfigControllerErrors {
     error MarketAlreadyDeprecated();
     error InvalidConfigController();
     error InvalidOwner();
+    error CollateralTokenAlreadyRemoved();
 }

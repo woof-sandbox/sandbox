@@ -11,7 +11,7 @@ import "./interfaces/IConfigControllerFactory.sol";
 import "./interfaces/ISandboxController.sol";
 import "./interfaces/ICometForController.sol";
 import "./interfaces/ISandboxCometFactory.sol";
-
+import "hardhat/console.sol";
 
 
 /**
@@ -229,8 +229,6 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
              * - We can't add the baseToken as collateral token.
              * - Validate the collateral token configuration using internal function.
              * - We can't add more than MAX_ASSETS collateral tokens.
-             * - Check if the comet is in curve transition status.
-             * - Check if the comet is in collateral removal process.
              * - Check if the comet is deprecated.
              */
             bytes4 selector = bytes4(_calldata);
@@ -250,12 +248,6 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
             _validateCollateralTokenConfig(collateralConfig);
 
             if (comet.numAssets() >= comet.MAX_ASSETS()) revert MaxCollateralTokensReached();
-
-            // Check if the comet is in curve transition status
-            if (comet.isTransitionActive()) revert CurveTransitionAlreadyInitiated();
-
-            // Check if the comet is in collateral removal process
-            if (comet.removalInProgress()) revert CollateralRemovalInProgress();
 
             // Check if the comet is deprecated
             if (comet.isDeprecated()) revert MarketAlreadyDeprecated();
@@ -315,22 +307,39 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
             bytes4 selector = bytes4(_calldata);
             if (selector != REMOVE_COLLATERAL_SELECTOR) revert InvalidSelector();
 
+            ICometForController comet = ICometForController(_comet);
+
             address collateralToken = abi.decode(_calldata[4:], (address));
             /// Inside the comet, the function getAssetInfoByAddress will revert if the collateral token is not added.
-            try ICometForController(_comet).getAssetInfoByAddress(collateralToken) {
+            try comet.getAssetInfoByAddress(collateralToken) {
             }
             catch {
                 revert CollateralTokenNotAdded();
             }
-
+            // Check if the collateral token is already removed.
+            uint8 removedIndex = comet.removedCollateralAssetIndex(collateralToken);
+            if (removedIndex != 0) {
+                revert CollateralTokenAlreadyRemoved();
+            }
+            if (comet.numRemovedAssets() > 0) {
+                // Additional check for index 0 case (first removed token)
+                try comet.getRemovedCollateralAsset(0) returns (ICometStructures.CollateralAsset memory asset) {
+                    if (asset.collateralToken == collateralToken) {
+                        revert CollateralTokenAlreadyRemoved();
+                    }
+                } catch {
+                    // Array is empty or index out of bounds, which means the token is not removed
+                }
+            }
+            
             // Check if the comet is in curve transition status
-            if (ICometForController(_comet).isTransitionActive()) revert CurveTransitionAlreadyInitiated();
+            if (comet.isTransitionActive()) revert CurveTransitionAlreadyInitiated();
 
             // Check if the comet is in collateral removal process
-            if (ICometForController(_comet).removalInProgress()) revert CollateralRemovalInProgress();
+            if (comet.removalInProgress()) revert CollateralRemovalInProgress();
 
             // Check if the comet is deprecated
-            if (ICometForController(_comet).isDeprecated()) revert MarketAlreadyDeprecated();
+            if (comet.isDeprecated()) revert MarketAlreadyDeprecated();
 
             // Create the proposal   
             proposals[proposalId] = Proposal({
@@ -389,15 +398,15 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
              */
             bytes4 selector = bytes4(_calldata);
             if (selector != MARKET_DEPRECATION_SELECTOR) revert InvalidSelector();
-
+            ICometForController comet = ICometForController(_comet);
             // Check if the market is already deprecated
-            if (ICometForController(_comet).isDeprecated()) revert MarketAlreadyDeprecated();
+            if (comet.isDeprecated()) revert MarketAlreadyDeprecated();
 
             // Check if the comet is in curve transition status
-            if (ICometForController(_comet).isTransitionActive()) revert CurveTransitionAlreadyInitiated();
+            if (comet.isTransitionActive()) revert CurveTransitionAlreadyInitiated();
 
             // Check if the comet is in collateral removal process
-            if (ICometForController(_comet).removalInProgress()) revert CollateralRemovalInProgress();
+            if (comet.removalInProgress()) revert CollateralRemovalInProgress();
 
             // Create the proposal
             proposals[proposalId] = Proposal({
@@ -423,15 +432,17 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
             if (_configController == address(0)) revert InvalidConfigController();
             if (_configController == address(this)) revert InvalidConfigController();
             if (!IConfigControllerFactory(configControllerFactory).isController(_configController)) revert InvalidConfigController();
-
+            
+            ICometForController comet = ICometForController(_comet);
+            
             // Check if the comet is in curve transition status
-            if (ICometForController(_comet).isTransitionActive()) revert CurveTransitionAlreadyInitiated();
+            if (comet.isTransitionActive()) revert CurveTransitionAlreadyInitiated();
 
             // Check if the comet is in collateral removal process
-            if (ICometForController(_comet).removalInProgress()) revert CollateralRemovalInProgress();
+            if (comet.removalInProgress()) revert CollateralRemovalInProgress();
 
             // Check if the comet is deprecated
-            if (ICometForController(_comet).isDeprecated()) revert MarketAlreadyDeprecated();
+            if (comet.isDeprecated()) revert MarketAlreadyDeprecated();
             
             // Create the proposal
             proposals[proposalId] = Proposal({
@@ -539,9 +550,12 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
              * - Check that the msg.sender is owner. Only owner can add the collateral token params.         
              * - Check if the comet is owned by the ConfigController. Before the proposal is executed the comet can be 
              *   transferred to the another ConfigController.
+             * - Check if the comet is deprecated.
              */
             if (msg.sender != owner && msg.sender != curator) revert Unauthorized();
             if (!isCometOwned(_proposal.comet)) revert UnknownComet();
+            // Check if the comet is deprecated
+            if (ICometForController(_proposal.comet).isDeprecated()) revert MarketAlreadyDeprecated();
             
             /**
              * --- Before executing the proposal checks ---
@@ -592,10 +606,19 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
              * - Check if the comet is owned by the ConfigController. Before the proposal is executed the comet can be 
              *   transferred to the another ConfigController.
              * - Check if the collateral removal is already initiated.
+             * - Check if the comet is in curve transition status.
+             * - Check if the comet is deprecated.
              */
             if (msg.sender != owner && msg.sender != curator) revert Unauthorized();
             if (!isCometOwned(_proposal.comet)) revert UnknownComet();
-            if (ICometForController(_proposal.comet).removalInProgress()) revert CollateralRemovalInProgress();
+            ICometForController comet = ICometForController(_proposal.comet);
+            if (comet.removalInProgress()) revert CollateralRemovalInProgress();
+
+            // Check if the comet is in curve transition status
+            if (comet.isTransitionActive()) revert CurveTransitionAlreadyInitiated();
+
+            // Check if the comet is deprecated
+            if (comet.isDeprecated()) revert MarketAlreadyDeprecated();
 
             if (_proposal.timelock == 0) {
                 _proposal.timelock = uint40(block.timestamp + PROPOSE_COLLATERAL_REMOVAL_TIMELOCK);
@@ -605,23 +628,37 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
                 /**
                 * --- Before executing the proposal checks ---
                 * - Check if the collateral token is stil the part of the comet collateral list.
-                */
-                
+                */   
                 // Copy the parameters (skip the first 4 bytes which is the selector)
                 bytes memory collateralTokenBytes = new bytes(_proposal.call.length - 4);
                 for (uint i = 4; i < _proposal.call.length; i++) {
                     collateralTokenBytes[i - 4] = _proposal.call[i];
                 }            
                 address collateralToken = abi.decode(collateralTokenBytes, (address));
-
                 /// Inside the comet, the function getAssetInfoByAddress will revert if the collateral token is not added.
-                try ICometForController(_proposal.comet).getAssetInfoByAddress(collateralToken) {
+                try comet.getAssetInfoByAddress(collateralToken) {
                     // Collateral token is still part of the comet collateral list
                 }
                 catch {
                     revert CollateralTokenNotAdded();
                 }
-                
+
+                // Check if the collateral token is already removed.
+                uint8 removedIndex = comet.removedCollateralAssetIndex(collateralToken);
+                if (removedIndex != 0) {
+                    revert CollateralTokenAlreadyRemoved();
+                }
+                if (comet.numRemovedAssets() > 0) {
+                    // Additional check for index 0 case (first removed token)
+                    try comet.getRemovedCollateralAsset(0) returns (ICometStructures.CollateralAsset memory asset) {
+                        if (asset.collateralToken == collateralToken) {
+                            revert CollateralTokenAlreadyRemoved();
+                        }
+                    } catch {
+                        // Array is empty or index out of bounds, which means the token is not removed
+                    }
+                }
+
                 /// Execute the collateral removal
                 (bool success, ) = _proposal.comet.call(_proposal.call);
                 if (!success) revert CometCallFailed();
@@ -641,10 +678,19 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
              * - Check if the comet is owned by the ConfigController. Before the proposal is executed the comet can be
              *   transferred to the another ConfigController.
              * - Check if the transition is already active.
+             * - Check if the comet is in collateral removal process.
+             * - Check if the comet is deprecated.
              */
             if (msg.sender != owner && msg.sender != curator) revert Unauthorized();
             if (!isCometOwned(_proposal.comet)) revert UnknownComet();
+            // Check if the comet is in curve transition status
             if (ICometForController(_proposal.comet).isTransitionActive()) revert CurveTransitionAlreadyInitiated();
+
+            // Check if the comet is in collateral removal process
+            if (ICometForController(_proposal.comet).removalInProgress()) revert CollateralRemovalInProgress();
+
+            // Check if the comet is deprecated
+            if (ICometForController(_proposal.comet).isDeprecated()) revert MarketAlreadyDeprecated();        
             
             // Copy the parameters (skip the first 4 bytes which is the selector)
             bytes memory curveIdBytes = new bytes(_proposal.call.length - 4);
@@ -675,7 +721,14 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
              */
             if (msg.sender != owner) revert Unauthorized();
             if (!isCometOwned(_proposal.comet)) revert UnknownComet();
-            if (ICometForController(_proposal.comet).isDeprecated()) revert MarketAlreadyDeprecated();
+            // Check if the comet is in curve transition status
+            if (ICometForController(_proposal.comet).isTransitionActive()) revert CurveTransitionAlreadyInitiated();
+
+            // Check if the comet is in collateral removal process
+            if (ICometForController(_proposal.comet).removalInProgress()) revert CollateralRemovalInProgress();
+
+            // Check if the comet is deprecated
+            if (ICometForController(_proposal.comet).isDeprecated()) revert MarketAlreadyDeprecated();    
             
             // The proposal is not timelocked. Buy we must have the timelock period.
             if (_proposal.timelock == 0) {
@@ -702,12 +755,23 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
              * - Check that the msg.sender is owner.         
              * - Check if the comet is owned by the ConfigController. Before the proposal is executed the comet can be
              *   transferred to the another ConfigController.
+             * - Check if the comet is in curve transition status.
+             * - Check if the comet is in collateral removal process.
+             * - Check if the comet is deprecated.
              */
             address _configController = abi.decode(_proposal.call, (address));
             IConfigController _configControllerContract = IConfigController(_configController);
             if (msg.sender != _configControllerContract.owner()) revert Unauthorized();
             if (!isCometOwned(_proposal.comet)) revert UnknownComet();
             if (!IConfigControllerFactory(configControllerFactory).isController(_configController)) revert InvalidConfigController();
+            // Check if the comet is in curve transition status
+            if (ICometForController(_proposal.comet).isTransitionActive()) revert CurveTransitionAlreadyInitiated();
+
+            // Check if the comet is in collateral removal process
+            if (ICometForController(_proposal.comet).removalInProgress()) revert CollateralRemovalInProgress();
+
+            // Check if the comet is deprecated
+            if (ICometForController(_proposal.comet).isDeprecated()) revert MarketAlreadyDeprecated();    
         
             if (_proposal.timelock == 0) {
                 _proposal.timelock = uint40(block.timestamp + PROPOSE_MARKET_TRANSFER_TIMELOCK);

@@ -20,7 +20,7 @@ const iface = new ethers.utils.Interface([
     "function initiateCurveTransition(uint8 curveId)"
 ]);
 
-describe("27. Create Change Curve Proposal", () => {
+describe("38. Create Change Curve Proposal", () => {
     let configController: ConfigController;
     let configController2: ConfigController;
     let sandboxController: SandboxController;

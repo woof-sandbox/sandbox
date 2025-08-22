@@ -621,5 +621,29 @@ describe("29. Market Transfer Proposal", () => {
                 configController.connect(users[0]).acceptProposal(proposalId)
             ).to.be.revertedWithCustomError(configController, "Unauthorized");
         });
+
+        it("should revert when the comet is not belongs to this config controller", async () => {
+            /// Create a proposal for transfer comet.
+            const transferCometCalldata = ethers.utils.defaultAbiCoder.encode(["address"], [configController2.address]);
+            await configController.connect(owner).createProposal(transferCometCalldata, cometAddress, PROPOSAL_TYPE);
+            const transferCometProposalId = await configController.proposalCounter();
+            /// Wait to accept the proposal.
+            await ethers.provider.send("evm_increaseTime", [1]);
+            await ethers.provider.send("evm_mine", []);
+            /// Accept the proposal for the first time.
+            await configController.connect(owner).acceptProposal(transferCometProposalId);
+            /// Wait timelock period.
+            await ethers.provider.send("evm_increaseTime", [timelockPeriod + 1]);
+            await ethers.provider.send("evm_mine", []);
+            
+            /// Accept the proposal for the second time.
+            await configController.connect(owner).acceptProposal(transferCometProposalId);
+            /// Check that the comet is belongs to the second config controller.
+            expect(await configController2.isCometOwned(cometAddress)).to.be.true;
+            /// Check that the comet is not belongs to the first config controller.
+            expect(await configController.isCometOwned(cometAddress)).to.be.false;
+            /// Try to create a new proposal for transfer market from the first controller after the transfer (should fail with UnknownComet).
+            await expect(configController.connect(owner).createProposal(calldata, ethers.Wallet.createRandom().address, PROPOSAL_TYPE)).to.be.revertedWithCustomError(configController, "UnknownComet");
+        });
     });
 });

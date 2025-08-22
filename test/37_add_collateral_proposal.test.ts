@@ -7,11 +7,13 @@ import {
     SimplePriceFeed,
     FaucetToken__factory,
     SimplePriceFeed__factory,
-    ConfigControllerProposalTest
+    ConfigControllerProposalTest,
+    ConfigController__factory
 } from "../build/types";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { ethers } from "hardhat";
 import { expect, exp, defaultAssets, defaultSandboxControllerOpts, makeSandboxController, makeConfigControllerFactory, makeCometFactory, sandboxListBaseAsset } from "./helper/helpers";
+import { ContractTransaction, ContractReceipt, Event, BigNumber } from "ethers";
 import { CollateralTokenConfigStruct, ProposeNewCollateralTokenEvent } from "../build/types/ConfigController";
 import { CollateralAssetStruct } from "../build/types/SandboxComet";
 
@@ -20,8 +22,9 @@ const iface = new ethers.utils.Interface([
     "function addCollateralAsset(tuple(address collateralToken, uint128 supplyCap, uint64 borrowCollateralFactor, uint64 liquidateCollateralFactor, uint64 liquidationFactor))"
 ]);
 
-describe("26. Create Add Collateral Proposal", () => {
+describe("37. Create Add Collateral Proposal", () => {
     let configController: ConfigController;
+    let configController2: ConfigController;
     let sandboxController: SandboxController;
     let sandboxComet: SandboxComet;
     let snapshot: SnapshotRestorer;
@@ -147,6 +150,22 @@ describe("26. Create Add Collateral Proposal", () => {
 
         // Accept curator proposal
         await configController.connect(curator).acceptProposal(0);
+
+        // Create second ConfigController
+        const createConfigController2Tx: ContractTransaction = await configControllerFactory.createConfigController(
+            curator.address,
+            guardian.address,
+            cometFactory.address,
+            1000, // curatorFee: 10%
+            "Test Config Controller 2"
+        );
+        const createConfigController2Receipt: ContractReceipt = await createConfigController2Tx.wait();
+        const configController2CreatedEvent: Event = createConfigController2Receipt.events?.find(
+            (e) => e.event === "ConfigControllerCreated"
+        );
+
+        const configController2Address: string = configController2CreatedEvent?.args?.controller;
+        configController2 = await ethers.getContractAt("ConfigController", configController2Address) as ConfigController;
 
         // Allocate base token to owner and approve for ConfigController
         await baseToken.allocateTo(owner.address, seedReservesAmount);
@@ -824,12 +843,43 @@ describe("26. Create Add Collateral Proposal", () => {
             
             await configController.connect(owner).cancelProposal(proposalId);
             
-            await ethers.provider.send("evm_increaseTime", [PROPOSE_NEW_COLLATERAL_MATURITY + 1]);
-            await ethers.provider.send("evm_mine", []);
-            
             await expect(
                 configController.connect(owner).acceptProposal(proposalId)
             ).to.be.revertedWithCustomError(configController, "NoActiveProposal");
+        });
+
+        it("should revert when the comet is not belongs to this config controller", async () => {
+            /// Create a proposal for transfer comet.
+            const transferCometCalldata = ethers.utils.defaultAbiCoder.encode(["address"], [configController2.address]);
+            await configController.connect(owner).createProposal(transferCometCalldata, cometAddress, 5);
+            const transferCometProposalId = await configController.proposalCounter();
+            /// Wait to accept the proposal.
+            await ethers.provider.send("evm_increaseTime", [PROPOSE_NEW_COLLATERAL_MATURITY + 1]);
+            await ethers.provider.send("evm_mine", []);
+            /// Accept the proposal for the first time.
+            await configController.connect(owner).acceptProposal(transferCometProposalId);
+            const timelockDurationMarketTransfer = await configController.PROPOSE_MARKET_TRANSFER_TIMELOCK();
+            /// Wait timelock period.
+            await ethers.provider.send("evm_increaseTime", [timelockDurationMarketTransfer + 1]);
+            await ethers.provider.send("evm_mine", []);
+            
+            /// Create a proposal for add collateral.
+            await configController.connect(owner).createProposal(calldata1, cometAddress, proposalType);
+            const addCollateralProposalId = await configController.proposalCounter();
+            /// Wait to accept the proposal.
+            await ethers.provider.send("evm_increaseTime", [PROPOSE_NEW_COLLATERAL_MATURITY + 1]);
+            await ethers.provider.send("evm_mine", []);
+            /// Accept the proposal for the first time.
+            await configController.connect(owner).acceptProposal(addCollateralProposalId);
+            
+            /// Accept the proposal for the second time.
+            await configController.connect(owner).acceptProposal(transferCometProposalId);
+            /// Check that the comet is belongs to the second config controller.
+            expect(await configController2.isCometOwned(cometAddress)).to.be.true;
+            /// Check that the comet is not belongs to the first config controller.
+            expect(await configController.isCometOwned(cometAddress)).to.be.false;
+            /// Try to create a new proposal for add collateral from the first controller after the transfer (should fail with UnknownComet).
+            await expect(configController.connect(owner).createProposal(calldata1, ethers.Wallet.createRandom().address, proposalType)).to.be.revertedWithCustomError(configController, "UnknownComet");
         });
     });
 });

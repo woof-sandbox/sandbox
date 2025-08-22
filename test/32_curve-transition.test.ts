@@ -27,7 +27,7 @@ import { CurveStruct } from "../build/types/CometCore";
 import { BigNumber, ContractTransaction, ContractReceipt, Event } from "ethers";
 import { time } from "@nomicfoundation/hardhat-network-helpers";
 
-describe("16. curve transition", function() {
+describe("32. curve transition", function() {
     let snapshot: SnapshotRestorer;
 
     let comet: SandboxComet;

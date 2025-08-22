@@ -86,6 +86,14 @@ contract CometExtension is ICometExtension {
             });
     }
 
+    function getCollateralRemovalState() external view returns (CollateralRemovalState memory) {
+        return _collateralRemovalState;
+    }
+
+    function getRemovedCollateralAsset(uint8 index) external view override returns (CollateralAsset memory) {
+        return removedCollateralAssets[index];
+    }
+
     /**
      * @notice Get the name of the SandboxComet
      * @return The name as a string

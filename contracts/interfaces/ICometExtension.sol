@@ -131,4 +131,11 @@ abstract contract ICometExtension is CometCore {
      * @param approved Flag to set
      */
     function approveAll(address spender, bool approved) external virtual;
+
+    /**
+     * @notice Get the removed collateral asset by index
+     * @param index The index of the removed collateral asset
+     * @return The removed collateral asset
+     */
+    function getRemovedCollateralAsset(uint8 index) external virtual returns (CollateralAsset memory);
 }

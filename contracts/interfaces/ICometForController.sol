@@ -39,4 +39,10 @@ interface ICometForController {
     function MAX_ASSETS() external view returns (uint8);
     
     function addCollateralAsset(IConfigController.CollateralTokenConfig memory _assetConfig) external;
+
+    function removedCollateralAssetIndex(address collateralToken) external view returns (uint8);
+
+    function numRemovedAssets() external view returns (uint8);
+
+    function getRemovedCollateralAsset(uint8 index) external view returns (ICometStructures.CollateralAsset memory);
 }

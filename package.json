@@ -41,6 +41,7 @@
   "author": "Compound Finance",
   "license": "UNLICENSED",
   "dependencies": {
+    "@nomicfoundation/ethereumjs-util": "^9.0.4",
     "@nomiclabs/hardhat-ethers": "^2.2.3",
     "@openzeppelin/contracts": "file:lib/openzeppelin-contracts/contracts",
     "chai": "^5.2.1",

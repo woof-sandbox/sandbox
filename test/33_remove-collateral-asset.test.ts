@@ -30,7 +30,7 @@ import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { CollateralTokenConfigStruct, CometConfigStruct } from "../build/types/ConfigController";
 import { BigNumber } from "ethers";
 
-describe("18. initiateCollateralRemoval", function () {
+describe("33. initiateCollateralRemoval", function () {
   // Global variables for the all tests
   let configControllerImpl: ConfigControllerTest;
   let sandboxCometImpl: SandboxComet;
@@ -176,6 +176,8 @@ describe("18. initiateCollateralRemoval", function () {
       amountOfSeedReserves: await sandboxController.suggestedAmountOfSeedReserves(baseToken.address),
     };
     // Create a new comet instance with the current market configuration
+    await baseToken.connect(owner).approve(configController.address, await sandboxController.suggestedAmountOfSeedReserves(baseToken.address));
+    await baseToken.connect(owner).allocateTo(owner.address, await sandboxController.suggestedAmountOfSeedReserves(baseToken.address));
     const cometAddress = await configController.callStatic.createComet(marketConfig);
     await configController.createComet(marketConfig);
     // Connect to the newly created comet instance

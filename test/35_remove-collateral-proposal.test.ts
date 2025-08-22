@@ -7,23 +7,37 @@ import {
     SimplePriceFeed,
     FaucetToken__factory,
     SimplePriceFeed__factory,
-    ConfigController__factory
+    ConfigController__factory,
 } from "../build/types";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { ethers } from "hardhat";
 import { ContractTransaction, ContractReceipt, Event, BigNumber } from "ethers";
-import { expect, exp, defaultAssets, defaultSandboxControllerOpts, makeSandboxController, makeConfigControllerFactory, makeCometFactory, sandboxListBaseAsset } from "./helper/helpers";
+import { 
+    expect, 
+    exp, 
+    defaultAssets, 
+    defaultSandboxControllerOpts, 
+    makeSandboxController, 
+    makeConfigControllerFactory, 
+    makeCometFactory, 
+    sandboxListBaseAsset,
+    CombinedComet,
+    getCombinedComet
+ } from "./helper/helpers";
 
 
 const iface = new ethers.utils.Interface([
-    "function initiateCollateralRemoval(address removalAsset)"
+    "function initiateCollateralRemoval(address removalAsset)",
+    "function initiateDeprecation()",
+    "function initiateCurveTransition(uint8 curveId)"
 ]);
 
-describe("24. Create Remove Collateral Proposal", () => {
+describe("35. Create Remove Collateral Proposal", () => {
     let configController: ConfigController;
+    let configController2: ConfigController;
     let sandboxController: SandboxController;
-    let sandboxComet: SandboxComet;
-    let sandboxComet2: SandboxComet;
+    let sandboxComet: CombinedComet;
+    let sandboxComet2: CombinedComet;
     let snapshot: SnapshotRestorer;
     let owner: SignerWithAddress;
     let curator: SignerWithAddress;
@@ -144,6 +158,23 @@ describe("24. Create Remove Collateral Proposal", () => {
         const configControllerAddress: string = configControllerCreatedEvent?.args?.controller;
 
         configController = await ethers.getContractAt("ConfigController", configControllerAddress) as ConfigController;
+
+        // Create ConfigController
+        const createConfigController2Tx: ContractTransaction = await configControllerFactory.createConfigController(
+            curator.address,
+            guardian.address,
+            cometFactory.address,
+            1000, // curatorFee (10%)
+            "Test Config Controller"
+        );
+        const createConfigController2Receipt: ContractReceipt = await createConfigController2Tx.wait();
+        const configController2CreatedEvent: Event = createConfigController2Receipt.events?.find(
+            (e) => e.event === "ConfigControllerCreated"
+        );
+
+        const configController2Address: string = configController2CreatedEvent?.args?.controller;
+
+        configController2 = await ethers.getContractAt("ConfigController", configController2Address) as ConfigController;
         // Accept the curator.
         await configController.connect(curator).acceptProposal(0);
         // Approve base token for ConfigController
@@ -177,10 +208,11 @@ describe("24. Create Remove Collateral Proposal", () => {
 
         await configController.createComet(marketConfig);
         cometAddress = await configController.comets(0);
-        sandboxComet = await ethers.getContractAt("SandboxComet", cometAddress) as SandboxComet;
+
+        sandboxComet = getCombinedComet(cometAddress, ethers.provider);
         await configController.createComet(marketConfig);
         cometAddress2 = await configController.comets(1);
-        sandboxComet2 = await ethers.getContractAt("SandboxComet", cometAddress2) as SandboxComet;
+        sandboxComet2 = getCombinedComet(cometAddress2, ethers.provider);
         
         // Get the last collateral asset to remove
         const numAssets = await sandboxComet.numAssets();
@@ -245,6 +277,60 @@ describe("24. Create Remove Collateral Proposal", () => {
             await snapshot.restore();
         });
 
+        it("should revert when the comet is in progress of deprecation", async () => {
+            /// Create a proposal.
+            const proposalType = 4; // ProposeMarketDeprecation
+            const marketDeprecationMaturity = await configController.PROPOSE_MARKET_DEPRECATION_MATURITY();
+            const marketDeprecationTimelock = await configController.PROPOSE_MARKET_DEPRECATION_TIMELOCK();
+            const marketDeprecationCalldata = iface.encodeFunctionData("initiateDeprecation");
+            await configController.connect(owner).createProposal(marketDeprecationCalldata, cometAddress, proposalType);
+            /// Wait to execte the market deprecation proposal.
+            await ethers.provider.send("evm_increaseTime", [marketDeprecationMaturity + 1]);
+            await ethers.provider.send("evm_mine", []);
+            /// Accept the market deprecation proposal.
+            await configController.connect(owner).acceptProposal(await configController.proposalCounter());
+            /// Wait the timelock period to accept the market deprecation proposal.
+            await ethers.provider.send("evm_increaseTime", [marketDeprecationTimelock + 1]);
+            await ethers.provider.send("evm_mine", []);
+            await configController.connect(owner).acceptProposal(await configController.proposalCounter());
+
+            /// Check that the comet is deprecation in progress. This check returns true if the comet is in progress of deprecation or already deprecated.
+            expect(await sandboxComet.isDeprecated()).to.be.true;
+            
+            /// Create a proposal.
+            await expect(configController.connect(owner).createProposal(calldata, cometAddress, 2)).to.be.revertedWithCustomError(configController, "MarketAlreadyDeprecated");
+        });
+
+        it("should revert when the comet is deprecated", async () => {
+            const deprecationTime = await sandboxComet.deprecationDuration();
+            await ethers.provider.send("evm_increaseTime", [Number(deprecationTime) + 1]);
+            await ethers.provider.send("evm_mine", []);
+            /// Check that the comet is deprecated.
+            expect(await sandboxComet.isDeprecated()).to.be.true;
+
+            /// Create a proposal.
+            await expect(configController.connect(owner).createProposal(calldata, cometAddress, 2)).to.be.revertedWithCustomError(configController, "MarketAlreadyDeprecated");
+            await snapshot.restore();
+        });
+
+        it("should revert when the comet is in progress of curve transition", async () => {
+            /// Create a proposal.
+            const proposalType = 3; // ProposeCurveTransition
+            const curveTransitionMaturity = await configController.PROPOSE_CURVE_TRANSITION_MATURITY();
+            const curveTransitionCalldata = iface.encodeFunctionData("initiateCurveTransition", [0]);
+            await configController.connect(owner).createProposal(curveTransitionCalldata, cometAddress, proposalType);
+            /// Wait to execte the curve transition proposal.
+            await ethers.provider.send("evm_increaseTime", [curveTransitionMaturity + 1]);
+            await ethers.provider.send("evm_mine", []);
+            /// Accept the curve transition proposal.
+            await configController.connect(owner).acceptProposal(await configController.proposalCounter());
+            /// Check that the comet is in progress of curve transition.
+            expect(await sandboxComet.isTransitionActive()).to.be.true;
+
+            /// Create a proposal.
+            await expect(configController.connect(owner).createProposal(calldata, cometAddress, 2)).to.be.revertedWithCustomError(configController, "CurveTransitionAlreadyInitiated");
+        });
+
         it("should revert when non-owner tries to create proposal", async () => {
             await expect(
                 configController.connect(users[0]).createProposal(calldata, cometAddress, 2)
@@ -275,13 +361,37 @@ describe("24. Create Remove Collateral Proposal", () => {
             await expect(
                 configController.connect(owner).createProposal(invalidCalldata, cometAddress, 2)
             ).to.be.revertedWithCustomError(configController, "CollateralTokenNotAdded");
+            await snapshot.restore();
+        });
+
+        it("should revert when collateral token is no longer in comet", async () => {
+            await configController.connect(owner).createProposal(calldata, cometAddress, 2);
+            const proposalId = await configController.proposalCounter();
+            await ethers.provider.send("evm_increaseTime", [maturityDuration + 1]);
+            await ethers.provider.send("evm_mine", []);
+
+            /// Accept the proposal for the first time.
+            await configController.connect(owner).acceptProposal(proposalId);
+            /// Wait the timelock period.
+            await ethers.provider.send("evm_increaseTime", [timelockDuration + 1]);
+            await ethers.provider.send("evm_mine", []);
+            /// Accept the proposal for the second time.
+            await configController.connect(owner).acceptProposal(proposalId);
+            /// Check that the collateral removal in progress.
+            expect(await sandboxComet.removalInProgress()).to.be.true;
+            /// Wait until the collateral removal is processed.
+            const collateralRemovalDuration = (await sandboxComet.getCollateralRemovalState()).duration;
+            await ethers.provider.send("evm_increaseTime", [collateralRemovalDuration + 1]);
+            await ethers.provider.send("evm_mine", []);
+            /// Finish removal.
+            await sandboxComet.connect(owner).accrueAccount(owner.address);
+            /// Check that the collateral removal is not in progress.
+            expect(await sandboxComet.removalInProgress()).to.be.false;
+            /// Try to remove collateral again.
+            await expect(configController.connect(owner).createProposal(calldata, cometAddress, 2)).to.be.revertedWithCustomError(configController, "CollateralTokenAlreadyRemoved");
         });
     });
 
-    /// Duplicate test. In case we will change the proposal cancellation logic for the remove collateral proposal.
-    /// We assume that the owner can cancel the proposal in every proposal state.
-    /// We assume that the curator can cancel the proposal if the curator is the proposer in the every proposal state.
-    /// We assume that the guardian can cancel the proposal if the proposal is in the maturity period.
     describe("cancel remove collateral proposal - happy cases", () => {
         after(async () => {
             await snapshot.restore();
@@ -355,7 +465,6 @@ describe("24. Create Remove Collateral Proposal", () => {
         });
     });
     
-    /// Duplicate test. In case we will change the proposal cancellation logic for the remove collateral proposal.
     describe("cancel remove collateral proposal - reverts", () => {
         after(async () => {
             await snapshot.restore();
@@ -410,7 +519,7 @@ describe("24. Create Remove Collateral Proposal", () => {
         after(async () => {
             await snapshot.restore();
         });
-        
+
         it("should accept the proposal", async () => {
             await configController.createProposal(calldata, cometAddress, 2);
             createProposalBlockNumber = (await ethers.provider.getBlock("latest")).number;
@@ -511,6 +620,67 @@ describe("24. Create Remove Collateral Proposal", () => {
             await snapshot.restore();
         });
 
+        it("should revert when the comet is in progress of deprecation", async () => {
+            /// Create a proposal market deprecation proposal.
+            const proposalType = 4; // ProposeMarketDeprecation
+            const marketDeprecationMaturity = await configController.PROPOSE_MARKET_DEPRECATION_MATURITY();
+            const marketDeprecationTimelock = await configController.PROPOSE_MARKET_DEPRECATION_TIMELOCK();
+            const marketDeprecationCalldata = iface.encodeFunctionData("initiateDeprecation");
+            await configController.connect(owner).createProposal(marketDeprecationCalldata, cometAddress, proposalType);
+            const marketDeprecationProposalId = await configController.proposalCounter();
+            /// Wait to execte the market deprecation proposal.
+            await ethers.provider.send("evm_increaseTime", [marketDeprecationMaturity + 1]);
+            await ethers.provider.send("evm_mine", []);
+            /// Accept the market deprecation proposal.
+            await configController.connect(owner).acceptProposal(marketDeprecationProposalId);
+            /// Wait the timelock period to accept the market deprecation proposal.
+            await ethers.provider.send("evm_increaseTime", [marketDeprecationTimelock + 1]);
+            await ethers.provider.send("evm_mine", []);
+
+            /// Create a removal collateral proposal
+            await configController.connect(owner).createProposal(calldata, cometAddress, 2);
+            const collateralRemovalProposalId = await configController.proposalCounter();
+            
+            await configController.connect(owner).acceptProposal(marketDeprecationProposalId);
+
+            /// Check that the comet is deprecation in progress. This check returns true if the comet is in progress of deprecation or already deprecated.
+            expect(await sandboxComet.isDeprecated()).to.be.true;
+            
+            /// Create a proposal.
+            /// Wait to accept the market deprecation proposal.
+            await ethers.provider.send("evm_increaseTime", [maturityDuration + 1]);
+            await ethers.provider.send("evm_mine", []);
+
+            await expect(configController.connect(owner).acceptProposal(collateralRemovalProposalId)).to.be.revertedWithCustomError(configController, "MarketAlreadyDeprecated");
+            await snapshot.restore();
+        });
+
+        it("should revert when the comet is in progress of curve transition", async () => {
+            /// Create a proposal.
+            const proposalType = 3; // ProposeCurveTransition
+            const curveTransitionMaturity = await configController.PROPOSE_CURVE_TRANSITION_MATURITY();
+            const curveTransitionCalldata = iface.encodeFunctionData("initiateCurveTransition", [0]);
+            await configController.connect(owner).createProposal(curveTransitionCalldata, cometAddress, proposalType);
+            const curveTransitionProposalId = await configController.proposalCounter();
+            /// Wait to execte the curve transition proposal.
+            await ethers.provider.send("evm_increaseTime", [curveTransitionMaturity + 1]);
+            await ethers.provider.send("evm_mine", []);
+            /// Create a removal collateral proposal
+            await configController.connect(owner).createProposal(calldata, cometAddress, 2);
+            const collateralRemovalProposalId = await configController.proposalCounter();
+            /// Accept the curve transition proposal.
+            await configController.connect(owner).acceptProposal(curveTransitionProposalId);
+            /// Check that the comet is in progress of curve transition.
+            expect(await sandboxComet.isTransitionActive()).to.be.true;
+
+            /// Create a proposal.
+            /// Wait to accept the market deprecation proposal.
+            await ethers.provider.send("evm_increaseTime", [maturityDuration + 1]);
+            await ethers.provider.send("evm_mine", []);
+            await expect(configController.connect(owner).acceptProposal(collateralRemovalProposalId)).to.be.revertedWithCustomError(configController, "CurveTransitionAlreadyInitiated");
+            await snapshot.restore();
+        });
+
         it("should revert when trying to accept proposal before maturity period", async () => {
             await configController.connect(owner).createProposal(calldata, cometAddress, 2);
             const proposalId = await configController.proposalCounter();
@@ -585,20 +755,7 @@ describe("24. Create Remove Collateral Proposal", () => {
             await expect(
                 configController.connect(owner).acceptProposal(proposalId)
             ).to.be.revertedWithCustomError(configController, "NoActiveProposal");
-        });
-
-        it("should revert when collateral token is no longer in comet", async () => {
-            await configController.connect(owner).createProposal(calldata, cometAddress, 2);
-            const proposalId = await configController.proposalCounter();
-            await ethers.provider.send("evm_increaseTime", [maturityDuration + 1]);
-            await ethers.provider.send("evm_mine", []);
-
-            // Simulate collateral token being removed from comet (this would require additional setup)
-            // For now, we test the basic flow - in a real scenario, this would be tested with
-            // a mock or by actually removing the collateral token from the comet
-            
-            // This test demonstrates the expected behavior when collateral token is not found
-            // The actual implementation would need to handle this case in the ConfigController
+            await snapshot.restore();
         });
 
         it("should revert when guardian tries to accept proposal", async () => {
@@ -647,6 +804,41 @@ describe("24. Create Remove Collateral Proposal", () => {
             await expect(
                 configController.connect(owner).acceptProposal(proposalId)
             ).to.be.revertedWithCustomError(configController, "NoActiveProposal");
+        });
+
+        it("should revert when the comet is not belongs to this config controller", async () => {
+
+            /// Create a proposal for transfer comet.
+            const transferCometCalldata = ethers.utils.defaultAbiCoder.encode(["address"], [configController2.address]);
+            await configController.connect(owner).createProposal(transferCometCalldata, cometAddress, 5);
+            const transferCometProposalId = await configController.proposalCounter();
+            /// Wait to accept the proposal.
+            await ethers.provider.send("evm_increaseTime", [maturityDuration + 1]);
+            await ethers.provider.send("evm_mine", []);
+            /// Accept the proposal for the first time.
+            await configController.connect(owner).acceptProposal(transferCometProposalId);
+            const timelockDurationMarketTransfer = await configController.PROPOSE_MARKET_TRANSFER_TIMELOCK();
+            /// Wait timelock period.
+            await ethers.provider.send("evm_increaseTime", [timelockDurationMarketTransfer + 1]);
+            await ethers.provider.send("evm_mine", []);
+            
+            /// Create a proposal for removal collateral.
+            await configController.connect(owner).createProposal(calldata, cometAddress, 2);
+            const collateralRemovalProposalId = await configController.proposalCounter();
+            /// Wait to accept the proposal.
+            await ethers.provider.send("evm_increaseTime", [maturityDuration + 1]);
+            await ethers.provider.send("evm_mine", []);
+            /// Accept the proposal for the first time.
+            await configController.connect(owner).acceptProposal(collateralRemovalProposalId);
+            
+            /// Accept the proposal for the second time.
+            await configController.connect(owner).acceptProposal(transferCometProposalId);
+            /// Check that the comet is belongs to the second config controller.
+            expect(await configController2.isCometOwned(cometAddress)).to.be.true;
+            /// Check that the comet is not belongs to the first config controller.
+            expect(await configController.isCometOwned(cometAddress)).to.be.false;
+            /// Try to create a new proposal for removal collateral from the first controller after the transfer (should fail with UnknownComet).
+            await expect(configController.connect(owner).createProposal(calldata, ethers.Wallet.createRandom().address, 2)).to.be.revertedWithCustomError(configController, "UnknownComet");
         });
     });
 });

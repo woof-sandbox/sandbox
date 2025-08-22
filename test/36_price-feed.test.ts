@@ -1,6 +1,6 @@
 //import { expect } from "./helper/helpers";
 
-describe.skip("25. getPrice", function () {
+describe.skip("36. getPrice", function () {
   /*
   it("returns price data for assets, with 8 decimals", async () => {
     const { comet, priceFeeds } = await makeProtocol({

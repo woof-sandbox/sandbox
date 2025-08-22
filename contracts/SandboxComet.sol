@@ -835,9 +835,9 @@ contract SandboxComet is CometCore, ISandboxComet {
         address dao = ISandboxController(sandboxController).dao(); // aderyn-fp(reentrancy-state-change)
         if (caller != configController && caller != dao) revert Unauthorized();
         /// Note: If the market is devaluating or already devalued, not allowed transfers the assets.
-        if (deprecationStatus != DeprecationStatus.NotStarted) {
-            revert InvalidDeprecationState(uint8(deprecationStatus));
-        }
+        if (deprecationStatus != DeprecationStatus.NotStarted) revert InvalidDeprecationState(uint8(deprecationStatus));
+        if (removalInProgress) revert CollateralRemoval();
+        if (isTransitionActive) revert TransitionAlreadyActive();
 
         pauseFlags =
             uint8(0) |
@@ -1721,9 +1721,7 @@ contract SandboxComet is CometCore, ISandboxComet {
         );
         
         // Check if the comet is deprecated
-        if (deprecationStatus != DeprecationStatus.NotStarted) {
-            revert InvalidDeprecationState(uint8(deprecationStatus));
-        }
+        if (deprecationStatus != DeprecationStatus.NotStarted) revert InvalidDeprecationState(uint8(deprecationStatus));
         
         // Double check that the curveId is valid.
         if (curveId >= ISandboxController(sandboxController).baseAssets(baseToken).baseAssetCurves.length) revert InvalidCurveId();

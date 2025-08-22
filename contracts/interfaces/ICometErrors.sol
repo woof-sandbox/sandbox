@@ -182,4 +182,9 @@ interface ICometErrors {
      * @notice Error thrown when the unlock timestamp has not been reached for to withdraw seed reserves
      */
     error UnlockNotReached();
+
+    /**
+     * @notice Error thrown when the collateral removal is in progress
+     */
+    error CollateralRemoval();
 }
