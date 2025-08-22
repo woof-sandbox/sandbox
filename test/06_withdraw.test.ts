@@ -3,7 +3,43 @@
 //import { ethers, expect } from "./helper/helpers";
 
 // TODO: fix, test is next in line
-describe.skip("6. withdrawTo", function () {
+describe.skip("6. withdraw", function () {
+  describe("lenders", function () {
+    // wip
+  });
+
+  describe("borrowers", function () {
+    // wip
+    describe("general reverts", function () {
+      it("reverts with 0 amount (no base asset supplied)", async () => {
+        // wip
+      });
+
+      it("user can't borrow if there is no collateral supplied", async () => {
+        // wip
+      });
+
+      it("user can't borrow if there is not enough collateral", async () => {
+        // wip
+      });
+
+      it("user can't borrow less than minBorrow", async () => {
+        // wip
+      });
+      /// TODO: extend
+    });
+
+    describe("happy cases", function () {
+      it("principal from the 1st borrow equals to the requested amount", async () => {
+        // wip
+      });
+
+      it("principal from the next borrow is re-calculated based on the index", async () => {
+        // wip
+      });
+    });
+  });
+
   // TODO: extend into testcase assuming no illiquidity from over-utilization
   it("user can withdraw non-less than supplied", async () => {
     // wip

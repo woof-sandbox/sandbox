@@ -72,11 +72,11 @@ interface ISandboxComet {
 
     function accrueAccount(address account) external;
 
-    function getSupplyRate(uint64 utilization) external view returns (uint64);
+    function getSupplyRate(uint256 utilization) external view returns (uint64);
 
-    function getBorrowRate(uint64 utilization) external view returns (uint64);
+    function getBorrowRate(uint256 utilization) external view returns (uint64);
 
-    function getUtilization() external view returns (uint64);
+    function getUtilization() external view returns (uint256);
 
     function targetReserves() external view returns (uint);
 

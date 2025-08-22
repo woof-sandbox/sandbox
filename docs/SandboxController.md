@@ -46,6 +46,14 @@ uint8 MARKET_STATES
 uint64 MAX_SUPPLY_CAP_PERCENT
 ```
 
+### SECONDS_PER_YEAR
+
+```solidity
+uint64 SECONDS_PER_YEAR
+```
+
+_365 days * 24 hours * 60 minutes * 60 seconds_
+
 ### treasury
 
 ```solidity
