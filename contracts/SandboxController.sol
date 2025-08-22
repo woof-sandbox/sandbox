@@ -18,6 +18,8 @@ contract SandboxController is ISandboxController {
     uint40 public constant MIN_LOCK_TIME = 1 weeks; // The minimum lock time for seed reserves
     uint8 public constant MARKET_STATES = 3;
     uint64 public constant MAX_SUPPLY_CAP_PERCENT = 3e17; //30%
+    /// @dev 365 days * 24 hours * 60 minutes * 60 seconds
+    uint64 internal constant SECONDS_PER_YEAR = 31_536_000;
 
     /// @notice treasury address. This is the address that will receive the fees.
     address public treasury; /// 20 bytes
@@ -461,7 +463,6 @@ contract SandboxController is ISandboxController {
      * @return True if valid, false otherwise.
      */
     function isCurveConfigurationValid(BaseAssetCurve memory curve) public pure override returns (bool) {
-        /// TODO: add validations on minimal possible values (as these values will be divided by year seconds value)
         /// TODO: add validations on the type overflow in uint64 - add limit from above
 
         /**
@@ -483,9 +484,22 @@ contract SandboxController is ISandboxController {
         uint256 borrowSlopeLow = uint256(curve.borrowPerYearInterestRateSlopeLow);
         uint256 supplySlopeHigh = uint256(curve.supplyPerYearInterestRateSlopeHigh);
         uint256 borrowSlopeHigh = uint256(curve.borrowPerYearInterestRateSlopeHigh);
+        uint64 supplyBase = curve.supplyPerYearInterestRateBase;
+        uint64 borrowBase = curve.borrowPerYearInterestRateBase;
 
         /// kink utilization cannot exceed 100%
         if (curve.supplyKink > PARAMETERS_SCALE || curve.borrowKink > PARAMETERS_SCALE) return false;
+
+        /// values are later scaled down by 1 year in the comet, so we cannot lose accuracy to have 0 on small values
+        /// however, 0 value is allowed, thus we should omit that case.
+        if (
+            (supplySlopeLow > 0 && supplySlopeLow < SECONDS_PER_YEAR) ||
+            (borrowSlopeLow > 0 && borrowSlopeLow < SECONDS_PER_YEAR) ||
+            (supplySlopeHigh > 0 && supplySlopeHigh < SECONDS_PER_YEAR) ||
+            (borrowSlopeHigh > 0 && borrowSlopeHigh < SECONDS_PER_YEAR) ||
+            (supplyBase > 0 && supplyBase < SECONDS_PER_YEAR) ||
+            (borrowBase > 0 && borrowBase < SECONDS_PER_YEAR)
+        ) return false;
 
         /// Borrow interest curve should be above the supply curve at any point
 
@@ -499,12 +513,12 @@ contract SandboxController is ISandboxController {
         // y_breakpoint = supplyBase + supplyLowSlope * x
         // where x = supplyKink (rightmost point of the low slope part of the curve)
         uint256 intermediateSupplyPoint = (supplySlopeLow * uint256(curve.supplyKink)) / PARAMETERS_SCALE;
-        uint64 supplyBreakPoint = curve.supplyPerYearInterestRateBase + uint64(intermediateSupplyPoint);
+        uint64 supplyBreakPoint = supplyBase + uint64(intermediateSupplyPoint);
 
         // y_breakpoint = borrowBase + borrowLowSlope * x
         // where x = borrowKink (rightmost point of the low slope part of the curve)
         uint256 intermediateBorrowPoint = (borrowSlopeLow * uint256(curve.borrowKink)) / PARAMETERS_SCALE;
-        uint64 borrowBreakPoint = curve.borrowPerYearInterestRateBase + uint64(intermediateBorrowPoint);
+        uint64 borrowBreakPoint = borrowBase + uint64(intermediateBorrowPoint);
 
         /// 2) borrow curve break point must always be higher than supplies one
         if (supplyBreakPoint > borrowBreakPoint) {

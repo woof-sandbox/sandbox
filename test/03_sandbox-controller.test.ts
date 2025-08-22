@@ -1714,13 +1714,13 @@ describe("3. SandboxController", function () {
         /// add curve different from default to have clear test
         let curveTest: BaseAssetCurveStruct = {
           supplyKink: ethers.utils.parseEther("0.3").toString(),
-          supplyPerYearInterestRateSlopeLow: ethers.BigNumber.from("100"),
-          supplyPerYearInterestRateSlopeHigh: ethers.BigNumber.from("2000"),
-          supplyPerYearInterestRateBase: ethers.BigNumber.from("2"),
+          supplyPerYearInterestRateSlopeLow: ethers.utils.parseEther("0.1"),
+          supplyPerYearInterestRateSlopeHigh: ethers.utils.parseEther("0.2"),
+          supplyPerYearInterestRateBase: ethers.utils.parseEther("0.02"),
           borrowKink: ethers.utils.parseEther("0.6").toString(),
-          borrowPerYearInterestRateSlopeLow: ethers.BigNumber.from("2000"),
-          borrowPerYearInterestRateSlopeHigh: ethers.BigNumber.from("3000"),
-          borrowPerYearInterestRateBase: ethers.BigNumber.from("20"),
+          borrowPerYearInterestRateSlopeLow: ethers.utils.parseEther("0.2"),
+          borrowPerYearInterestRateSlopeHigh: ethers.utils.parseEther("3"),
+          borrowPerYearInterestRateBase: ethers.utils.parseEther("0.2"),
         };
         let curvesNumBefore = (await sandboxController.curves(tokenTest.address)).length;
         await sandboxController.connect(dao).addBaseAssetCurve(tokenTest.address, curveTest);
@@ -1757,13 +1757,13 @@ describe("3. SandboxController", function () {
     let curve: BaseAssetCurveStruct = makeValidCurve();
     let curveTest: BaseAssetCurveStruct = {
       supplyKink: ethers.utils.parseEther("0.3").toString(),
-      supplyPerYearInterestRateSlopeLow: ethers.BigNumber.from("100"),
-      supplyPerYearInterestRateSlopeHigh: ethers.BigNumber.from("2000"),
-      supplyPerYearInterestRateBase: ethers.BigNumber.from("2"),
+      supplyPerYearInterestRateSlopeLow: ethers.utils.parseEther("0.1"),
+      supplyPerYearInterestRateSlopeHigh: ethers.utils.parseEther("0.2"),
+      supplyPerYearInterestRateBase: ethers.utils.parseEther("0.02"),
       borrowKink: ethers.utils.parseEther("0.6").toString(),
-      borrowPerYearInterestRateSlopeLow: ethers.BigNumber.from("2000"),
-      borrowPerYearInterestRateSlopeHigh: ethers.BigNumber.from("3000"),
-      borrowPerYearInterestRateBase: ethers.BigNumber.from("20"),
+      borrowPerYearInterestRateSlopeLow: ethers.utils.parseEther("0.2"),
+      borrowPerYearInterestRateSlopeHigh: ethers.utils.parseEther("3"),
+      borrowPerYearInterestRateBase: ethers.utils.parseEther("0.2"),
     };
     let curveIndex;
 
@@ -1969,6 +1969,63 @@ describe("3. SandboxController", function () {
         testCases.push({
           sampleCurve: _curve,
           descr: "right supply slope / right slope borrow slope (supply high slope >> borrow high slope",
+        });
+
+        /// base supply per year is less than seconds per year
+        _curve = makeValidCurve();
+        _curve.supplyPerYearInterestRateBase = 60 * 60 * 24 * 365 - 1;
+
+        testCases.push({
+          sampleCurve: _curve,
+          descr: "base supply per year is less than seconds per year",
+        });
+
+        /// supply low slope per year is less than seconds per year
+        _curve = makeValidCurve();
+        _curve.supplyPerYearInterestRateSlopeLow = 60 * 60 * 24 * 365 - 1;
+
+        testCases.push({
+          sampleCurve: _curve,
+          descr: "supply low slope per year is less than seconds per year",
+        });
+
+        /// supply high slope per year is less than seconds per year
+        _curve = makeValidCurve();
+        _curve.supplyPerYearInterestRateSlopeHigh = 60 * 60 * 24 * 365 - 1;
+
+        testCases.push({
+          sampleCurve: _curve,
+          descr: "supply low slope per year is less than seconds per year",
+        });
+
+        /// borrow base per year is less than seconds per year
+        _curve = makeValidCurve();
+        _curve.supplyPerYearInterestRateBase = 0;
+        _curve.borrowPerYearInterestRateBase = 60 * 60 * 24 * 365 - 1;
+
+        testCases.push({
+          sampleCurve: _curve,
+          descr: "borrow base per year is less than seconds per year",
+        });
+
+        /// borrow low slope per year is less than seconds per year
+        _curve = makeValidCurve();
+        _curve.supplyPerYearInterestRateSlopeLow = 0;
+        _curve.borrowPerYearInterestRateSlopeLow = 60 * 60 * 24 * 365 - 1;
+
+        testCases.push({
+          sampleCurve: _curve,
+          descr: "borrow low slope per year is less than seconds per year",
+        });
+
+        /// borrow high slope per year is less than seconds per year
+        _curve = makeValidCurve();
+        _curve.supplyPerYearInterestRateSlopeHigh = 0;
+        _curve.borrowPerYearInterestRateSlopeHigh = 60 * 60 * 24 * 365 - 1;
+
+        testCases.push({
+          sampleCurve: _curve,
+          descr: "borrow high slope per year is less than seconds per year",
         });
 
         return testCases;

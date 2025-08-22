@@ -202,7 +202,7 @@ contract SandboxComet is CometCore, ISandboxComet {
     /**
      * @return The current timestamp
      **/
-    function getNowInternal() public view virtual returns (uint40) {
+    function getNowInternal() internal view virtual returns (uint40) {
         if (block.timestamp > type(uint40).max) revert TimestampTooLarge();
         return uint40(block.timestamp);
     }
@@ -1183,14 +1183,17 @@ contract SandboxComet is CometCore, ISandboxComet {
         3.6% of the base asset value supplied during purchase can be extracted from the collateral reserves as a profit
         */
 
-        /// TODO: there are certain combinations of store front factor and liquidation factor, in which there may be no
-        /// profit for the market. In that case profit calculation will underflow.
         uint256 scaledBaseAmount = mulFactor(baseAmount, 2 * FACTOR_SCALE - assetInfo.liquidationFactor);
-        uint256 scaledCollateralValue = (scaledBaseAmount * basePrice * assetInfo.scale) / assetPrice / baseScale;
-        uint256 profit = scaledCollateralValue - amountOut;
+        uint256 scaledCollateralAmount = (scaledBaseAmount * basePrice * assetInfo.scale) / assetPrice / baseScale;
 
-        // function guarantees that reserve+protocol+controller == profit
-        (feeReserve, feeProtocol, feeController) = _distributeProfit(profit);
+        /// There are certain combinations of store front factor and liquidation factor, in which there may be no
+        /// profit for the market. In that case profit calculation will underflow, so just deduct that there is no profit
+        if (scaledCollateralAmount > amountOut) {
+            uint256 profit = scaledCollateralAmount - amountOut;
+
+            // function guarantees that reserve+protocol+controller == profit
+            (feeReserve, feeProtocol, feeController) = _distributeProfit(profit);
+        }
     }
 
     /**
