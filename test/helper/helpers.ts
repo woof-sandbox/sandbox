@@ -45,6 +45,10 @@ export function mulPrice(n: bigint, price: bigint | BigNumber, fromScale: bigint
   return (n * toBigInt(price)) / toBigInt(fromScale);
 }
 
+export function mulFactor(n: bigint | BigNumber, factor: bigint | BigNumber): bigint {
+  return (toBigInt(n) * toBigInt(factor)) / exp(1, 18);
+}
+
 function toBigInt(f: bigint | BigNumber): bigint {
   if (typeof f === "bigint") {
     return f;
