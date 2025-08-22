@@ -91,7 +91,7 @@ _Determine index of asset that matches given address_
 ### getNowInternal
 
 ```solidity
-function getNowInternal() public view virtual returns (uint40)
+function getNowInternal() internal view virtual returns (uint40)
 ```
 
 #### Return Values
