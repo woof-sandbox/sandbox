@@ -10,9 +10,11 @@ import {
   sandboxListCollateralAsset,
   CombinedComet,
   getCombinedComet,
+  defaultAssetLimits,
 } from "./helper/helpers";
 import {
   SandboxController,
+  SandboxController__factory,
   SandboxComet,
   SandboxComet__factory,
   SandboxCometFactory,
@@ -23,10 +25,12 @@ import {
   FaucetToken,
   FaucetToken__factory,
   SimplePriceFeed,
+  OverflowSetup__factory,
+  OverflowSetup,
 } from "../build/types";
 
 const { Zero } = ethers.constants;
-import { time, takeSnapshot, SnapshotRestorer } from "@nomicfoundation/hardhat-network-helpers";
+import { time, takeSnapshot, SnapshotRestorer, setStorageAt } from "@nomicfoundation/hardhat-network-helpers";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { CollateralTokenConfigStruct, CometConfigStruct } from "../build/types/ConfigController";
 
@@ -192,52 +196,47 @@ describe("28. withdraw reserves", function () {
     await cometContract.connect(user).withdraw(baseToken.address, amount);
   }
 
-  describe("When the market is not deprecated", function () {
+  context("When the market is not deprecated", function () {
     beforeEach(async function () {
       // Restore the snapshot before each test
       await snapshot.restore();
     });
 
-    context("Withdrawing free seed reserves", function () {
-      it("should not allow withdrawing free seed reserves", async () => {
-        const currentSeedReserves = await globalComet.seedReserves();
-        // Try to withdraw free seed reserves
-        await expect(configController.withdrawFreeSeedReservesFrom(globalComet.address, currentSeedReserves)).to.be.revertedWithCustomError(
-          globalComet,
-          "UnlockNotReached"
-        );
-      });
+    it("should not allow withdrawing free seed reserves", async () => {
+      const currentSeedReserves = await globalComet.seedReserves();
+      // Try to withdraw free seed reserves
+      await expect(configController.withdrawFreeSeedReservesFrom(globalComet.address, currentSeedReserves)).to.be.revertedWithCustomError(
+        globalComet,
+        "UnlockNotReached"
+      );
     });
 
-    context("Withdrawing surplus seed reserves", function () {
-      it("should not allow withdrawing surplus seed reserves", async () => {
-        // Try to withdraw surplus seed reserves
-        await expect(globalComet.connect(dao).withdrawSurplusSeedReserves())
-          .to.be.revertedWithCustomError(globalComet, "InvalidDeprecationState")
-          .withArgs(DeprecationStatus.NotStarted);
-      });
+    it("should not allow withdrawing surplus seed reserves", async () => {
+      // Try to withdraw surplus seed reserves
+      await expect(globalComet.connect(dao).withdrawSurplusSeedReserves())
+        .to.be.revertedWithCustomError(globalComet, "InvalidDeprecationState")
+        .withArgs(DeprecationStatus.NotStarted);
     });
 
-    context("Withdrawing surplus collateral reserves", function () {
-      it("should not allow withdrawing surplus collateral reserves", async () => {
-        const collateralAddresses = collateralTokens.map(tokenConfig => tokenConfig.collateralToken);
-        // Try to withdraw surplus collateral reserves
-        await expect(globalComet.connect(dao).withdrawSurplusCollateralReserves(collateralAddresses))
-          .to.be.revertedWithCustomError(globalComet, "InvalidDeprecationState")
-          .withArgs(DeprecationStatus.NotStarted);
-      });
+    it("should not allow withdrawing surplus collateral reserves", async () => {
+      const collateralAddresses = collateralTokens.map(tokenConfig => tokenConfig.collateralToken);
+      // Try to withdraw surplus collateral reserves
+      await expect(globalComet.connect(dao).withdrawSurplusCollateralReserves(collateralAddresses))
+        .to.be.revertedWithCustomError(globalComet, "InvalidDeprecationState")
+        .withArgs(DeprecationStatus.NotStarted);
     });
   });
 
-  describe("When the market is deprecating", function () {
+  context("When the market is deprecating", function () {
     // Global variables for the context of the tests
     const supplyBaseTokenAmount: bigint = exp(500, 18);
     const supplyCollateralAmount: bigint = exp(1000, 18);
     const borrowBaseTokenAmount: bigint = exp(50, 18);
     const assetIndex = 1;
     let deprecationStartTimestamp: number;
+    let contextSnapshot: SnapshotRestorer;
 
-    beforeEach(async function () {
+    before(async function () {
       // Restore the snapshot before each test
       await snapshot.restore();
       // Supply some collateral to the comet: firstUser
@@ -255,40 +254,41 @@ describe("28. withdraw reserves", function () {
       await configController.initiateDeprecationMarket(globalComet.address);
       // Initiating transactions to promote the progress of depreciation
       await globalComet.connect(firstUser).accrueAccount(firstUser.address);
+
+      contextSnapshot = await takeSnapshot();
     });
 
-    context("Withdrawing free seed reserves", function () {
-      it("should not allow withdrawing free seed reserves", async () => {
-        const currentSeedReserves = await globalComet.seedReserves();
-        // Try to withdraw free seed reserves
-        await expect(configController.withdrawFreeSeedReservesFrom(globalComet.address, currentSeedReserves)).to.be.revertedWithCustomError(
-          globalComet,
-          "UnlockNotReached"
-        );
-      });
+    afterEach(async () => {
+      // Restore the context snapshot after each test
+      await contextSnapshot.restore();
     });
 
-    context("Withdrawing surplus seed reserves", function () {
-      it("should not allow withdrawing surplus seed reserves", async () => {
-        // Try to withdraw surplus seed reserves
-        await expect(globalComet.connect(dao).withdrawSurplusSeedReserves())
-          .to.be.revertedWithCustomError(globalComet, "InvalidDeprecationState")
-          .withArgs(DeprecationStatus.InProgress);
-      });
+    it("should not allow withdrawing free seed reserves", async () => {
+      const currentSeedReserves = await globalComet.seedReserves();
+      // Try to withdraw free seed reserves
+      await expect(configController.withdrawFreeSeedReservesFrom(globalComet.address, currentSeedReserves)).to.be.revertedWithCustomError(
+        globalComet,
+        "UnlockNotReached"
+      );
     });
 
-    context("Withdrawing surplus collateral reserves", function () {
-      it("should not allow withdrawing surplus collateral reserves", async () => {
-        const collateralAddresses = collateralTokens.map(tokenConfig => tokenConfig.collateralToken);
-        // Try to withdraw surplus collateral reserves
-        await expect(globalComet.connect(dao).withdrawSurplusCollateralReserves(collateralAddresses))
-          .to.be.revertedWithCustomError(globalComet, "InvalidDeprecationState")
-          .withArgs(DeprecationStatus.InProgress);
-      });
+    it("should not allow withdrawing surplus seed reserves", async () => {
+      // Try to withdraw surplus seed reserves
+      await expect(globalComet.connect(dao).withdrawSurplusSeedReserves())
+        .to.be.revertedWithCustomError(globalComet, "InvalidDeprecationState")
+        .withArgs(DeprecationStatus.InProgress);
+    });
+
+    it("should not allow withdrawing surplus collateral reserves", async () => {
+      const collateralAddresses = collateralTokens.map(tokenConfig => tokenConfig.collateralToken);
+      // Try to withdraw surplus collateral reserves
+      await expect(globalComet.connect(dao).withdrawSurplusCollateralReserves(collateralAddresses))
+        .to.be.revertedWithCustomError(globalComet, "InvalidDeprecationState")
+        .withArgs(DeprecationStatus.InProgress);
     });
   });
 
-  describe("When the market is deprecated", function () {
+  context("When the market is deprecated", function () {
     // Global variables for the context of the tests
     const supplyBaseTokenAmount: bigint = exp(500, 18);
     const supplyCollateralAmount: bigint = exp(1000, 18);
@@ -296,8 +296,9 @@ describe("28. withdraw reserves", function () {
     const assetIndex = 1;
     let deprecationStartTimestamp: number;
     let deprecationEndTimestamp: number;
+    let contextSnapshot: SnapshotRestorer;
 
-    beforeEach(async function () {
+    before(async function () {
       // Restore the snapshot before each test
       await snapshot.restore();
 
@@ -323,138 +324,197 @@ describe("28. withdraw reserves", function () {
       await globalComet.connect(firstUser).absorb(firstUser.address, [secondUser.address]);
       // Withdraw all base token from the comet: firstUser
       await globalComet.connect(firstUser).withdrawAllFrom(firstUser.address, firstUser.address);
+
+      contextSnapshot = await takeSnapshot();
     });
 
-    context("Withdrawing free seed reserves", function () {
-      it("should not allow withdrawing free seed reserves if not enough reserves", async () => {
-        const currentReserves = await globalComet.getReserves();
-        const currentSeedReserves = await globalComet.seedReserves();
-        // Check that current reserves are less than seed reserves
-        expect(currentReserves).to.be.below(currentSeedReserves);
-        // Try to withdraw free seed reserves
-        await expect(configController.withdrawFreeSeedReservesFrom(globalComet.address, currentSeedReserves)).to.be.revertedWithCustomError(
-          globalComet,
-          "InsufficientFreeReserves"
-        );
-      });
-
-      it("should allow withdrawing half amount of free seed reserves", async () => {
-        // Fund the comet with seed reserves for imitating the accumulation of seed reserves
-        await baseToken.connect(owner).allocateTo(globalComet.address, amountOfSeedReserves);
-        const currentReserves = await globalComet.getReserves();
-        const halfCurrentSeedReserves = (await globalComet.seedReserves()).div(2);
-        // Check that current reserves are above seed reserves
-        expect(currentReserves).to.be.above(halfCurrentSeedReserves);
-        // Try to withdraw free seed reserves
-        await expect(configController.withdrawFreeSeedReservesFrom(globalComet.address, halfCurrentSeedReserves))
-          .to.emit(globalComet, "FreeSeedReservesWithdrawn")
-          .withArgs(configController.address, halfCurrentSeedReserves);
-
-        expect(await globalComet.seedReserves()).to.equal(halfCurrentSeedReserves);
-      });
-
-      it("should allow withdrawing all amount of free seed reserves", async () => {
-        // Fund the comet with seed reserves for imitating the accumulation of seed reserves
-        await baseToken.connect(owner).allocateTo(globalComet.address, amountOfSeedReserves);
-        const currentReserves = await globalComet.getReserves();
-        const allCurrentSeedReserves = await globalComet.seedReserves();
-        // Check that current reserves are above seed reserves
-        expect(currentReserves).to.be.above(allCurrentSeedReserves);
-        // Try to withdraw free seed reserves
-        await expect(configController.withdrawFreeSeedReservesFrom(globalComet.address, allCurrentSeedReserves))
-          .to.emit(globalComet, "FreeSeedReservesWithdrawn")
-          .withArgs(configController.address, allCurrentSeedReserves);
-
-        expect(await globalComet.seedReserves()).to.equal(Zero);
-      });
+    afterEach(async () => {
+      // Restore the context snapshot after each test
+      await contextSnapshot.restore();
     });
 
-    context("Withdrawing surplus seed reserves", function () {
-      it("should allow withdrawing surplus seed reserves", async () => {
-        // Fund the comet with seed reserves for imitating the accumulation of seed reserves
-        await baseToken.connect(owner).allocateTo(globalComet.address, amountOfSeedReserves);
-
-        const currentReserves = await globalComet.getReserves();
-        const currentSeedReserves = await globalComet.seedReserves();
-        const expectedSurplusSeedReserves = currentReserves.sub(currentSeedReserves);
-
-        const treasury = await sandboxController.treasury();
-        // Try to withdraw surplus seed reserves
-        await expect(globalComet.connect(dao).withdrawSurplusSeedReserves())
-          .to.emit(globalComet, "SurplusSeedReservesWithdrawn")
-          .withArgs(treasury, expectedSurplusSeedReserves);
-      });
+    it("should not allow withdrawing free seed reserves if not enough reserves", async () => {
+      const currentReserves = await globalComet.getReserves();
+      const currentSeedReserves = await globalComet.seedReserves();
+      // Check that current reserves are less than seed reserves
+      expect(currentReserves).to.be.below(currentSeedReserves);
+      // Try to withdraw free seed reserves
+      await expect(configController.withdrawFreeSeedReservesFrom(globalComet.address, currentSeedReserves)).to.be.revertedWithCustomError(
+        globalComet,
+        "InsufficientFreeReserves"
+      );
     });
 
-    context("Withdrawing surplus collateral reserves", function () {
-      it("should allow withdrawing surplus collateral reserves", async () => {
-        const collateralAddresses = collateralTokens.map(tokenConfig => tokenConfig.collateralToken);
-        expect(await globalComet.getCollateralReserves(collateralAddresses[assetIndex])).to.be.above(Zero);
-        // Try to withdraw surplus collateral reserves
-        await expect(globalComet.connect(dao).withdrawSurplusCollateralReserves(collateralAddresses)).to.emit(
-          globalComet,
-          "SurplusCollateralReservesWithdrawn"
-        );
-        expect(await globalComet.getCollateralReserves(collateralAddresses[assetIndex])).to.equal(Zero);
-      });
+    it("should allow withdrawing half amount of free seed reserves", async () => {
+      // Fund the comet with seed reserves for imitating the accumulation of seed reserves
+      await baseToken.connect(owner).allocateTo(globalComet.address, amountOfSeedReserves);
+      const currentReserves = await globalComet.getReserves();
+      const halfCurrentSeedReserves = (await globalComet.seedReserves()).div(2);
+      // Check that current reserves are above seed reserves
+      expect(currentReserves).to.be.above(halfCurrentSeedReserves);
+      // Try to withdraw free seed reserves
+      await expect(configController.withdrawFreeSeedReservesFrom(globalComet.address, halfCurrentSeedReserves))
+        .to.emit(globalComet, "FreeSeedReservesWithdrawn")
+        .withArgs(configController.address, halfCurrentSeedReserves);
+
+      expect(await globalComet.seedReserves()).to.equal(halfCurrentSeedReserves);
+    });
+
+    it("should allow withdrawing all amount of free seed reserves", async () => {
+      // Fund the comet with seed reserves for imitating the accumulation of seed reserves
+      await baseToken.connect(owner).allocateTo(globalComet.address, amountOfSeedReserves);
+      const currentReserves = await globalComet.getReserves();
+      const allCurrentSeedReserves = await globalComet.seedReserves();
+      // Check that current reserves are above seed reserves
+      expect(currentReserves).to.be.above(allCurrentSeedReserves);
+      // Try to withdraw free seed reserves
+      await expect(configController.withdrawFreeSeedReservesFrom(globalComet.address, allCurrentSeedReserves))
+        .to.emit(globalComet, "FreeSeedReservesWithdrawn")
+        .withArgs(configController.address, allCurrentSeedReserves);
+
+      expect(await globalComet.seedReserves()).to.equal(Zero);
+    });
+
+    it("should allow withdrawing surplus seed reserves", async () => {
+      // Fund the comet with seed reserves for imitating the accumulation of seed reserves
+      await baseToken.connect(owner).allocateTo(globalComet.address, amountOfSeedReserves);
+
+      const currentReserves = await globalComet.getReserves();
+      const currentSeedReserves = await globalComet.seedReserves();
+      const expectedSurplusSeedReserves = currentReserves.sub(currentSeedReserves);
+
+      const treasury = await sandboxController.treasury();
+      // Try to withdraw surplus seed reserves
+      await expect(globalComet.connect(dao).withdrawSurplusSeedReserves())
+        .to.emit(globalComet, "SurplusSeedReservesWithdrawn")
+        .withArgs(treasury, expectedSurplusSeedReserves);
+    });
+
+    it("should allow withdrawing surplus collateral reserves", async () => {
+      const collateralAddresses = collateralTokens.map(tokenConfig => tokenConfig.collateralToken);
+      expect(await globalComet.getCollateralReserves(collateralAddresses[assetIndex])).to.be.above(Zero);
+      // Try to withdraw surplus collateral reserves
+      await expect(globalComet.connect(dao).withdrawSurplusCollateralReserves(collateralAddresses)).to.emit(
+        globalComet,
+        "SurplusCollateralReservesWithdrawn"
+      );
+      expect(await globalComet.getCollateralReserves(collateralAddresses[assetIndex])).to.equal(Zero);
     });
   });
 
   describe("Edge Cases", function () {
-    // Temporarily disabled this test on GitHub Actions.
-    // Fails with "The operation was canceled" — likely due to timeouts or flaky behavior under CI load.
-    // Works locally. Needs stabilization before re-enabling.
-    context.skip("Overflow:", function () {
+    context("Overflow:", function () {
       // Global variables for the context of the tests
-      let thisComet: CombinedComet;
-      let thisSnapshot: SnapshotRestorer;
-
       let deprecationStartTimestamp: number;
       let deprecationEndTimestamp: number;
-      const assetAddresses: string[] = [];
+      let _collateralTokenAddresses: string[];
+      let _overflowSetup: OverflowSetup;
+      let _sandboxController: SandboxController;
+      let _comet: CombinedComet;
 
       before(async function () {
-        // It is constant value in comet contract
-        const maxAssets = 24;
-        const collateralTokensConfig: CollateralTokenConfigStruct[] = [];
-        // Create collateral tokens and price feeds
-        for (let i = 0; i < maxAssets; i++) {
-          const collateralToken: FaucetToken = await makeMockERC20({ name: `Collateral ${i}`, symbol: `TOKEN_${i}` });
-          const priceFeedCol: SimplePriceFeed = await makePriceFeed(collateralToken.address, "2");
+        const MAX_ASSETS = 24;
+        const _collateralTokensConfig: CollateralTokenConfigStruct[] = [];
 
-          await sandboxListCollateralAsset(sandboxController, collateralToken, priceFeedCol.address);
+        _overflowSetup = await new OverflowSetup__factory(owner).deploy();
 
-          collateralTokensConfig[i] = {
-            collateralToken: collateralToken.address,
+        /// Options of the sandbox controller
+        const _opts = defaultSandboxControllerOpts({
+          admin: owner.address,
+          dao: _overflowSetup.address,
+          treasury: treasury.address,
+          feeEnabled: true,
+        });
+        // Deploy sandbox controller
+        _sandboxController = await new SandboxController__factory(owner).deploy(
+          _opts.admin,
+          _opts.dao,
+          _opts.treasury,
+          _opts.feeEnabled,
+          _opts.config,
+          _opts.reserveCommissions,
+          _opts.protocolCommissions
+        );
+
+        const _assetLimits = defaultAssetLimits();
+        // Deploy tokens and feeds (1 Base token and 24 Collateral tokens)
+        await _overflowSetup.deployTokensAndFeeds(MAX_ASSETS, _sandboxController.address, _assetLimits).then(tx => tx.wait());
+
+        _collateralTokenAddresses = await _overflowSetup.getCollateralTokens();
+        const _baseTokenAddress = await _overflowSetup.baseToken();
+        // Map asset addresses to collateral token config
+        _collateralTokenAddresses.map(address => {
+          _collateralTokensConfig.push({
+            collateralToken: address,
             borrowCollateralFactor: exp(0.6, 18),
             liquidateCollateralFactor: exp(0.75, 18),
             liquidationFactor: exp(0.85, 18),
             supplyCap: exp(1e9, 18),
-          };
-          assetAddresses[i] = collateralToken.address;
-        }
+          });
+        });
+        // Deploy config controller implementation
+        const _configControllerImpl = await new ConfigControllerTest__factory(owner).deploy();
+        // Deploy sandbox comet implementation
+        const _sandboxCometImpl = await new SandboxComet__factory(owner).deploy();
+        // Deploy config controller factory
+        const _configControllerFactory = await new ConfigControllerFactory__factory(owner).deploy(
+          _sandboxController.address,
+          _configControllerImpl.address
+        );
+        // Deploy sandbox comet factory
+        const _sandboxCometFactory = await new SandboxCometFactory__factory(owner).deploy(
+          _sandboxCometImpl.address,
+          _configControllerFactory.address
+        );
 
-        // Create and fund the comet with maximum assets
-        thisComet = await createComet(collateralTokensConfig);
+        // Deploy config controller
+        await _configControllerFactory
+          .createConfigController(
+            curator.address,
+            guardian.address,
+            _sandboxCometFactory.address,
+            configControllerOpts._curatorFee,
+            configControllerOpts._name,
+            configControllerOpts._curatorProposalDuration,
+            configControllerOpts._proposalDuration
+          )
+          .then(tx => tx.wait());
+
+        const _lastControllerLength = await _configControllerFactory.getLastControllerLength().then(n => n.toBigInt());
+        const _configControllerAddress = await _configControllerFactory.controllerAddresses(_lastControllerLength - 1n);
+        const _configController = ConfigControllerTest__factory.connect(_configControllerAddress, owner);
+
+        // Set the market configuration with all collateral tokens
+        const _seedReserve = exp(1000, 18);
+        const _marketConfig = {
+          baseToken: _baseTokenAddress,
+          collateralTokens: _collateralTokensConfig,
+          baseTokenCurveId: 0n,
+          name: "Comet",
+          amountOfSeedReserves: _seedReserve,
+        };
+        // Connect to the base token contract and allocate seed reserves
+        const _baseTokenContract = FaucetToken__factory.connect(_baseTokenAddress, owner);
+        await _baseTokenContract.allocateTo(owner.address, _seedReserve);
+        await _baseTokenContract.approve(_configController.address, _seedReserve);
+        // Create a new comet instance with the current market configuration
+        // Get the address of the newly created comet instance
+        const _cometAddress = await _configController.callStatic.createComet(_marketConfig);
+        // Create the comet instance
+        await _configController.createComet(_marketConfig);
+        // Connect to the combined comet instance: SandboxComet and CometExtension
+        _comet = getCombinedComet(_cometAddress, provider);
         // Check that the comet has the maximum number of assets
-        expect(await thisComet.numAssets()).to.equal(maxAssets);
-
+        expect(await _comet.numAssets()).to.equal(MAX_ASSETS);
         // Initiate deprecation of the market
-        await configController.initiateDeprecationMarket(thisComet.address);
+        await _configController.initiateDeprecationMarket(_comet.address);
         // Check that the market is deprecating
-        expect(await thisComet.deprecationStatus()).to.equal(DeprecationStatus.InProgress);
+        expect(await _comet.deprecationStatus()).to.equal(DeprecationStatus.InProgress);
         // Set time for the deprecation start
         deprecationStartTimestamp = (await time.latest()) + time.duration.minutes(1);
         await time.setNextBlockTimestamp(deprecationStartTimestamp);
         // Get time for the deprecation end
-        deprecationEndTimestamp = deprecationStartTimestamp + (await thisComet.deprecationDuration()).toNumber();
-        // Take snapshot before the tests
-        thisSnapshot = await takeSnapshot();
-      });
-
-      beforeEach(async function () {
-        // Restore the snapshot before each test
-        await thisSnapshot.restore();
+        deprecationEndTimestamp = deprecationStartTimestamp + (await _comet.deprecationDuration()).toNumber();
       });
 
       it("should handle overflow during withdrawal surplus collateral reserves with maximum number of assets", async function () {
@@ -464,33 +524,28 @@ describe("28. withdraw reserves", function () {
 
         // Allocate all tokens to the comet contract
         const allocateAmount = exp(1000, 18);
-        for (let i = 0; i < assetAddresses.length; i++) {
-          const assetAddress: string = assetAddresses[i];
-          const contractToken: FaucetToken = FaucetToken__factory.connect(assetAddress, owner);
-          await contractToken.allocateTo(thisComet.address, allocateAmount);
-          // Check that the comet contract has the allocated tokens
-          expect(await thisComet.getCollateralReserves(assetAddress)).to.equal(allocateAmount);
-        }
+        await _overflowSetup.collateralsAllocateToComet(_comet.address, allocateAmount);
 
         // Increase time for the deprecation end
         await time.increaseTo(deprecationEndTimestamp);
         // Transaction for finalizing deprecation
-        await thisComet.connect(firstUser).accrueAccount(firstUser.address);
+        await _comet.connect(firstUser).accrueAccount(firstUser.address);
         // Check that the market is deprecated
-        expect(await thisComet.deprecationStatus()).to.equal(DeprecationStatus.Finalized);
+        expect(await _comet.deprecationStatus()).to.equal(DeprecationStatus.Finalized);
         // Get the treasury address from the sandbox controller
-        const recipient = await sandboxController.treasury();
+        const recipient = await _sandboxController.treasury();
+
+        await setStorageAt(_sandboxController.address, 2, dao.address); // dao is at slot 2
 
         // Call the withdrawSurplusSeedReserves function to withdraw surplus collateral reserves
-        const tx = await thisComet.connect(dao).withdrawSurplusCollateralReserves(assetAddresses);
+        const tx = await _comet.connect(dao).withdrawSurplusCollateralReserves(_collateralTokenAddresses);
         await tx.wait();
         // Expect no overflow to happen
         await expect(tx).to.be.not.reverted;
         // Expect the event to be emitted
-        await expect(tx).to.emit(thisComet, "SurplusCollateralReservesWithdrawn");
+        await expect(tx).to.emit(_comet, "SurplusCollateralReservesWithdrawn");
         // Check transfer of surplus collateral reserves
-        for (let i = 0; i < assetAddresses.length; i++) {
-          const assetAddress: string = assetAddresses[i];
+        for (let assetAddress of _collateralTokenAddresses) {
           const contractToken: FaucetToken = FaucetToken__factory.connect(assetAddress, owner);
           await expect(tx).to.changeTokenBalance(contractToken, recipient, allocateAmount);
         }
@@ -540,9 +595,10 @@ describe("28. withdraw reserves", function () {
       const assetIndexes = [1, 2];
       let deprecationStartTimestamp: number;
       let deprecationEndTimestamp: number;
+      let contextSnapshot: SnapshotRestorer;
 
-      beforeEach(async function () {
-        // Restore the snapshot before each test
+      before(async function () {
+        // Restore the initial snapshot before test
         await snapshot.restore();
         // Supply some collateral to the comet: firstUser
         await supplyCollateralTo(globalComet, firstUser, assetIndexes[0], supplyCollateralAmount / 2n);
@@ -559,6 +615,13 @@ describe("28. withdraw reserves", function () {
         await configController.initiateDeprecationMarket(globalComet.address);
         // Get time for the deprecation end
         deprecationEndTimestamp = deprecationStartTimestamp + (await globalComet.deprecationDuration()).toNumber();
+        // Take snapshot of the context
+        contextSnapshot = await takeSnapshot();
+      });
+
+      afterEach(async function () {
+        // Restore the context snapshot after each test
+        await contextSnapshot.restore();
       });
 
       it("should not allow withdrawing surplus seed reserves if market has active lenders", async () => {

@@ -10,9 +10,11 @@ import {
   sandboxListCollateralAsset,
   CombinedComet,
   getCombinedComet,
+  defaultAssetLimits,
 } from "./helper/helpers";
 import {
   SandboxController,
+  SandboxController__factory,
   SandboxComet,
   SandboxComet__factory,
   SandboxCometFactory,
@@ -23,6 +25,7 @@ import {
   FaucetToken,
   FaucetToken__factory,
   SimplePriceFeed,
+  OverflowSetup__factory,
 } from "../build/types";
 
 const { Zero, MaxUint256 } = ethers.constants;
@@ -189,11 +192,20 @@ describe("27. market depreciation", function () {
   }
 
   context("Initiating the deprecation of market", function () {
-    beforeEach(async function () {
+    let contextSnapshot: SnapshotRestorer;
+
+    before(async function () {
       // Restore the snapshot before each test
       await snapshot.restore();
       // Set pause status for the comet
       await configController.pauseMarket(comet.address, true, true, true, true, true);
+      // Take snapshot of the context
+      contextSnapshot = await takeSnapshot();
+    });
+
+    afterEach(async () => {
+      // Restore the context snapshot after each test
+      await contextSnapshot.restore();
     });
 
     it("should change the market deprecation status", async () => {
@@ -305,8 +317,9 @@ describe("27. market depreciation", function () {
     const borrowBaseTokenAmount: bigint = exp(50, 18);
     const assetIndex = 1;
     let deprecationStartTimestamp: number;
+    let contextSnapshot: SnapshotRestorer;
 
-    beforeEach(async function () {
+    before(async function () {
       // Restore the snapshot before each test
       await snapshot.restore();
       // Supply some collateral to the comet: firstUser
@@ -322,6 +335,13 @@ describe("27. market depreciation", function () {
       await time.setNextBlockTimestamp(deprecationStartTimestamp);
       // Close the market
       await configController.initiateDeprecationMarket(comet.address);
+      // Take snapshot of the context
+      contextSnapshot = await takeSnapshot();
+    });
+
+    afterEach(async () => {
+      // Restore the context snapshot after each test
+      await contextSnapshot.restore();
     });
 
     it("should not allow initiating deprecation market again", async () => {
@@ -441,8 +461,9 @@ describe("27. market depreciation", function () {
     const assetIndex = 1;
     let deprecationStartTimestamp: number;
     let deprecationEndTimestamp: number;
+    let contextSnapshot: SnapshotRestorer;
 
-    beforeEach(async function () {
+    before(async function () {
       // Restore the snapshot before each test
       await snapshot.restore();
       // Supply some collateral to the comet: firstUser
@@ -461,6 +482,13 @@ describe("27. market depreciation", function () {
       // Set time for the deprecation end
       deprecationEndTimestamp = deprecationStartTimestamp + (await comet.deprecationDuration()).toNumber();
       await time.increaseTo(deprecationEndTimestamp);
+      // Take snapshot of the context
+      contextSnapshot = await takeSnapshot();
+    });
+
+    afterEach(async () => {
+      // Restore the context snapshot after each test
+      await contextSnapshot.restore();
     });
 
     it("should emit event about the finalization deprecation of market", async () => {
@@ -604,8 +632,9 @@ describe("27. market depreciation", function () {
     const assetIndex = 1;
     let deprecationStartTimestamp: number;
     let deprecationDuration: number;
+    let contextSnapshot: SnapshotRestorer;
 
-    beforeEach(async function () {
+    before(async function () {
       // Restore the snapshot before each test
       await snapshot.restore();
       // Supply some collateral to the comet
@@ -619,6 +648,13 @@ describe("27. market depreciation", function () {
       await time.setNextBlockTimestamp(deprecationStartTimestamp);
       // Close the market
       await configController.initiateDeprecationMarket(comet.address);
+      // Take snapshot of the context
+      contextSnapshot = await takeSnapshot();
+    });
+
+    afterEach(async () => {
+      // Restore the context snapshot after each test
+      await contextSnapshot.restore();
     });
 
     it("should gradually increase the feeReserve during deprecation", async () => {
@@ -685,68 +721,116 @@ describe("27. market depreciation", function () {
   });
 
   describe("Edge Cases", function () {
-    // Temporarily disabled this test on GitHub Actions.
-    // Fails with "The operation was canceled" — likely due to timeouts or flaky behavior under CI load.
-    // Works locally. Needs stabilization before re-enabling.
-    context.skip("Overflow:", function () {
+    context("Overflow:", function () {
       // Global variables for the context of the tests
-      let deprecationStartTimestamp: number;
-      // let deprecationEndTimestamp: number;
-      const assetAddresses: string[] = [];
-      let thisSnapshot: SnapshotRestorer;
+      let _comet: CombinedComet;
 
       before(async function () {
-        // It is constant value in comet contract
-        const maxAssets = 24;
-        const collateralTokensConfig: CollateralTokenConfigStruct[] = [];
-        // Create collateral tokens and price feeds
-        for (let i = 0; i < maxAssets; i++) {
-          const collateralToken: FaucetToken = await makeMockERC20({ name: `Collateral ${i}`, symbol: `TOKEN_${i}` });
-          const priceFeedCol: SimplePriceFeed = await makePriceFeed(collateralToken.address, "2");
+        const MAX_ASSETS = 24;
+        const _collateralTokensConfig: CollateralTokenConfigStruct[] = [];
 
-          await sandboxListCollateralAsset(sandboxController, collateralToken, priceFeedCol.address);
+        const _overflowSetup = await new OverflowSetup__factory(owner).deploy();
 
-          collateralTokensConfig[i] = {
-            collateralToken: collateralToken.address,
+        /// Options of the sandbox controller
+        const _opts = defaultSandboxControllerOpts({
+          admin: owner.address,
+          dao: _overflowSetup.address,
+          treasury: treasury.address,
+          feeEnabled: true,
+        });
+        // Deploy sandbox controller
+        const _sandboxController = await new SandboxController__factory(owner).deploy(
+          _opts.admin,
+          _opts.dao,
+          _opts.treasury,
+          _opts.feeEnabled,
+          _opts.config,
+          _opts.reserveCommissions,
+          _opts.protocolCommissions
+        );
+        const _assetLimits = defaultAssetLimits();
+        // Deploy tokens and feeds (1 Base token and 24 Collateral tokens)
+        await _overflowSetup.deployTokensAndFeeds(MAX_ASSETS, _sandboxController.address, _assetLimits).then(tx => tx.wait());
+
+        const _collateralTokenAddresses = await _overflowSetup.getCollateralTokens();
+        const _baseTokenAddress = await _overflowSetup.baseToken();
+        // Map asset addresses to collateral token config
+        _collateralTokenAddresses.map(address => {
+          _collateralTokensConfig.push({
+            collateralToken: address,
             borrowCollateralFactor: exp(0.6, 18),
             liquidateCollateralFactor: exp(0.75, 18),
             liquidationFactor: exp(0.85, 18),
             supplyCap: exp(1e9, 18),
-          };
-          assetAddresses[i] = collateralToken.address;
-        }
+          });
+        });
+        // Deploy config controller implementation
+        const _configControllerImpl = await new ConfigControllerTest__factory(owner).deploy();
+        // Deploy sandbox comet implementation
+        const _sandboxCometImpl = await new SandboxComet__factory(owner).deploy();
+        // Deploy config controller factory
+        const _configControllerFactory = await new ConfigControllerFactory__factory(owner).deploy(
+          _sandboxController.address,
+          _configControllerImpl.address
+        );
+        // Deploy sandbox comet factory
+        const _sandboxCometFactory = await new SandboxCometFactory__factory(owner).deploy(
+          _sandboxCometImpl.address,
+          _configControllerFactory.address
+        );
 
-        // Create the comet with maximum assets
-        comet = await createComet(collateralTokensConfig);
+        // Deploy config controller
+        await _configControllerFactory
+          .createConfigController(
+            curator.address,
+            guardian.address,
+            _sandboxCometFactory.address,
+            configControllerOpts._curatorFee,
+            configControllerOpts._name,
+            configControllerOpts._curatorProposalDuration,
+            configControllerOpts._proposalDuration
+          )
+          .then(tx => tx.wait());
+
+        const _lastControllerLength = await _configControllerFactory.getLastControllerLength().then(n => n.toBigInt());
+        const _configControllerAddress = await _configControllerFactory.controllerAddresses(_lastControllerLength - 1n);
+        const _configController = ConfigControllerTest__factory.connect(_configControllerAddress, owner);
+
+        // Set the market configuration with all collateral tokens
+        const _seedReserve = exp(1000, 18);
+        const _marketConfig = {
+          baseToken: _baseTokenAddress,
+          collateralTokens: _collateralTokensConfig,
+          baseTokenCurveId: 0n,
+          name: "Comet",
+          amountOfSeedReserves: _seedReserve,
+        };
+        // Connect to the base token contract and allocate seed reserves
+        const _baseTokenContract = FaucetToken__factory.connect(_baseTokenAddress, owner);
+        await _baseTokenContract.allocateTo(owner.address, _seedReserve);
+        await _baseTokenContract.approve(_configController.address, _seedReserve);
+        // Create a new comet instance with the current market configuration
+        // Get the address of the newly created comet instance
+        const _cometAddress = await _configController.callStatic.createComet(_marketConfig);
+        // Create the comet instance
+        await _configController.createComet(_marketConfig);
+        // Connect to the combined comet instance: SandboxComet and CometExtension
+        _comet = getCombinedComet(_cometAddress, provider);
         // Check that the comet has the maximum number of assets
-        expect(await comet.numAssets()).to.equal(maxAssets);
-
+        expect(await _comet.numAssets()).to.equal(MAX_ASSETS);
         // Initiate deprecation of the market
-        await configController.initiateDeprecationMarket(comet.address);
+        await _configController.initiateDeprecationMarket(_comet.address);
         // Check that the market is deprecating
-        expect(await comet.deprecationStatus()).to.equal(DeprecationStatus.InProgress);
-        // Set time for the deprecation start
-        deprecationStartTimestamp = (await time.latest()) + time.duration.minutes(1); // 1 minute in the future
-        await time.setNextBlockTimestamp(deprecationStartTimestamp);
-        // Get time for the deprecation end
-        // deprecationEndTimestamp = deprecationStartTimestamp + (await comet.deprecationDuration()).toNumber();
-        // Take snapshot before the tests
-        thisSnapshot = await takeSnapshot();
-      });
-
-      beforeEach(async function () {
-        // Restore the snapshot before each test
-        await thisSnapshot.restore();
+        expect(await _comet.deprecationStatus()).to.equal(DeprecationStatus.InProgress);
       });
 
       it("should handle overflow during market depreciation with maximum number of assets", async function () {
         // Arrange: Create a market with the maximum number of assets
         // Act: Initiate deprecation process of the market
         // Assert: Check that not overflow happens
-
         // Call the accrueAccount function to trigger the market depreciation process
         // Expect no overflow to happen
-        expect(await comet.connect(firstUser).accrueAccount(firstUser.address)).to.not.be.reverted;
+        expect(await _comet.connect(firstUser).accrueAccount(firstUser.address)).to.not.be.reverted;
       });
     });
 
