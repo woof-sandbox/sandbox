@@ -22,6 +22,7 @@ import {
   WstETHPriceFeed__factory,
   SimpleWstETH__factory,
   WBTCPriceFeed__factory,
+  ManagedSimplePriceFeed__factory,
 } from "../../build/types";
 
 import { SandboxCometFactory } from "../../build/types/SandboxCometFactory";
@@ -604,10 +605,6 @@ function convertToBigInt(arr) {
   return newArr;
 }
 
-export function getGasUsed(tx: TransactionResponseExt): bigint {
-  return tx.receipt.gasUsed.mul(tx.receipt.effectiveGasPrice).toBigInt();
-}
-
 /*//////////////////////////////////////////////////////////////
                               PRICE FEEDS
 //////////////////////////////////////////////////////////////*/
@@ -617,16 +614,22 @@ export async function makeWstETHPriceFeed({ stEthPrice, tokensPerStEth, updateTi
   const SimplePriceFeed = (await ethers.getContractFactory("SimplePriceFeed")) as SimplePriceFeed__factory;
   const SimpleWstETH = (await ethers.getContractFactory("SimpleWstETH")) as SimpleWstETH__factory;
   const WstETHPriceFeed = (await ethers.getContractFactory("WstETHPriceFeed")) as WstETHPriceFeed__factory;
+  const ManagedSimplePriceFeedFactory = (await ethers.getContractFactory("ManagedSimplePriceFeed")) as ManagedSimplePriceFeed__factory;
 
   const wstETH = await SimpleWstETH.deploy(tokensPerStEth);
 
   const stETHPriceFeed = await SimplePriceFeed.deploy(stEthPrice, 18, wstETH.address);
   const fallbackPriceFeed = await SimplePriceFeed.deploy(stEthPrice, 18, wstETH.address);
 
+  // Sequencer with answer 0 (available)
+  const sequencer = await ManagedSimplePriceFeedFactory.deploy(0, 8, wstETH.address);
+  await sequencer.deployed();
+
   const timeNow = await time.latest();
   await stETHPriceFeed.setRoundData(1, stEthPrice, timeNow, timeNow, 1);
 
   const wstETHPriceFeed = await WstETHPriceFeed.deploy(
+    sequencer.address,
     stETHPriceFeed.address,
     fallbackPriceFeed.address,
     wstETH.address,
@@ -645,6 +648,8 @@ export async function makeWstETHPriceFeed({ stEthPrice, tokensPerStEth, updateTi
     WstETHPriceFeed,
     fallbackUpdateTimeLimit,
     SimplePriceFeed,
+    ManagedSimplePriceFeedFactory,
+    sequencer,
   };
 }
 
@@ -659,6 +664,7 @@ export async function makeWBTCPriceFeed({
   const wbtc = await makeMockERC20({ name: "Wrapped Bitcoin", symbol: "WBTC", decimals: 8 });
 
   const SimplePriceFeed = (await ethers.getContractFactory("SimplePriceFeed")) as SimplePriceFeed__factory;
+  const ManagedSimplePriceFeedFactory = (await ethers.getContractFactory("ManagedSimplePriceFeed")) as ManagedSimplePriceFeed__factory;
 
   const WBTCToBTCPriceFeed = await SimplePriceFeed.deploy(WBTCToBTCPrice, 8, wbtc.address);
   await WBTCToBTCPriceFeed.deployed();
@@ -668,6 +674,10 @@ export async function makeWBTCPriceFeed({
 
   const fallbackPriceFeed = await SimplePriceFeed.deploy(BTCToUSDPrice, 8, wbtc.address);
   await fallbackPriceFeed.deployed();
+
+  // Sequencer with answer 0 (available)
+  const sequencer = await ManagedSimplePriceFeedFactory.deploy(0, 8, wbtc.address);
+  await sequencer.deployed();
 
   // set correct info
   const timeNow = await time.latest();
@@ -679,6 +689,7 @@ export async function makeWBTCPriceFeed({
 
   const wbtcPriceFeed = await WBTCPriceFeed.deploy(
     dao.address,
+    sequencer.address,
     WBTCToBTCPriceFeed.address,
     BTCToUSDPriceFeed.address,
     fallbackPriceFeed.address,
@@ -698,5 +709,7 @@ export async function makeWBTCPriceFeed({
     wbtc,
     wbtcPriceFeed,
     fallbackBTCtoUSDPrice,
+    sequencer,
+    ManagedSimplePriceFeedFactory,
   };
 }

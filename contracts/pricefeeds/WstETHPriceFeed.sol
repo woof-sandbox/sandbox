@@ -41,6 +41,9 @@ contract WstETHPriceFeed is AccessControl, IPriceFeed {
     /// @notice If the price feed is not updated within this time limit, it will fallback to the fallback price feed
     uint24 public updateTimeLimit;
 
+    /// @notice The Chainlink sequencer address
+    address public sequencer;
+
     /// @notice The time limit for the fallback price feed update
     /// @notice If the fallback price feed is not updated within this time limit, it will
     uint24 public fallbackUpdateTimeLimit;
@@ -57,6 +60,12 @@ contract WstETHPriceFeed is AccessControl, IPriceFeed {
         uint24 fallbackUpdateTimeLimit
     );
 
+    /**
+     * @notice Emitted when the sequencer address is updated.
+     * @param newSequencer The address of the new sequencer.
+     */
+    event SequencerUpdated(address indexed newSequencer);
+
     /// @notice Thrown when the decimals value is invalid or not supported.
     error BadDecimals();
 
@@ -69,8 +78,12 @@ contract WstETHPriceFeed is AccessControl, IPriceFeed {
     /// @notice Thrown when the price is not available from the feed.
     error PriceNotAvailable();
 
+    /// @dev Reverts if the sequencer is invalid.
+    error InvalidSequencer();
+
     /**
      * @notice Construct a new wstETH price feed
+     * @param sequencer_ The address of the Chainlink sequencer
      * @param stETHtoETHPriceFeed_ The address of the stETH / ETH price feed to fetch prices from
      * @param fallbackPriceFeed_ The address of the fallback price feed to use when the stETH / ETH price feed is not available
      * @param wstETH_ The address of the wstETH contract
@@ -80,6 +93,7 @@ contract WstETHPriceFeed is AccessControl, IPriceFeed {
      * @param dao_ The address of the DAO that has permission to update the price feeds
      **/
     constructor(
+        address sequencer_,
         address stETHtoETHPriceFeed_,
         address fallbackPriceFeed_,
         address wstETH_,
@@ -90,6 +104,8 @@ contract WstETHPriceFeed is AccessControl, IPriceFeed {
     ) AccessControl(dao_) {
         if (stETHtoETHPriceFeed_ == address(0) || wstETH_ == address(0)) revert ZeroAddress();
         if (updateTimeLimit_ == 0 || (fallbackPriceFeed_ != address(0) && fallbackUpdateTimeLimit_ == 0)) revert InvalidUpdateTimeLimit();
+
+        _validateAndSetSequencer(sequencer_);
 
         stETHtoETHPriceFeed = stETHtoETHPriceFeed_;
         underlyingToken = wstETH_;
@@ -109,6 +125,15 @@ contract WstETHPriceFeed is AccessControl, IPriceFeed {
             fallbackPriceFeed = fallbackPriceFeed_;
             fallbackUpdateTimeLimit = fallbackUpdateTimeLimit_;
         }
+    }
+
+    /**
+     * @notice Sets the sequencer address.
+     * @param _sequencer The address of the new sequencer.
+     * @notice Available only to the DAO.
+     */
+    function setSequencer(address _sequencer) external onlyDao {
+        _validateAndSetSequencer(_sequencer);
     }
 
     /**
@@ -155,6 +180,11 @@ contract WstETHPriceFeed is AccessControl, IPriceFeed {
         override
         returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound)
     {
+        if (sequencer != address(0)) {
+            (, answer, , , ) = AggregatorV3Interface(sequencer).latestRoundData();
+            if (answer == 1) revert PriceNotAvailable();
+        }
+
         (roundId, answer, startedAt, updatedAt, answeredInRound) = AggregatorV3Interface(stETHtoETHPriceFeed).latestRoundData();
 
         // Note: If the primary price feed is unavailable or returns invalid data,
@@ -183,5 +213,18 @@ contract WstETHPriceFeed is AccessControl, IPriceFeed {
     function signed256(uint256 n) internal pure returns (int256) {
         if (n > uint256(type(int256).max)) revert InvalidInt256();
         return int256(n);
+    }
+
+    /**
+     * @notice Validates and sets the sequencer address.
+     * @notice Emits a SequencerUpdated event.
+     * @param _sequencer The address of the new sequencer.
+     */
+    function _validateAndSetSequencer(address _sequencer) internal {
+        if ((block.chainid != 1 && _sequencer == address(0)) || _sequencer == sequencer) revert InvalidSequencer();
+
+        sequencer = _sequencer;
+
+        emit SequencerUpdated(_sequencer);
     }
 }

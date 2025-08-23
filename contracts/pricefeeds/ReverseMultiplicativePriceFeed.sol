@@ -65,6 +65,15 @@ contract ReverseMultiplicativePriceFeed is AccessControl, IPriceFeed {
     /// @notice Update time limit for fallback price feed B
     uint16 public updateTimeLimitFallbackB;
 
+    /// @notice The Chainlink sequencer address
+    address public sequencer;
+
+    /**
+     * @notice Emitted when the sequencer address is updated.
+     * @param newSequencer The address of the new sequencer.
+     */
+    event SequencerUpdated(address indexed newSequencer);
+
     /**
      * @notice Emitted when a price feed is set
      * @param priceFeed The address of the price feed to fetch prices from
@@ -95,9 +104,13 @@ contract ReverseMultiplicativePriceFeed is AccessControl, IPriceFeed {
     /// @notice reverts when a price can not be fetched or calculated
     error PriceNotAvailable();
 
+    /// @dev Reverts if the sequencer is invalid.
+    error InvalidSequencer();
+
     /**
      * @notice Construct a new reverse multiplicative price feed
      * @param dao_ The address of the DAO that controls this price feed
+     * @param sequencer_ The address of the Chainlink sequencer
      * @param priceFeedA_ The address of the first price feed to fetch prices from
      * @param priceFeedB_ The address of the second price feed to fetch prices from
      * @param fallbackPriceFeedA_ The address of the fallback price feed for price feed A
@@ -112,6 +125,7 @@ contract ReverseMultiplicativePriceFeed is AccessControl, IPriceFeed {
      */
     constructor(
         address dao_,
+        address sequencer_,
         address priceFeedA_,
         address priceFeedB_,
         address fallbackPriceFeedA_,
@@ -130,11 +144,21 @@ contract ReverseMultiplicativePriceFeed is AccessControl, IPriceFeed {
         _validateAndSetPriceFeed(priceFeedB_, updateTimeLimitB_, false);
         _validateAndSetFallbackPriceFeed(fallbackPriceFeedA_, updateTimeLimitFallbackA_, true);
         _validateAndSetFallbackPriceFeed(fallbackPriceFeedB_, updateTimeLimitFallbackB_, false);
+        _validateAndSetSequencer(sequencer_);
 
         decimals = decimals_;
         description = description_;
         priceFeedScale = signed256(10 ** decimals);
         underlyingToken = underlyingToken_;
+    }
+
+    /**
+     * @notice Sets the sequencer address.
+     * @param _sequencer The address of the new sequencer.
+     * @notice Available only to the DAO.
+     */
+    function setSequencer(address _sequencer) external onlyDao {
+        _validateAndSetSequencer(_sequencer);
     }
 
     /**
@@ -180,6 +204,11 @@ contract ReverseMultiplicativePriceFeed is AccessControl, IPriceFeed {
         override
         returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound)
     {
+        if (sequencer != address(0)) {
+            (, answer, , , ) = AggregatorV3Interface(sequencer).latestRoundData();
+            if (answer == 1) revert PriceNotAvailable();
+        }
+
         int256 priceFeedScaleA = priceFeedAScale;
         int256 priceFeedScaleB = priceFeedBScale;
 
@@ -218,6 +247,19 @@ contract ReverseMultiplicativePriceFeed is AccessControl, IPriceFeed {
     function signed256(uint256 n) internal pure returns (int256) {
         if (n > uint256(type(int256).max)) revert InvalidInt256();
         return int256(n);
+    }
+
+    /**
+     * @notice Validates and sets the sequencer address.
+     * @notice Emits a SequencerUpdated event.
+     * @param _sequencer The address of the new sequencer.
+     */
+    function _validateAndSetSequencer(address _sequencer) internal {
+        if ((block.chainid != 1 && _sequencer == address(0)) || _sequencer == sequencer) revert InvalidSequencer();
+
+        sequencer = _sequencer;
+
+        emit SequencerUpdated(_sequencer);
     }
 
     /**

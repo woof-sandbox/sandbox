@@ -1,21 +1,41 @@
 import { ethers, exp, expect, time, makeMockERC20, SnapshotRestorer, takeSnapshot, ZERO_ADDRESS } from "../helper/helpers";
-import { ConstantPriceFeed, ConstantPriceFeed__factory, FaucetToken } from "../../build/types";
+import {
+  ConstantPriceFeed,
+  ConstantPriceFeed__factory,
+  FaucetToken,
+  ManagedSimplePriceFeed,
+  ManagedSimplePriceFeed__factory,
+} from "../../build/types";
+import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
 describe("ConstantPriceFeed", function () {
   let snapshot: SnapshotRestorer;
 
+  let dao: SignerWithAddress;
+  let attacker: SignerWithAddress;
+
   let priceFeed: ConstantPriceFeed;
   let underlyingToken: FaucetToken;
+  let sequencer: ManagedSimplePriceFeed;
 
   let ConstantPriceFeedFactory: ConstantPriceFeed__factory;
+  let ManagedSimplePriceFeedFactory: ManagedSimplePriceFeed__factory;
 
   const PRICE = exp(1, 8); // 1.00 with 8 decimals
 
   before(async () => {
+    [dao, attacker] = await ethers.getSigners();
+
     ConstantPriceFeedFactory = (await ethers.getContractFactory("ConstantPriceFeed")) as ConstantPriceFeed__factory;
+    ManagedSimplePriceFeedFactory = (await ethers.getContractFactory("ManagedSimplePriceFeed")) as ManagedSimplePriceFeed__factory;
 
     underlyingToken = await makeMockERC20({ name: "Underlying Token", symbol: "UTK", decimals: 18 });
-    priceFeed = await ConstantPriceFeedFactory.deploy(18, PRICE, underlyingToken.address);
+
+    // Sequencer with answer 0 (available)
+    sequencer = await ManagedSimplePriceFeedFactory.deploy(0, 8, underlyingToken.address);
+    await sequencer.deployed();
+
+    priceFeed = await ConstantPriceFeedFactory.deploy(dao.address, sequencer.address, 18, PRICE, underlyingToken.address);
 
     snapshot = await takeSnapshot();
   });
@@ -29,11 +49,21 @@ describe("ConstantPriceFeed", function () {
       expect(await priceFeed.underlyingToken()).to.equal(underlyingToken.address);
       expect(await priceFeed.version()).to.equal(1);
       expect(await priceFeed.description()).to.equal("Constant price feed");
+      expect(await priceFeed.sequencer()).to.equal(sequencer.address);
+      expect(await priceFeed.dao()).to.equal(dao.address);
+    });
+
+    it("emits SequencerUpdated event", async function () {
+      expect(await ConstantPriceFeedFactory.deploy(dao.address, sequencer.address, 18, PRICE, underlyingToken.address))
+        .to.emit(priceFeed, "SequencerUpdated")
+        .withArgs(sequencer.address);
     });
 
     it("reverts if decimals is zero", async function () {
       await expect(
         ConstantPriceFeedFactory.deploy(
+          dao.address,
+          sequencer.address,
           0, // zero decimals
           PRICE,
           underlyingToken.address
@@ -44,6 +74,8 @@ describe("ConstantPriceFeed", function () {
     it("reverts if decimals is greater than 18", async function () {
       await expect(
         ConstantPriceFeedFactory.deploy(
+          dao.address,
+          sequencer.address,
           19, // greater than 18
           PRICE,
           underlyingToken.address
@@ -54,6 +86,8 @@ describe("ConstantPriceFeed", function () {
     it("reverts if constant price is zero", async function () {
       await expect(
         ConstantPriceFeedFactory.deploy(
+          dao.address,
+          sequencer.address,
           18,
           0, // zero price
           underlyingToken.address
@@ -64,6 +98,8 @@ describe("ConstantPriceFeed", function () {
     it("reverts if constant price is negative", async function () {
       await expect(
         ConstantPriceFeedFactory.deploy(
+          dao.address,
+          sequencer.address,
           18,
           -1, // negative price
           underlyingToken.address
@@ -74,6 +110,8 @@ describe("ConstantPriceFeed", function () {
     it("reverts if underlying token is zero address", async function () {
       await expect(
         ConstantPriceFeedFactory.deploy(
+          dao.address,
+          sequencer.address,
           18,
           PRICE,
           ZERO_ADDRESS // zero address
@@ -81,10 +119,30 @@ describe("ConstantPriceFeed", function () {
       ).to.be.revertedWithCustomError(priceFeed, "ZeroAddress");
     });
 
+    it("reverts if sequencer is zero address on non-mainnet", async function () {
+      // Skip on mainnet chain id (1)
+      const currentChainId = await ethers.provider.getNetwork().then(n => n.chainId);
+      if (currentChainId === 1) {
+        this.skip();
+      }
+
+      await expect(
+        ConstantPriceFeedFactory.deploy(
+          dao.address,
+          ZERO_ADDRESS,
+          18,
+          PRICE,
+          underlyingToken.address // zero address
+        )
+      ).to.be.revertedWithCustomError(priceFeed, "InvalidSequencer");
+    });
+
     it("works with minimum decimals (1)", async function () {
       const ConstantPriceFeedFactory = (await ethers.getContractFactory("ConstantPriceFeed")) as ConstantPriceFeed__factory;
 
       const minDecimalPriceFeed = await ConstantPriceFeedFactory.deploy(
+        dao.address,
+        sequencer.address,
         1, // minimum decimals
         5, // positive price
         underlyingToken.address
@@ -99,6 +157,8 @@ describe("ConstantPriceFeed", function () {
       const highPrecisionPrice = exp(12345, 18); // positive price with 18 decimals
 
       const maxDecimalPriceFeed = await ConstantPriceFeedFactory.deploy(
+        dao.address,
+        sequencer.address,
         18, // maximum decimals
         highPrecisionPrice,
         underlyingToken.address
@@ -117,7 +177,13 @@ describe("ConstantPriceFeed", function () {
       ];
 
       for (const testCase of testCases) {
-        const testPriceFeed = await ConstantPriceFeedFactory.deploy(testCase.decimals, testCase.price, underlyingToken.address);
+        const testPriceFeed = await ConstantPriceFeedFactory.deploy(
+          dao.address,
+          sequencer.address,
+          testCase.decimals,
+          testCase.price,
+          underlyingToken.address
+        );
         await testPriceFeed.deployed();
 
         expect(await testPriceFeed.decimals()).to.equal(testCase.decimals);
@@ -128,7 +194,7 @@ describe("ConstantPriceFeed", function () {
     it("works with very large positive price values", async function () {
       const largePrice = 999999999999999999999999999n; // Very large positive number
 
-      const largePriceFeed = await ConstantPriceFeedFactory.deploy(8, largePrice, underlyingToken.address);
+      const largePriceFeed = await ConstantPriceFeedFactory.deploy(dao.address, sequencer.address, 8, largePrice, underlyingToken.address);
       await largePriceFeed.deployed();
 
       expect(await largePriceFeed.CONSTANT_PRICE()).to.equal(largePrice);
@@ -137,7 +203,13 @@ describe("ConstantPriceFeed", function () {
     it("works with minimum positive price (1 wei)", async function () {
       const minimumPrice = 1; // 1 wei (smallest positive value)
 
-      const minimumPriceFeed = await ConstantPriceFeedFactory.deploy(18, minimumPrice, underlyingToken.address);
+      const minimumPriceFeed = await ConstantPriceFeedFactory.deploy(
+        dao.address,
+        sequencer.address,
+        18,
+        minimumPrice,
+        underlyingToken.address
+      );
       await minimumPriceFeed.deployed();
 
       expect(await minimumPriceFeed.CONSTANT_PRICE()).to.equal(minimumPrice);
@@ -146,10 +218,63 @@ describe("ConstantPriceFeed", function () {
     it("works with maximum int256 value", async function () {
       const maxInt256 = ethers.constants.MaxInt256; // 2^255 - 1
 
-      const maxPriceFeed = await ConstantPriceFeedFactory.deploy(8, maxInt256, underlyingToken.address);
+      const maxPriceFeed = await ConstantPriceFeedFactory.deploy(dao.address, sequencer.address, 8, maxInt256, underlyingToken.address);
       await maxPriceFeed.deployed();
 
       expect(await maxPriceFeed.CONSTANT_PRICE()).to.equal(maxInt256);
+    });
+  });
+
+  describe("setSequencer", function () {
+    it("updates sequencer address", async function () {
+      const newSequencer = await ManagedSimplePriceFeedFactory.deploy(0, 8, underlyingToken.address);
+      await newSequencer.deployed();
+
+      await priceFeed.connect(dao).setSequencer(newSequencer.address);
+
+      expect(await priceFeed.sequencer()).to.eq(newSequencer.address);
+    });
+
+    it("emits SequencerUpdated event", async function () {
+      const newSequencer = await ManagedSimplePriceFeedFactory.deploy(0, 8, underlyingToken.address);
+      await newSequencer.deployed();
+
+      await expect(priceFeed.connect(dao).setSequencer(newSequencer.address))
+        .to.emit(priceFeed, "SequencerUpdated")
+        .withArgs(newSequencer.address);
+    });
+
+    it("allows setting sequencer to zero address on mainnet", async function () {
+      // we'll skip this test if not on mainnet
+      const currentChainId = await ethers.provider.getNetwork().then(n => n.chainId);
+      if (currentChainId !== 1) {
+        this.skip();
+      }
+
+      await priceFeed.connect(dao).setSequencer(ZERO_ADDRESS);
+      expect(await priceFeed.sequencer()).to.eq(ZERO_ADDRESS);
+    });
+
+    it("reverts if caller is not dao", async function () {
+      const newSequencer = await ManagedSimplePriceFeedFactory.deploy(0, 8, underlyingToken.address);
+      await newSequencer.deployed();
+
+      await expect(priceFeed.connect(attacker).setSequencer(newSequencer.address)).to.be.revertedWithCustomError(priceFeed, "NotDao");
+    });
+
+    it("reverts if sequencer is zero address on non-mainnet", async function () {
+      const currentChainId = await ethers.provider.getNetwork().then(n => n.chainId);
+      if (currentChainId === 1) {
+        this.skip();
+      }
+
+      await expect(priceFeed.connect(dao).setSequencer(ZERO_ADDRESS)).to.be.revertedWithCustomError(priceFeed, "InvalidSequencer");
+    });
+
+    it("reverts if current sequencer is a new one", async function () {
+      const newSequencer = sequencer.address;
+
+      await expect(priceFeed.setSequencer(newSequencer)).to.be.revertedWithCustomError(priceFeed, "InvalidSequencer");
     });
   });
 
@@ -198,6 +323,12 @@ describe("ConstantPriceFeed", function () {
       expect(answeredInRound2).to.eq(1);
     });
 
+    it("reverts when sequencer is down", async function () {
+      await sequencer.setRoundData(3, 1, await time.latest(), await time.latest(), 3); // Sequencer down
+
+      await expect(priceFeed.latestRoundData()).to.be.revertedWithCustomError(priceFeed, "PriceNotAvailable");
+    });
+
     it("returns current block timestamp for startedAt and updatedAt", async () => {
       const beforeTimestamp = await time.latest();
 
@@ -222,7 +353,13 @@ describe("ConstantPriceFeed", function () {
         ];
 
         for (const testCase of testCases) {
-          const testPriceFeed = await ConstantPriceFeedFactory.deploy(testCase.decimals, testCase.price, underlyingToken.address);
+          const testPriceFeed = await ConstantPriceFeedFactory.deploy(
+            dao.address,
+            sequencer.address,
+            testCase.decimals,
+            testCase.price,
+            underlyingToken.address
+          );
           await testPriceFeed.deployed();
 
           const { answer } = await testPriceFeed.latestRoundData();
@@ -233,7 +370,13 @@ describe("ConstantPriceFeed", function () {
       it("returns correct price for very large constant values", async function () {
         const largePrice = 999999999999999999999999999n;
 
-        const largePriceFeed = await ConstantPriceFeedFactory.deploy(8, largePrice, underlyingToken.address);
+        const largePriceFeed = await ConstantPriceFeedFactory.deploy(
+          dao.address,
+          sequencer.address,
+          8,
+          largePrice,
+          underlyingToken.address
+        );
         await largePriceFeed.deployed();
 
         const { answer } = await largePriceFeed.latestRoundData();
@@ -243,7 +386,7 @@ describe("ConstantPriceFeed", function () {
       it("returns correct price for minimum positive value", async function () {
         const minPrice = 1n; // 1 wei
 
-        const minPriceFeed = await ConstantPriceFeedFactory.deploy(18, minPrice, underlyingToken.address);
+        const minPriceFeed = await ConstantPriceFeedFactory.deploy(dao.address, sequencer.address, 18, minPrice, underlyingToken.address);
         await minPriceFeed.deployed();
 
         const { answer } = await minPriceFeed.latestRoundData();
@@ -253,7 +396,7 @@ describe("ConstantPriceFeed", function () {
       it("returns correct price for maximum int256 value", async function () {
         const maxInt256 = ethers.constants.MaxInt256;
 
-        const maxPriceFeed = await ConstantPriceFeedFactory.deploy(8, maxInt256, underlyingToken.address);
+        const maxPriceFeed = await ConstantPriceFeedFactory.deploy(dao.address, sequencer.address, 8, maxInt256, underlyingToken.address);
         await maxPriceFeed.deployed();
 
         const { answer } = await maxPriceFeed.latestRoundData();

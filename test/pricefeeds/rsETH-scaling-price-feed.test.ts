@@ -5,7 +5,10 @@ import {
   RsETHScalingPriceFeed__factory,
   ManagedLRTOracle,
   ManagedLRTOracle__factory,
+  ManagedSimplePriceFeed,
+  ManagedSimplePriceFeed__factory,
 } from "../../build/types";
+import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
 describe("RsETH Scaling Price Feed", function () {
   let snapshot: SnapshotRestorer;
@@ -13,21 +16,29 @@ describe("RsETH Scaling Price Feed", function () {
   // factories
   let RsETHScalingPriceFeedFactory: RsETHScalingPriceFeed__factory;
   let ManagedLRTOracleFactory: ManagedLRTOracle__factory;
+  let ManagedSimplePriceFeedFactory: ManagedSimplePriceFeed__factory;
 
   const DECIMALS = 8n;
   const DESCRIPTION = "RsETH Price Feed";
 
+  let dao: SignerWithAddress;
+  let attacker: SignerWithAddress;
+
   let underlyingToken: FaucetToken;
   let priceFeed: RsETHScalingPriceFeed;
   let kelpOracle: ManagedLRTOracle;
+  let sequencer: ManagedSimplePriceFeed;
 
   // Kelp Oracle price (18 decimals)
   const kelpOraclePrice = exp(11, 17); // 1.1 ETH per rsETH
   const kelpOracleDecimals = 18n;
 
   before(async function () {
+    [dao, attacker] = await ethers.getSigners();
+
     RsETHScalingPriceFeedFactory = (await ethers.getContractFactory("RsETHScalingPriceFeed")) as RsETHScalingPriceFeed__factory;
     ManagedLRTOracleFactory = (await ethers.getContractFactory("ManagedLRTOracle")) as ManagedLRTOracle__factory;
+    ManagedSimplePriceFeedFactory = (await ethers.getContractFactory("ManagedSimplePriceFeed")) as ManagedSimplePriceFeed__factory;
 
     underlyingToken = await makeMockERC20({
       name: "Restaked ETH",
@@ -35,10 +46,21 @@ describe("RsETH Scaling Price Feed", function () {
       decimals: 18,
     });
 
+    // Sequencer with answer 0 (available)
+    sequencer = await ManagedSimplePriceFeedFactory.deploy(0, 8, underlyingToken.address);
+    await sequencer.deployed();
+
     kelpOracle = await ManagedLRTOracleFactory.deploy(kelpOraclePrice);
     await kelpOracle.deployed();
 
-    priceFeed = await RsETHScalingPriceFeedFactory.deploy(kelpOracle.address, DECIMALS, DESCRIPTION, underlyingToken.address);
+    priceFeed = await RsETHScalingPriceFeedFactory.deploy(
+      dao.address,
+      sequencer.address,
+      kelpOracle.address,
+      DECIMALS,
+      DESCRIPTION,
+      underlyingToken.address
+    );
     await priceFeed.deployed();
 
     snapshot = await takeSnapshot();
@@ -53,6 +75,35 @@ describe("RsETH Scaling Price Feed", function () {
       expect(await priceFeed.description()).to.eq(DESCRIPTION);
       expect(await priceFeed.underlyingToken()).to.eq(underlyingToken.address);
       expect(await priceFeed.version()).to.eq(1);
+      expect(await priceFeed.sequencer()).to.eq(sequencer.address);
+      expect(await priceFeed.dao()).to.eq(dao.address);
+    });
+
+    it("emits SequencerUpdated event", async function () {
+      expect(
+        await RsETHScalingPriceFeedFactory.deploy(
+          dao.address,
+          sequencer.address,
+          kelpOracle.address,
+          DECIMALS,
+          DESCRIPTION,
+          underlyingToken.address
+        )
+      )
+        .to.emit(priceFeed, "SequencerUpdated")
+        .withArgs(sequencer.address);
+    });
+
+    it("reverts if sequencer is zero address on non-mainnet", async function () {
+      // Skip on mainnet chain id (1)
+      const currentChainId = await ethers.provider.getNetwork().then(n => n.chainId);
+      if (currentChainId === 1) {
+        this.skip();
+      }
+
+      await expect(
+        RsETHScalingPriceFeedFactory.deploy(dao.address, ZERO_ADDRESS, kelpOracle.address, DECIMALS, DESCRIPTION, underlyingToken.address)
+      ).to.be.revertedWithCustomError(priceFeed, "InvalidSequencer");
     });
 
     it("calculates rescale factor properly for 18 to 8 decimals", async function () {
@@ -66,31 +117,38 @@ describe("RsETH Scaling Price Feed", function () {
 
     it("reverts if underlying price feed is zero address", async function () {
       await expect(
-        RsETHScalingPriceFeedFactory.deploy(ZERO_ADDRESS, DECIMALS, DESCRIPTION, underlyingToken.address)
+        RsETHScalingPriceFeedFactory.deploy(dao.address, sequencer.address, ZERO_ADDRESS, DECIMALS, DESCRIPTION, underlyingToken.address)
       ).to.be.revertedWithCustomError(priceFeed, "ZeroAddress");
     });
 
     it("reverts if underlying token is zero address", async function () {
       await expect(
-        RsETHScalingPriceFeedFactory.deploy(kelpOracle.address, DECIMALS, DESCRIPTION, ZERO_ADDRESS)
+        RsETHScalingPriceFeedFactory.deploy(dao.address, sequencer.address, kelpOracle.address, DECIMALS, DESCRIPTION, ZERO_ADDRESS)
       ).to.be.revertedWithCustomError(priceFeed, "ZeroAddress");
     });
 
     it("reverts if decimals is zero", async function () {
       await expect(
-        RsETHScalingPriceFeedFactory.deploy(kelpOracle.address, 0, DESCRIPTION, underlyingToken.address)
+        RsETHScalingPriceFeedFactory.deploy(dao.address, sequencer.address, kelpOracle.address, 0, DESCRIPTION, underlyingToken.address)
       ).to.be.revertedWithCustomError(priceFeed, "BadDecimals");
     });
 
     it("reverts if decimals is greater than 18", async function () {
       await expect(
-        RsETHScalingPriceFeedFactory.deploy(kelpOracle.address, 19, DESCRIPTION, underlyingToken.address)
+        RsETHScalingPriceFeedFactory.deploy(dao.address, sequencer.address, kelpOracle.address, 19, DESCRIPTION, underlyingToken.address)
       ).to.be.revertedWithCustomError(priceFeed, "BadDecimals");
     });
 
     describe("different decimal configurations", function () {
       it("works with 6 decimals", async function () {
-        const sixDecimalPriceFeed = await RsETHScalingPriceFeedFactory.deploy(kelpOracle.address, 6, DESCRIPTION, underlyingToken.address);
+        const sixDecimalPriceFeed = await RsETHScalingPriceFeedFactory.deploy(
+          dao.address,
+          sequencer.address,
+          kelpOracle.address,
+          6,
+          DESCRIPTION,
+          underlyingToken.address
+        );
         await sixDecimalPriceFeed.deployed();
 
         const [, answer, , ,] = await sixDecimalPriceFeed.latestRoundData();
@@ -102,6 +160,8 @@ describe("RsETH Scaling Price Feed", function () {
 
       it("works with 18 decimals (no scaling)", async function () {
         const eighteenDecimalPriceFeed = await RsETHScalingPriceFeedFactory.deploy(
+          dao.address,
+          sequencer.address,
           kelpOracle.address,
           18,
           DESCRIPTION,
@@ -117,6 +177,59 @@ describe("RsETH Scaling Price Feed", function () {
     });
   });
 
+  describe("setSequencer", function () {
+    it("updates sequencer address", async function () {
+      const newSequencer = await ManagedSimplePriceFeedFactory.deploy(0, 8, underlyingToken.address);
+      await newSequencer.deployed();
+
+      await priceFeed.connect(dao).setSequencer(newSequencer.address);
+
+      expect(await priceFeed.sequencer()).to.eq(newSequencer.address);
+    });
+
+    it("emits SequencerUpdated event", async function () {
+      const newSequencer = await ManagedSimplePriceFeedFactory.deploy(0, 8, underlyingToken.address);
+      await newSequencer.deployed();
+
+      await expect(priceFeed.connect(dao).setSequencer(newSequencer.address))
+        .to.emit(priceFeed, "SequencerUpdated")
+        .withArgs(newSequencer.address);
+    });
+
+    it("allows setting sequencer to zero address on mainnet", async function () {
+      // we'll skip this test if not on mainnet
+      const currentChainId = await ethers.provider.getNetwork().then(n => n.chainId);
+      if (currentChainId !== 1) {
+        this.skip();
+      }
+
+      await priceFeed.connect(dao).setSequencer(ZERO_ADDRESS);
+      expect(await priceFeed.sequencer()).to.eq(ZERO_ADDRESS);
+    });
+
+    it("reverts if caller is not dao", async function () {
+      const newSequencer = await ManagedSimplePriceFeedFactory.deploy(0, 8, underlyingToken.address);
+      await newSequencer.deployed();
+
+      await expect(priceFeed.connect(attacker).setSequencer(newSequencer.address)).to.be.revertedWithCustomError(priceFeed, "NotDao");
+    });
+
+    it("reverts if sequencer is zero address on non-mainnet", async function () {
+      const currentChainId = await ethers.provider.getNetwork().then(n => n.chainId);
+      if (currentChainId === 1) {
+        this.skip();
+      }
+
+      await expect(priceFeed.connect(dao).setSequencer(ZERO_ADDRESS)).to.be.revertedWithCustomError(priceFeed, "InvalidSequencer");
+    });
+
+    it("reverts if current sequencer is a new one", async function () {
+      const newSequencer = sequencer.address;
+
+      await expect(priceFeed.setSequencer(newSequencer)).to.be.revertedWithCustomError(priceFeed, "InvalidSequencer");
+    });
+  });
+
   describe("latestRoundData", function () {
     it("returns scaled price from Kelp oracle when price is valid", async function () {
       const timeNow = await time.latest();
@@ -127,6 +240,12 @@ describe("RsETH Scaling Price Feed", function () {
       expect(startedAt).to.eq(timeNow);
       expect(updatedAt).to.eq(timeNow);
       expect(answeredInRound).to.eq(1);
+    });
+
+    it("reverts when sequencer is down", async function () {
+      await sequencer.setRoundData(3, 1, await time.latest(), await time.latest(), 3); // Sequencer down
+
+      await expect(priceFeed.latestRoundData()).to.be.revertedWithCustomError(priceFeed, "PriceNotAvailable");
     });
 
     it("returns correct timestamps", async function () {
@@ -190,7 +309,14 @@ describe("RsETH Scaling Price Feed", function () {
       let eighteenDecimalPriceFeed: RsETHScalingPriceFeed;
 
       beforeEach(async function () {
-        eighteenDecimalPriceFeed = await RsETHScalingPriceFeedFactory.deploy(kelpOracle.address, 18, DESCRIPTION, underlyingToken.address);
+        eighteenDecimalPriceFeed = await RsETHScalingPriceFeedFactory.deploy(
+          dao.address,
+          sequencer.address,
+          kelpOracle.address,
+          18,
+          DESCRIPTION,
+          underlyingToken.address
+        );
         await eighteenDecimalPriceFeed.deployed();
       });
 
@@ -293,7 +419,14 @@ describe("RsETH Scaling Price Feed", function () {
       const newKelpOracle = await ManagedLRTOracleFactory.deploy(exp(12, 17));
       await newKelpOracle.deployed();
 
-      const newPriceFeed = await RsETHScalingPriceFeedFactory.deploy(newKelpOracle.address, DECIMALS, DESCRIPTION, underlyingToken.address);
+      const newPriceFeed = await RsETHScalingPriceFeedFactory.deploy(
+        dao.address,
+        sequencer.address,
+        newKelpOracle.address,
+        DECIMALS,
+        DESCRIPTION,
+        underlyingToken.address
+      );
       await newPriceFeed.deployed();
 
       const [, answer, , ,] = await newPriceFeed.latestRoundData();

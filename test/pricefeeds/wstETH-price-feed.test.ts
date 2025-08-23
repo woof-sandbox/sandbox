@@ -1,5 +1,12 @@
 import { ethers, exp, expect, time, makeWstETHPriceFeed, SnapshotRestorer, takeSnapshot, ZERO_ADDRESS } from "../helper/helpers";
-import { SimplePriceFeed, SimpleWstETH, WstETHPriceFeed, WstETHPriceFeed__factory } from "../../build/types";
+import {
+  SimplePriceFeed,
+  SimpleWstETH,
+  WstETHPriceFeed,
+  WstETHPriceFeed__factory,
+  ManagedSimplePriceFeed,
+  ManagedSimplePriceFeed__factory,
+} from "../../build/types";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
 const testCases = [
@@ -45,7 +52,10 @@ describe("wstETH price feed", function () {
   let wstETHPriceFeed: WstETHPriceFeed;
   let fallbackPriceFeed: SimplePriceFeed;
   let stETHPriceFeed: SimplePriceFeed;
+  let sequencer: ManagedSimplePriceFeed;
+
   let WstETHPriceFeed: WstETHPriceFeed__factory;
+  let ManagedSimplePriceFeedFactory: ManagedSimplePriceFeed__factory;
 
   const UPDATE_TIME_LIMIT = time.duration.minutes(2);
   const FALLBACK_UPDATE_TIME_LIMIT = time.duration.minutes(5);
@@ -53,13 +63,14 @@ describe("wstETH price feed", function () {
   before(async () => {
     [dao, attacker] = await ethers.getSigners();
 
-    ({ wstETH, wstETHPriceFeed, fallbackPriceFeed, stETHPriceFeed, WstETHPriceFeed } = await makeWstETHPriceFeed({
-      stEthPrice: exp(1000, 18),
-      tokensPerStEth: exp(0.8, 18),
-      updateTimeLimit: UPDATE_TIME_LIMIT,
-      fallbackUpdateTimeLimit: FALLBACK_UPDATE_TIME_LIMIT,
-      dao,
-    }));
+    ({ wstETH, wstETHPriceFeed, fallbackPriceFeed, stETHPriceFeed, WstETHPriceFeed, ManagedSimplePriceFeedFactory, sequencer } =
+      await makeWstETHPriceFeed({
+        stEthPrice: exp(1000, 18),
+        tokensPerStEth: exp(0.8, 18),
+        updateTimeLimit: UPDATE_TIME_LIMIT,
+        fallbackUpdateTimeLimit: FALLBACK_UPDATE_TIME_LIMIT,
+        dao,
+      }));
 
     snapshot = await takeSnapshot();
   });
@@ -79,10 +90,51 @@ describe("wstETH price feed", function () {
       expect(await wstETHPriceFeed.fallbackUpdateTimeLimit()).to.eq(FALLBACK_UPDATE_TIME_LIMIT);
       expect(await wstETHPriceFeed.version()).to.eq(1);
       expect(await wstETHPriceFeed.description()).to.eq("Custom price feed for wstETH / ETH");
+      expect(await wstETHPriceFeed.sequencer()).to.eq(sequencer.address);
+      expect(await wstETHPriceFeed.dao()).to.eq(dao.address);
+    });
+
+    it("emits SequencerUpdated event", async function () {
+      expect(
+        await WstETHPriceFeed.deploy(
+          sequencer.address,
+          stETHPriceFeed.address,
+          fallbackPriceFeed.address,
+          wstETH.address,
+          8,
+          UPDATE_TIME_LIMIT,
+          FALLBACK_UPDATE_TIME_LIMIT,
+          dao.address
+        )
+      )
+        .to.emit(wstETHPriceFeed, "SequencerUpdated")
+        .withArgs(sequencer.address);
+    });
+
+    it("reverts if sequencer is zero address on non-mainnet", async function () {
+      // Skip on mainnet chain id (1)
+      const currentChainId = await ethers.provider.getNetwork().then(n => n.chainId);
+      if (currentChainId === 1) {
+        this.skip();
+      }
+
+      await expect(
+        WstETHPriceFeed.deploy(
+          ZERO_ADDRESS,
+          stETHPriceFeed.address,
+          fallbackPriceFeed.address,
+          wstETH.address,
+          8,
+          UPDATE_TIME_LIMIT,
+          FALLBACK_UPDATE_TIME_LIMIT,
+          dao.address
+        )
+      ).to.be.revertedWithCustomError(wstETHPriceFeed, "InvalidSequencer");
     });
 
     it("possible to deploy with fallbackPriceFeed as zero address", async () => {
       const wstETHPriceFeedWithoutFallback = await WstETHPriceFeed.deploy(
+        sequencer.address,
         stETHPriceFeed.address,
         ZERO_ADDRESS, // fallbackPriceFeed
         wstETH.address,
@@ -100,6 +152,7 @@ describe("wstETH price feed", function () {
     it("reverts if decimals are zero", async () => {
       await expect(
         WstETHPriceFeed.deploy(
+          sequencer.address,
           stETHPriceFeed.address,
           fallbackPriceFeed.address,
           wstETH.address,
@@ -115,6 +168,7 @@ describe("wstETH price feed", function () {
       const stETHToETHPriceFeedDecimals = await stETHPriceFeed.decimals();
       await expect(
         WstETHPriceFeed.deploy(
+          sequencer.address,
           stETHPriceFeed.address,
           fallbackPriceFeed.address,
           wstETH.address,
@@ -131,6 +185,7 @@ describe("wstETH price feed", function () {
 
       for (const decimals of validDecimalConfigs) {
         const priceFeed = await WstETHPriceFeed.deploy(
+          sequencer.address,
           stETHPriceFeed.address,
           fallbackPriceFeed.address,
           wstETH.address,
@@ -148,6 +203,7 @@ describe("wstETH price feed", function () {
     it("reverts if stETHPriceFeed is zero address", async () => {
       await expect(
         WstETHPriceFeed.deploy(
+          sequencer.address,
           ZERO_ADDRESS, // stETHPriceFeed
           fallbackPriceFeed.address,
           wstETH.address,
@@ -162,6 +218,7 @@ describe("wstETH price feed", function () {
     it("reverts if wstETH is zero address", async () => {
       await expect(
         WstETHPriceFeed.deploy(
+          sequencer.address,
           stETHPriceFeed.address,
           fallbackPriceFeed.address,
           ZERO_ADDRESS, // wstETH
@@ -176,6 +233,7 @@ describe("wstETH price feed", function () {
     it("reverts if dao is zero address", async () => {
       await expect(
         WstETHPriceFeed.deploy(
+          sequencer.address,
           stETHPriceFeed.address,
           fallbackPriceFeed.address,
           wstETH.address,
@@ -190,6 +248,7 @@ describe("wstETH price feed", function () {
     it("reverts if updateTimeLimit is zero", async () => {
       await expect(
         WstETHPriceFeed.deploy(
+          sequencer.address,
           stETHPriceFeed.address,
           fallbackPriceFeed.address,
           wstETH.address,
@@ -204,6 +263,7 @@ describe("wstETH price feed", function () {
     it("reverts if fallbackUpdateTimeLimit is zero when fallback is set", async () => {
       await expect(
         WstETHPriceFeed.deploy(
+          sequencer.address,
           stETHPriceFeed.address,
           fallbackPriceFeed.address,
           wstETH.address,
@@ -217,6 +277,7 @@ describe("wstETH price feed", function () {
 
     it("allows fallbackUpdateTimeLimit to be zero when fallback is not set", async () => {
       const priceFeed = await WstETHPriceFeed.deploy(
+        sequencer.address,
         stETHPriceFeed.address,
         ZERO_ADDRESS, // no fallback
         wstETH.address,
@@ -241,6 +302,65 @@ describe("wstETH price feed", function () {
     });
   });
 
+  describe("setSequencer", function () {
+    it("updates sequencer address", async function () {
+      const newSequencer = await ManagedSimplePriceFeedFactory.deploy(0, 8, wstETH.address);
+      await newSequencer.deployed();
+
+      await wstETHPriceFeed.connect(dao).setSequencer(newSequencer.address);
+
+      expect(await wstETHPriceFeed.sequencer()).to.eq(newSequencer.address);
+    });
+
+    it("emits SequencerUpdated event", async function () {
+      const newSequencer = await ManagedSimplePriceFeedFactory.deploy(0, 8, wstETH.address);
+      await newSequencer.deployed();
+
+      await expect(wstETHPriceFeed.connect(dao).setSequencer(newSequencer.address))
+        .to.emit(wstETHPriceFeed, "SequencerUpdated")
+        .withArgs(newSequencer.address);
+    });
+
+    it("allows setting sequencer to zero address on mainnet", async function () {
+      // we'll skip this test if not on mainnet
+      const currentChainId = await ethers.provider.getNetwork().then(n => n.chainId);
+      if (currentChainId !== 1) {
+        this.skip();
+      }
+
+      await wstETHPriceFeed.connect(dao).setSequencer(ZERO_ADDRESS);
+      expect(await wstETHPriceFeed.sequencer()).to.eq(ZERO_ADDRESS);
+    });
+
+    it("reverts if caller is not dao", async function () {
+      const newSequencer = await ManagedSimplePriceFeedFactory.deploy(0, 8, wstETH.address);
+      await newSequencer.deployed();
+
+      await expect(wstETHPriceFeed.connect(attacker).setSequencer(newSequencer.address)).to.be.revertedWithCustomError(
+        wstETHPriceFeed,
+        "NotDao"
+      );
+    });
+
+    it("reverts if sequencer is zero address on non-mainnet", async function () {
+      const currentChainId = await ethers.provider.getNetwork().then(n => n.chainId);
+      if (currentChainId === 1) {
+        this.skip();
+      }
+
+      await expect(wstETHPriceFeed.connect(dao).setSequencer(ZERO_ADDRESS)).to.be.revertedWithCustomError(
+        wstETHPriceFeed,
+        "InvalidSequencer"
+      );
+    });
+
+    it("reverts if current sequencer is a new one", async function () {
+      const newSequencer = sequencer.address;
+
+      await expect(wstETHPriceFeed.setSequencer(newSequencer)).to.be.revertedWithCustomError(wstETHPriceFeed, "InvalidSequencer");
+    });
+  });
+
   describe("latestRoundData", function () {
     for (const { stEthPrice, tokensPerStEth, result } of testCases) {
       it(`stEthPrice (${stEthPrice}), tokensPerStEth (${tokensPerStEth}) -> ${result}`, async () => {
@@ -260,6 +380,12 @@ describe("wstETH price feed", function () {
         }
       });
     }
+
+    it("reverts when sequencer is down", async function () {
+      await sequencer.setRoundData(3, 1, await time.latest(), await time.latest(), 3); // Sequencer down
+
+      await expect(wstETHPriceFeed.latestRoundData()).to.be.revertedWithCustomError(wstETHPriceFeed, "PriceNotAvailable");
+    });
 
     it("passes along roundId, startedAt, updatedAt and answeredInRound values from stETH price feed", async () => {
       const { stETHPriceFeed, wstETHPriceFeed } = await makeWstETHPriceFeed({
@@ -373,6 +499,7 @@ describe("wstETH price feed", function () {
     it("reverts when primary price feed has wrong data and fallback is not set", async () => {
       // create price feed without fallback
       const priceFeedWithoutFallback = await WstETHPriceFeed.deploy(
+        sequencer.address,
         stETHPriceFeed.address,
         ZERO_ADDRESS, // no fallback
         wstETH.address,
@@ -511,6 +638,7 @@ describe("wstETH price feed", function () {
 
       it("handles precision with different decimal outputs", async () => {
         const priceFeed6Decimals = await WstETHPriceFeed.deploy(
+          sequencer.address,
           stETHPriceFeed.address,
           fallbackPriceFeed.address,
           wstETH.address,

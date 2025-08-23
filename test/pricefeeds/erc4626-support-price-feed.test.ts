@@ -1,6 +1,5 @@
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
-import { ethers, exp, expect, makeMockERC20, SnapshotRestorer, takeSnapshot, ZERO_ADDRESS } from "../helper/helpers";
-import { time } from "@nomicfoundation/hardhat-network-helpers";
+import { ethers, exp, expect, makeMockERC20, time, SnapshotRestorer, takeSnapshot, ZERO_ADDRESS } from "../helper/helpers";
 import {
   ERC4626RateProviderTest,
   ERC4626RateProviderTest__factory,
@@ -9,6 +8,8 @@ import {
   SimplePriceFeed__factory,
   PriceFeedWith4626Support,
   PriceFeedWith4626Support__factory,
+  ManagedSimplePriceFeed,
+  ManagedSimplePriceFeed__factory,
 } from "../../build/types";
 
 describe("PriceFeedWith4626Support", function () {
@@ -18,6 +19,7 @@ describe("PriceFeedWith4626Support", function () {
   let PriceFeedWith4626SupportFactory: PriceFeedWith4626Support__factory;
   let SimplePriceFeedFactory: SimplePriceFeed__factory;
   let ERC4626RateProviderTestFactory: ERC4626RateProviderTest__factory;
+  let ManagedSimplePriceFeedFactory: ManagedSimplePriceFeed__factory;
 
   let dao: SignerWithAddress;
   let attacker: SignerWithAddress;
@@ -32,6 +34,7 @@ describe("PriceFeedWith4626Support", function () {
   let rateProvider: ERC4626RateProviderTest;
   let underlyingPriceFeed: SimplePriceFeed;
   let fallbackPriceFeed: SimplePriceFeed;
+  let sequencer: ManagedSimplePriceFeed;
 
   // Rate provider with 18 decimals
   const rateProviderRate = exp(11, 17); // 1.1 assets per share
@@ -51,12 +54,17 @@ describe("PriceFeedWith4626Support", function () {
     PriceFeedWith4626SupportFactory = (await ethers.getContractFactory("PriceFeedWith4626Support")) as PriceFeedWith4626Support__factory;
     SimplePriceFeedFactory = (await ethers.getContractFactory("SimplePriceFeed")) as SimplePriceFeed__factory;
     ERC4626RateProviderTestFactory = (await ethers.getContractFactory("ERC4626RateProviderTest")) as ERC4626RateProviderTest__factory;
+    ManagedSimplePriceFeedFactory = (await ethers.getContractFactory("ManagedSimplePriceFeed")) as ManagedSimplePriceFeed__factory;
 
     underlyingToken = await makeMockERC20({
       name: "Underlying Token",
       symbol: "UNDERLYING",
       decimals: 18,
     });
+
+    // Sequencer with answer 0 (available)
+    sequencer = await ManagedSimplePriceFeedFactory.deploy(0, 8, underlyingToken.address);
+    await sequencer.deployed();
 
     // Create rate provider
     rateProvider = await ERC4626RateProviderTestFactory.deploy(underlyingToken.address, "Rate Provider", "RP", rateProviderDecimals);
@@ -73,6 +81,7 @@ describe("PriceFeedWith4626Support", function () {
     // Create main price feed
     priceFeed = await PriceFeedWith4626SupportFactory.deploy(
       dao.address,
+      sequencer.address,
       rateProvider.address,
       underlyingPriceFeed.address,
       fallbackPriceFeed.address,
@@ -102,6 +111,7 @@ describe("PriceFeedWith4626Support", function () {
       expect(await priceFeed.description()).to.eq(DESCRIPTION);
       expect(await priceFeed.version()).to.eq(1);
       expect(await priceFeed.priceFeedScale()).to.eq(10n ** DECIMALS);
+      expect(await priceFeed.sequencer()).to.eq(sequencer.address);
 
       // Check combined scales
       const expectedCombinedScale = 10n ** (rateProviderDecimals + underlyingPriceDecimals);
@@ -110,10 +120,53 @@ describe("PriceFeedWith4626Support", function () {
       expect(await priceFeed.fallbackCombinedScale()).to.eq(expectedFallbackCombinedScale);
     });
 
+    it("emits SequencerUpdated event", async function () {
+      expect(
+        await PriceFeedWith4626SupportFactory.deploy(
+          dao.address,
+          sequencer.address,
+          rateProvider.address,
+          underlyingPriceFeed.address,
+          fallbackPriceFeed.address,
+          underlyingToken.address,
+          UPDATE_TIME_LIMIT,
+          FALLBACK_UPDATE_TIME_LIMIT,
+          DECIMALS,
+          DESCRIPTION
+        )
+      )
+        .to.emit(priceFeed, "SequencerUpdated")
+        .withArgs(sequencer.address);
+    });
+
+    it("reverts if sequencer is zero address on non-mainnet", async function () {
+      // Skip on mainnet chain id (1)
+      const currentChainId = await ethers.provider.getNetwork().then(n => n.chainId);
+      if (currentChainId === 1) {
+        this.skip();
+      }
+
+      await expect(
+        PriceFeedWith4626SupportFactory.deploy(
+          dao.address,
+          ZERO_ADDRESS,
+          rateProvider.address,
+          underlyingPriceFeed.address,
+          fallbackPriceFeed.address,
+          underlyingToken.address,
+          UPDATE_TIME_LIMIT,
+          FALLBACK_UPDATE_TIME_LIMIT,
+          DECIMALS,
+          DESCRIPTION
+        )
+      ).to.be.revertedWithCustomError(priceFeed, "InvalidSequencer");
+    });
+
     it("reverts if dao is zero address", async function () {
       await expect(
         PriceFeedWith4626SupportFactory.deploy(
           ZERO_ADDRESS,
+          sequencer.address,
           rateProvider.address,
           underlyingPriceFeed.address,
           fallbackPriceFeed.address,
@@ -130,6 +183,7 @@ describe("PriceFeedWith4626Support", function () {
       await expect(
         PriceFeedWith4626SupportFactory.deploy(
           dao.address,
+          sequencer.address,
           ZERO_ADDRESS,
           underlyingPriceFeed.address,
           fallbackPriceFeed.address,
@@ -146,6 +200,7 @@ describe("PriceFeedWith4626Support", function () {
       await expect(
         PriceFeedWith4626SupportFactory.deploy(
           dao.address,
+          sequencer.address,
           rateProvider.address,
           ZERO_ADDRESS,
           fallbackPriceFeed.address,
@@ -162,6 +217,7 @@ describe("PriceFeedWith4626Support", function () {
       await expect(
         PriceFeedWith4626SupportFactory.deploy(
           dao.address,
+          sequencer.address,
           rateProvider.address,
           underlyingPriceFeed.address,
           fallbackPriceFeed.address,
@@ -177,6 +233,7 @@ describe("PriceFeedWith4626Support", function () {
     it("allows fallback price feed to be zero address", async function () {
       const priceFeedWithoutFallback = await PriceFeedWith4626SupportFactory.deploy(
         dao.address,
+        sequencer.address,
         rateProvider.address,
         underlyingPriceFeed.address,
         ZERO_ADDRESS,
@@ -198,6 +255,7 @@ describe("PriceFeedWith4626Support", function () {
       await expect(
         PriceFeedWith4626SupportFactory.deploy(
           dao.address,
+          sequencer.address,
           rateProvider.address,
           underlyingPriceFeed.address,
           fallbackPriceFeed.address,
@@ -214,6 +272,7 @@ describe("PriceFeedWith4626Support", function () {
       await expect(
         PriceFeedWith4626SupportFactory.deploy(
           dao.address,
+          sequencer.address,
           rateProvider.address,
           underlyingPriceFeed.address,
           fallbackPriceFeed.address,
@@ -229,6 +288,7 @@ describe("PriceFeedWith4626Support", function () {
     it("allows fallback update time limit to be zero when fallback is not set", async function () {
       const priceFeedWithoutFallback = await PriceFeedWith4626SupportFactory.deploy(
         dao.address,
+        sequencer.address,
         rateProvider.address,
         underlyingPriceFeed.address,
         ZERO_ADDRESS,
@@ -247,6 +307,7 @@ describe("PriceFeedWith4626Support", function () {
       await expect(
         PriceFeedWith4626SupportFactory.deploy(
           dao.address,
+          sequencer.address,
           rateProvider.address,
           underlyingPriceFeed.address,
           fallbackPriceFeed.address,
@@ -263,6 +324,7 @@ describe("PriceFeedWith4626Support", function () {
       await expect(
         PriceFeedWith4626SupportFactory.deploy(
           dao.address,
+          sequencer.address,
           rateProvider.address,
           underlyingPriceFeed.address,
           fallbackPriceFeed.address,
@@ -278,6 +340,7 @@ describe("PriceFeedWith4626Support", function () {
     it("works with different decimal configurations", async function () {
       const priceFeed6Decimals = await PriceFeedWith4626SupportFactory.deploy(
         dao.address,
+        sequencer.address,
         rateProvider.address,
         underlyingPriceFeed.address,
         fallbackPriceFeed.address,
@@ -297,6 +360,7 @@ describe("PriceFeedWith4626Support", function () {
       expect(
         await PriceFeedWith4626SupportFactory.deploy(
           dao.address,
+          sequencer.address,
           rateProvider.address,
           underlyingPriceFeed.address,
           fallbackPriceFeed.address,
@@ -319,6 +383,7 @@ describe("PriceFeedWith4626Support", function () {
 
       const priceFeedWithDifferentRate = await PriceFeedWith4626SupportFactory.deploy(
         dao.address,
+        sequencer.address,
         rateProvider6.address,
         underlyingPriceFeed.address,
         fallbackPriceFeed.address,
@@ -333,6 +398,59 @@ describe("PriceFeedWith4626Support", function () {
       // Should calculate combined scale with 6 + 8 = 14 decimals
       const expectedCombinedScale = 10n ** (6n + underlyingPriceDecimals);
       expect(await priceFeedWithDifferentRate.combinedScale()).to.eq(expectedCombinedScale);
+    });
+  });
+
+  describe("setSequencer", function () {
+    it("updates sequencer address", async function () {
+      const newSequencer = await ManagedSimplePriceFeedFactory.deploy(0, 8, underlyingToken.address);
+      await newSequencer.deployed();
+
+      await priceFeed.connect(dao).setSequencer(newSequencer.address);
+
+      expect(await priceFeed.sequencer()).to.eq(newSequencer.address);
+    });
+
+    it("emits SequencerUpdated event", async function () {
+      const newSequencer = await ManagedSimplePriceFeedFactory.deploy(0, 8, underlyingToken.address);
+      await newSequencer.deployed();
+
+      await expect(priceFeed.connect(dao).setSequencer(newSequencer.address))
+        .to.emit(priceFeed, "SequencerUpdated")
+        .withArgs(newSequencer.address);
+    });
+
+    it("allows setting sequencer to zero address on mainnet", async function () {
+      // we'll skip this test if not on mainnet
+      const currentChainId = await ethers.provider.getNetwork().then(n => n.chainId);
+      if (currentChainId !== 1) {
+        this.skip();
+      }
+
+      await priceFeed.connect(dao).setSequencer(ZERO_ADDRESS);
+      expect(await priceFeed.sequencer()).to.eq(ZERO_ADDRESS);
+    });
+
+    it("reverts if caller is not dao", async function () {
+      const newSequencer = await ManagedSimplePriceFeedFactory.deploy(0, 8, underlyingToken.address);
+      await newSequencer.deployed();
+
+      await expect(priceFeed.connect(attacker).setSequencer(newSequencer.address)).to.be.revertedWithCustomError(priceFeed, "NotDao");
+    });
+
+    it("reverts if sequencer is zero address on non-mainnet", async function () {
+      const currentChainId = await ethers.provider.getNetwork().then(n => n.chainId);
+      if (currentChainId === 1) {
+        this.skip();
+      }
+
+      await expect(priceFeed.connect(dao).setSequencer(ZERO_ADDRESS)).to.be.revertedWithCustomError(priceFeed, "InvalidSequencer");
+    });
+
+    it("reverts if current sequencer is a new one", async function () {
+      const newSequencer = sequencer.address;
+
+      await expect(priceFeed.setSequencer(newSequencer)).to.be.revertedWithCustomError(priceFeed, "InvalidSequencer");
     });
   });
 
@@ -475,6 +593,12 @@ describe("PriceFeedWith4626Support", function () {
       expect(answeredInRound).to.eq(1);
     });
 
+    it("reverts when sequencer is down", async function () {
+      await sequencer.setRoundData(3, 1, await time.latest(), await time.latest(), 3); // Sequencer down
+
+      await expect(priceFeed.latestRoundData()).to.be.revertedWithCustomError(priceFeed, "PriceNotAvailable");
+    });
+
     it("uses fallback price feed when primary has zero price", async function () {
       const currentTime = await time.latest();
       await underlyingPriceFeed.setRoundData(1, 0, currentTime, currentTime, 1);
@@ -525,6 +649,7 @@ describe("PriceFeedWith4626Support", function () {
     it("reverts when primary is invalid and no fallback is set", async function () {
       const priceFeedWithoutFallback = await PriceFeedWith4626SupportFactory.deploy(
         dao.address,
+        sequencer.address,
         rateProvider.address,
         underlyingPriceFeed.address,
         ZERO_ADDRESS,
@@ -627,6 +752,7 @@ describe("PriceFeedWith4626Support", function () {
       it("handles 6 decimal output", async function () {
         const priceFeed6 = await PriceFeedWith4626SupportFactory.deploy(
           dao.address,
+          sequencer.address,
           rateProvider.address,
           underlyingPriceFeed.address,
           fallbackPriceFeed.address,
@@ -653,6 +779,7 @@ describe("PriceFeedWith4626Support", function () {
       it("handles 18 decimal output", async function () {
         const priceFeed18 = await PriceFeedWith4626SupportFactory.deploy(
           dao.address,
+          sequencer.address,
           rateProvider.address,
           underlyingPriceFeed.address,
           fallbackPriceFeed.address,
@@ -718,6 +845,7 @@ describe("PriceFeedWith4626Support", function () {
       // We can test this indirectly by ensuring no revert with valid decimals
       const validDecimalPriceFeed = await PriceFeedWith4626SupportFactory.deploy(
         dao.address,
+        sequencer.address,
         rateProvider.address,
         underlyingPriceFeed.address,
         fallbackPriceFeed.address,
@@ -735,6 +863,7 @@ describe("PriceFeedWith4626Support", function () {
     it("should handle maximum valid decimals", async function () {
       const maxDecimalPriceFeed = await PriceFeedWith4626SupportFactory.deploy(
         dao.address,
+        sequencer.address,
         rateProvider.address,
         underlyingPriceFeed.address,
         fallbackPriceFeed.address,

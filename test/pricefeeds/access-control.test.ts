@@ -1,13 +1,14 @@
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import {
   FaucetToken,
+  ManagedSimplePriceFeed,
+  ManagedSimplePriceFeed__factory,
   MultiplicativePriceFeed,
   MultiplicativePriceFeed__factory,
   SimplePriceFeed,
   SimplePriceFeed__factory,
 } from "../../build/types";
-import { ethers, exp, expect, makeMockERC20, SnapshotRestorer, takeSnapshot, ZERO_ADDRESS } from "../helper/helpers";
-import { time } from "@nomicfoundation/hardhat-network-helpers";
+import { ethers, exp, expect, makeMockERC20, time, SnapshotRestorer, takeSnapshot, ZERO_ADDRESS } from "../helper/helpers";
 
 describe("Access Control Price Feeds", function () {
   let snapshot: SnapshotRestorer;
@@ -34,6 +35,7 @@ describe("Access Control Price Feeds", function () {
   let priceFeedB: SimplePriceFeed;
   let fallbackPriceFeedA: SimplePriceFeed;
   let fallbackPriceFeedB: SimplePriceFeed;
+  let sequencer: ManagedSimplePriceFeed;
 
   // Price feed A (TokenA/USD) - 8 decimals
   const priceFeedAPrice = exp(100, 8); // $1.00
@@ -56,12 +58,17 @@ describe("Access Control Price Feeds", function () {
 
     MultiplicativePriceFeedFactory = (await ethers.getContractFactory("MultiplicativePriceFeed")) as MultiplicativePriceFeed__factory;
     SimplePriceFeed = (await ethers.getContractFactory("SimplePriceFeed")) as SimplePriceFeed__factory;
+    const ManagedSimplePriceFeedFactory = (await ethers.getContractFactory("ManagedSimplePriceFeed")) as ManagedSimplePriceFeed__factory;
 
     underlyingToken = await makeMockERC20({
       name: "TokenB",
       symbol: "TKNB",
       decimals: 18,
     });
+
+    // Sequencer with answer 0 (available)
+    sequencer = await ManagedSimplePriceFeedFactory.deploy(0, 8, underlyingToken.address);
+    await sequencer.deployed();
 
     priceFeedA = await SimplePriceFeed.deploy(priceFeedAPrice, priceFeedADecimals, underlyingToken.address);
     await priceFeedA.deployed();
@@ -77,6 +84,7 @@ describe("Access Control Price Feeds", function () {
 
     priceFeed = await MultiplicativePriceFeedFactory.deploy(
       dao.address,
+      sequencer.address,
       priceFeedA.address,
       priceFeedB.address,
       fallbackPriceFeedA.address,
@@ -106,6 +114,7 @@ describe("Access Control Price Feeds", function () {
       await expect(
         MultiplicativePriceFeedFactory.deploy(
           ZERO_ADDRESS,
+          sequencer.address,
           priceFeedA.address,
           priceFeedB.address,
           fallbackPriceFeedA.address,
@@ -125,6 +134,7 @@ describe("Access Control Price Feeds", function () {
       expect(
         await MultiplicativePriceFeedFactory.deploy(
           dao.address,
+          sequencer.address,
           priceFeedA.address,
           priceFeedB.address,
           fallbackPriceFeedA.address,

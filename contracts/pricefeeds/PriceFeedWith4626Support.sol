@@ -36,6 +36,9 @@ contract PriceFeedWith4626Support is IPriceFeed, AccessControl {
     /// @notice Fallback provider for the underlying asset
     address public fallbackPriceFeed;
 
+    /// @notice The Chainlink sequencer address
+    address public sequencer;
+
     /// @notice Combined scale of the two underlying price feeds
     int256 public combinedScale;
 
@@ -65,6 +68,12 @@ contract PriceFeedWith4626Support is IPriceFeed, AccessControl {
      */
     event PriceFeedSet(address indexed priceFeed, uint24 indexed updateTimeLimit, bool isPrimaryPriceFeed);
 
+    /**
+     * @notice Emitted when the sequencer address is updated.
+     * @param newSequencer The address of the new sequencer.
+     */
+    event SequencerUpdated(address indexed newSequencer);
+
     /// @notice Reverts when invalid decimals are provided
     error BadDecimals();
 
@@ -77,9 +86,13 @@ contract PriceFeedWith4626Support is IPriceFeed, AccessControl {
     /// @notice Reverts when price is not available
     error PriceNotAvailable();
 
+    /// @dev Reverts if the sequencer is invalid.
+    error InvalidSequencer();
+
     /**
      * @notice Construct a new 4626 price feed
      * @param dao_ The address of the DAO that can set price feeds
+     * @param sequencer_ The address of the Chainlink sequencer
      * @param rateProvider_ The address of the 4626 rate provider
      * @param underlyingPriceFeed_ The address of the underlying price feed to fetch prices from
      * @param fallbackPriceFeed_ The address of the fallback price feed to fetch prices from
@@ -91,6 +104,7 @@ contract PriceFeedWith4626Support is IPriceFeed, AccessControl {
      **/
     constructor(
         address dao_,
+        address sequencer_,
         address rateProvider_,
         address underlyingPriceFeed_,
         address fallbackPriceFeed_,
@@ -103,6 +117,7 @@ contract PriceFeedWith4626Support is IPriceFeed, AccessControl {
         if (underlyingPriceFeed_ == address(0) || rateProvider_ == address(0) || underlyingToken_ == address(0)) revert ZeroAddress();
         if (decimals_ == 0 || decimals_ > 18) revert BadDecimals();
         if (updateTimeLimit_ == 0 || (fallbackPriceFeed_ != address(0) && fallbackUpdateTimeLimit_ == 0)) revert InvalidUpdateTimeLimit();
+        _validateAndSetSequencer(sequencer_);
 
         rateProvider = rateProvider_;
         underlyingPriceFeed = underlyingPriceFeed_;
@@ -126,6 +141,15 @@ contract PriceFeedWith4626Support is IPriceFeed, AccessControl {
 
         emit PriceFeedSet(underlyingPriceFeed, updateTimeLimit, true);
         emit PriceFeedSet(fallbackPriceFeed, fallbackUpdateTimeLimit, false);
+    }
+
+    /**
+     * @notice Sets the sequencer address.
+     * @param _sequencer The address of the new sequencer.
+     * @notice Available only to the DAO.
+     */
+    function setSequencer(address _sequencer) external onlyDao {
+        _validateAndSetSequencer(_sequencer);
     }
 
     /**
@@ -179,6 +203,11 @@ contract PriceFeedWith4626Support is IPriceFeed, AccessControl {
         override
         returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound)
     {
+        if (sequencer != address(0)) {
+            (, answer, , , ) = AggregatorV3Interface(sequencer).latestRoundData();
+            if (answer == 1) revert PriceNotAvailable();
+        }
+
         uint256 rate = IERC4626(rateProvider).convertToAssets(10 ** rateProviderDecimals);
 
         if (rate == 0) revert PriceNotAvailable();
@@ -207,5 +236,18 @@ contract PriceFeedWith4626Support is IPriceFeed, AccessControl {
     function signed256(uint256 n) internal pure returns (int256) {
         if (n > uint256(type(int256).max)) revert InvalidInt256();
         return int256(n);
+    }
+
+    /**
+     * @notice Validates and sets the sequencer address.
+     * @notice Emits a SequencerUpdated event.
+     * @param _sequencer The address of the new sequencer.
+     */
+    function _validateAndSetSequencer(address _sequencer) internal {
+        if ((block.chainid != 1 && _sequencer == address(0)) || _sequencer == sequencer) revert InvalidSequencer();
+
+        sequencer = _sequencer;
+
+        emit SequencerUpdated(_sequencer);
     }
 }

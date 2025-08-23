@@ -26,23 +26,32 @@ contract WBTCPriceFeed is AccessControl, IPriceFeed {
     /// @notice The underlying token
     address public immutable override underlyingToken;
 
-    /// @notice Chainlink WBTC / BTC price feed
-    address public WBTCtoBTCPriceFeed;
-
     /// @notice Combined scale of the two underlying Chainlink price feeds
     int256 public combinedScale;
 
-    /// @notice Chainlink BTC / USD price feed
-    address public BTCtoUSDPriceFeed;
-
-    /// @notice Fallback Chainlink BTC / USD price feed
-    address public fallbackBTCtoUSDPriceFeed;
+    /// @notice Chainlink WBTC / BTC price feed
+    address public WBTCtoBTCPriceFeed;
 
     /// @notice Update time limit for the underlying price feed
     uint24 public updateTimeLimit;
 
+    /// @notice Chainlink BTC / USD price feed
+    address public BTCtoUSDPriceFeed;
+
     /// @notice Update time limit for the fallback price feed
     uint24 public fallbackUpdateTimeLimit;
+
+    /// @notice Fallback Chainlink BTC / USD price feed
+    address public fallbackBTCtoUSDPriceFeed;
+
+    /// @notice The Chainlink sequencer address
+    address public sequencer;
+
+    /**
+     * @notice Emitted when the sequencer address is updated.
+     * @param newSequencer The address of the new sequencer.
+     */
+    event SequencerUpdated(address indexed newSequencer);
 
     /**
      * @notice Set the price feeds and update time limits
@@ -72,15 +81,24 @@ contract WBTCPriceFeed is AccessControl, IPriceFeed {
     /// @notice Reverts when price is not available
     error PriceNotAvailable();
 
+    /// @dev Reverts if the sequencer is invalid.
+    error InvalidSequencer();
+
     /**
      * @notice Construct a new WBTC / USD price feed
+     * @param dao_ The address of the DAO
+     * @param sequencer_ The address of the sequencer
      * @param WBTCtoBTCPriceFeed_ The address of the WBTC / BTC price feed to fetch prices from
      * @param BTCtoUSDPriceFeed_ The address of the BTC / USD price feed to fetch prices from
+     * @param fallbackBTCtoUSDPriceFeed_ The address of the fallback BTC / USD price feed to fetch prices from
+     * @param updateTimeLimit_ The update time limit for the underlying price feed
+     * @param fallbackUpdateTimeLimit_ The update time limit for the fallback price feed
      * @param decimals_ The number of decimals for the returned prices
      * @param underlyingToken_ The address of the underlying token
-     **/
+     */
     constructor(
         address dao_,
+        address sequencer_,
         address WBTCtoBTCPriceFeed_,
         address BTCtoUSDPriceFeed_,
         address fallbackBTCtoUSDPriceFeed_,
@@ -91,6 +109,8 @@ contract WBTCPriceFeed is AccessControl, IPriceFeed {
     ) AccessControl(dao_) {
         if (WBTCtoBTCPriceFeed_ == address(0) || BTCtoUSDPriceFeed_ == address(0) || underlyingToken_ == address(0)) revert ZeroAddress();
         if (updateTimeLimit_ == 0 || fallbackUpdateTimeLimit_ == 0) revert ZeroUpdateTimeLimit();
+
+        _validateAndSetSequencer(sequencer_);
 
         WBTCtoBTCPriceFeed = WBTCtoBTCPriceFeed_;
         BTCtoUSDPriceFeed = BTCtoUSDPriceFeed_;
@@ -107,6 +127,15 @@ contract WBTCPriceFeed is AccessControl, IPriceFeed {
         underlyingToken = underlyingToken_;
         updateTimeLimit = updateTimeLimit_;
         fallbackUpdateTimeLimit = fallbackUpdateTimeLimit_;
+    }
+
+    /**
+     * @notice Sets the sequencer address.
+     * @param _sequencer The address of the new sequencer.
+     * @notice Available only to the DAO.
+     */
+    function setSequencer(address _sequencer) external onlyDao {
+        _validateAndSetSequencer(_sequencer);
     }
 
     /**
@@ -151,6 +180,11 @@ contract WBTCPriceFeed is AccessControl, IPriceFeed {
      * @return answeredInRound Round id in which the answer was computed; passed on from the BTC / USD price feed
      **/
     function latestRoundData() external view override returns (uint80, int256, uint256, uint256, uint80) {
+        if (sequencer != address(0)) {
+            (, int256 answer, , , ) = AggregatorV3Interface(sequencer).latestRoundData();
+            if (answer == 1) revert PriceNotAvailable();
+        }
+
         (, int256 WBTCToBTCPrice, , , ) = AggregatorV3Interface(WBTCtoBTCPriceFeed).latestRoundData();
 
         if (WBTCToBTCPrice <= 0) revert PriceNotAvailable();
@@ -179,5 +213,18 @@ contract WBTCPriceFeed is AccessControl, IPriceFeed {
     function signed256(uint256 n) internal pure returns (int256) {
         if (n > uint256(type(int256).max)) revert InvalidInt256();
         return int256(n);
+    }
+
+    /**
+     * @notice Validates and sets the sequencer address.
+     * @notice Emits a SequencerUpdated event.
+     * @param _sequencer The address of the new sequencer.
+     */
+    function _validateAndSetSequencer(address _sequencer) internal {
+        if ((block.chainid != 1 && _sequencer == address(0)) || _sequencer == sequencer) revert InvalidSequencer();
+
+        sequencer = _sequencer;
+
+        emit SequencerUpdated(_sequencer);
     }
 }

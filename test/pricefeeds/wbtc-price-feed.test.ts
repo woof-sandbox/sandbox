@@ -1,5 +1,13 @@
 import { ethers, exp, expect, time, makeWBTCPriceFeed, SnapshotRestorer, takeSnapshot, ZERO_ADDRESS } from "../helper/helpers";
-import { FaucetToken, SimplePriceFeed, SimplePriceFeed__factory, WBTCPriceFeed, WBTCPriceFeed__factory } from "../../build/types";
+import {
+  FaucetToken,
+  SimplePriceFeed,
+  SimplePriceFeed__factory,
+  WBTCPriceFeed,
+  WBTCPriceFeed__factory,
+  ManagedSimplePriceFeed,
+  ManagedSimplePriceFeed__factory,
+} from "../../build/types";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
 const testCases = [
@@ -69,25 +77,36 @@ describe("WBTC price feed", function () {
 
   let SimplePriceFeed: SimplePriceFeed__factory;
   let WBTCPriceFeed: WBTCPriceFeed__factory;
+  let ManagedSimplePriceFeedFactory: ManagedSimplePriceFeed__factory;
 
   let WBTCToBTCPriceFeed: SimplePriceFeed;
   let BTCToUSDPriceFeed: SimplePriceFeed;
   let fallbackPriceFeed: SimplePriceFeed;
+  let sequencer: ManagedSimplePriceFeed;
 
   let wbtc: FaucetToken;
 
   before(async () => {
     [dao, attacker] = await ethers.getSigners();
 
-    ({ wbtcPriceFeed, SimplePriceFeed, WBTCToBTCPriceFeed, WBTCPriceFeed, BTCToUSDPriceFeed, wbtc, fallbackPriceFeed } =
-      await makeWBTCPriceFeed({
-        WBTCToBTCPrice: exp(1, 8),
-        BTCToUSDPrice: exp(30_000, 8),
-        dao,
-        updateTimeLimit: UPDATE_TIME_LIMIT,
-        fallbackUpdateTimeLimit: FALLBACK_UPDATE_TIME_LIMIT,
-        fallbackBTCtoUSDPrice: FALLBACK_PRICE,
-      }));
+    ({
+      wbtcPriceFeed,
+      SimplePriceFeed,
+      WBTCToBTCPriceFeed,
+      WBTCPriceFeed,
+      BTCToUSDPriceFeed,
+      wbtc,
+      fallbackPriceFeed,
+      ManagedSimplePriceFeedFactory,
+      sequencer,
+    } = await makeWBTCPriceFeed({
+      WBTCToBTCPrice: exp(1, 8),
+      BTCToUSDPrice: exp(30_000, 8),
+      dao,
+      updateTimeLimit: UPDATE_TIME_LIMIT,
+      fallbackUpdateTimeLimit: FALLBACK_UPDATE_TIME_LIMIT,
+      fallbackBTCtoUSDPrice: FALLBACK_PRICE,
+    }));
 
     snapshot = await takeSnapshot();
   });
@@ -103,11 +122,54 @@ describe("WBTC price feed", function () {
       expect(await wbtcPriceFeed.underlyingToken()).to.eq(wbtc.address);
       expect(await wbtcPriceFeed.priceFeedScale()).to.eq(10n ** 8n);
       expect(await wbtcPriceFeed.combinedScale()).to.eq(10n ** 16n);
+      expect(await wbtcPriceFeed.sequencer()).to.eq(sequencer.address);
+      expect(await wbtcPriceFeed.dao()).to.eq(dao.address);
+    });
+
+    it("emits SequencerUpdated event", async function () {
+      expect(
+        await WBTCPriceFeed.deploy(
+          dao.address,
+          sequencer.address,
+          WBTCToBTCPriceFeed.address,
+          BTCToUSDPriceFeed.address,
+          fallbackPriceFeed.address,
+          UPDATE_TIME_LIMIT,
+          FALLBACK_UPDATE_TIME_LIMIT,
+          8,
+          wbtc.address
+        )
+      )
+        .to.emit(wbtcPriceFeed, "SequencerUpdated")
+        .withArgs(sequencer.address);
+    });
+
+    it("reverts if sequencer is zero address on non-mainnet", async function () {
+      // Skip on mainnet chain id (1)
+      const currentChainId = await ethers.provider.getNetwork().then(n => n.chainId);
+      if (currentChainId === 1) {
+        this.skip();
+      }
+
+      await expect(
+        WBTCPriceFeed.deploy(
+          dao.address,
+          ZERO_ADDRESS,
+          WBTCToBTCPriceFeed.address,
+          BTCToUSDPriceFeed.address,
+          fallbackPriceFeed.address,
+          UPDATE_TIME_LIMIT,
+          FALLBACK_UPDATE_TIME_LIMIT,
+          8,
+          wbtc.address
+        )
+      ).to.be.revertedWithCustomError(wbtcPriceFeed, "InvalidSequencer");
     });
 
     it("allows to deploy with zero fallback price feed", async () => {
       const wbtcPriceFeedWithZeroFallback = await WBTCPriceFeed.deploy(
         dao.address,
+        sequencer.address,
         WBTCToBTCPriceFeed.address,
         BTCToUSDPriceFeed.address,
         ZERO_ADDRESS,
@@ -124,6 +186,7 @@ describe("WBTC price feed", function () {
       await expect(
         WBTCPriceFeed.deploy(
           dao.address,
+          sequencer.address,
           ZERO_ADDRESS,
           BTCToUSDPriceFeed.address,
           fallbackPriceFeed.address,
@@ -139,6 +202,7 @@ describe("WBTC price feed", function () {
       await expect(
         WBTCPriceFeed.deploy(
           dao.address,
+          sequencer.address,
           WBTCToBTCPriceFeed.address,
           ZERO_ADDRESS,
           fallbackPriceFeed.address,
@@ -154,6 +218,7 @@ describe("WBTC price feed", function () {
       await expect(
         WBTCPriceFeed.deploy(
           dao.address,
+          sequencer.address,
           WBTCToBTCPriceFeed.address,
           BTCToUSDPriceFeed.address,
           fallbackPriceFeed.address,
@@ -169,6 +234,7 @@ describe("WBTC price feed", function () {
       await expect(
         WBTCPriceFeed.deploy(
           dao.address,
+          sequencer.address,
           WBTCToBTCPriceFeed.address,
           BTCToUSDPriceFeed.address,
           fallbackPriceFeed.address,
@@ -184,6 +250,7 @@ describe("WBTC price feed", function () {
       await expect(
         WBTCPriceFeed.deploy(
           dao.address,
+          sequencer.address,
           WBTCToBTCPriceFeed.address,
           BTCToUSDPriceFeed.address,
           fallbackPriceFeed.address,
@@ -199,6 +266,7 @@ describe("WBTC price feed", function () {
       await expect(
         WBTCPriceFeed.deploy(
           dao.address,
+          sequencer.address,
           WBTCToBTCPriceFeed.address,
           BTCToUSDPriceFeed.address,
           fallbackPriceFeed.address,
@@ -214,6 +282,7 @@ describe("WBTC price feed", function () {
       await expect(
         WBTCPriceFeed.deploy(
           dao.address,
+          sequencer.address,
           WBTCToBTCPriceFeed.address,
           BTCToUSDPriceFeed.address,
           fallbackPriceFeed.address,
@@ -223,6 +292,62 @@ describe("WBTC price feed", function () {
           wbtc.address
         )
       ).to.be.revertedWithCustomError(wbtcPriceFeed, "BadDecimals");
+    });
+  });
+
+  describe("setSequencer", function () {
+    it("updates sequencer address", async function () {
+      const newSequencer = await ManagedSimplePriceFeedFactory.deploy(0, 8, wbtc.address);
+      await newSequencer.deployed();
+
+      await wbtcPriceFeed.connect(dao).setSequencer(newSequencer.address);
+
+      expect(await wbtcPriceFeed.sequencer()).to.eq(newSequencer.address);
+    });
+
+    it("emits SequencerUpdated event", async function () {
+      const newSequencer = await ManagedSimplePriceFeedFactory.deploy(0, 8, wbtc.address);
+      await newSequencer.deployed();
+
+      await expect(wbtcPriceFeed.connect(dao).setSequencer(newSequencer.address))
+        .to.emit(wbtcPriceFeed, "SequencerUpdated")
+        .withArgs(newSequencer.address);
+    });
+
+    it("allows setting sequencer to zero address on mainnet", async function () {
+      // we'll skip this test if not on mainnet
+      const currentChainId = await ethers.provider.getNetwork().then(n => n.chainId);
+      if (currentChainId !== 1) {
+        this.skip();
+      }
+
+      await wbtcPriceFeed.connect(dao).setSequencer(ZERO_ADDRESS);
+      expect(await wbtcPriceFeed.sequencer()).to.eq(ZERO_ADDRESS);
+    });
+
+    it("reverts if caller is not dao", async function () {
+      const newSequencer = await ManagedSimplePriceFeedFactory.deploy(0, 8, wbtc.address);
+      await newSequencer.deployed();
+
+      await expect(wbtcPriceFeed.connect(attacker).setSequencer(newSequencer.address)).to.be.revertedWithCustomError(
+        wbtcPriceFeed,
+        "NotDao"
+      );
+    });
+
+    it("reverts if sequencer is zero address on non-mainnet", async function () {
+      const currentChainId = await ethers.provider.getNetwork().then(n => n.chainId);
+      if (currentChainId === 1) {
+        this.skip();
+      }
+
+      await expect(wbtcPriceFeed.connect(dao).setSequencer(ZERO_ADDRESS)).to.be.revertedWithCustomError(wbtcPriceFeed, "InvalidSequencer");
+    });
+
+    it("reverts if current sequencer is a new one", async function () {
+      const newSequencer = sequencer.address;
+
+      await expect(wbtcPriceFeed.setSequencer(newSequencer)).to.be.revertedWithCustomError(wbtcPriceFeed, "InvalidSequencer");
     });
   });
 
@@ -248,6 +373,12 @@ describe("WBTC price feed", function () {
         }
       });
     }
+
+    it("reverts when sequencer is down", async function () {
+      await sequencer.setRoundData(3, 1, await time.latest(), await time.latest(), 3); // Sequencer down
+
+      await expect(wbtcPriceFeed.latestRoundData()).to.be.revertedWithCustomError(wbtcPriceFeed, "PriceNotAvailable");
+    });
 
     it("passes along roundId, startedAt, updatedAt and answeredInRound values from BTC / USD price feed", async () => {
       const { BTCToUSDPriceFeed, wbtcPriceFeed } = await makeWBTCPriceFeed({
