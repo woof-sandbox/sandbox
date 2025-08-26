@@ -11,7 +11,6 @@ import "./interfaces/IConfigControllerFactory.sol";
 import "./interfaces/ISandboxController.sol";
 import "./interfaces/ICometForController.sol";
 import "./interfaces/ISandboxCometFactory.sol";
-import "hardhat/console.sol";
 
 
 /**
@@ -1033,7 +1032,7 @@ contract ConfigController is IConfigController, IConfigControllerErrors, IConfig
             .collateralAssets(collateralTokenConfig.collateralToken);
         /// supplyCap;
         if (collateralTokenConfig.supplyCap == 0) revert SupplyCapCantBeZero();
-        /// in general supply cap is not regulated and is purely config controller owner's responsibility
+        if (collateralTokenConfig.supplyCap > collateralAssetLimitations.supplyCap) revert SupplyCapTooHigh();
 
         /// factors order: collaterization <= liquidation factor <= liquidation penalty
         if (

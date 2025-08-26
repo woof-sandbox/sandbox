@@ -61,26 +61,26 @@ describe("1. System Initialization", function () {
   let opts: SandboxControllerOpts;
 
   before(async function () {
+    signers = await ethers.getSigners();
+    owner = signers[0];
+    curator = signers[1];
+    guardian = signers[2];
+    dao = signers[3];
+    treasury = signers[4];
+
     _ConfigControllerFactory = (await ethers.getContractFactory("ConfigControllerFactory")) as ConfigControllerFactory__factory;
 
     /// Note: we are deploying the test wrapper over the config controller
     _ConfigController = (await ethers.getContractFactory("ConfigControllerInitializeTest")) as ConfigControllerInitializeTest__factory;
     _Comet = (await ethers.getContractFactory("SandboxComet")) as SandboxComet__factory;
     _SandboxCometFactory = (await ethers.getContractFactory("SandboxCometFactory")) as SandboxCometFactory__factory;
-    _SandboxControllerFactory = (await ethers.getContractFactory("SandboxController")) as SandboxController__factory;
+    _SandboxControllerFactory = (await ethers.getContractFactory("SandboxController", dao)) as SandboxController__factory;
 
     configControllerImpl = (await _ConfigController.deploy()) as ConfigController;
     sandboxCometImpl = (await _Comet.deploy()) as SandboxComet;
 
-    signers = await ethers.getSigners();
-
-    owner = signers[0];
-    curator = signers[1];
-    guardian = signers[2];
-    dao = signers[3];
-    treasury = signers[4];
     /// Options of the sandbox controller
-    opts = defaultSandboxControllerOpts({owner: owner.address, treasury: treasury.address, feeEnabled: true, dao: dao.address});
+    opts = defaultSandboxControllerOpts({ treasury: treasury.address, feeEnabled: true });
   });
 
   describe("Config Controller Factory deployment", function () {
@@ -174,16 +174,9 @@ describe("1. System Initialization", function () {
     let configControllersCount = 0;
 
     before(async function () {
-      sandboxController = await makeSandboxController(opts, owner);
-
-      configControllerFactory = await _ConfigControllerFactory.deploy(
-        sandboxController.address, 
-        configControllerImpl.address
-      );
-      sandboxCometFactory = await _SandboxCometFactory.deploy(
-        sandboxCometImpl.address, 
-        configControllerFactory.address
-      );
+      sandboxController = await makeSandboxController(opts, dao);
+      configControllerFactory = await _ConfigControllerFactory.deploy(sandboxController.address, configControllerImpl.address);
+      sandboxCometFactory = await _SandboxCometFactory.deploy(sandboxCometImpl.address, configControllerFactory.address);
     });
 
     it("should not recognize external controller if no Controllers deployed", async function () {
@@ -475,7 +468,7 @@ describe("1. System Initialization", function () {
     let marketConfig: CometConfigStruct;
 
     before(async function () {
-      sandboxController = await makeSandboxController(opts, owner);
+      sandboxController = await makeSandboxController(opts, dao);
 
       const configControllerFactory = await _ConfigControllerFactory.deploy(sandboxController.address, configControllerImpl.address);
       sandboxCometFactory = await _SandboxCometFactory.deploy(sandboxCometImpl.address, configControllerFactory.address);
@@ -511,7 +504,8 @@ describe("1. System Initialization", function () {
         symbol: "BASE",
         supply: ethers.utils.parseEther("50000").toString(),
       });
-      const collateralToken = await makeMockERC20({ name: "Collateral", symbol: "COL" });
+      // allocate initial supply of tokens
+      const collateralToken = await makeMockERC20({ name: "Collateral", symbol: "COL", supply: exp(1e6, 18) });
       const priceFeedBase = await makePriceFeed(baseToken.address);
       const priceFeedCol = await makePriceFeed(collateralToken.address);
 
@@ -526,7 +520,7 @@ describe("1. System Initialization", function () {
         borrowCollateralFactor: colConfig.borrowCF,
         liquidateCollateralFactor: colConfig.liquidateCF,
         liquidationFactor: colConfig.liquidationFactor,
-        supplyCap: colConfig.supplyCap,
+        supplyCap: exp(150000, 18), //15% of supply
       });
 
       const seedReserves = ethers.utils.parseUnits("5000", await baseToken.decimals());
@@ -646,7 +640,7 @@ describe("1. System Initialization", function () {
     type DeployParams = Parameters<typeof _SandboxControllerFactory.deploy>;
 
     beforeEach(async function () {
-      opts = defaultSandboxControllerOpts({ dao: dao.address, treasury: treasury.address, owner: owner.address });
+      opts = defaultSandboxControllerOpts({ treasury: treasury.address });
     });
 
     it("reverts if treasury = 0", async function () {
@@ -715,8 +709,7 @@ describe("1. System Initialization", function () {
     });
 
     it("initializes state with correct values", async function () {
-      const sandboxController = await makeSandboxController(opts, owner);
-      expect(await sandboxController.owner()).to.equal(owner.address);
+      const sandboxController = await makeSandboxController(opts, dao, _SandboxControllerFactory);
       expect(await sandboxController.dao()).to.equal(dao.address);
       expect(await sandboxController.treasury()).to.equal(treasury.address);
       expect(await sandboxController.feeEnabled()).to.equal(false);

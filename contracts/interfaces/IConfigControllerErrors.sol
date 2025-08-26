@@ -41,4 +41,5 @@ interface IConfigControllerErrors {
     error InvalidConfigController();
     error InvalidOwner();
     error CollateralTokenAlreadyRemoved();
+    error SupplyCapTooHigh();
 }

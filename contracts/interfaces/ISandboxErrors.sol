@@ -18,12 +18,14 @@ interface ISandboxErrors {
     error IncorrectIndex();
     error InvalidAmountOfSeedReserves();
     error InvalidLockTimeOfSeedReserves();
+    error SupplyCapCantBeZero();
+    error SupplyCapTooHigh();
+    error CollateralTokenNotWhitelisted();
 
     error Unauthorized();
-    error NotOwner(address caller);
     error NotDao(address caller);
 
     /// @notice Thrown when attempting to set a collateral removal duration that is too short.
     error RemovalDurationTooShort();
-    error CollateralTokenNotWhitelisted();
+    error NotProposedDao(address caller);
 }

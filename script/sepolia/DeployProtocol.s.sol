@@ -41,7 +41,7 @@ contract DeployProtocol is Script {
         address configControllerImplementation = deployConfigControllerImplementation();
 
         // Deploy SandboxController
-        address sandboxController = deploySandboxController(owner);
+        address sandboxController = deploySandboxController();
 
         // Deploy factories
         address configControllerFactory = deployConfigControllerFactory(sandboxController, configControllerImplementation);
@@ -199,34 +199,18 @@ contract DeployProtocol is Script {
         return address(configControllerFactory);
     }
 
-    function deploySandboxController(address owner_) internal returns (address) {
-<<<<<<< HEAD:script/DeployProtocol.s.sol
-=======
+    function deploySandboxController() internal returns (address) {
+        // Create SandboxController configuration
         ISandboxController.SandboxControllerConfiguration memory config = ISandboxController.SandboxControllerConfiguration({
             targetPercent: 2e17, // 20%
             storeFrontPriceFactor: 6e17, // 60%
-            minUpdateTime: 300, // 5 minutes
-            maxUpdateTime: 3600 // 1 hour
+            transitionDuration: 3600 // 1 hour
         });
->>>>>>> origin4/feat/close-market:script/sepolia/DeployProtocol.s.sol
         // Deploy SandboxController with valid parameters
         SandboxController sandboxController = new SandboxController(
-            owner_, // owner
-            address(1), // dao (different from owner)
             address(2), // treasury (for now random address)
             true, // feeEnabled
-<<<<<<< HEAD:script/DeployProtocol.s.sol
-            ISandboxController.SandboxControllerConfiguration({
-                targetPercent: 2e17, // targetPercent (20%)
-                storeFrontPriceFactor: 6e17, // storeFrontPriceFactor (60%)
-                minUpdateTime: 300, // minUpdateTime (5 minutes)
-                maxUpdateTime: 3600, // maxUpdateTime (1 hour)
-                suggestedLockTimeOfSeedReserves: 3600, // suggestedLockTimeOfSeedReserves (1 hour)
-                suggestedAmountOfSeedReserves: 250 // suggestedAmountOfSeedReserves
-            }),
-=======
             config,
->>>>>>> origin4/feat/close-market:script/sepolia/DeployProtocol.s.sol
             [uint64(4e16), uint64(3e16), uint64(2e16)], // reserveCommissions
             [uint64(4e16), uint64(3e16), uint64(2e16)], // protocolCommissions
             7 days // removalCollateralDuration
@@ -313,7 +297,8 @@ contract DeployProtocol is Script {
             8.5e17, // minLiquidateCollateralFactor (85%)
             9.5e17, // maxLiquidateCollateralFactor (95%)
             8.5e17, // minLiquidationFactor (85%)
-            9.5e17 // maxLiquidationFactor (95%)
+            9.5e17, // maxLiquidationFactor (95%)
+            300_000 * 1e18 // 300k tokens as 15% of presumable 1mln supply
         );
     }
 

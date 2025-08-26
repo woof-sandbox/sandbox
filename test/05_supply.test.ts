@@ -34,6 +34,7 @@ describe("5. supply", function () {
   let configController: ConfigController;
   let sandboxController: ISandboxController;
 
+  const baseTokenDecimals: number = 6;
   let baseToken: FaucetToken;
   let collaterals: { [symbol: string]: FaucetToken } = {};
   let seedReserve: BigNumber;
@@ -61,8 +62,8 @@ describe("5. supply", function () {
       collaterals[asset] = opts.collaterals[asset] as FaucetToken;
     }
 
-    await baseToken.allocateTo(alice.address, exp(1e10, 18));
-    await baseToken.allocateTo(bob.address, exp(1e10, 18));
+    await baseToken.allocateTo(alice.address, exp(1e10, baseTokenDecimals));
+    await baseToken.allocateTo(bob.address, exp(1e10, baseTokenDecimals));
   });
 
   describe("supply base asset", function () {
@@ -138,7 +139,7 @@ describe("5. supply", function () {
     });
 
     describe("supply base asset into empty pool", function () {
-      const BASE_AMOUNT: bigint = exp(5e9, 18);
+      const BASE_AMOUNT: bigint = exp(5e9, baseTokenDecimals);
       let aliceBalanceBefore: BigNumber;
       let aliceBalanceAfter: BigNumber;
 
@@ -221,7 +222,7 @@ describe("5. supply", function () {
     });
 
     describe("supply base asset: happy case", function () {
-      const SUPPLIED_AMOUNT_ALICE: bigint = exp(2e9, 18);
+      const SUPPLIED_AMOUNT_ALICE: bigint = exp(2e9, baseTokenDecimals);
       let aliceBalanceBefore: BigNumber;
       let cometBalanceBefore: BigNumber;
       let aliceDisplayBalanceBefore: BigNumber;
@@ -230,7 +231,7 @@ describe("5. supply", function () {
       let cometSupplyRateBefore: BigNumber;
       let cometUpdatedTimeBefore: number;
 
-      const SUPPLIED_AMOUNT_BOB: bigint = exp(1e9, 18);
+      const SUPPLIED_AMOUNT_BOB: bigint = exp(1e9, baseTokenDecimals);
       let bobBalanceBefore: BigNumber;
 
       before(async function () {
@@ -718,8 +719,8 @@ describe("5. supply", function () {
   });
 
   describe("supply flows variations (from/to)", function () {
-    const ALICE_BASE_AMOUNT: BigNumber = BigNumber.from(exp(1, 17)); //0.1 of token
-    const ALICE_COLLATERAL_AMOUNT: BigNumber = BigNumber.from(exp(2, 17)); //0.2 of token
+    const ALICE_BASE_AMOUNT: BigNumber = ethers.utils.parseUnits("0.05", baseTokenDecimals); //0.05 of base token
+    const ALICE_COLLATERAL_AMOUNT: BigNumber = ethers.utils.parseUnits("0.2", 18); //0.2 of token
     let cometBaseBalanceBefore: BigNumber;
     let aliceBaseBalanceBefore: BigNumber;
     let cometCollateralBalanceBefore: BigNumber;

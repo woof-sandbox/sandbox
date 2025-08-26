@@ -116,7 +116,6 @@ _The reentrancy guard statuses_
 uint256 REENTRANCY_GUARD_ENTERED
 ```
 
-<<<<<<< HEAD
 ### TARGET_BORROW_COLLATERAL_FACTOR
 
 ```solidity
@@ -125,8 +124,6 @@ uint64 TARGET_BORROW_COLLATERAL_FACTOR
 
 _The target borrow collateral factor for the processing removal of collateral assets_
 
-=======
->>>>>>> origin4/feat/close-market
 ### TARGET_LIQUIDATE_COLLATERAL_FACTOR
 
 ```solidity
@@ -135,8 +132,6 @@ uint64 TARGET_LIQUIDATE_COLLATERAL_FACTOR
 
 _The target liquidate collateral factor for the processing removal of collateral assets_
 
-<<<<<<< HEAD
-=======
 ### TARGET_LIQUIDATION_FACTOR
 
 ```solidity
@@ -155,7 +150,6 @@ uint40 DEPRECATION_DURATION
 uint64 ZERO_INTEREST_RATE
 ```
 
->>>>>>> origin4/feat/close-market
 ### configController
 
 ```solidity
@@ -502,7 +496,6 @@ Mapping indexes for collateral assets that have been removed
 struct ICometStructures.CollateralAsset[] collateralAssets
 ```
 
-<<<<<<< HEAD
 ### removedCollateralAssets
 
 ```solidity
@@ -511,11 +504,8 @@ struct ICometStructures.CollateralAsset[] removedCollateralAssets
 
 The list of collateral assets that have been removed
 
-=======
 ### startLiquidationFactors
 
 ```solidity
 mapping(address => uint64) startLiquidationFactors
 ```
-
->>>>>>> origin4/feat/close-market

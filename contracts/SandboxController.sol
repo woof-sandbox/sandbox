@@ -18,15 +18,18 @@ contract SandboxController is ISandboxController {
     uint40 public constant MIN_LOCK_TIME = 1 weeks; // The minimum lock time for seed reserves
     uint8 public constant MARKET_STATES = 3;
     uint40 public constant MIN_COLLATERAL_REMOVAL_DURATION = 7 days;
+    uint64 public constant MAX_SUPPLY_CAP_PERCENT = 3e17; //30%
 
     /// @notice Minimum transition duration for the controller configuration.
     uint32 public constant MIN_TRANSITION_DURATION = 1 weeks; /// 1 week in seconds
     /// @notice treasury address. This is the address that will receive the fees.
     address public treasury; /// 20 bytes
-    /// @notice owner address. This is the address that will be able to call the functions that require the owner role.
-    address public override owner; /// 20 bytes
     /// @notice dao address. This is the address that will be able to call the functions that require the dao role.
     address public override dao; /// 20 bytes
+    /// @notice The address of the contractor that will support role to change existing curve params on assets or adding new ones.
+    address public override contractor; /// 20 bytes
+    /// @notice proposedDao address. This is the address that will be able to accept the dao role.
+    address public override proposedDao; /// 20 bytes
     /// @notice feeEnabled flag. This is the flag that will be used to enable/disable the fees for all markets.
     bool public override feeEnabled; /// 1 byte
     /// @notice removal collateral duration. This is the duration of the collateral removal process.
@@ -53,6 +56,7 @@ contract SandboxController is ISandboxController {
     mapping(address => BaseAssetConfiguration) internal _baseAssets;
     /// @notice collateral asset configurations.
     /// Holds:
+    /// supplyCap
     /// priceFeed,
     /// decimals,
     /// maxBorrowCollateralFactor,
@@ -69,14 +73,6 @@ contract SandboxController is ISandboxController {
     mapping(address => uint40) public suggestedLockTimeOfSeedReserves;
 
     /**
-     * @dev Modifier to check if the caller is the owner.
-     */
-    modifier onlyOwner() {
-        if (msg.sender != owner) revert NotOwner(msg.sender);
-        _;
-    }
-
-    /**
      * @dev Modifier to check if the caller is the DAO.
      */
     modifier onlyDao() {
@@ -85,20 +81,16 @@ contract SandboxController is ISandboxController {
     }
 
     /**
-     * @dev Both owner and dao are considered "authorized."
-     *      If you want them to have separate powers, use onlyOwner or onlyDao
-     *      in the relevant functions. For shared powers, use onlyAuthorized.
+     * @dev Both contractor and dao are considered "authorized."
      */
     modifier onlyAuthorized() {
-        if (msg.sender != owner && msg.sender != dao) revert Unauthorized();
+        if (msg.sender != contractor && msg.sender != dao) revert Unauthorized();
         _;
     }
 
     /**
      * @dev Set all global parameters (including owner and DAO) at deployment.
      *
-     * @param _owner  The address of the protocol owner.
-     * @param _dao    The address of the DAO (governance).
      * @param _treasury The address of the treasury.
      * @param _feeEnabled Global fee flag for the entire protocol.
      * @param _config SanboxController config:
@@ -110,10 +102,9 @@ contract SandboxController is ISandboxController {
      * @param _protocolCommissions The protocol commission factors for each market state.
      * @param _removalCollateralDuration The duration of the collateral removal process.
      * @dev The length of the `_reserveCommissions` and `_protocolCommissions` arrays must be 3.
+     * @dev Deployer becomes the DAO.
      */
     constructor(
-        address _owner,
-        address _dao,
         address _treasury,
         bool _feeEnabled,
         SandboxControllerConfiguration memory _config,
@@ -121,8 +112,7 @@ contract SandboxController is ISandboxController {
         uint64[MARKET_STATES] memory _protocolCommissions,
         uint40 _removalCollateralDuration
     ) {
-        if (_owner == address(0) || _dao == address(0) || _treasury == address(0)) revert ZeroAddress();
-        if (_owner == _dao) revert IncorrectSetting();
+        if (_treasury == address(0)) revert ZeroAddress();
 
         /// Function will revert on incorrect setting
         _validateConfig(_config);
@@ -141,8 +131,7 @@ contract SandboxController is ISandboxController {
         protocolCommission = _protocolCommissions;
         removalCollateralDuration = _removalCollateralDuration;
 
-        owner = _owner;
-        dao = _dao;
+        dao = msg.sender;
         feeEnabled = _feeEnabled;
         treasury = _treasury;
 
@@ -159,7 +148,7 @@ contract SandboxController is ISandboxController {
      * @param _reserveCommission The new reserve commission factor, scaled by 1e18 (100%).
      * @param _protocolCommission The new protocol commission factor, scaled by 1e18 (100%).
      */
-    function setMarketStateCommissions(uint8 _index, uint64 _reserveCommission, uint64 _protocolCommission) external override onlyOwner {
+    function setMarketStateCommissions(uint8 _index, uint64 _reserveCommission, uint64 _protocolCommission) external override onlyDao {
         if (_index >= MARKET_STATES) revert IncorrectIndex();
 
         /// Check if the sum of the `reserveCommission` and the `protocolCommission` is less than 80%
@@ -187,7 +176,7 @@ contract SandboxController is ISandboxController {
      * @dev This function is only callable by the owner.
      * @dev The `treasury` address can`t be zero address.
      */
-    function setTreasury(address _treasury) external override onlyOwner {
+    function setTreasury(address _treasury) external override onlyDao {
         if (_treasury == address(0)) revert ZeroAddress();
         if (_treasury == treasury) revert IncorrectSetting();
 
@@ -255,7 +244,7 @@ contract SandboxController is ISandboxController {
         uint256 minBorrow,
         uint256 amountOfSeedReserves,
         uint40 lockTimeOfSeedReserves
-    ) external override onlyAuthorized {
+    ) external override onlyDao {
         /// @dev token and priceFeed are not zero address
         if (token == address(0) || priceFeed == address(0)) revert ZeroAddress();
 
@@ -306,6 +295,7 @@ contract SandboxController is ISandboxController {
      * @param maxLiquidateCollateralFactor The maximum liquidate collateral factor (scaled by 1e18).
      * @param minLiquidationFactor The minimum liquidation factor (scaled by 1e18).
      * @param maxLiquidationFactor The maximum liquidation factor (scaled by 1e18).
+     * @param supplyCap The supply cap for the collateral asset.
      */
     function whitelistCollateralAsset(
         address token,
@@ -315,8 +305,9 @@ contract SandboxController is ISandboxController {
         uint64 minLiquidateCollateralFactor,
         uint64 maxLiquidateCollateralFactor,
         uint64 minLiquidationFactor,
-        uint64 maxLiquidationFactor
-    ) external override onlyAuthorized {
+        uint64 maxLiquidationFactor,
+        uint256 supplyCap
+    ) external override onlyDao {
         /// @dev token and priceFeed are not zero address
         if (token == address(0) || priceFeed == address(0)) revert ZeroAddress();
 
@@ -334,113 +325,96 @@ contract SandboxController is ISandboxController {
         (, int256 answer, , , ) = IPriceFeed(priceFeed).latestRoundData(); // aderyn-fp(reentrancy-state-change)
         if (answer <= 0) revert InvalidPriceFeed();
 
-        /// @dev Validates that all collateral factor parameters are within allowed ranges and maintain logical relationships:
-        /// - 10% <= minBorrowCollateralFactor <= minLiquidateCollateralFactor <= minLiquidationFactor <= 100%
-        /// - maxBorrowCollateralFactor <= maxLiquidateCollateralFactor <= maxLiquidationFactor <= 100%
-        /// - min <= max for each factor
-        if (
-            minBorrowCollateralFactor < MIN_FACTOR ||
-            minBorrowCollateralFactor > minLiquidateCollateralFactor ||
-            minLiquidateCollateralFactor > minLiquidationFactor ||
-            maxBorrowCollateralFactor > maxLiquidateCollateralFactor ||
-            maxLiquidateCollateralFactor > maxLiquidationFactor ||
-            maxLiquidationFactor > PARAMETERS_SCALE ||
-            minBorrowCollateralFactor > maxBorrowCollateralFactor ||
-            minLiquidateCollateralFactor > maxLiquidateCollateralFactor ||
-            minLiquidationFactor > maxLiquidationFactor
-        ) revert InvalidFactors();
+        _validateCollateralFactors(
+            minBorrowCollateralFactor,
+            maxBorrowCollateralFactor,
+            minLiquidateCollateralFactor,
+            maxLiquidateCollateralFactor,
+            minLiquidationFactor,
+            maxLiquidationFactor
+        );
+
+        _validateSupplyCap(token, supplyCap);
 
         tokenToPriceFeed[token] = priceFeed;
 
         uint8 decimals = IERC20Metadata(token).decimals(); // aderyn-fp(reentrancy-state-change)
 
-        _collateralAssets[token].collateralToken = token;
-        _collateralAssets[token].priceFeed = priceFeed;
-        _collateralAssets[token].decimals = decimals;
-        _collateralAssets[token].maxBorrowCollateralFactor = maxBorrowCollateralFactor;
-        _collateralAssets[token].minBorrowCollateralFactor = minBorrowCollateralFactor;
-        _collateralAssets[token].minLiquidateCollateralFactor = minLiquidateCollateralFactor;
-        _collateralAssets[token].maxLiquidateCollateralFactor = maxLiquidateCollateralFactor;
-        _collateralAssets[token].minLiquidationFactor = minLiquidationFactor;
-        _collateralAssets[token].maxLiquidationFactor = maxLiquidationFactor;
+        CollateralAssetConfiguration memory assetConfig = CollateralAssetConfiguration({
+            supplyCap: supplyCap,
+            priceFeed: priceFeed,
+            decimals: decimals,
+            maxBorrowCollateralFactor: maxBorrowCollateralFactor,
+            minBorrowCollateralFactor: minBorrowCollateralFactor,
+            minLiquidateCollateralFactor: minLiquidateCollateralFactor,
+            maxLiquidateCollateralFactor: maxLiquidateCollateralFactor,
+            minLiquidationFactor: minLiquidationFactor,
+            maxLiquidationFactor: maxLiquidationFactor
+        });
+
+        _collateralAssets[token] = assetConfig;
 
         emit CollateralAssetWhitelisted(token, priceFeed, decimals);
     }
 
     /**
-     * @notice Changes the configuration of an existing collateral asset.
+     * @notice Updates the parameters of an already whitelisted collateral asset.
      * @dev Validates that all collateral factor parameters are within allowed ranges and maintain logical relationships:
      *      - 10% <= minBorrowCollateralFactor <= minLiquidateCollateralFactor <= minLiquidationFactor <= 100%
      *      - maxBorrowCollateralFactor <= maxLiquidateCollateralFactor <= maxLiquidationFactor <= 100%
      *      - min <= max for each factor
      * @param token The address of the collateral asset to update.
-     * @param minBorrowCollateralFactor The minimum borrow collateral factor (scaled by 1e18, e.g., 10% = 1e17).
-     * @param maxBorrowCollateralFactor The maximum borrow collateral factor (scaled by 1e18).
-     * @param minLiquidateCollateralFactor The minimum liquidate collateral factor (scaled by 1e18).
-     * @param maxLiquidateCollateralFactor The maximum liquidate collateral factor (scaled by 1e18).
-     * @param minLiquidationFactor The minimum liquidation factor (scaled by 1e18).
-     * @param maxLiquidationFactor The maximum liquidation factor (scaled by 1e18).
+     * @param minBorrowCollateralFactor The new minimum borrow collateral factor (scaled by 1e18).
+     * @param maxBorrowCollateralFactor The new maximum borrow collateral factor (scaled by 1e18).
+     * @param minLiquidateCollateralFactor The new minimum liquidate collateral factor (scaled by 1e18).
+     * @param maxLiquidateCollateralFactor The new maximum liquidate collateral factor (scaled by 1e18).
+     * @param minLiquidationFactor The new minimum liquidation factor (scaled by 1e18).
+     * @param maxLiquidationFactor The new maximum liquidation factor (scaled by 1e18).
+     * @param supplyCap The new supply cap for the collateral asset.
      */
-    function changeCollateralAssetConfiguration(
+    function updateWhitelistedCollateralAsset(
         address token,
         uint64 minBorrowCollateralFactor,
         uint64 maxBorrowCollateralFactor,
         uint64 minLiquidateCollateralFactor,
         uint64 maxLiquidateCollateralFactor,
         uint64 minLiquidationFactor,
-        uint64 maxLiquidationFactor
+        uint64 maxLiquidationFactor,
+        uint256 supplyCap
     ) external override onlyAuthorized {
-        /// @dev token is not zero address
         if (token == address(0)) revert ZeroAddress();
-
-        /// @dev this token must be whitelisted
         if (!isCollateralTokenWhitelisted(token)) revert CollateralTokenNotWhitelisted();
 
-        /// @dev Validates that all collateral factor parameters are within allowed ranges and maintain logical relationships:
-        /// - 10% <= minBorrowCollateralFactor <= minLiquidateCollateralFactor <= minLiquidationFactor <= 100%
-        /// - maxBorrowCollateralFactor <= maxLiquidateCollateralFactor <= maxLiquidationFactor <= 100%
-        /// - min <= max for each factor
-        if (
-            minBorrowCollateralFactor < 1e17 ||
-            minBorrowCollateralFactor > minLiquidateCollateralFactor ||
-            minLiquidateCollateralFactor > minLiquidationFactor ||
-            maxBorrowCollateralFactor > maxLiquidateCollateralFactor ||
-            maxLiquidateCollateralFactor > maxLiquidationFactor ||
-            maxLiquidationFactor > 1e18 ||
-            minBorrowCollateralFactor > maxBorrowCollateralFactor ||
-            minLiquidateCollateralFactor > maxLiquidateCollateralFactor ||
-            minLiquidationFactor > maxLiquidationFactor
-        ) revert InvalidFactors();
+        CollateralAssetConfiguration memory assetConfig = _collateralAssets[token];
 
-        /// @dev Emit event with old and new values
-        emit CollateralAssetConfigurationChanged(
-            token,
-            _collateralAssets[token].maxBorrowCollateralFactor,
-            maxBorrowCollateralFactor,
-            _collateralAssets[token].minBorrowCollateralFactor,
+        _validateCollateralFactors(
             minBorrowCollateralFactor,
-            _collateralAssets[token].minLiquidateCollateralFactor,
+            maxBorrowCollateralFactor,
             minLiquidateCollateralFactor,
-            _collateralAssets[token].maxLiquidateCollateralFactor,
             maxLiquidateCollateralFactor,
-            _collateralAssets[token].minLiquidationFactor,
             minLiquidationFactor,
-            _collateralAssets[token].maxLiquidationFactor,
             maxLiquidationFactor
         );
 
-        /// @dev Update the configuration
-        _collateralAssets[token].maxBorrowCollateralFactor = maxBorrowCollateralFactor;
-        _collateralAssets[token].minBorrowCollateralFactor = minBorrowCollateralFactor;
-        _collateralAssets[token].minLiquidateCollateralFactor = minLiquidateCollateralFactor;
-        _collateralAssets[token].maxLiquidateCollateralFactor = maxLiquidateCollateralFactor;
-        _collateralAssets[token].minLiquidationFactor = minLiquidationFactor;
-        _collateralAssets[token].maxLiquidationFactor = maxLiquidationFactor;
+        _validateSupplyCap(token, supplyCap);
+
+        assetConfig.minBorrowCollateralFactor = minBorrowCollateralFactor;
+        assetConfig.maxBorrowCollateralFactor = maxBorrowCollateralFactor;
+        assetConfig.minLiquidateCollateralFactor = minLiquidateCollateralFactor;
+        assetConfig.maxLiquidateCollateralFactor = maxLiquidateCollateralFactor;
+        assetConfig.minLiquidationFactor = minLiquidationFactor;
+        assetConfig.maxLiquidationFactor = maxLiquidationFactor;
+        assetConfig.supplyCap = supplyCap;
+
+        emit CollateralAssetUpdated(token);
+
+        _collateralAssets[token] = assetConfig;
     }
 
     /**
-     * @notice Returns the length of the collateralAssetTokens array.
-     * @return The length of the collateralAssetTokens array.
+     * @notice Checks if a token is whitelisted as a base asset.
+     * @param token The address of the token.
+     * @return True if the token is whitelisted, otherwise false.
      */
     function isBaseTokenWhitelisted(address token) public view override returns (bool) {
         return _baseAssets[token].priceFeed != address(0);
@@ -479,7 +453,7 @@ contract SandboxController is ISandboxController {
      * @param curveIndex The index of the curve to update.
      * @param newCurve The updated interest rate curve.
      */
-    function changeBaseAssetCurve(address token, uint256 curveIndex, BaseAssetCurve calldata newCurve) external override onlyDao {
+    function changeBaseAssetCurve(address token, uint256 curveIndex, BaseAssetCurve calldata newCurve) external override onlyAuthorized {
         if (token == address(0)) revert ZeroAddress();
         if (!isBaseTokenWhitelisted(token)) revert BaseTokenNotWhitelisted();
         if (curveIndex >= _baseAssets[token].baseAssetCurves.length || !isCurveConfigurationValid(newCurve))
@@ -492,22 +466,101 @@ contract SandboxController is ISandboxController {
 
     /**
      * @notice Validates an interest rate curve configuration.
-     * @param curve The interest rate curve configuration to validate.
+     * @param curve The interest rate curve configuration to validate. Contains parameters in per year units
      * @return True if valid, false otherwise.
      */
     function isCurveConfigurationValid(BaseAssetCurve memory curve) public pure override returns (bool) {
-        /// TODO: update validations to have borrow curve higher than supply curve
-        if (curve.supplyKink == 0 || curve.borrowKink == 0 || curve.supplyKink >= PARAMETERS_SCALE || curve.borrowKink >= PARAMETERS_SCALE)
-            return false;
+        /**
+         * Note: The protocol can support different sub-types of interest curves:
+         * - base rate (for both supply and borrow) can be set to 0 to have curves with no boost for 0 utilization;
+         * - both slopes can be set to 0 to discourage any side of the utilization or to have flat rate;
+         * - kink can be set to 0 to have one-slope curve, or can be set to 100% to have curve that works in
+         *   over-utilization segment;
+         * - kinks for supply and borrow curves can be different;
+         * - slopes can have different angles to have convex or concave curves
+         *
+         * For the limitations:
+         * - borrow curve should always be higher than supply curve to ensure that supply rate is fully paid by interest
+         * - there should be a reasonable limit for the kink to avoid under-incentivised overutilization
+         */
 
-        if (
-            curve.supplyPerYearInterestRateSlopeLow == 0 ||
-            curve.supplyPerYearInterestRateSlopeHigh == 0 ||
-            curve.supplyPerYearInterestRateBase == 0 ||
-            curve.borrowPerYearInterestRateSlopeLow == 0 ||
-            curve.borrowPerYearInterestRateSlopeHigh == 0 ||
-            curve.borrowPerYearInterestRateBase == 0
-        ) return false;
+        // separate variables because of prettier and solhint
+        uint256 supplySlopeLow = uint256(curve.supplyPerYearInterestRateSlopeLow);
+        uint256 borrowSlopeLow = uint256(curve.borrowPerYearInterestRateSlopeLow);
+        uint256 supplySlopeHigh = uint256(curve.supplyPerYearInterestRateSlopeHigh);
+        uint256 borrowSlopeHigh = uint256(curve.borrowPerYearInterestRateSlopeHigh);
+
+        /// kink utilization cannot exceed 100%
+        if (curve.supplyKink > PARAMETERS_SCALE || curve.borrowKink > PARAMETERS_SCALE) return false;
+
+        /// Borrow interest curve should be above the supply curve at any point
+
+        /// 1) cannot have supply base rate > borrow base rate, as it will create deficit from the start
+        ///    so we validate that borrow curve starting point is higher than supply curve starting point
+        if (curve.supplyPerYearInterestRateBase > curve.borrowPerYearInterestRateBase) return false;
+
+        /// calculate break points for both curves. We operate in uint256 to avoid overflow in uint64
+        /// and we can safely cast back to uint64, as the result is scaled back to uint64 size
+
+        // y_breakpoint = supplyBase + supplyLowSlope * x
+        // where x = supplyKink (rightmost point of the low slope part of the curve)
+        uint256 intermediateSupplyPoint = (supplySlopeLow * uint256(curve.supplyKink)) / PARAMETERS_SCALE;
+        uint64 supplyBreakPoint = curve.supplyPerYearInterestRateBase + uint64(intermediateSupplyPoint);
+
+        // y_breakpoint = borrowBase + borrowLowSlope * x
+        // where x = borrowKink (rightmost point of the low slope part of the curve)
+        uint256 intermediateBorrowPoint = (borrowSlopeLow * uint256(curve.borrowKink)) / PARAMETERS_SCALE;
+        uint64 borrowBreakPoint = curve.borrowPerYearInterestRateBase + uint64(intermediateBorrowPoint);
+
+        /// 2) borrow curve break point must always be higher than supplies one
+        if (supplyBreakPoint > borrowBreakPoint) {
+            /// 2.1) If supply curve break point has offset to the left and is higher than the borrow's one
+            ///      than left segments intersect, and borrow interest does not cover supply interest
+            if (curve.supplyKink <= curve.borrowKink) {
+                // supply left part intersects borrow left part
+                return false;
+            } else {
+                /// 2.2) There are some edge-cases where supply break point can be higher than borrows:
+                ///      - with supply kink offset to the right and larger angle of borrow high slope.
+                /// So we walidate, that this break point is not above the right segment of borrow interest curve.
+
+                // y = borrowBase + borrowLowSlope * borrowKink + borrowHighSlope * (x - borrowKink)
+                // where x = supplyKink (as we check borrow curve value at supply curve break point)
+                intermediateBorrowPoint = (borrowSlopeHigh * uint256(curve.supplyKink - curve.borrowKink)) / PARAMETERS_SCALE;
+                uint64 borrowHighPoint = borrowBreakPoint + uint64(intermediateBorrowPoint);
+
+                // supply left part intersects borrow right part
+                if (supplyBreakPoint > borrowHighPoint) return false;
+            }
+        } else {
+            /// 2.3) At this point we ensured left segment of supply curve does not intersect left segment of borrow curve
+            ///      But there can be a situation, when supply kink is tilted to the left, and supply high slope has angle
+            ///      high enough, that the right part of supply curve will intersect left part of borrow curve
+            if (curve.supplyKink <= curve.borrowKink) {
+                // y = supplyBase + supplyLowSlope * supplyKink + supplyHighSlope * (x - supplyKink)
+                // where x = borrwKink (as we check supply curve value at borrow curve break point)
+                intermediateSupplyPoint = (supplySlopeHigh * uint256(curve.borrowKink - curve.supplyKink)) / PARAMETERS_SCALE;
+                uint64 supplyHighPoint = supplyBreakPoint + uint64(intermediateSupplyPoint);
+
+                // supply right part intersects borrow left part
+                if (supplyHighPoint > borrowBreakPoint) return false;
+            }
+            /// else case is checked further as it refers to the intersection of high slopes
+        }
+
+        /// 3) The last thing to check - that right segment of supply curve does not intersect right segment
+        ///    of borrow curve (borrow in interest covers supply interest in over-utilization area).
+        /// We set as a possible limit 200% utilization, and check the rightmost points of curves.
+
+        // y = supplyBase + supplyLowSlope * supplyKink + supplyHighSlope * (x - supplyKink)
+        // where x = 200%
+        intermediateSupplyPoint = (supplySlopeHigh * uint256(2 * PARAMETERS_SCALE - curve.supplyKink)) / PARAMETERS_SCALE;
+        intermediateBorrowPoint = (borrowSlopeHigh * uint256(2 * PARAMETERS_SCALE - curve.borrowKink)) / PARAMETERS_SCALE;
+        uint64 supplyRightPoint = supplyBreakPoint + uint64(intermediateSupplyPoint);
+        uint64 borrowRightPoint = borrowBreakPoint + uint64(intermediateBorrowPoint);
+
+        // supply right part intersects borrow right part
+        if (supplyRightPoint > borrowRightPoint) return false;
 
         return true;
     }
@@ -520,7 +573,7 @@ contract SandboxController is ISandboxController {
      * @dev Configuration setter
      * @param _config Configuration of the sandbox controller.
      */
-    function setConfiguration(SandboxControllerConfiguration calldata _config) external onlyOwner {
+    function setConfiguration(SandboxControllerConfiguration calldata _config) external onlyDao {
         _validateConfig(_config);
 
         emit ConfigurationChanged(_controllerConfiguration, _config);
@@ -573,27 +626,43 @@ contract SandboxController is ISandboxController {
     }
 
     /**
-     * @notice Transfers the owner privileges to a new address.
-     * @param newOwner The address of the new owner.
+     * @notice Proposes a new DAO address.
+     * @notice Allows zero address to be set as proposed dao in case previous proposal should be dismissed
+     * @param _proposedDao The address of the proposed new DAO.
      */
-    function transferOwner(address newOwner) external override onlyOwner {
-        if (newOwner == address(0)) revert ZeroAddress();
-        if (newOwner == owner) revert IncorrectSetting();
+    function proposeDao(address _proposedDao) external onlyDao {
+        if (_proposedDao == proposedDao) revert IncorrectSetting();
+        if (_proposedDao == dao) revert IncorrectSetting();
 
-        emit OwnerTransferred(owner, newOwner);
-        owner = newOwner;
+        emit DaoProposed(dao, _proposedDao);
+        proposedDao = _proposedDao; // aderyn-fp(state-no-address-check)
     }
 
     /**
-     * @notice Transfers the DAO privileges to a new address.
-     * @param newDao The address of the new DAO.
+     * @notice Accepts the DAO privileges by the proposed DAO address.
+     * @dev This function can only be called by the proposed DAO address.
      */
-    function transferDao(address newDao) external override onlyDao {
-        if (newDao == address(0)) revert ZeroAddress();
-        if (newDao == dao) revert IncorrectSetting();
+    function acceptDao() external {
+        if (msg.sender != proposedDao) revert NotProposedDao(msg.sender);
 
-        emit DaoTransferred(dao, newDao);
-        dao = newDao;
+        emit DaoTransferred(dao, proposedDao);
+
+        dao = proposedDao;
+        proposedDao = address(0);
+    }
+
+    /**
+     * @notice Grants the contractor role to a new address.
+     * @notice Contractor can be set to zero address.
+     * @param _newContractor The address of the new contractor.
+     * @dev This function can only be called by the DAO.
+     */
+    function grantContractorRole(address _newContractor) external onlyDao {
+        if (_newContractor == contractor) revert IncorrectSetting();
+
+        emit ContractorGranted(contractor, _newContractor);
+
+        contractor = _newContractor; // aderyn-fp(state-no-address-check)
     }
 
     ///
@@ -649,7 +718,7 @@ contract SandboxController is ISandboxController {
      * @param newDuration The new duration in seconds.
      * @dev The new duration must be at least 7 days.
      */
-    function setCollateralRemovalDuration(uint40 newDuration) external override onlyOwner {
+    function setCollateralRemovalDuration(uint40 newDuration) external override onlyDao {
         if (newDuration < MIN_COLLATERAL_REMOVAL_DURATION) revert RemovalDurationTooShort();
         emit CollateralRemovalDurationChanged(removalCollateralDuration, newDuration);
         removalCollateralDuration = newDuration;
@@ -662,5 +731,50 @@ contract SandboxController is ISandboxController {
      */
     function baseTokenSuggestedSeedReserves(address token) external view returns (uint256, uint40) {
         return (suggestedAmountOfSeedReserves[token], suggestedLockTimeOfSeedReserves[token]);
+    }
+
+    /**
+     * @dev Validates collateral factor parameters for whitelisting and updating collateral assets.
+     * @param minBorrowCollateralFactor The minimum borrow collateral factor (scaled by 1e18).
+     * @param maxBorrowCollateralFactor The maximum borrow collateral factor (scaled by 1e18).
+     * @param minLiquidateCollateralFactor The minimum liquidate collateral factor (scaled by 1e18).
+     * @param maxLiquidateCollateralFactor The maximum liquidate collateral factor (scaled by 1e18).
+     * @param minLiquidationFactor The minimum liquidation factor (scaled by 1e18).
+     * @param maxLiquidationFactor The maximum liquidation factor (scaled by 1e18).
+     */
+    function _validateCollateralFactors(
+        uint64 minBorrowCollateralFactor,
+        uint64 maxBorrowCollateralFactor,
+        uint64 minLiquidateCollateralFactor,
+        uint64 maxLiquidateCollateralFactor,
+        uint64 minLiquidationFactor,
+        uint64 maxLiquidationFactor
+    ) private pure {
+        /// - 10% <= minBorrowCollateralFactor <= minLiquidateCollateralFactor <= minLiquidationFactor <= 100%
+        /// - maxBorrowCollateralFactor <= maxLiquidateCollateralFactor <= maxLiquidationFactor <= 100%
+        /// - min <= max for each factor
+        if (
+            minBorrowCollateralFactor < MIN_FACTOR ||
+            minBorrowCollateralFactor > minLiquidateCollateralFactor ||
+            minLiquidateCollateralFactor > minLiquidationFactor ||
+            maxBorrowCollateralFactor > maxLiquidateCollateralFactor ||
+            maxLiquidateCollateralFactor > maxLiquidationFactor ||
+            maxLiquidationFactor > PARAMETERS_SCALE ||
+            minBorrowCollateralFactor > maxBorrowCollateralFactor ||
+            minLiquidateCollateralFactor > maxLiquidateCollateralFactor ||
+            minLiquidationFactor > maxLiquidationFactor
+        ) revert InvalidFactors();
+    }
+
+    /**
+     * @dev Validates supply cap for collateral assets.
+     * @param token The address of the collateral asset token.
+     * @param supplyCap The supply cap to validate.
+     */
+    function _validateSupplyCap(address token, uint256 supplyCap) private view {
+        if (supplyCap == 0) revert SupplyCapCantBeZero();
+        /// Check is bound to a token's total supply, and thus it can be applied to tokens with no fixed cap. In that case
+        /// tokens will require an update updateWhitelistedCollateralAsset() once the supply growth enough
+        if (supplyCap > (IERC20Metadata(token).totalSupply() * MAX_SUPPLY_CAP_PERCENT) / PARAMETERS_SCALE) revert SupplyCapTooHigh();
     }
 }

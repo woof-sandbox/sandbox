@@ -97,12 +97,12 @@ function factorScale() external pure returns (uint64)
 function maxAssets() external pure returns (uint8)
 ```
 
-<<<<<<< HEAD
 ### targetBorrowCollateralFactor
 
 ```solidity
 function targetBorrowCollateralFactor() external pure returns (uint64)
-=======
+```
+
 ### deprecationDuration
 
 ```solidity
@@ -113,7 +113,6 @@ function deprecationDuration() external pure returns (uint64)
 
 ```solidity
 function targetLiquidateFactor() external pure returns (uint64)
->>>>>>> origin4/feat/close-market
 ```
 
 ### targetLiquidateCollateralFactor

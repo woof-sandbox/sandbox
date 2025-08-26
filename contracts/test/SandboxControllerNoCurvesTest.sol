@@ -2,31 +2,20 @@
 pragma solidity 0.8.28;
 
 import "../SandboxController.sol";
+import "../interfaces/IPriceFeed.sol";
 
 /**
  * @title ConfigController for testing purposes
  */
 contract SandboxControllerNoCurvesTest is SandboxController {
     constructor(
-        address _owner,
-        address _dao,
         address _treasury,
         bool _feeEnabled,
         SandboxControllerConfiguration memory _config,
         uint64[3] memory _reserveCommissions,
         uint64[3] memory _protocolCommissions,
         uint40 _removalCollateralDuration
-    )
-        SandboxController(
-            _owner,
-            _dao,
-            _treasury,
-            _feeEnabled,
-            _config,
-            _reserveCommissions,
-            _protocolCommissions,
-            _removalCollateralDuration
-        ) {}
+    ) SandboxController(_treasury, _feeEnabled, _config, _reserveCommissions, _protocolCommissions, _removalCollateralDuration) {}
 
     function whitelistBaseAssetWithNoCurve(address token, address priceFeed) external {
         /// @dev this token is already whitelisted

@@ -82,7 +82,7 @@ describe("27. market depreciation", function () {
     sandboxCometImpl = (await comet_factory.deploy()) as SandboxComet;
 
     /// Options of the sandbox controller
-    const opts = defaultSandboxControllerOpts({ owner: owner.address, dao: dao.address, treasury: treasury.address, feeEnabled: true });
+    const opts = defaultSandboxControllerOpts({ treasury: treasury.address, feeEnabled: true });
 
     sandboxController = await makeSandboxController(opts, owner);
 
@@ -124,12 +124,14 @@ describe("27. market depreciation", function () {
 
       await sandboxListCollateralAsset(sandboxController, collateralToken, priceFeedCol.address);
 
+      const totalSupply = await collateralToken.totalSupply();
+      const supplyCap = totalSupply.mul(30).div(100); // 30% of total supply
       collateralTokens.push({
         collateralToken: collateralToken.address,
         borrowCollateralFactor: exp(0.6, 18),
         liquidateCollateralFactor: exp(0.75, 18),
         liquidationFactor: exp(0.85, 18),
-        supplyCap: exp(1e9, 18),
+        supplyCap: supplyCap,
       });
     }
 
@@ -704,12 +706,14 @@ describe("27. market depreciation", function () {
 
           await sandboxListCollateralAsset(sandboxController, collateralToken, priceFeedCol.address);
 
+          const totalSupply = await collateralToken.totalSupply();
+          const supplyCap = totalSupply.mul(30).div(100); // 30% of total supply
           collateralTokensConfig[i] = {
             collateralToken: collateralToken.address,
             borrowCollateralFactor: exp(0.6, 18),
             liquidateCollateralFactor: exp(0.75, 18),
             liquidationFactor: exp(0.85, 18),
-            supplyCap: exp(1e9, 18),
+            supplyCap: supplyCap,
           };
           assetAddresses[i] = collateralToken.address;
         }

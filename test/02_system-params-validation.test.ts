@@ -83,8 +83,8 @@ describe("2. System Params Validation", function () {
       "SandboxControllerNoCurvesTest"
     )) as SandboxControllerNoCurvesTest__factory;
     sandboxController = await makeSandboxController(
-      defaultSandboxControllerOpts({ owner: owner.address, dao: dao.address, treasury: treasury.address }),
-      owner,
+      defaultSandboxControllerOpts({ treasury: treasury.address }),
+      dao,
       SandboxControllerFactoryTest
     );
 
@@ -114,7 +114,7 @@ describe("2. System Params Validation", function () {
       symbol: "BASE",
       supply: ethers.utils.parseEther("50000").toString(),
     });
-    const collateralToken = await makeMockERC20({ name: "C1", symbol: "COL" });
+    const collateralToken = await makeMockERC20({ name: "C1", symbol: "COL", supply: exp(1e6, 18) });
     const priceFeedBase = await makePriceFeed(baseToken.address);
     const priceFeedCol = await makePriceFeed(collateralToken.address);
 
@@ -128,7 +128,7 @@ describe("2. System Params Validation", function () {
       borrowCollateralFactor: collateralConfig.borrowCF,
       liquidateCollateralFactor: collateralConfig.liquidateCF,
       liquidationFactor: collateralConfig.liquidationFactor,
-      supplyCap: collateralConfig.supplyCap,
+      supplyCap: exp(150000, 18), // 15% of total supply
     });
 
     marketConfig = {
@@ -212,6 +212,13 @@ describe("2. System Params Validation", function () {
           configController,
           "CollateralTokenNotWhitelisted"
         );
+      });
+
+      it("should revert if the collateral token supply cap is higher than allowed", async () => {
+        const allowedCap: BigNumber = (await sandboxController.collateralAssets(collateralTokens[0].collateralToken)).supplyCap;
+        marketConfig.collateralTokens[0].supplyCap = allowedCap.add(1);
+
+        await expect(configController.createComet(marketConfig)).to.be.revertedWithCustomError(configController, "SupplyCapTooHigh");
       });
 
       it("should revert if the collateral token supply cap is zero", async () => {
@@ -416,7 +423,8 @@ describe("2. System Params Validation", function () {
       it("should revert if more than max collaterals assigned", async () => {
         const maxAssets = await sandboxCometImpl.MAX_ASSETS();
         for (let i = 0; i < maxAssets; i++) {
-          const extraCollateral = await makeMockERC20({ name: "C" + i, symbol: "COLL" + i });
+          const extraCollateral = await makeMockERC20({ name: "C" + i, symbol: "COLL" + i, supply: exp(1e9, 18) });
+          const supplyCap = exp(300000, 18); // 30% of total supply
           const priceFeedCol = await makePriceFeed(extraCollateral.address);
 
           await sandboxListCollateralAsset(sandboxController, extraCollateral, priceFeedCol.address);
@@ -425,7 +433,7 @@ describe("2. System Params Validation", function () {
             borrowCollateralFactor: exp(0.6, 18),
             liquidateCollateralFactor: exp(0.75, 18),
             liquidationFactor: exp(0.85, 18),
-            supplyCap: exp(1e9, 18),
+            supplyCap: supplyCap,
           });
         }
         await expect(configController.createComet(marketConfig)).to.be.revertedWithCustomError(sandboxCometImpl, "TooManyAssets");

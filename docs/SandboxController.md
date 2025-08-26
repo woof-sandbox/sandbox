@@ -46,6 +46,12 @@ uint8 MARKET_STATES
 uint40 MIN_COLLATERAL_REMOVAL_DURATION
 ```
 
+### MAX_SUPPLY_CAP_PERCENT
+
+```solidity
+uint64 MAX_SUPPLY_CAP_PERCENT
+```
+
 ### treasury
 
 ```solidity
@@ -53,15 +59,6 @@ address treasury
 ```
 
 treasury address. This is the address that will receive the fees.
-
-### owner
-
-```solidity
-address owner
-```
-
-20 bytes
-owner address. This is the address that will be able to call the functions that require the owner role.
 
 ### dao
 
@@ -71,6 +68,24 @@ address dao
 
 20 bytes
 dao address. This is the address that will be able to call the functions that require the dao role.
+
+### contractor
+
+```solidity
+address contractor
+```
+
+20 bytes
+The address of the contractor that will support role to change existing curve params on assets or adding new ones.
+
+### proposedDao
+
+```solidity
+address proposedDao
+```
+
+20 bytes
+proposedDao address. This is the address that will be able to accept the dao role.
 
 ### feeEnabled
 
@@ -147,6 +162,7 @@ mapping(address => struct ISandboxController.CollateralAssetConfiguration) _coll
 
 collateral asset configurations.
 Holds:
+supplyCap
 priceFeed,
 decimals,
 maxBorrowCollateralFactor,
@@ -171,14 +187,6 @@ mapping(address => uint40) suggestedLockTimeOfSeedReserves
 
 Suggested lock time of seed reserves for each base asset.
 
-### onlyOwner
-
-```solidity
-modifier onlyOwner()
-```
-
-_Modifier to check if the caller is the owner._
-
 ### onlyDao
 
 ```solidity
@@ -193,32 +201,29 @@ _Modifier to check if the caller is the DAO._
 modifier onlyAuthorized()
 ```
 
-_Both owner and dao are considered "authorized."
-     If you want them to have separate powers, use onlyOwner or onlyDao
-     in the relevant functions. For shared powers, use onlyAuthorized._
+_Both contractor and dao are considered "authorized."_
 
 ### constructor
 
 ```solidity
-constructor(address _owner, address _dao, address _treasury, bool _feeEnabled, struct ISandboxController.SandboxControllerConfiguration _config, uint64[3] _reserveCommissions, uint64[3] _protocolCommissions, uint40 _removalCollateralDuration) public
+constructor(address _treasury, bool _feeEnabled, struct ISandboxController.SandboxControllerConfiguration _config, uint64[3] _reserveCommissions, uint64[3] _protocolCommissions, uint40 _removalCollateralDuration) public
 ```
 
 _Set all global parameters (including owner and DAO) at deployment.
 
-The length of the `_reserveCommissions` and `_protocolCommissions` arrays must be 3._
+The length of the `_reserveCommissions` and `_protocolCommissions` arrays must be 3.
+Deployer becomes the DAO._
 
 #### Parameters
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-| _owner | address | The address of the protocol owner. |
-| _dao | address | The address of the DAO (governance). |
 | _treasury | address | The address of the treasury. |
 | _feeEnabled | bool | Global fee flag for the entire protocol. |
 | _config | struct ISandboxController.SandboxControllerConfiguration | SanboxController config: _targetPercent, < 0.5 (50%) _storeFrontPriceFactor, < 1e18 _minUpdateTime, > 0 _maxUpdateTime, reasonable time for the proposal duration |
 | _reserveCommissions | uint64[3] | The reserve commission factors for each market state. |
 | _protocolCommissions | uint64[3] | The protocol commission factors for each market state. |
-| _removalCollateralDuration | uint40 |  |
+| _removalCollateralDuration | uint40 | The duration for collateral removal process. |
 
 ### setMarketStateCommissions
 
@@ -317,7 +322,7 @@ The `lockTimeOfSeedReserves` must be greater than or equal to the minimum lock t
 ### whitelistCollateralAsset
 
 ```solidity
-function whitelistCollateralAsset(address token, address priceFeed, uint64 minBorrowCollateralFactor, uint64 maxBorrowCollateralFactor, uint64 minLiquidateCollateralFactor, uint64 maxLiquidateCollateralFactor, uint64 minLiquidationFactor, uint64 maxLiquidationFactor) external
+function whitelistCollateralAsset(address token, address priceFeed, uint64 minBorrowCollateralFactor, uint64 maxBorrowCollateralFactor, uint64 minLiquidateCollateralFactor, uint64 maxLiquidateCollateralFactor, uint64 minLiquidationFactor, uint64 maxLiquidationFactor, uint256 supplyCap) external
 ```
 
 Whitelists a new collateral asset with specified collateral factor parameters.
@@ -339,6 +344,33 @@ _Validates that all collateral factor parameters are within allowed ranges and m
 | maxLiquidateCollateralFactor | uint64 | The maximum liquidate collateral factor (scaled by 1e18). |
 | minLiquidationFactor | uint64 | The minimum liquidation factor (scaled by 1e18). |
 | maxLiquidationFactor | uint64 | The maximum liquidation factor (scaled by 1e18). |
+| supplyCap | uint256 | The supply cap for the collateral asset. |
+
+### updateWhitelistedCollateralAsset
+
+```solidity
+function updateWhitelistedCollateralAsset(address token, uint64 minBorrowCollateralFactor, uint64 maxBorrowCollateralFactor, uint64 minLiquidateCollateralFactor, uint64 maxLiquidateCollateralFactor, uint64 minLiquidationFactor, uint64 maxLiquidationFactor, uint256 supplyCap) external
+```
+
+Updates the parameters of an already whitelisted collateral asset.
+
+_Validates that all collateral factor parameters are within allowed ranges and maintain logical relationships:
+     - 10% <= minBorrowCollateralFactor <= minLiquidateCollateralFactor <= minLiquidationFactor <= 100%
+     - maxBorrowCollateralFactor <= maxLiquidateCollateralFactor <= maxLiquidationFactor <= 100%
+     - min <= max for each factor_
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| token | address | The address of the collateral asset to update. |
+| minBorrowCollateralFactor | uint64 | The new minimum borrow collateral factor (scaled by 1e18). |
+| maxBorrowCollateralFactor | uint64 | The new maximum borrow collateral factor (scaled by 1e18). |
+| minLiquidateCollateralFactor | uint64 | The new minimum liquidate collateral factor (scaled by 1e18). |
+| maxLiquidateCollateralFactor | uint64 | The new maximum liquidate collateral factor (scaled by 1e18). |
+| minLiquidationFactor | uint64 | The new minimum liquidation factor (scaled by 1e18). |
+| maxLiquidationFactor | uint64 | The new maximum liquidation factor (scaled by 1e18). |
+| supplyCap | uint256 | The new supply cap for the collateral asset. |
 
 ### isBaseTokenWhitelisted
 
@@ -423,7 +455,7 @@ Validates an interest rate curve configuration.
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-| curve | struct ISandboxController.BaseAssetCurve | The interest rate curve configuration to validate. |
+| curve | struct ISandboxController.BaseAssetCurve | The interest rate curve configuration to validate. Contains parameters in per year units |
 
 #### Return Values
 
@@ -490,33 +522,47 @@ _Validates seed reserves parameters and revers on incorrect values_
 | _amount | uint256 | Suggested seed reserves amount |
 | _lockTime | uint40 | Suggested seed reserves lock time on the Comet |
 
-### transferOwner
+### proposeDao
 
 ```solidity
-function transferOwner(address newOwner) external
+function proposeDao(address _proposedDao) external
 ```
 
-Transfers the owner privileges to a new address.
+Proposes a new DAO address.
+Allows zero address to be set as proposed dao in case previous proposal should be dismissed
 
 #### Parameters
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-| newOwner | address | The address of the new owner. |
+| _proposedDao | address | The address of the proposed new DAO. |
 
-### transferDao
+### acceptDao
 
 ```solidity
-function transferDao(address newDao) external
+function acceptDao() external
 ```
 
-Transfers the DAO privileges to a new address.
+Accepts the DAO privileges by the proposed DAO address.
+
+_This function can only be called by the proposed DAO address._
+
+### grantContractorRole
+
+```solidity
+function grantContractorRole(address _newContractor) external
+```
+
+Grants the contractor role to a new address.
+Contractor can be set to zero address.
+
+_This function can only be called by the DAO._
 
 #### Parameters
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-| newDao | address | The address of the new DAO. |
+| _newContractor | address | The address of the new contractor. |
 
 ### baseAssets
 
@@ -615,7 +661,6 @@ Returns the configuration of the sandbox controller.
 | ---- | ---- | ----------- |
 | [0] | struct ISandboxController.SandboxControllerConfiguration | The sandbox controller configuration. |
 
-<<<<<<< HEAD
 ### setCollateralRemovalDuration
 
 ```solidity
@@ -625,7 +670,13 @@ function setCollateralRemovalDuration(uint40 newDuration) external
 Sets the duration for collateral removal.
 
 _The new duration must be at least 7 days._
-=======
+
+#### Parameters
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| newDuration | uint40 | The new duration in seconds. |
+
 ### baseTokenSuggestedSeedReserves
 
 ```solidity
@@ -633,15 +684,11 @@ function baseTokenSuggestedSeedReserves(address token) external view returns (ui
 ```
 
 Returns the suggested amount of seed reserves and lock time for a base asset.
->>>>>>> origin4/feat/close-market
 
 #### Parameters
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-<<<<<<< HEAD
-| newDuration | uint40 | The new duration in seconds. |
-=======
 | token | address | The address of the whitelisted base asset token. |
 
 #### Return Values
@@ -650,5 +697,3 @@ Returns the suggested amount of seed reserves and lock time for a base asset.
 | ---- | ---- | ----------- |
 | [0] | uint256 | The suggested amount of seed reserves and lock time for the base asset. |
 | [1] | uint40 |  |
->>>>>>> origin4/feat/close-market
-

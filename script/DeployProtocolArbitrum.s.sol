@@ -46,7 +46,7 @@ contract DeployProtocol is Script {
         address configControllerImplementation = deployConfigControllerImplementation();
 
         // Deploy SandboxController
-        address sandboxController = deploySandboxController(owner);
+        address sandboxController = deploySandboxController();
 
         // Deploy factories
         address configControllerFactory = deployConfigControllerFactory(sandboxController, configControllerImplementation);
@@ -162,17 +162,14 @@ contract DeployProtocol is Script {
         return address(configControllerFactory);
     }
 
-    function deploySandboxController(address owner_) internal returns (address) {
+    function deploySandboxController() internal returns (address) {
         ISandboxController.SandboxControllerConfiguration memory config = ISandboxController.SandboxControllerConfiguration({
             targetPercent: 2e17, // 20%
             storeFrontPriceFactor: 6e17, // 60%
-            minUpdateTime: 300, // 5 minutes
-            maxUpdateTime: 3600 // 1 hour
+            transitionDuration: 3600 // 1 hour
         });
         // Deploy SandboxController with valid parameters
         SandboxController sandboxController = new SandboxController(
-            owner_, // owner
-            address(1), // dao (different from owner)
             address(2), // treasury (for now random address)
             true, // feeEnabled
             config,
@@ -230,7 +227,8 @@ contract DeployProtocol is Script {
             8.5e17, // minLiquidateCollateralFactor (85%)
             9.5e17, // maxLiquidateCollateralFactor (95%)
             8.5e17, // minLiquidationFactor (85%)
-            9.5e17 // maxLiquidationFactor (95%)
+            9.5e17, // maxLiquidationFactor (95%)
+            300_000 * 1e18 // 300k tokens as 30% of presumable 1mln supply
         );
     }
 
@@ -248,9 +246,7 @@ contract DeployProtocol is Script {
             address(0), // guardian
             cometFactory,
             100, // curatorFee (1%)
-            "Test Config Controller",
-            3600, // curatorProposalDuration
-            3600 // proposalDuration
+            "Test Config Controller"
         );
 
         return configController;

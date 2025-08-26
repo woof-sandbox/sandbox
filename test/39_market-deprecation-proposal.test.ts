@@ -78,8 +78,6 @@ describe("39. Market Deprecation Proposal", () => {
 
         // Create SandboxController
         const sandboxControllerOpts = defaultSandboxControllerOpts({
-            owner: owner.address,
-            dao: dao.address,
             treasury: users[0].address
         });
         sandboxController = await makeSandboxController(sandboxControllerOpts, owner);
@@ -100,6 +98,8 @@ describe("39. Market Deprecation Proposal", () => {
                 const maxLiquidateCF = exp(0.8, 18);
                 const minLiquidationFactor = exp(0.8, 18);
                 const maxLiquidationFactor = exp(1, 18);
+                const totalSupply = await tokens[symbol].totalSupply();
+                const supplyCap = totalSupply.mul(30).div(100); // 30% of total supply
 
                 await sandboxController.whitelistCollateralAsset(
                     tokens[symbol].address,
@@ -109,7 +109,8 @@ describe("39. Market Deprecation Proposal", () => {
                     minLiquidateCF,
                     maxLiquidateCF,
                     minLiquidationFactor,
-                    maxLiquidationFactor
+                    maxLiquidationFactor,
+                    supplyCap
                 );
             }
         }
@@ -175,12 +176,14 @@ describe("39. Market Deprecation Proposal", () => {
         const collateralTokens = [];
         for (const symbol in tokens) {
             if (symbol !== "USDC") {
+                const totalSupply = await tokens[symbol].totalSupply();
+                const supplyCap = totalSupply.mul(30).div(100); // 30% of total supply
                 collateralTokens.push({
                     collateralToken: tokens[symbol].address,
                     borrowCollateralFactor: exp(0.6, 18),
                     liquidateCollateralFactor: exp(0.7, 18),
                     liquidationFactor: exp(0.8, 18),
-                    supplyCap: exp(1e9, 18),
+                    supplyCap: supplyCap,
                 });
             }
         }
