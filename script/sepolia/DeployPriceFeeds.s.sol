@@ -22,7 +22,7 @@ contract DeployPriceFeeds is Script {
         vm.startBroadcast(ownerPrivateKey);
         address usdc = address(
             new PriceFeedWithFallback(
-                config.owner,
+                config.dao,
                 sequencer,
                 config.usdc.tokenAddress,
                 config.usdc.chainlinkPriceFeed,
@@ -35,7 +35,7 @@ contract DeployPriceFeeds is Script {
         );
         address wbtc = address(
             new PriceFeedWithFallback(
-                config.owner,
+                config.dao,
                 sequencer,
                 config.wbtc.tokenAddress,
                 config.wbtc.chainlinkPriceFeed,
@@ -48,7 +48,7 @@ contract DeployPriceFeeds is Script {
         );
         address weth = address(
             new PriceFeedWithFallback(
-                config.owner,
+                config.dao,
                 sequencer,
                 config.weth.tokenAddress,
                 config.weth.chainlinkPriceFeed,
@@ -61,7 +61,7 @@ contract DeployPriceFeeds is Script {
         );
         address link = address(
             new PriceFeedWithFallback(
-                config.owner,
+                config.dao,
                 sequencer,
                 config.link.tokenAddress,
                 config.link.chainlinkPriceFeed,
@@ -74,7 +74,7 @@ contract DeployPriceFeeds is Script {
         );
         address stETH = address(
             new PriceFeedWithFallback(
-                config.owner,
+                config.dao,
                 sequencer,
                 config.stETH.tokenAddress,
                 config.stETH.chainlinkPriceFeed,
@@ -87,7 +87,7 @@ contract DeployPriceFeeds is Script {
         );
         address wstETH = address(
             new PriceFeedWithFallback(
-                config.owner,
+                config.dao,
                 sequencer,
                 config.wstETH.tokenAddress,
                 config.wstETH.chainlinkPriceFeed,
@@ -100,7 +100,7 @@ contract DeployPriceFeeds is Script {
         );
         address susde = address(
             new PriceFeedWithFallback(
-                config.owner,
+                config.dao,
                 sequencer,
                 config.sUSDe.tokenAddress,
                 config.sUSDe.chainlinkPriceFeed,
@@ -113,7 +113,7 @@ contract DeployPriceFeeds is Script {
         );
         address snx = address(
             new PriceFeedWithFallback(
-                config.owner,
+                config.dao,
                 sequencer,
                 config.snx.tokenAddress,
                 config.snx.chainlinkPriceFeed,
@@ -126,7 +126,7 @@ contract DeployPriceFeeds is Script {
         );
         address jpy = address(
             new PriceFeedWithFallback(
-                config.owner,
+                config.dao,
                 sequencer,
                 config.jpy.tokenAddress,
                 config.jpy.chainlinkPriceFeed,
@@ -139,7 +139,7 @@ contract DeployPriceFeeds is Script {
         );
         address oETH = address(
             new PriceFeedWithFallback(
-                config.owner,
+                config.dao,
                 sequencer,
                 config.oETH.tokenAddress,
                 config.oETH.chainlinkPriceFeed,
