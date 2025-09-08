@@ -51,6 +51,11 @@ contract WhitelistBaseAsset is Script {
         );
 
         vm.stopBroadcast();
+
+        // uint256 daoPrivateKey = vm.envUint("DAO_PRIVATE_KEY");
+        // vm.startBroadcast(daoPrivateKey);
+        // sandboxController.changeBaseAssetCurve(baseTokenAddress, 0, curve);
+        // vm.stopBroadcast();
     }
 
     function _buildCurve(string memory marketConfig) internal pure returns (ISandboxController.BaseAssetCurve memory) {

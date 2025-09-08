@@ -1,7 +1,7 @@
 {
   "name": "Sandbox WETH",
-  "configController": "0xed0Aeb628e486cD145d9D137F2171C88c1FF188D",
-  "comet": "0x3eae15e335E7639E9D60d6a3DD7d7A41664F4a6a",
+  "configController": "0x31F437844C956D5B26183f1BcF1E803Bc94ce1E2",
+  "comet": "0xdC14Cc2abE4077dDdD0424966A34B2D642547B0A",
   "configControllerName": "WETH ConfigController",
   "owner": "0x0309004C4fB9943797f5C530abd8cddE564A9fD4",
   "curator": "0xc9DDCAc9D1CAF777d95e59e0d57A20c7A1E1474A",
@@ -12,13 +12,13 @@
   "baseToken": "WETH",
   "curve": {
     "supplyKink": 900000000000000000,
-    "supplyPerYearInterestRateSlopeLow": 684931506,
-    "supplyPerYearInterestRateSlopeHigh": 35673515981,
+    "supplyPerYearInterestRateSlopeLow": 21599999973216000,
+    "supplyPerYearInterestRateSlopeHigh": 1124999999976816000,
     "supplyPerYearInterestRateBase": 1,
     "borrowKink": 900000000000000000,
-    "borrowPerYearInterestRateSlopeLow": 491501775,
-    "borrowPerYearInterestRateSlopeHigh": 39954337899,
-    "borrowPerYearInterestRateBase": 317097919
+    "borrowPerYearInterestRateSlopeLow": 15499999976400000,
+    "borrowPerYearInterestRateSlopeHigh": 1259999999982864000,
+    "borrowPerYearInterestRateBase": 9999999973584000
   },
   "baseTokenCurveId": 0,
   "suggestedAmountOfSeedReserves": 0.01e18,

@@ -4,7 +4,7 @@
   "comet": "0xc8C64E32FF87391094e61E097E7b7341F47bc32B",
   "configControllerName": "USDC 2 ConfigController",
   "owner": "0x0309004C4fB9943797f5C530abd8cddE564A9fD4",
-  "curator": "0x44908EF517c28DE800222A9F2030efbb01eE9aFe",
+  "curator": "0xd2822a1B8E9dF1c28966417cc7FfD3427C82D258",
   "guardian": "0x0000000000000000000000000000000000000000",
   "curatorFee": "100",
   "curatorProposalDuration": "3600",
