@@ -63,6 +63,7 @@ export const DEFAULT_UPDATE_TIME = 7 * 24 * 60 * 60;
 export const MIN_UPDATE_TIME = 300;
 export const ZERO_ADDRESS = ethers.constants.AddressZero;
 export const DEFAULT_LOCK_TIME = 7 * 24 * 60 * 60;
+export const DEFAULT_PRICEFEED_DECIMALS = 8;
 
 /// ---------------------
 
@@ -82,6 +83,7 @@ export type AssetLimits = {
   maxLiquidateCF: BigNumberish;
   minLiquidationFactor: BigNumberish;
   maxLiquidationFactor: BigNumberish;
+  supplyCap: BigNumberish;
 };
 
 export type Asset = {
@@ -106,8 +108,6 @@ export type CollateralConfig = {
 };
 
 export type SandboxControllerOpts = {
-  admin: string;
-  dao: string;
   treasury: string;
 
   feeEnabled?: boolean;
@@ -138,6 +138,7 @@ export type ProtocolOpts = {
   config?: SandboxControllerConfigurationStruct;
   reserveCommissions?: [bigint, bigint, bigint];
   protocolCommissions?: [bigint, bigint, bigint];
+  acceptCurator?: boolean;
 };
 
 export type Protocol = {
@@ -173,21 +174,21 @@ export async function makeMockERC20(opts: MockERC20Params): Promise<FaucetToken>
 
 export async function makePriceFeed(underlyingToken: string, amount?: string, decimals?: number): Promise<SimplePriceFeed> {
   const PriceFeedFactory = (await ethers.getContractFactory("SimplePriceFeed")) as SimplePriceFeed__factory;
-  const priceFeed = await PriceFeedFactory.deploy(amount ?? "100000000", decimals ?? 8, underlyingToken);
+  const priceFeed = await PriceFeedFactory.deploy(amount ?? "100000000", decimals ?? DEFAULT_PRICEFEED_DECIMALS, underlyingToken);
   await priceFeed.deployed();
   return priceFeed;
 }
 
 export function makeValidCurve(): BaseAssetCurveStruct {
   return {
-    supplyKink: ethers.utils.parseEther("0.8").toString(),
-    supplyPerYearInterestRateSlopeLow: ethers.utils.parseEther("0.05").toString(),
-    supplyPerYearInterestRateSlopeHigh: ethers.utils.parseEther("2").toString(),
-    supplyPerYearInterestRateBase: ethers.utils.parseEther("0.001").toString(),
-    borrowKink: ethers.utils.parseEther("0.8").toString(),
-    borrowPerYearInterestRateSlopeLow: ethers.utils.parseEther("0.1").toString(),
-    borrowPerYearInterestRateSlopeHigh: ethers.utils.parseEther("3").toString(),
-    borrowPerYearInterestRateBase: ethers.utils.parseEther("0.005").toString(),
+    supplyKink: ethers.utils.parseEther("0.8"),
+    supplyPerYearInterestRateSlopeLow: ethers.utils.parseEther("0.05"),
+    supplyPerYearInterestRateSlopeHigh: ethers.utils.parseEther("2"),
+    supplyPerYearInterestRateBase: ethers.utils.parseEther("0.001"),
+    borrowKink: ethers.utils.parseEther("0.8"),
+    borrowPerYearInterestRateSlopeLow: ethers.utils.parseEther("0.1"),
+    borrowPerYearInterestRateSlopeHigh: ethers.utils.parseEther("3"),
+    borrowPerYearInterestRateBase: ethers.utils.parseEther("0.005"),
   };
 }
 
@@ -198,35 +199,38 @@ export function defaultAssets(): { [symbol: string]: Asset } {
       symbol: "COMP",
       decimals: 18,
 
-      initial: 1e7,
+      initial: exp(1e9, 18),
       initialPrice: 175,
-      liquidationFactor: exp(0.8, 18),
+
+      collateralConfig: {
+        borrowCF: ethers.utils.parseEther("0.8"),
+        liquidateCF: ethers.utils.parseEther("0.85"),
+        liquidationFactor: ethers.utils.parseEther("0.9"),
+        supplyCap: exp(150000, 18),
+      },
     }),
     USDC: Object.assign({
       name: "USDC",
       symbol: "USDC",
       decimals: 6,
 
-      initial: 1e6,
-      liquidationFactor: exp(0.8, 18),
+      initial: exp(1e9, 6),
     }),
     WETH: Object.assign({
       name: "WETH",
       symbol: "WETH",
       decimals: 18,
 
-      initial: 1e4,
-      initialPrice: 3000,
-      liquidationFactor: exp(0.8, 18),
+      initial: exp(1e9, 18),
+      initialPrice: 4000,
     }),
     WBTC: Object.assign({
       name: "WBTC",
       symbol: "WBTC",
       decimals: 8,
 
-      initial: 1e3,
+      initial: exp(1e9, 8),
       initialPrice: 41000,
-      liquidationFactor: exp(0.8, 18),
     }),
   };
 }
@@ -239,6 +243,7 @@ export function defaultAssetLimits(): AssetLimits {
     maxLiquidateCF: exp(0.9, 18),
     minLiquidationFactor: exp(0.75, 18),
     maxLiquidationFactor: exp(0.95, 18),
+    supplyCap: exp(300000, 18), // 300k tokens as 30% of presumable 1M supply
   };
 }
 
@@ -253,8 +258,6 @@ export function defaultCollateralConfig(): CollateralConfig {
 
 export function defaultSandboxControllerOpts(partial?: Partial<SandboxControllerOpts>): SandboxControllerOpts {
   return {
-    admin: partial?.admin,
-    dao: partial?.dao,
     treasury: partial?.treasury,
     feeEnabled: partial?.feeEnabled ?? false,
     config: {
@@ -268,17 +271,15 @@ export function defaultSandboxControllerOpts(partial?: Partial<SandboxController
   };
 }
 
-export async function makeSandboxController(opts: SandboxControllerOpts, factory?): Promise<SandboxController> {
+export async function makeSandboxController(opts: SandboxControllerOpts, dao: SignerWithAddress, factory?): Promise<SandboxController> {
   let SandboxControllerFactory;
   if (factory) {
     SandboxControllerFactory = factory;
   } else {
-    SandboxControllerFactory = (await ethers.getContractFactory("SandboxController")) as SandboxController__factory;
+    SandboxControllerFactory = (await ethers.getContractFactory("SandboxController", dao)) as SandboxController__factory;
   }
 
   const sandboxController = await SandboxControllerFactory.deploy(
-    opts.admin,
-    opts.dao,
     opts.treasury,
     opts.feeEnabled,
     opts.config,
@@ -301,7 +302,7 @@ export async function sandboxListBaseAsset(
 ) {
   const baseBorrowMin_ = baseBorrowMin || exp(1, await baseAsset.decimals());
   const curve_ = curve || makeValidCurve();
-  const suggestedReserves_ = suggestedReserves || exp(1e5, 6); //100$ in USDC
+  const suggestedReserves_ = suggestedReserves || exp(1e5, 6); //100k$ in USDC
   const lockTime_ = lockTime || DEFAULT_LOCK_TIME;
 
   // --- Whitelist the base token ---
@@ -315,6 +316,9 @@ export async function sandboxListCollateralAsset(
   limits?: AssetLimits
 ) {
   const limits_: AssetLimits = limits || defaultAssetLimits();
+  const totalSupply_ = await collateralAsset.totalSupply();
+
+  const expectedCap = totalSupply_.mul(30).div(100);
 
   await sandboxController.whitelistCollateralAsset(
     collateralAsset.address,
@@ -324,7 +328,8 @@ export async function sandboxListCollateralAsset(
     limits_.minLiquidateCF,
     limits_.maxLiquidateCF,
     limits_.minLiquidationFactor,
-    limits_.maxLiquidationFactor
+    limits_.maxLiquidationFactor,
+    expectedCap
   );
 }
 
@@ -359,10 +364,12 @@ async function makeCometFactory(cometImpl: string, configControllerFactory: stri
   return cometFactory;
 }
 
-export async function makeConfigController(opts: ProtocolOpts, acceptCurator?: boolean): Promise<Protocol> {
+export async function makeConfigController(opts: ProtocolOpts): Promise<Protocol> {
   const assets = opts.assets || defaultAssets();
   const baseTokenSymbol = opts.baseTokenSymbol || "USDC";
   let baseToken: FaucetToken | NonStandardFaucetFeeToken;
+
+  const acceptCurator = opts.acceptCurator === undefined || opts.acceptCurator;
 
   // --- deploy tokens ---
   const FaucetFactory = (await ethers.getContractFactory("FaucetToken")) as FaucetToken__factory;
@@ -392,8 +399,8 @@ export async function makeConfigController(opts: ProtocolOpts, acceptCurator?: b
   let tokenAddress: string;
   const PriceFeedFactory = (await ethers.getContractFactory("SimplePriceFeed")) as SimplePriceFeed__factory;
   for (const symbol in assets) {
-    const initialPrice = exp(assets[symbol].initialPrice || 1, 8);
-    const priceFeedDecimals = assets[symbol].priceFeedDecimals || 8;
+    const initialPrice = exp(assets[symbol].initialPrice || 1, DEFAULT_PRICEFEED_DECIMALS);
+    const priceFeedDecimals = assets[symbol].priceFeedDecimals || DEFAULT_PRICEFEED_DECIMALS;
 
     if (symbol == baseTokenSymbol) {
       tokenAddress = baseToken.address;
@@ -409,8 +416,6 @@ export async function makeConfigController(opts: ProtocolOpts, acceptCurator?: b
 
   /// --- Deploy sandbox controller
   const sandboxControllerOpts = defaultSandboxControllerOpts({
-    admin: opts.owner.address,
-    dao: opts.dao.address,
     treasury: opts.treasury,
     feeEnabled: false,
     config: opts.config,
@@ -418,7 +423,7 @@ export async function makeConfigController(opts: ProtocolOpts, acceptCurator?: b
     protocolCommissions: opts.protocolCommissions,
   });
 
-  const sandboxController = await makeSandboxController(sandboxControllerOpts);
+  const sandboxController = await makeSandboxController(sandboxControllerOpts, opts.dao);
 
   // --- Whitelist the base token ---
   await sandboxListBaseAsset(
@@ -492,6 +497,7 @@ export async function createComet(
     [symbol: string]: FaucetToken | NonStandardFaucetFeeToken;
   },
   baseToken: FaucetToken | NonStandardFaucetFeeToken,
+  curveNumber?: number,
   name?: string
 ): Promise<SandboxComet> {
   const _assets = assets || defaultAssets();
@@ -507,18 +513,19 @@ export async function createComet(
       borrowCollateralFactor: assetConfig?.collateralConfig?.borrowCF || defaultConfig.borrowCF,
       liquidateCollateralFactor: assetConfig?.collateralConfig?.liquidateCF || defaultConfig.liquidateCF,
       liquidationFactor: assetConfig?.collateralConfig?.liquidationFactor || defaultConfig.liquidationFactor,
-      supplyCap: assetConfig?.collateralConfig?.supplyCap || defaultConfig.supplyCap,
+      supplyCap:
+        assetConfig?.collateralConfig?.supplyCap || (await collaterals[symbol].totalSupply().then(supply => supply.mul(30).div(100))),
     });
   }
 
   let marketConfig: CometConfigStruct = {
     baseToken: baseToken.address,
     collateralTokens: collateralTokens,
-    baseTokenCurveId: 0n,
+    baseTokenCurveId: curveNumber || 0n,
     name: name || "Comet",
   };
 
-  const amount = await sandboxController.suggestedAmountOfSeedReserves(baseToken.address);
+  const amount = await baseToken.totalSupply().then(supply => supply.mul(30).div(100)); // 30% of total supply
   await baseToken.connect(owner).allocateTo(owner.address, amount);
   await baseToken.connect(owner).approve(configController.address, amount);
 

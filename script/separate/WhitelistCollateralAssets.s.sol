@@ -33,7 +33,8 @@ contract WhitelistCollateralAssets is Script {
             config.usdc.minLiquidateCF,
             config.usdc.maxLiquidateCF,
             config.usdc.minLiquidationF,
-            config.usdc.maxLiquidationF
+            config.usdc.maxLiquidationF,
+            config.usdc.supplyCap
         );
         console.log("Collateral USDC is whitelisted");
 
@@ -46,7 +47,8 @@ contract WhitelistCollateralAssets is Script {
             config.wbtc.minLiquidateCF,
             config.wbtc.maxLiquidateCF,
             config.wbtc.minLiquidationF,
-            config.wbtc.maxLiquidationF
+            config.wbtc.maxLiquidationF,
+            config.wbtc.supplyCap
         );
         console.log("Collateral WBTC is whitelisted");
 
@@ -59,7 +61,8 @@ contract WhitelistCollateralAssets is Script {
             config.weth.minLiquidateCF,
             config.weth.maxLiquidateCF,
             config.weth.minLiquidationF,
-            config.weth.maxLiquidationF
+            config.weth.maxLiquidationF,
+            config.weth.supplyCap
         );
         console.log("Collateral WETH is whitelisted");
 
@@ -72,7 +75,8 @@ contract WhitelistCollateralAssets is Script {
             config.link.minLiquidateCF,
             config.link.maxLiquidateCF,
             config.link.minLiquidationF,
-            config.link.maxLiquidationF
+            config.link.maxLiquidationF,
+            config.link.supplyCap
         );
         console.log("Collateral LINK is whitelisted");
 
@@ -85,7 +89,8 @@ contract WhitelistCollateralAssets is Script {
             config.stETH.minLiquidateCF,
             config.stETH.maxLiquidateCF,
             config.stETH.minLiquidationF,
-            config.stETH.maxLiquidationF
+            config.stETH.maxLiquidationF,
+            config.stETH.supplyCap
         );
         console.log("Collateral stETH is whitelisted");
 
@@ -98,7 +103,8 @@ contract WhitelistCollateralAssets is Script {
             config.wstETH.minLiquidateCF,
             config.wstETH.maxLiquidateCF,
             config.wstETH.minLiquidationF,
-            config.wstETH.maxLiquidationF
+            config.wstETH.maxLiquidationF,
+            config.wstETH.supplyCap
         );
         console.log("Collateral wstETH is whitelisted");
 
@@ -111,7 +117,8 @@ contract WhitelistCollateralAssets is Script {
             config.sUSDe.minLiquidateCF,
             config.sUSDe.maxLiquidateCF,
             config.sUSDe.minLiquidationF,
-            config.sUSDe.maxLiquidationF
+            config.sUSDe.maxLiquidationF,
+            config.sUSDe.supplyCap
         );
         console.log("Collateral sUSDe is whitelisted");
 
@@ -124,7 +131,8 @@ contract WhitelistCollateralAssets is Script {
             config.snx.minLiquidateCF,
             config.snx.maxLiquidateCF,
             config.snx.minLiquidationF,
-            config.snx.maxLiquidationF
+            config.snx.maxLiquidationF,
+            config.snx.supplyCap
         );
         console.log("Collateral SNX is whitelisted");
 
@@ -137,7 +145,8 @@ contract WhitelistCollateralAssets is Script {
             config.jpy.minLiquidateCF,
             config.jpy.maxLiquidateCF,
             config.jpy.minLiquidationF,
-            config.jpy.maxLiquidationF
+            config.jpy.maxLiquidationF,
+            config.jpy.supplyCap
         );
         console.log("Collateral JPY is whitelisted");
 
@@ -150,7 +159,8 @@ contract WhitelistCollateralAssets is Script {
             config.oETH.minLiquidateCF,
             config.oETH.maxLiquidateCF,
             config.oETH.minLiquidationF,
-            config.oETH.maxLiquidationF
+            config.oETH.maxLiquidationF,
+            config.oETH.supplyCap
         );
         console.log("Collateral oETH is whitelisted");
 

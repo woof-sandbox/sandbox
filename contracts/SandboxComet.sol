@@ -9,6 +9,7 @@ import "./interfaces/ISandboxComet.sol";
 import "./interfaces/IPriceFeed.sol";
 import "./interfaces/IConfigController.sol";
 import "./interfaces/ISandboxController.sol";
+import "./interfaces/IRewardsV2.sol";
 
 /**
  * @title Compound's Comet Contract
@@ -23,7 +24,7 @@ contract SandboxComet is CometCore, ISandboxComet {
     /// @param _configController legal address of the config controller which triggered the factory
     /// @param _ext extension deployed by the same factory
     // aderyn-fp-next-line(state-change-without-event)
-    function factoryInit(address _configController, address _ext) external override {
+    function factoryInit(address _configController, address _ext) external {
         if (factory != address(0) || configController != address(0)) revert AlreadyInitialized();
         if (_configController == address(0) || _ext == address(0)) revert IncorrectInitialization();
 
@@ -40,10 +41,7 @@ contract SandboxComet is CometCore, ISandboxComet {
     /// @param comet Base token, interest rate curve, collaterals
     /// @param config Global Comet reserve parameters
     // aderyn-fp-next-line(state-change-without-event)
-    function initialize(
-        IConfigController.CometConfig calldata comet,
-        IConfigController.CometGlobalParamsConfig calldata config
-    ) external override {
+    function initialize(IConfigController.CometConfig calldata comet, IConfigController.CometGlobalParamsConfig calldata config) external {
         /// Relies on fact that factory provides correct controller and that it is set by the time of this call
         if (msg.sender != configController) revert IncorrectInitialization();
         // aderyn-fp-next-line(reentrancy-state-change)
@@ -61,7 +59,6 @@ contract SandboxComet is CometCore, ISandboxComet {
 
         baseScale = uint64(10 ** _decimals); // aderyn-fp(literal-instead-of-constant)
         if (baseScale < BASE_ACCRUAL_SCALE) revert BadDecimals();
-        accrualDescaleFactor = baseScale / BASE_ACCRUAL_SCALE;
 
         // aderyn-fp-next-line(reentrancy-state-change)
         address _baseTokenPriceFeed = ISandboxController(sandboxController).tokenToPriceFeed(comet.baseToken);
@@ -136,18 +133,9 @@ contract SandboxComet is CometCore, ISandboxComet {
         }
 
         /// Indexes
-        ///
-
         lastAccrualTime = getNowInternal();
         baseSupplyIndex = BASE_INDEX_SCALE;
         baseBorrowIndex = BASE_INDEX_SCALE;
-
-        /// Rewards are disabled by default
-        trackingIndexScale = 1;
-        baseMinForRewards = type(uint104).max;
-        /// to avoid explicit initialization
-        /// baseTrackingSupplySpeed = 0;
-        /// baseTrackingBorrowSpeed = 0;
 
         /// Note: event is generated in ConfigController
     }
@@ -226,29 +214,29 @@ contract SandboxComet is CometCore, ISandboxComet {
         uint64 baseSupplyIndex_ = baseSupplyIndex;
         uint64 baseBorrowIndex_ = baseBorrowIndex;
         if (timeElapsed > 0) {
-            uint utilization = getUtilization();
+            uint256 utilization = getUtilization();
             uint64 supplyRate = getSupplyRate(utilization);
             uint64 borrowRate = getBorrowRate(utilization);
             baseSupplyIndex_ += safe64(mulFactor(baseSupplyIndex_, supplyRate * timeElapsed));
             baseBorrowIndex_ += safe64(mulFactor(baseBorrowIndex_, borrowRate * timeElapsed));
         }
+
+        /// TODO: currently supplyRate cut off on reserves exhaustion depends on the last accrual time
+        /// thus it is necessary to return supply index constructed from current balance in case for no borrow
+        /// and reserves exhaustion
         return (baseSupplyIndex_, baseBorrowIndex_);
     }
 
+    /**
+     * @dev Accrue interest (and rewards) in base token supply and borrows
+     */
     function accrueInternal() internal {
         uint40 now_ = getNowInternal();
         uint40 timeElapsed = now_ - lastAccrualTime;
 
-        if (timeElapsed != 0) {
-            (baseSupplyIndex, baseBorrowIndex) = accruedInterestIndices(timeElapsed);
-            if (totalSupplyBase >= baseMinForRewards) {
-                trackingSupplyIndex += safe64(divBaseWei(baseTrackingSupplySpeed * timeElapsed, totalSupplyBase));
-            }
-            if (totalBorrowBase >= baseMinForRewards) {
-                trackingBorrowIndex += safe64(divBaseWei(baseTrackingBorrowSpeed * timeElapsed, totalBorrowBase));
-            }
-            lastAccrualTime = now_;
-        }
+        (baseSupplyIndex, baseBorrowIndex) = accruedInterestIndices(timeElapsed);
+
+        lastAccrualTime = now_;
     }
 
     /**
@@ -258,8 +246,9 @@ contract SandboxComet is CometCore, ISandboxComet {
     function accrueAccount(address account) external override {
         accrueInternal();
 
-        UserBasic memory basic = userBasic[account];
-        updateBasePrincipal(account, basic, basic.principal);
+        if (account != address(0)) {
+            updateUserRewards(account);
+        }
     }
 
     /**
@@ -267,9 +256,25 @@ contract SandboxComet is CometCore, ISandboxComet {
      * @param utilization The utilization to check the supply rate for
      * @return The per second supply rate at `utilization`
      */
-    function getSupplyRate(uint utilization) public view override returns (uint64) {
+    function getSupplyRate(uint256 utilization) public view override returns (uint64) {
         /// No supply - no supply interest
         if (totalSupplyBase == 0) return 0;
+
+        /// In several situations new market with initial seed reserve an have lenders, but may not have borrows
+        /// In such case, lenders will farm on this market on the base supply per second, until reserves are exhausted
+        /// So, we limit the farming possibility by the size of the initial seed reserves:
+        /// - for the new market with no borrows, the balance consists of seed reserves and supplied base asset
+        /// - totalSupply() will grow based on the base rate until it will reach the available balance
+        /// - once it happens - we cut off the supply rate to avoid illiquidity (when lenders will not be able to
+        ///   withdraw as there is no tokens on the Comet balance
+        /// Note: the accrual happens BEFORE the supply state change, so this check will work only AFTER the last
+        ///       accrual. So it may end in totalSupply() exceeding actual balance. Though it will not allow the
+        ///       supply to grow infinitely, thus limiting potentioal amount necessary for the withdraw to be possible
+        if (utilization == 0 && supplyPerSecondInterestRateBase != 0) {
+            if (presentValueSupply(baseSupplyIndex, totalSupplyBase) >= IERC20(baseToken).balanceOf(address(this))) {
+                return 0;
+            }
+        }
 
         if (utilization <= supplyKink) {
             // interestRateBase + interestRateSlopeLow * utilization
@@ -290,7 +295,10 @@ contract SandboxComet is CometCore, ISandboxComet {
      * @param utilization The utilization to check the borrow rate for
      * @return The per second borrow rate at `utilization`
      */
-    function getBorrowRate(uint utilization) public view override returns (uint64) {
+    function getBorrowRate(uint256 utilization) public view override returns (uint64) {
+        /// No borrow - no borrow interest
+        if (totalBorrowBase == 0) return 0;
+
         if (utilization <= borrowKink) {
             // interestRateBase + interestRateSlopeLow * utilization
             return safe64(borrowPerSecondInterestRateBase + mulFactor(borrowPerSecondInterestRateSlopeLow, utilization));
@@ -307,14 +315,19 @@ contract SandboxComet is CometCore, ISandboxComet {
 
     /**
      * @dev Note: Does not accrue interest first
-     * @return The utilization rate of the base asset
+     * @return _ The utilization rate of the base asset. 1e18 corresponds to 100% utilization. Return type is
+     * kept as uint256 as it may peak over 1800% (uint64 max possible) for initial deposits.
      */
-    function getUtilization() public view override returns (uint) {
-        uint totalSupply_ = presentValueSupply(baseSupplyIndex, totalSupplyBase);
-        uint totalBorrow_ = presentValueBorrow(baseBorrowIndex, totalBorrowBase);
+    function getUtilization() public view override returns (uint256) {
+        /// supply/borrow ends in: uin104(base) * uint64(index) / 1e15
+        /// approx (2*1e30 * 1e18) * (18,446 * 1e15) / 1e15
+        uint256 totalSupply_ = presentValueSupply(baseSupplyIndex, totalSupplyBase);
+        uint256 totalBorrow_ = presentValueBorrow(baseBorrowIndex, totalBorrowBase);
         if (totalSupply_ == 0) {
             return 0;
         } else {
+            /// we keep utilization as uint256, despite having rates and kink in uint64
+            /// as utiization may peak quite high during withdrawals by lenders
             return (totalBorrow_ * FACTOR_SCALE) / totalSupply_;
         }
     }
@@ -384,7 +397,8 @@ contract SandboxComet is CometCore, ISandboxComet {
     /**
      * @notice Check whether an account has enough collateral to not be liquidated
      * @param account The address to check
-     * @return Whether the account is minimally collateralized enough to not be liquidated
+     * @return _ Whether the account is minimally collateralized enough to not be liquidated
+     * @dev The function expeсts that indexes are alredy accrued before its call
      */
     function isLiquidatable(address account) public view override returns (bool) {
         int104 principal = userBasic[account].principal;
@@ -477,7 +491,7 @@ contract SandboxComet is CometCore, ISandboxComet {
      * @dev access control check is within the function and restricts it to dao and controller only
      * @param asset Asset (collateral or base) to extract
      */
-    function extractFees(address asset) external override {
+    function extractFees(address asset) external {
         if (asset == address(0)) revert ZeroAddress();
         // Note: we do not check if asset is registered, as it might be already delisted collateral
         // and there is no difference between base asset or collateral
@@ -537,7 +551,7 @@ contract SandboxComet is CometCore, ISandboxComet {
     /**
      * @dev Multiply a number by a factor
      */
-    function mulFactor(uint n, uint factor) internal pure returns (uint) {
+    function mulFactor(uint256 n, uint256 factor) internal pure returns (uint256) {
         return (n * factor) / FACTOR_SCALE;
     }
 
@@ -588,33 +602,11 @@ contract SandboxComet is CometCore, ISandboxComet {
     }
 
     /**
-     * @dev Write updated principal to store and tracking participation
+     * @dev Encapsulation of user's rewards update
      */
-    function updateBasePrincipal(address account, UserBasic memory basic, int104 principalNew) internal {
-        int104 principal = basic.principal;
-        basic.principal = principalNew;
-
-        uint indexDelta;
-
-        if (principal >= 0) {
-            indexDelta = uint256(trackingSupplyIndex - basic.baseTrackingIndex);
-        } else {
-            indexDelta = uint256(trackingBorrowIndex - basic.baseTrackingIndex);
-            principal = -principal;
-        }
-
-        // 0 delta means the same block or disabled rewards
-        if (indexDelta > 0) {
-            basic.baseTrackingAccrued += safe64((uint104(principal) * indexDelta) / trackingIndexScale / accrualDescaleFactor);
-        }
-
-        if (principalNew >= 0) {
-            basic.baseTrackingIndex = trackingSupplyIndex;
-        } else {
-            basic.baseTrackingIndex = trackingBorrowIndex;
-        }
-
-        userBasic[account] = basic;
+    function updateUserRewards(address account) internal {
+        /// @dev: rewards contract will get all necessary values
+        if (rewardAddress != address(0)) IRewardsV2(rewardAddress).accrue(account);
     }
 
     /**
@@ -704,7 +696,9 @@ contract SandboxComet is CometCore, ISandboxComet {
         totalSupplyBase += supplyAmount;
         totalBorrowBase -= repayAmount;
 
-        updateBasePrincipal(dst, dstUser, dstPrincipalNew);
+        /// @dev rewards should be updated with previous principal
+        updateUserRewards(dst);
+        userBasic[dst].principal = dstPrincipalNew;
 
         emit Supply(from, dst, amount);
 
@@ -824,8 +818,13 @@ contract SandboxComet is CometCore, ISandboxComet {
         totalSupplyBase = totalSupplyBase + supplyAmount - withdrawAmount;
         totalBorrowBase = totalBorrowBase + borrowAmount - repayAmount;
 
-        updateBasePrincipal(src, srcUser, srcPrincipalNew);
-        updateBasePrincipal(dst, dstUser, dstPrincipalNew);
+        /// @dev rewards should be updated with previous principal
+        updateUserRewards(src);
+        userBasic[src].principal = srcPrincipalNew;
+
+        /// @dev rewards should be updated with previous principal
+        updateUserRewards(dst);
+        userBasic[dst].principal = dstPrincipalNew;
 
         if (srcBalance < 0) {
             if (uint256(-srcBalance) < baseBorrowMin) revert BorrowTooSmall();
@@ -935,11 +934,17 @@ contract SandboxComet is CometCore, ISandboxComet {
         totalSupplyBase -= withdrawAmount;
         totalBorrowBase += borrowAmount;
 
-        updateBasePrincipal(src, srcUser, srcPrincipalNew);
+        /// @dev rewards should be updated with previous principal
+        updateUserRewards(src);
+        userBasic[src].principal = srcPrincipalNew;
 
+        /// if it is a borrow
         if (srcBalance < 0) {
             if (uint256(-srcBalance) < baseBorrowMin) revert BorrowTooSmall();
             if (!isBorrowCollateralized(src)) revert NotCollateralized();
+            /// @dev safeguard against the over-utilization leading to illiquidity and reserves exhaustion
+            /// At this point totals are updated and it is a borrow case, so we can check resulting utilization
+            if (getUtilization() > MAX_SUPPORTED_UTILIZATION) revert ExceedsSupportedUtilization();
         }
 
         IERC20(baseToken).safeTransfer(to, amount);
@@ -1047,7 +1052,10 @@ contract SandboxComet is CometCore, ISandboxComet {
         }
 
         int104 newPrincipal = principalValue(newBalance);
-        updateBasePrincipal(account, accountUser, newPrincipal);
+
+        /// @dev rewards should be updated with previous principal
+        updateUserRewards(account);
+        userBasic[account].principal = newPrincipal;
 
         // reset assetsIn
         userBasic[account].assetsIn = 0;
@@ -1091,7 +1099,7 @@ contract SandboxComet is CometCore, ISandboxComet {
         if (amountOut + feeProtocol + feeController > getCollateralReserves(asset)) revert InsufficientReserves();
 
         if (feeProtocol > 0) {
-            assetFeesDAO[asset] += feeController;
+            assetFeesDAO[asset] += feeProtocol;
         }
         if (feeController > 0) {
             assetFeesController[asset] += feeController;
@@ -1176,11 +1184,16 @@ contract SandboxComet is CometCore, ISandboxComet {
         */
 
         uint256 scaledBaseAmount = mulFactor(baseAmount, 2 * FACTOR_SCALE - assetInfo.liquidationFactor);
-        uint256 scaledCollateralValue = (scaledBaseAmount * basePrice * assetInfo.scale) / assetPrice / baseScale;
-        uint256 profit = scaledCollateralValue - amountOut;
+        uint256 scaledCollateralAmount = (scaledBaseAmount * basePrice * assetInfo.scale) / assetPrice / baseScale;
 
-        // function guarantees that reserve+protocol+controller == profit
-        (feeReserve, feeProtocol, feeController) = _distributeProfit(profit);
+        /// There are certain combinations of store front factor and liquidation factor, in which there may be no
+        /// profit for the market. In that case profit calculation will underflow, so just deduct that there is no profit
+        if (scaledCollateralAmount > amountOut) {
+            uint256 profit = scaledCollateralAmount - amountOut;
+
+            // function guarantees that reserve+protocol+controller == profit
+            (feeReserve, feeProtocol, feeController) = _distributeProfit(profit);
+        }
     }
 
     /**
@@ -1230,7 +1243,7 @@ contract SandboxComet is CometCore, ISandboxComet {
      * @param account The account whose balance to query
      * @return The present day base balance magnitude of the account, if negative
      */
-    function borrowBalanceOf(address account) public view override returns (uint256) {
+    function borrowBalanceOf(address account) public view returns (uint256) {
         (, uint64 baseBorrowIndex_) = accruedInterestIndices(getNowInternal() - lastAccrualTime);
         int104 principal = userBasic[account].principal;
         return principal < 0 ? presentValueBorrow(baseBorrowIndex_, unsigned104(-principal)) : 0;

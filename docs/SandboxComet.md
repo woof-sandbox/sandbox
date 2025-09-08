@@ -114,6 +114,8 @@ _Calculate accrued interest indices for base token supply and borrows_
 function accrueInternal() internal
 ```
 
+_Accrue interest (and rewards) in base token supply and borrows_
+
 ### accrueAccount
 
 ```solidity
@@ -174,7 +176,7 @@ _Note: Does not accrue interest first_
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-| [0] | uint256 | The utilization rate of the base asset |
+| [0] | uint256 | _ The utilization rate of the base asset. 1e18 corresponds to 100% utilization. Return type is kept as uint256 as it may peak over 1800% (uint64 max possible) for initial deposits. |
 
 ### getPrice
 
@@ -248,6 +250,8 @@ function isLiquidatable(address account) public view returns (bool)
 
 Check whether an account has enough collateral to not be liquidated
 
+_The function expeсts that indexes are alredy accrued before its call_
+
 #### Parameters
 
 | Name | Type | Description |
@@ -258,7 +262,7 @@ Check whether an account has enough collateral to not be liquidated
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-| [0] | bool | Whether the account is minimally collateralized enough to not be liquidated |
+| [0] | bool | _ Whether the account is minimally collateralized enough to not be liquidated |
 
 ### repayAndSupplyAmount
 
@@ -426,13 +430,13 @@ function updateAssetsIn(address account, uint8 index, uint256 initialUserBalance
 
 _Update assetsIn bit vector if user has entered or exited an asset_
 
-### updateBasePrincipal
+### updateUserRewards
 
 ```solidity
-function updateBasePrincipal(address account, struct ICometStructures.UserBasic basic, int104 principalNew) internal
+function updateUserRewards(address account) internal
 ```
 
-_Write updated principal to store and tracking participation_
+_Encapsulation of user's rewards update_
 
 ### doTransferIn
 

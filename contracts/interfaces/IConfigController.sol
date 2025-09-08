@@ -29,13 +29,6 @@ interface IConfigController {
         uint64 storeFrontPriceFactor;
     }
 
-    struct CometRewardOptions {
-        uint256 baseTrackingSupplySpeed;
-        uint256 baseTrackingBorrowSpeed;
-        uint256 trackingIndexScale;
-        uint256 baseMinForRewards;
-    }
-
     /// @notice Returns the current curator fee in basis points (1% = 100)
     /// @return The curator fee value
     function curatorFee() external view returns (uint32);
@@ -99,4 +92,8 @@ interface IConfigController {
     /// @notice Returns the address of the ConfigControllerFactory
     /// @return The address of the ConfigControllerFactory
     function configControllerFactory() external view returns (address);
+
+    /// @notice Sets the address of rewards contract for a specific comet
+    /// @dev Only callable by the owner
+    function setRewards(address _comet, address _rewards) external;
 }

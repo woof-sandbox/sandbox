@@ -121,4 +121,6 @@ interface ICometErrors {
     error IncorrectApproval();
 
     error PrincipalDecreaseOnSupply();
+
+    error ExceedsSupportedUtilization();
 }

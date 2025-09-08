@@ -1,6 +1,5 @@
 {
-  "owner": "0x0309004C4fB9943797f5C530abd8cddE564A9fD4",
-  "dao": "0x44908EF517c28DE800222A9F2030efbb01eE9aFe",
+  "dao": "0x0309004C4fB9943797f5C530abd8cddE564A9fD4",
   "treasury": "0x0309004C4fB9943797f5C530abd8cddE564A9fD4",
   "curator": "0x0309004C4fB9943797f5C530abd8cddE564A9fD4",
   "SandboxController": "0x6966656C1C4275E1dF930f50B7bD1BF1EbFfdaa9",
@@ -19,7 +18,8 @@
       "minLiquidateCF": 6e17,
       "maxLiquidateCF": 7.5e17,
       "minLiquidationF": 7.5e17,
-      "maxLiquidationF": 8.5e17
+      "maxLiquidationF": 8.5e17,
+      "supplyCap": 10000000e6
     },
     "WBTC": {
       "address": "0x5e32B853fa89F3A96A3eA5da78E1736B542C868F",
@@ -31,7 +31,8 @@
       "minLiquidateCF": 8e17,
       "maxLiquidateCF": 9e17,
       "minLiquidationF": 9e17,
-      "maxLiquidationF": 1e18
+      "maxLiquidationF": 1e18,
+      "supplyCap": 50000e8
     },
     "WETH": {
       "address": "0x5aF99e5C511D1Be51e974e70A960E30271054eFc",
@@ -43,7 +44,8 @@
       "minLiquidateCF": 8.5e17,
       "maxLiquidateCF": 9.1e17,
       "minLiquidationF": 9.1e17,
-      "maxLiquidationF": 1e18
+      "maxLiquidationF": 1e18,
+      "supplyCap": 300000e18
     },
     "LINK": {
       "address": "0x2b61683B2c4c11F3f7bB53E2e0c5E930508B0D6f",
@@ -55,7 +57,8 @@
       "minLiquidateCF": 8e17,
       "maxLiquidateCF": 9e17,
       "minLiquidationF": 9e17,
-      "maxLiquidationF": 1e18
+      "maxLiquidationF": 1e18,
+      "supplyCap": 1000000e18
     },
     "stETH": {
       "address": "0x3fE28Ae879B1F77c199798a33990A0605621B4B2",
@@ -67,7 +70,8 @@
       "minLiquidateCF": 8.5e17,
       "maxLiquidateCF": 9.1e17,
       "minLiquidationF": 9.1e17,
-      "maxLiquidationF": 1e18
+      "maxLiquidationF": 1e18,
+      "supplyCap": 30000e18
     },
     "wstETH": {
       "address": "0xd64bf85186D2AAd57DFAE7005AaE09b699a72ed2",
@@ -79,7 +83,8 @@
       "minLiquidateCF": 8.5e17,
       "maxLiquidateCF": 9.1e17,
       "minLiquidationF": 9.1e17,
-      "maxLiquidationF": 1e18
+      "maxLiquidationF": 1e18,
+      "supplyCap": 30000e18
     },
     "sUSDe": {
       "address": "0xF44e660462999c3ae3a9d478fDE8550F77981287",
@@ -91,7 +96,8 @@
       "minLiquidateCF": 6e17,
       "maxLiquidateCF": 7.5e17,
       "minLiquidationF": 7.5e17,
-      "maxLiquidationF": 8.5e17
+      "maxLiquidationF": 8.5e17,
+      "supplyCap": 10000000e18
     },
     "SNX": {
       "address": "0xa5C5426ab43C2A8a808D8a717CCA5848B00993bD",
@@ -103,7 +109,8 @@
       "minLiquidateCF": 8e17,
       "maxLiquidateCF": 9e17,
       "minLiquidationF": 9e17,
-      "maxLiquidationF": 1e18
+      "maxLiquidationF": 1e18,
+      "supplyCap": 1000000e18
     },
     "JPY": {
       "address": "0x81CdF487D2C934f21605173FbF0D5848CbE40b6f",
@@ -115,7 +122,8 @@
       "minLiquidateCF": 6e17,
       "maxLiquidateCF": 7.5e17,
       "minLiquidationF": 7.5e17,
-      "maxLiquidationF": 8.5e17
+      "maxLiquidationF": 8.5e17,
+      "supplyCap": 1000000e18
     },
     "oETH": {
       "address": "0xF3ccB60B5FB7F9d1ab1Ed46eDfdea76db32025B8",
@@ -127,7 +135,8 @@
       "minLiquidateCF": 8.5e17,
       "maxLiquidateCF": 9.1e17,
       "minLiquidationF": 9.1e17,
-      "maxLiquidationF": 1e18
+      "maxLiquidationF": 1e18,
+      "supplyCap": 1000000e18
     }
   },
   "sandboxControllerConfiguration": {
@@ -136,15 +145,7 @@
     "minUpdateTime": 300,
     "maxUpdateTime": 3600,
     "feeEnabled": true,
-    "reserveCommissions": [
-      4e16,
-      3e16,
-      2e16
-    ],
-    "protocolCommissions": [
-      4e16,
-      3e16,
-      2e16
-    ]
+    "reserveCommissions": [4e16, 3e16, 2e16],
+    "protocolCommissions": [4e16, 3e16, 2e16]
   }
 }

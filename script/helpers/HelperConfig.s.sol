@@ -25,6 +25,7 @@ contract HelperConfig is Script {
         uint64 maxLiquidateCF;
         uint64 minLiquidationF;
         uint64 maxLiquidationF;
+        uint256 supplyCap;
     }
 
     struct SandboxControllerConfig {
@@ -38,7 +39,6 @@ contract HelperConfig is Script {
     }
 
     struct NetworkConfig {
-        address owner;
         address dao;
         address treasury;
         address curator;
@@ -96,7 +96,6 @@ contract HelperConfig is Script {
         NetworkConfig memory config;
 
         // Read basic config
-        config.owner = json.readAddress(".owner");
         config.dao = json.readAddress(".dao");
         config.treasury = json.readAddress(".treasury");
         config.curator = json.readAddress(".curator");
@@ -136,7 +135,8 @@ contract HelperConfig is Script {
                 minLiquidateCF: uint64(json.readUint(string.concat(assetPath, ".minLiquidateCF"))),
                 maxLiquidateCF: uint64(json.readUint(string.concat(assetPath, ".maxLiquidateCF"))),
                 minLiquidationF: uint64(json.readUint(string.concat(assetPath, ".minLiquidationF"))),
-                maxLiquidationF: uint64(json.readUint(string.concat(assetPath, ".maxLiquidationF")))
+                maxLiquidationF: uint64(json.readUint(string.concat(assetPath, ".maxLiquidationF"))),
+                supplyCap: uint256(json.readUint(string.concat(assetPath, ".supplyCap")))
             });
     }
 

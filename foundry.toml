@@ -26,3 +26,6 @@ int_types = 'long'
 func_attrs_with_params_multiline = true
 quote_style = 'double'
 number_underscore = 'thousands'
+
+[lint]
+lint_on_build = false

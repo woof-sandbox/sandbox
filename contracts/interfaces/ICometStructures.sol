@@ -5,24 +5,16 @@ pragma solidity 0.8.28;
  * @title Sandbox Comet data strucutures
  */
 interface ICometStructures {
-    // 512 bits total = 2 slots
-    struct TotalsBasic {
-        // 1st slot
-        uint64 baseSupplyIndex; // aderyn-fp(local-variable-shadowing)
-        uint64 baseBorrowIndex; // aderyn-fp(local-variable-shadowing)
-        uint64 trackingSupplyIndex; // aderyn-fp(local-variable-shadowing)
-        uint64 trackingBorrowIndex; // aderyn-fp(local-variable-shadowing)
-        // 2nd slot
-        uint104 totalSupplyBase; // aderyn-fp(local-variable-shadowing)
-        uint104 totalBorrowBase; // aderyn-fp(local-variable-shadowing)
-        uint40 lastAccrualTime; // aderyn-fp(local-variable-shadowing)
-        uint8 pauseFlags; // aderyn-fp(local-variable-shadowing)
-    }
-
+    /**
+     * @notice User account data for base token positions and reward tracking
+     * @param principal The user's base token principal amount.
+     *              Positive values represent supply positions,
+     *              negative values represent borrow positions.
+     * @param assetsIn Bit vector indicating which collateral assets
+     *              the user has a non-zero balance in.
+     */
     struct UserBasic {
         int104 principal;
-        uint64 baseTrackingIndex;
-        uint64 baseTrackingAccrued;
         uint24 assetsIn;
     }
 
