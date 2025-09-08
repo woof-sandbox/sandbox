@@ -17,7 +17,7 @@ contract DeploySandboxController is Script {
     }
 
     function deploySandboxController(HelperConfig.NetworkConfig memory config) public returns (address sandboxController) {
-        uint256 sandboxControllerDeployerPrivateKey = vm.envUint("DAO_PRIVATE_KEY");
+        uint256 sandboxControllerDeployerPrivateKey = vm.envUint("SANDBOX_CONTROLLER_DEPLOYER_PRIVATE_KEY");
 
         ISandboxController.SandboxControllerConfiguration memory sandboxControllerConfig = ISandboxController
             .SandboxControllerConfiguration({

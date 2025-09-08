@@ -1,7 +1,7 @@
 {
   "name": "Sandbox USDC 2",
-  "configController": "0xCc88030ef0a2315225292c86c32944fDbd81929d",
-  "comet": "0xc8C64E32FF87391094e61E097E7b7341F47bc32B",
+  "configController": "0x5312bF6C23503170337AfC5C7DBF96EC76487BdF",
+  "comet": "0xD4EE2D9AC78A471c96525aFCF2a74DA07a443E0a",
   "configControllerName": "USDC 2 ConfigController",
   "owner": "0x0309004C4fB9943797f5C530abd8cddE564A9fD4",
   "curator": "0xd2822a1B8E9dF1c28966417cc7FfD3427C82D258",
@@ -14,7 +14,7 @@
     "supplyKink": 9e17,
     "supplyPerYearInterestRateSlopeLow": 35999999986896000,
     "supplyPerYearInterestRateSlopeHigh": 3195999999996480000,
-    "supplyPerYearInterestRateBase": 10999999976144000,
+    "supplyPerYearInterestRateBase": 0,
     "borrowKink": 9e17,
     "borrowPerYearInterestRateSlopeLow": 27777999977136000,
     "borrowPerYearInterestRateSlopeHigh": 3599999999982576000,

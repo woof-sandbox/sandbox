@@ -2,11 +2,11 @@
   "dao": "0x0309004C4fB9943797f5C530abd8cddE564A9fD4",
   "treasury": "0x0309004C4fB9943797f5C530abd8cddE564A9fD4",
   "curator": "0x0309004C4fB9943797f5C530abd8cddE564A9fD4",
-  "SandboxController": "0x6966656C1C4275E1dF930f50B7bD1BF1EbFfdaa9",
-  "ConfigControllerImplementation": "0xD9178eb03E24e2897650Ee0785A20AE07e368AE6",
-  "ConfigControllerFactory": "0xe2276Bc225f6fe4E80124c7603C7D6A727fD9042",
-  "CometImplementation": "0x82d6d815810a76B13ed1bB9F98CBFE0Af7B19cC4",
-  "SandboxCometFactory": "0xb054CEdA0A526245742EC58dbc3f9b31d83fae96",
+  "SandboxController": "0x05d5A39a37c0A2C66f49747B6b9cc4fEF2A4609E",
+  "ConfigControllerImplementation": "0xfd41ec1C6e2C5B89D157CFa2c0d4300a0E49d82C",
+  "ConfigControllerFactory": "0xF2270d1A6E1C4F6cE1f05c89cE326195d6196338",
+  "CometImplementation": "0xC289D90a3B10fe22766E87b11A62a472D7793068",
+  "SandboxCometFactory": "0x15684b2e8E89532B7f98230AB02dA5d697C9Ef20",
   "assets": {
     "USDC": {
       "address": "0x4bccDFff0F71e8033be817935816A60Cb8C06a39",
@@ -136,7 +136,7 @@
       "maxLiquidateCF": 9.1e17,
       "minLiquidationF": 9.1e17,
       "maxLiquidationF": 1e18,
-      "supplyCap": 1000000e18
+      "supplyCap": 20000e18
     }
   },
   "sandboxControllerConfiguration": {
