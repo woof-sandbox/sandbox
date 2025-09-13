@@ -2,13 +2,12 @@
 pragma solidity 0.8.28;
 
 import "forge-std/Script.sol";
-import "../contracts/SandboxController.sol";
-import "../contracts/ConfigControllerFactory.sol";
-import "../contracts/SandboxCometFactory.sol";
-import "../contracts/SandboxComet.sol";
-import "../contracts/interfaces/ISandboxComet.sol";
-import "../contracts/test/MockPriceFeed.sol";
-import "../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
+import { SandboxController, ISandboxController } from "../contracts/SandboxController.sol";
+import { ConfigControllerFactory, ConfigController, IConfigController } from "../contracts/ConfigControllerFactory.sol";
+import { SandboxCometFactory } from "../contracts/SandboxCometFactory.sol";
+import { SandboxComet, ISandboxComet } from "../contracts/SandboxComet.sol";
+import { MockPriceFeed } from "../contracts/tests/MockPriceFeed.sol";
+import { IERC20 } from "../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 
 /**
  * @title DeployProtocolArbitrum

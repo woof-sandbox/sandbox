@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
-import { ICometExtension } from "contracts/interfaces/ICometExtension.sol";
+import { ICometExtension } from "contracts/interfaces/internal/ICometExtension.sol";
 
 contract CometExtension is ICometExtension {
     /** Public constants **/

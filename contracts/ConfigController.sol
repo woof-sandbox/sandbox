@@ -1,16 +1,17 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import { SafeERC20, IERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-import "./interfaces/IConfigController.sol";
-import "./interfaces/IConfigControllerErrors.sol";
-import "./interfaces/IConfigControllerEvents.sol";
+import { IConfigController } from "./interfaces/internal/sandbox/IConfigController.sol";
+import { IConfigControllerErrors } from "./interfaces/internal/sandbox/IConfigControllerErrors.sol";
+import { IConfigControllerEvents } from "./interfaces/internal/sandbox/IConfigControllerEvents.sol";
 
-import "./interfaces/IConfigControllerFactory.sol";
-import "./interfaces/ISandboxController.sol";
-import "./interfaces/ICometForController.sol";
-import "./interfaces/ISandboxCometFactory.sol";
+import { IConfigControllerFactory } from "./interfaces/internal/sandbox/IConfigControllerFactory.sol";
+import { ISandboxController } from "./interfaces/internal/sandbox/ISandboxController.sol";
+import { ISandboxComet } from "./interfaces/internal/sandbox/ISandboxComet.sol";
+import { ISandboxCometFactory } from "./interfaces/internal/sandbox/ISandboxCometFactory.sol";
+import { ICometForController } from "./interfaces/internal/ICometForController.sol";
 
 /**
  * @title ConfigController

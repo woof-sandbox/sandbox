@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
-import "../interfaces/IPriceFeed.sol";
+import { IPriceFeed } from "../interfaces/external/IPriceFeed.sol";
 
 /**
  * @title Constant price feed

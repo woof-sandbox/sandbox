@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
-import "../interfaces/IBalancerRateProvider.sol";
-import "../interfaces/IPriceFeed.sol";
+import { IBalancerRateProvider } from "../interfaces/external/IBalancerRateProvider.sol";
+import { IPriceFeed } from "../interfaces/external/IPriceFeed.sol";
 
 /**
  * @title ezETH Scaling price feed

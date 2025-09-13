@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
-import { ICometStructures } from "contracts/interfaces/ICometStructures.sol";
+import { ICometStructures } from "contracts/interfaces/internal/ICometStructures.sol";
 
 /**
  * @title Compound's Comet Storage Interface

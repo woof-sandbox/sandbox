@@ -1,7 +1,7 @@
-// SPDX-License-Identifier: GPL-2.0-or-later
+// SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
-import "./IConfigController.sol";
+import { IConfigController } from "./sandbox/IConfigController.sol";
 
 /**
  * @title Compound's Comet Main Interface (without Ext)
