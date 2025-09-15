@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity 0.8.28;
 
-import "./ISandboxErrors.sol";
+import { ISandboxErrors } from "./ISandboxErrors.sol";
 
 interface ISandboxController is ISandboxErrors {
     enum MarketState {

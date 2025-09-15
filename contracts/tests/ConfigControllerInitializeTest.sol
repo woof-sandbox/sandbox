@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
-import "../ConfigController.sol";
+import { ConfigController, ISandboxController } from "../ConfigController.sol";
+import { ICometForController } from "../interfaces/internal/ICometForController.sol";
 
 /**
  * @title ConfigController for testing purposes

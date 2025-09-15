@@ -227,7 +227,7 @@ const config: HardhatUserConfig = {
   docgen: {
     outputDir: './docs',
     pages: 'files',
-    exclude: ['./test', './pricefeeds', './interfaces'],
+    exclude: ['./tests', './pricefeeds', './interfaces'],
   },
 };
 

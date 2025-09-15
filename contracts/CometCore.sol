@@ -3,8 +3,8 @@ pragma solidity 0.8.28;
 
 import { CometStorage } from "contracts/CometStorage.sol";
 import { CometMath } from "contracts/CometMath.sol";
-import { ICometErrors } from "contracts/interfaces/ICometErrors.sol";
-import { ICometEvents } from "contracts/interfaces/ICometEvents.sol";
+import { ICometErrors } from "contracts/interfaces/internal/ICometErrors.sol";
+import { ICometEvents } from "contracts/interfaces/internal/ICometEvents.sol";
 
 abstract contract CometCore is CometStorage, CometMath, ICometErrors, ICometEvents {
     /**

@@ -5,12 +5,12 @@ import { Script, console } from "forge/lib/forge-std/src/Script.sol";
 import { SandboxController } from "contracts/SandboxController.sol";
 import { ConfigController } from "contracts/ConfigController.sol";
 import { ConfigControllerFactory } from "contracts/ConfigControllerFactory.sol";
-import { IConfigController } from "contracts/interfaces/IConfigController.sol";
-import { ISandboxController } from "contracts/interfaces/ISandboxController.sol";
+import { IConfigController } from "contracts/interfaces/internal/sandbox/IConfigController.sol";
+import { ISandboxController } from "contracts/interfaces/internal/sandbox/ISandboxController.sol";
 import { SandboxCometFactory } from "contracts/SandboxCometFactory.sol";
 import { SandboxComet } from "contracts/SandboxComet.sol";
-import { ManagedFaucetToken } from "contracts/test/ManagedFaucetToken.sol";
-import { ManagedSimplePriceFeed } from "contracts/test/ManagedSimplePriceFeed.sol";
+import { ManagedFaucetToken } from "contracts/tests/ManagedFaucetToken.sol";
+import { ManagedSimplePriceFeed } from "contracts/tests/ManagedSimplePriceFeed.sol";
 import { HelperConfig } from "script/helpers/HelperConfig.s.sol";
 import { IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 
@@ -205,7 +205,7 @@ contract DeployProtocol is Script {
             targetPercent: 2e17, // 20%
             storeFrontPriceFactor: 6e17, // 60%
             minUpdateTime: 300, // 5 minutes
-            maxUpdateTime: 3600, // 1 hour
+            maxUpdateTime: 3600 // 1 hour
         });
         // Deploy SandboxController with valid parameters
         SandboxController sandboxController = new SandboxController(

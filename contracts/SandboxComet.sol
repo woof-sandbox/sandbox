@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
-import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import { IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
+import { SafeERC20, IERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-import "./CometCore.sol";
-import "./interfaces/ISandboxComet.sol";
-import "./interfaces/IPriceFeed.sol";
-import "./interfaces/IConfigController.sol";
-import "./interfaces/ISandboxController.sol";
-import "./interfaces/IRewardsV2.sol";
+import { CometCore } from "./CometCore.sol";
+import { ISandboxComet } from "./interfaces/internal/sandbox/ISandboxComet.sol";
+import { IConfigController } from "./interfaces/internal/sandbox/IConfigController.sol";
+import { ISandboxController } from "./interfaces/internal/sandbox/ISandboxController.sol";
+import { IRewardsV2 } from "./interfaces/internal/IRewardsV2.sol";
+import { IPriceFeed } from "./interfaces/external/IPriceFeed.sol";
 
 /**
  * @title Compound's Comet Contract

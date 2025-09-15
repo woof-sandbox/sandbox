@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
-import "../interfaces/AggregatorV3Interface.sol";
-import "../interfaces/IPriceFeed.sol";
+import { AggregatorV3Interface } from "../interfaces/external/AggregatorV3Interface.sol";
+import { IPriceFeed } from "../interfaces/external/IPriceFeed.sol";
 
 /**
  * @title Reverse multiplicative price feed

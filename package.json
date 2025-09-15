@@ -32,14 +32,14 @@
     "lint:ts": "eslint --no-error-on-unmatched-pattern scripts/**/*.ts test/**/*.ts hardhat.config.ts",
     "lint:sol": "solhint contracts/**/*.sol --config .solhint.json",
     "aderyn": "npx aderyn --src contracts/ -o ADERYN_REPORT.md",
-    "prettier:sol": "prettier --write contracts/**/*.sol --config .prettierrc.json  --end-of-line auto",
-    "prettier:ts": "prettier --no-error-on-unmatched-pattern --write test/**/*.ts src/**/*.ts scripts/**/*.ts hardhat.config.ts --config .prettierrc.json  --end-of-line auto",
+    "prettier:sol": "prettier --write \"**/*.sol\" --ignore-path .prettierignore --config .prettierrc.json --end-of-line auto",
+    "prettier:ts": "prettier --write \"**/*.ts\" --ignore-path .prettierignore --config .prettierrc.json --end-of-line auto",
     "doc": "hardhat docgen",
     "clean:out": "./scripts/clean-out.sh",
     "setup:hooks": "git config core.hooksPath .githooks"
   },
   "author": "Compound Finance",
-  "license": "BUSL-1.1",
+  "license": "(BUSL-1.1 OR GPL-2.0-or-later)",
   "dependencies": {
     "@openzeppelin/contracts": "file:lib/openzeppelin-contracts/contracts",
     "chai": "^5.2.1",

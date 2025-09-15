@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
-import { WETH9 } from "contracts/test/WETH9.sol";
+import { WETH9 } from "contracts/tests/WETH9.sol";
 import { Script, console } from "forge-std/Script.sol";
 import { HelperConfig } from "script/helpers/HelperConfig.s.sol";
-import { ManagedSimplePriceFeed } from "contracts/test/ManagedSimplePriceFeed.sol";
+import { ManagedSimplePriceFeed } from "contracts/tests/ManagedSimplePriceFeed.sol";
 
 contract DeployWETH9PriceFeed is Script {
     function run() external {

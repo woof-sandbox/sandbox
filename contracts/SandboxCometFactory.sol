@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
-import "@openzeppelin/contracts/proxy/Clones.sol";
+import { Clones } from "@openzeppelin/contracts/proxy/Clones.sol";
 
-import "./interfaces/ISandboxCometFactory.sol";
-import "./interfaces/ICometForController.sol";
-import "./interfaces/IConfigControllerFactory.sol";
-import "./CometExtension.sol";
+import { ISandboxCometFactory } from "./interfaces/internal/sandbox/ISandboxCometFactory.sol";
+import { ICometForController } from "./interfaces/internal/ICometForController.sol";
+import { IConfigControllerFactory } from "./interfaces/internal/sandbox/IConfigControllerFactory.sol";
+import { CometExtension } from "./CometExtension.sol";
 
 /**
  * @title SandboxCometFactory

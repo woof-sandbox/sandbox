@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
-import "../interfaces/IPriceFeed.sol";
+import { IPriceFeed } from "../interfaces/external/IPriceFeed.sol";
 
 contract ManagedSimplePriceFeed is IPriceFeed {
     string public constant override description = "Mock Chainlink price aggregator";

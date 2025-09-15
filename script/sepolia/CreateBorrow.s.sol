@@ -2,10 +2,10 @@
 pragma solidity 0.8.28;
 
 import { Script } from "lib/forge-std/src/Script.sol";
-import { ISandboxComet } from "contracts/interfaces/ISandboxComet.sol";
+import { ISandboxComet } from "contracts/interfaces/internal/sandbox/ISandboxComet.sol";
 import "forge-std/console.sol";
 import { HelperConfig } from "script/helpers/HelperConfig.s.sol";
-import { WETH9 } from "contracts/test/WETH9.sol";
+import { WETH9 } from "contracts/tests/WETH9.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract DeployProtocol is Script {

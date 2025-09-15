@@ -3,7 +3,7 @@ pragma solidity 0.8.28;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "./../SandboxComet.sol";
-import "./FaucetToken.sol";
+import { FaucetToken } from "./FaucetToken.sol"; // Removed to fix duplicate identifier error
 
 /**
  * @title Malicious ERC20 token

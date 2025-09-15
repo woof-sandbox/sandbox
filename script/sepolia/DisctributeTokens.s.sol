@@ -4,9 +4,9 @@ pragma solidity 0.8.28;
 import { HelperConfig } from "script/helpers/HelperConfig.s.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { Script } from "forge-std/Script.sol";
-import { WETH9 } from "contracts/test/WETH9.sol";
-import { ManagedFaucetToken } from "contracts/test/ManagedFaucetToken.sol";
-import { ISandboxComet } from "contracts/interfaces/ISandboxComet.sol";
+import { WETH9 } from "contracts/tests/WETH9.sol";
+import { ManagedFaucetToken } from "contracts/tests/ManagedFaucetToken.sol";
+import { ISandboxComet } from "contracts/interfaces/internal/sandbox/ISandboxComet.sol";
 import { CometExtension } from "contracts/CometExtension.sol";
 
 contract DistributeTokens is Script {
