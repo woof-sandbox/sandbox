@@ -10,6 +10,14 @@ extra_output_files = ['storageLayout']
 eth_rpc_url = 'https://rpc.ankr.com/eth_sepolia/bfab75774c460fa32a8c5e98bd890f57777ca3be7fdc5654b31f16a91f1e073e'
 via_ir = true
 
+fs_permissions = [
+    { access = "read-write", path = "./script/configs/sepolia.json"},
+    { access = "read-write", path = "./markets/sepolia/usdc.json"},
+    { access = "read-write", path = "./markets/sepolia/usdc2.json"},
+    { access = "read-write", path = "./markets/sepolia/wbtc.json"},
+    { access = "read-write", path = "./markets/sepolia/weth.json"}
+]
+
 [fmt]
 line_length = 120
 tab_width = 4
@@ -18,3 +26,6 @@ int_types = 'long'
 func_attrs_with_params_multiline = true
 quote_style = 'double'
 number_underscore = 'thousands'
+
+[lint]
+lint_on_build = false

@@ -779,6 +779,10 @@ contract SandboxController is ISandboxController {
      * @param supplyCap The supply cap to validate.
      */
     function _validateSupplyCap(address token, uint256 supplyCap) private view {
+        /// @dev Exception for WETH on sepolia, as on mint
+        /// function totalSupply is not increasing
+        if (token == 0x5aF99e5C511D1Be51e974e70A960E30271054eFc) return;
+
         if (supplyCap == 0) revert SupplyCapCantBeZero();
         /// Check is bound to a token's total supply, and thus it can be applied to tokens with no fixed cap. In that case
         /// tokens will require an update updateWhitelistedCollateralAsset() once the supply growth enough

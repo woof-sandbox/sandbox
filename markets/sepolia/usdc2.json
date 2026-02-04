@@ -1,0 +1,43 @@
+{
+  "name": "Sandbox USDC 2",
+  "configController": "0x5312bF6C23503170337AfC5C7DBF96EC76487BdF",
+  "comet": "0xD4EE2D9AC78A471c96525aFCF2a74DA07a443E0a",
+  "configControllerName": "USDC 2 ConfigController",
+  "owner": "0x0309004C4fB9943797f5C530abd8cddE564A9fD4",
+  "curator": "0xd2822a1B8E9dF1c28966417cc7FfD3427C82D258",
+  "guardian": "0x0000000000000000000000000000000000000000",
+  "curatorFee": "100",
+  "curatorProposalDuration": "3600",
+  "proposalDuration": "3600",
+  "baseToken": "USDC",
+  "curve": {
+    "supplyKink": 9e17,
+    "supplyPerYearInterestRateSlopeLow": 35999999986896000,
+    "supplyPerYearInterestRateSlopeHigh": 3195999999996480000,
+    "supplyPerYearInterestRateBase": 0,
+    "borrowKink": 9e17,
+    "borrowPerYearInterestRateSlopeLow": 27777999977136000,
+    "borrowPerYearInterestRateSlopeHigh": 3599999999982576000,
+    "borrowPerYearInterestRateBase": 14999999976144000
+  },
+  "baseTokenCurveId": 0,
+  "suggestedAmountOfSeedReserves": 5000e6,
+  "suggestedLockTimeOfSeedReserves": 604800,
+  "minBorrow": 5e6,
+  "collaterals": [
+    {
+      "name": "WBTC",
+      "supplyCap": 10000e8,
+      "borrowCF": 7.5e17,
+      "liquidateCF": 8.2e17,
+      "liquidationF": 9.3e17
+    },
+    {
+      "name": "WETH",
+      "supplyCap": 25000e18,
+      "borrowCF": 8e17,
+      "liquidateCF": 8.5e17,
+      "liquidationF": 9.5e17
+    }
+  ]
+}

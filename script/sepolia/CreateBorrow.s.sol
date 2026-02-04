@@ -1,130 +1,83 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
-import { Script } from "lib/forge-std/src/Script.sol";
-import { ISandboxComet } from "contracts/interfaces/ISandboxComet.sol";
-import "forge-std/console.sol";
+import { Script, console } from "forge-std/Script.sol";
+import { SandboxComet } from "contracts/SandboxComet.sol";
+import { CometExtension } from "contracts/CometExtension.sol";
 import { HelperConfig } from "script/helpers/HelperConfig.s.sol";
-import { WETH9 } from "contracts/test/WETH9.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract DeployProtocol is Script {
     HelperConfig.NetworkConfig config;
 
-    uint256 lenderPrivateKey;
-    uint256 baseLenderPrivateKey;
-    uint256 borrowerPrivateKey;
-
-    function run() external {
+    function run() public {
         HelperConfig helperConfig = new HelperConfig();
         config = helperConfig.getConfig();
 
-        // Get owner's private key from .env
-        lenderPrivateKey = vm.envUint("LENDER_PRIVATE_KEY");
-        baseLenderPrivateKey = vm.envUint("BASE_LENDER_PRIVATE_KEY");
-        borrowerPrivateKey = vm.envUint("BORROWER_PRIVATE_KEY");
+        SandboxComet cometUSDC = SandboxComet(payable(0x38e04acB66733d22137b827Af3c11F19716a9e88));
+        SandboxComet cometUSDC2 = SandboxComet(payable(0xc8C64E32FF87391094e61E097E7b7341F47bc32B));
+        SandboxComet cometWBTC = SandboxComet(payable(0x70F7d9Db40f2EAB325aB13241b2d1BDE373995C1));
+        SandboxComet cometWETH = SandboxComet(payable(0xdC14Cc2abE4077dDdD0424966A34B2D642547B0A));
 
-        address lender = vm.addr(lenderPrivateKey);
-        address baseLender = vm.addr(baseLenderPrivateKey);
-        address borrower = vm.addr(borrowerPrivateKey);
+        IERC20 link = IERC20(config.link.tokenAddress);
+        IERC20 usdc = IERC20(config.usdc.tokenAddress);
+        IERC20 weth = IERC20(config.weth.tokenAddress);
+        IERC20 wbtc = IERC20(config.wbtc.tokenAddress);
 
-        uint256 borrowAmount = 50e6;
+        // vm.startBroadcast();
 
-        // Initialize arrays with correct sizes
+        // //
+        // usdc.approve(address(cometUSDC), type(uint256).max);
+        // usdc.approve(address(cometUSDC2), type(uint256).max);
+        // cometUSDC.supply(address(usdc), 1000e6);
+        // cometUSDC2.supply(address(usdc), 1000e6);
 
-        address[] memory collateralTokens = new address[](4);
-        collateralTokens[0] = config.weth;
-        collateralTokens[1] = config.wbtc;
-        uint256[] memory collateralAmounts = new uint256[](4);
-        collateralAmounts[0] = 0.001 ether; // 0.001 WETH
-        collateralAmounts[1] = 0.001e8; // 0.001 WBTC
+        // //
+        // weth.approve(address(cometWETH), type(uint256).max);
+        // cometWETH.supply(address(weth), 0.05e18);
 
-        lendCollaterals(config.comet1, collateralTokens, collateralAmounts, lender);
-        lendBaseToken(config.comet1, config.usdc, 500e6, baseLender);
-        setupBorrowing(config.comet1, config.usdc, collateralTokens, collateralAmounts, borrowAmount, borrower);
+        // //
+        // wbtc.approve(address(cometWBTC), type(uint256).max);
+        // cometWBTC.supply(address(wbtc), 0.0001e8);
 
-        collateralTokens[2] = config.link;
-        collateralTokens[3] = config.comp;
-        collateralAmounts[2] = 4e18; // 4 LINK
-        collateralAmounts[3] = 3e18; // 3 COMP
+        /*//////////////////////////////////////////////////////////////
+                                    
+        //////////////////////////////////////////////////////////////*/
 
-        lendCollaterals(config.comet2, collateralTokens, collateralAmounts, lender);
-        lendBaseToken(config.comet2, config.usdc, 500e6, baseLender);
-        setupBorrowing(config.comet2, config.usdc, collateralTokens, collateralAmounts, borrowAmount, borrower);
-    }
+        // weth.approve(address(cometUSDC), type(uint256).max);
+        // weth.approve(address(cometUSDC2), type(uint256).max);
+        // cometUSDC.supply(address(weth), 0.01e18);
+        // cometUSDC2.supply(address(weth), 0.002e18);
 
-    function lendCollaterals(
-        address cometAddr,
-        address[] memory collateralTokens,
-        uint256[] memory collateralAmounts,
-        address user
-    ) internal {
-        ISandboxComet comet = ISandboxComet(cometAddr);
+        // link.approve(address(cometWETH), type(uint256).max);
+        // cometWETH.supply(address(link), 15e18);
 
-        vm.startBroadcast(lenderPrivateKey);
-        // Supply collateral tokens
-        for (uint i = 0; i < collateralTokens.length; i++) {
-            address collateralToken = collateralTokens[i];
-            IERC20 token = IERC20(collateralToken);
-            WETH9 weth = WETH9(payable(collateralToken));
+        // link.approve(address(cometWBTC), type(uint256).max);
+        // cometWBTC.supply(address(link), 15e18);
 
-            if (collateralToken == address(0)) continue; // Skip if collateral token is zero address
+        // vm.stopBroadcast();
 
-            if (collateralToken == config.weth) {
-                weth.approve(cometAddr, collateralAmounts[i]);
-                comet.supply(collateralToken, collateralAmounts[i]);
-            } else {
-                token.approve(cometAddr, collateralAmounts[i]);
-                comet.supply(collateralToken, collateralAmounts[i]);
-            }
-        }
+        /*//////////////////////////////////////////////////////////////
+                                 BORROW
+        //////////////////////////////////////////////////////////////*/
+
+        vm.startBroadcast(0x44908EF517c28DE800222A9F2030efbb01eE9aFe);
+
+        weth.approve(address(cometUSDC), type(uint256).max);
+        weth.approve(address(cometUSDC2), type(uint256).max);
+        link.approve(address(cometWETH), type(uint256).max);
+        link.approve(address(cometWBTC), type(uint256).max);
+
+        cometUSDC.supply(address(weth), 1e18);
+        cometUSDC2.supply(address(weth), 1e18);
+        cometWETH.supply(address(link), 24e18);
+        cometWBTC.supply(address(link), 24e18);
+
+        cometUSDC.withdraw(address(usdc), 100e6);
+        cometUSDC2.withdraw(address(usdc), 100e6);
+        cometWETH.withdraw(address(weth), 0.01e18);
+        cometWBTC.withdraw(address(wbtc), 0.001e8);
+
         vm.stopBroadcast();
-    }
-
-    function lendBaseToken(address cometAddr, address baseToken, uint256 lendAmount, address user) internal {
-        ISandboxComet comet = ISandboxComet(cometAddr);
-
-        vm.startBroadcast(baseLenderPrivateKey);
-        // Supply base token
-        IERC20(baseToken).approve(cometAddr, lendAmount);
-        comet.supply(baseToken, lendAmount);
-        vm.stopBroadcast();
-
-        console.log("Lent base token:", baseToken, "amount:", lendAmount);
-    }
-
-    function setupBorrowing(
-        address cometAddr,
-        address baseToken,
-        address[] memory collateralTokens,
-        uint256[] memory collateralAmounts,
-        uint256 borrowAmount,
-        address user
-    ) internal {
-        ISandboxComet comet = ISandboxComet(cometAddr);
-
-        vm.startBroadcast(borrowerPrivateKey);
-        // Supply collateral tokens
-        for (uint i = 0; i < collateralTokens.length; i++) {
-            address collateralToken = collateralTokens[i];
-            IERC20 token = IERC20(collateralToken);
-            WETH9 weth = WETH9(payable(collateralToken));
-
-            if (collateralToken == address(0)) continue; // Skip if collateral token is zero address
-
-            if (collateralToken == config.weth) {
-                weth.approve(cometAddr, collateralAmounts[i]);
-                comet.supply(collateralToken, collateralAmounts[i]);
-            } else {
-                token.approve(cometAddr, collateralAmounts[i]);
-                comet.supply(collateralToken, collateralAmounts[i]);
-            }
-        }
-
-        // Borrow base token
-        comet.withdraw(baseToken, borrowAmount);
-        vm.stopBroadcast();
-
-        console.log("Borrowed amount:", borrowAmount);
     }
 }

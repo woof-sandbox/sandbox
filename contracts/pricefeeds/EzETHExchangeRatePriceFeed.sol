@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.28;
 
-import "../interfaces/IBalancerRateProvider.sol";
-import "../interfaces/IPriceFeed.sol";
+import { IPriceFeed } from "contracts/interfaces/IPriceFeed.sol";
+import { IBalancerRateProvider } from "contracts/interfaces/IBalancerRateProvider.sol";
+import { AccessControl } from "contracts/pricefeeds/AccessControl.sol";
+import { AggregatorV3Interface } from "contracts/interfaces/AggregatorV3Interface.sol";
 
 /**
  * @title ezETH Scaling price feed
@@ -10,54 +12,85 @@ import "../interfaces/IPriceFeed.sol";
  * price feed and returns the result
  * @author Compound
  */
-contract EzETHExchangeRatePriceFeed is IPriceFeed {
-    /** Custom errors **/
-    error InvalidInt256();
-    error BadDecimals();
-
+contract EzETHExchangeRatePriceFeed is AccessControl, IPriceFeed {
     /// @notice Version of the price feed
-    uint public constant VERSION = 1;
+    uint public constant version = 1;
 
-    /// @notice Description of the price feed
-    string public description;
+    /// @notice Number of decimals for the ezETH rate provider
+    uint8 public constant EZETH_RATE_PROVIDER_DECIMALS = 18;
 
     /// @notice Number of decimals for returned prices
-    uint8 public immutable override decimals;
-
-    /// @notice ezETH price feed where prices are fetched from
-    address public immutable underlyingPriceFeed;
-
-    /// @notice Whether or not the price should be upscaled
-    bool internal immutable shouldUpscale;
+    uint8 public immutable decimals;
 
     /// @notice The amount to upscale or downscale the price by
     int256 internal immutable rescaleFactor;
 
     /// @notice The underlying token
-    address public immutable override underlyingToken;
+    address public immutable underlyingToken;
+
+    /// @notice ezETH price feed where prices are fetched from
+    address public immutable underlyingPriceFeed;
+
+    /// @notice The Chainlink sequencer address
+    address public sequencer;
+
+    /// @notice Description of the price feed
+    string public description;
+
+    /**
+     * @notice Emitted when the sequencer address is updated.
+     * @param newSequencer The address of the new sequencer.
+     */
+    event SequencerUpdated(address indexed newSequencer);
+
+    /// @notice Reverts if the uint256 value is over the int256 max value
+    error InvalidInt256();
+
+    /// @notice Reverts if the decimals are greater than 18 or equal to 0
+    error BadDecimals();
+
+    /// @dev Reverts if the sequencer is invalid.
+    error InvalidSequencer();
+
+    /// @notice Reverts if the price is not available
+    error PriceNotAvailable();
 
     /**
      * @notice Construct a new ezETH scaling price feed
+     * @param dao_ The address of the DAO that can update the sequencer
+     * @param sequencer_ The address of the Chainlink sequencer
      * @param ezETHRateProvider The address of the underlying price feed to fetch prices from
      * @param decimals_ The number of decimals for the returned prices
      * @param description_ The description of the price feed
      * @param underlyingToken_ The address of the underlying token
      **/
-    constructor(address ezETHRateProvider, uint8 decimals_, string memory description_, address underlyingToken_) {
+    constructor(
+        address dao_,
+        address sequencer_,
+        address ezETHRateProvider,
+        uint8 decimals_,
+        string memory description_,
+        address underlyingToken_
+    ) AccessControl(dao_) {
+        if (ezETHRateProvider == address(0) || underlyingToken_ == address(0)) revert ZeroAddress();
+        if (decimals_ == 0 || decimals_ > 18) revert BadDecimals();
+
         underlyingPriceFeed = ezETHRateProvider;
-        if (decimals_ > 18) revert BadDecimals();
         decimals = decimals_;
         description = description_;
-
-        uint8 ezETHRateProviderDecimals = 18;
-        // Note: Solidity does not allow setting immutables in if/else statements
-        shouldUpscale = ezETHRateProviderDecimals < decimals_ ? true : false;
-        rescaleFactor = (
-            shouldUpscale
-                ? signed256(10 ** (decimals_ - ezETHRateProviderDecimals))
-                : signed256(10 ** (ezETHRateProviderDecimals - decimals_))
-        );
         underlyingToken = underlyingToken_;
+
+        rescaleFactor = signed256(10 ** (EZETH_RATE_PROVIDER_DECIMALS - decimals_));
+        _validateAndSetSequencer(sequencer_);
+    }
+
+    /**
+     * @notice Sets the sequencer address.
+     * @param _sequencer The address of the new sequencer.
+     * @notice Available only to the DAO.
+     */
+    function setSequencer(address _sequencer) external onlyDao {
+        _validateAndSetSequencer(_sequencer);
     }
 
     /**
@@ -74,11 +107,19 @@ contract EzETHExchangeRatePriceFeed is IPriceFeed {
         override
         returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound)
     {
+        if (sequencer != address(0)) {
+            (, answer, , , ) = AggregatorV3Interface(sequencer).latestRoundData();
+            if (answer == 1) revert PriceNotAvailable();
+        }
+
         uint256 rate = IBalancerRateProvider(underlyingPriceFeed).getRate();
+        if (rate == 0) revert PriceNotAvailable();
+
+        answer = signed256(rate) / rescaleFactor;
         // protocol uses only the answer value. Other data fields are not provided by the underlying pricefeed and are not used
         // in Comet protocol
         // https://etherscan.io/address/0x387dBc0fB00b26fb085aa658527D5BE98302c84C#readProxyContract
-        return (1, scalePrice(signed256(rate)), block.timestamp, block.timestamp, 1);
+        return (1, answer, block.timestamp, block.timestamp, 1);
     }
 
     function signed256(uint256 n) internal pure returns (int256) {
@@ -86,21 +127,16 @@ contract EzETHExchangeRatePriceFeed is IPriceFeed {
         return int256(n);
     }
 
-    function scalePrice(int256 price) internal view returns (int256) {
-        int256 scaledPrice;
-        if (shouldUpscale) {
-            scaledPrice = price * rescaleFactor;
-        } else {
-            scaledPrice = price / rescaleFactor;
-        }
-        return scaledPrice;
-    }
-
     /**
-     * @notice Price for the latest round
-     * @return The version of the price feed contract
-     **/
-    function version() external pure returns (uint256) {
-        return VERSION;
+     * @notice Validates and sets the sequencer address.
+     * @notice Emits a SequencerUpdated event.
+     * @param _sequencer The address of the new sequencer.
+     */
+    function _validateAndSetSequencer(address _sequencer) internal {
+        if ((block.chainid != 1 && _sequencer == address(0)) || _sequencer == sequencer) revert InvalidSequencer();
+
+        sequencer = _sequencer;
+
+        emit SequencerUpdated(_sequencer);
     }
 }

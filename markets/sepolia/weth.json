@@ -1,0 +1,57 @@
+{
+  "name": "Sandbox WETH",
+  "configController": "0xA0863710270252ff3aD3cD32C8c1bD81a3Abc320",
+  "comet": "0x9A110233F6819d5b6Cac4D9139871fC52feC9551",
+  "configControllerName": "WETH ConfigController",
+  "owner": "0x0309004C4fB9943797f5C530abd8cddE564A9fD4",
+  "curator": "0xc9DDCAc9D1CAF777d95e59e0d57A20c7A1E1474A",
+  "guardian": "0x0000000000000000000000000000000000000000",
+  "curatorFee": "100",
+  "curatorProposalDuration": "3600",
+  "proposalDuration": "3600",
+  "baseToken": "WETH",
+  "curve": {
+    "supplyKink": 900000000000000000,
+    "supplyPerYearInterestRateSlopeLow": 21599999973216000,
+    "supplyPerYearInterestRateSlopeHigh": 1124999999976816000,
+    "supplyPerYearInterestRateBase": 0,
+    "borrowKink": 900000000000000000,
+    "borrowPerYearInterestRateSlopeLow": 15499999976400000,
+    "borrowPerYearInterestRateSlopeHigh": 1259999999982864000,
+    "borrowPerYearInterestRateBase": 9999999973584000
+  },
+  "baseTokenCurveId": 0,
+  "suggestedAmountOfSeedReserves": 0.01e18,
+  "suggestedLockTimeOfSeedReserves": 604800,
+  "minBorrow": 0.001e18,
+  "collaterals": [
+    {
+      "name": "stETH",
+      "supplyCap": 10000e8,
+      "borrowCF": 8.2e17,
+      "liquidateCF": 8.7e17,
+      "liquidationF": 9.3e17
+    },
+    {
+      "name": "wstETH",
+      "supplyCap": 25000e18,
+      "borrowCF": 7.9e17,
+      "liquidateCF": 8.5e17,
+      "liquidationF": 9.5e17
+    },
+    {
+      "name": "LINK",
+      "supplyCap": 100000e18,
+      "borrowCF": 7.7e17,
+      "liquidateCF": 8.2e17,
+      "liquidationF": 9.1e17
+    },
+    {
+      "name": "oETH",
+      "supplyCap": 15000e18,
+      "borrowCF": 8e17,
+      "liquidateCF": 8.7e17,
+      "liquidationF": 9.2e17
+    }
+  ]
+}
