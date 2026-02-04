@@ -20,10 +20,10 @@ contract MarketSimulation is Script {
         HelperConfig helperConfig = new HelperConfig();
         config = helperConfig.getConfig();
 
-        SandboxComet cometUSDC = SandboxComet(payable(0x38e04acB66733d22137b827Af3c11F19716a9e88));
-        SandboxComet cometUSDC2 = SandboxComet(payable(0xc8C64E32FF87391094e61E097E7b7341F47bc32B));
-        SandboxComet cometWBTC = SandboxComet(payable(0x70F7d9Db40f2EAB325aB13241b2d1BDE373995C1));
-        SandboxComet cometWETH = SandboxComet(payable(0x4056De1f717c7D6d7d681F9560742463211ecF4f));
+        SandboxComet cometUSDC = SandboxComet(payable(0x4d7F8042430C96e8C0Aa791BC5f51f4c1F0A61Ef));
+        SandboxComet cometUSDC2 = SandboxComet(payable(0x32334944FAfB06340844204F0AcCAd53C70817E1));
+        SandboxComet cometWBTC = SandboxComet(payable(0x478a4C4aBBDc44E4B16858975a20B934C6ba06aF));
+        SandboxComet cometWETH = SandboxComet(payable(0xc3873dFBdB8D158e6c3BC953f2143C64CB636441));
 
         IERC20 link = IERC20(config.link.tokenAddress);
         IERC20 usdc = IERC20(config.usdc.tokenAddress);
@@ -43,7 +43,6 @@ contract MarketSimulation is Script {
         uint256 baseTokenSupplierPrivateKey = uint256(vm.envUint("BASE_TOKEN_SUPPLIER_PRIVATE_KEY"));
         uint256 minterPrivateKey = uint256(vm.envUint("MINTER_PRIVATE_KEY"));
         uint256 collateralSupplyerPrivateKey = uint256(vm.envUint("COLLATERAL_SUPPLIER_PRIVATE_KEY"));
-
 
         /*//////////////////////////////////////////////////////////////
                             BASE TOKENS SUPPLY
@@ -82,12 +81,11 @@ contract MarketSimulation is Script {
 
         // vm.stopBroadcast();
 
+        // vm.startBroadcast(collateralSupplyerPrivateKey);
 
         /*//////////////////////////////////////////////////////////////
                                 APPROVALS
         //////////////////////////////////////////////////////////////*/
-
-        // vm.startBroadcast(collateralSupplyerPrivateKey);
 
         // wbtc.approve(address(cometUSDC), type(uint256).max);
         // weth.approve(address(cometUSDC), type(uint256).max);
@@ -111,7 +109,7 @@ contract MarketSimulation is Script {
         //                             USDC
         // //////////////////////////////////////////////////////////////*/
 
-        // cometUSDC.supply(address(wbtc), 1.9e8);
+        // cometUSDC.supply(address(wbtc), 2.5e8);
         // cometUSDC.supply(address(weth), 65e18);
         // cometUSDC.supply(address(link), 18435e18);
         // cometUSDC.supply(address(susde), 54489e18);
@@ -122,7 +120,7 @@ contract MarketSimulation is Script {
         //                             USDC 2
         // //////////////////////////////////////////////////////////////*/
 
-        // cometUSDC2.supply(address(wbtc), 2.3e8);
+        // cometUSDC2.supply(address(wbtc), 3.3e8);
         // cometUSDC2.supply(address(weth), 43e18);
 
         // cometUSDC2.withdraw(address(usdc), 150500e6);

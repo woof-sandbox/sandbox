@@ -22,7 +22,7 @@ contract MockPriceFeedAggregator is IPriceFeed {
     }
 
     function latestRoundData() external view returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound) {
-        (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound) = priceFeed.latestRoundData();
+        (roundId, answer, startedAt, updatedAt, answeredInRound) = priceFeed.latestRoundData();
         updatedAt = block.timestamp;
     }
 }

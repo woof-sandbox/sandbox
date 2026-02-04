@@ -27,6 +27,8 @@ contract DeployConfigControllerFactory is Script {
         string memory path;
         if (11155111 == block.chainid) {
             path = string.concat(vm.projectRoot(), "/script/configs/sepolia.json");
+        } else if (111555111 == block.chainid) {
+            path = string.concat(vm.projectRoot(), "/script/configs/sepolia.json");
         } else {
             revert("Invalid chain ID");
         }

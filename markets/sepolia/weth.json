@@ -1,7 +1,7 @@
 {
   "name": "Sandbox WETH",
-  "configController": "0xDA498E72eA2f3DBb122e2a47aF58CFC60124F71b",
-  "comet": "0x4056De1f717c7D6d7d681F9560742463211ecF4f",
+  "configController": "0x489528F32Cb8b0ED163C5324589777AeEB5EB736",
+  "comet": "0xc3873dFBdB8D158e6c3BC953f2143C64CB636441",
   "configControllerName": "WETH ConfigController",
   "owner": "0x0309004C4fB9943797f5C530abd8cddE564A9fD4",
   "curator": "0xc9DDCAc9D1CAF777d95e59e0d57A20c7A1E1474A",
@@ -27,21 +27,21 @@
   "collaterals": [
     {
       "name": "stETH",
-      "supplyCap": 10000e18,
+      "supplyCap": 1000000e18,
       "borrowCF": 8.2e17,
       "liquidateCF": 8.7e17,
       "liquidationF": 9.3e17
     },
     {
       "name": "wstETH",
-      "supplyCap": 25000e18,
+      "supplyCap": 1000000e18,
       "borrowCF": 7.9e17,
       "liquidateCF": 8.5e17,
       "liquidationF": 9.5e17
     },
     {
       "name": "LINK",
-      "supplyCap": 100000e18,
+      "supplyCap": 2000000e18,
       "borrowCF": 7.7e17,
       "liquidateCF": 8.2e17,
       "liquidationF": 9.1e17

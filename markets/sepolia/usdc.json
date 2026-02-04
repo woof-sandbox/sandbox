@@ -1,7 +1,7 @@
 {
   "name": "Sandbox USDC",
-  "configController": "0x6812f287AA9081F2d577626043BDC32DBD0D67dE",
-  "comet": "0x38e04acB66733d22137b827Af3c11F19716a9e88",
+  "configController": "0x09C4989f25b1925D8846aeDc3333c6ff4B6A01Ae",
+  "comet": "0x4d7F8042430C96e8C0Aa791BC5f51f4c1F0A61Ef",
   "configControllerName": "USDC ConfigController",
   "owner": "0x0309004C4fB9943797f5C530abd8cddE564A9fD4",
   "curator": "0x44908EF517c28DE800222A9F2030efbb01eE9aFe",
@@ -27,28 +27,28 @@
   "collaterals": [
     {
       "name": "WBTC",
-      "supplyCap": 10000e8,
+      "supplyCap": 150000e8,
       "borrowCF": 7.5e17,
       "liquidateCF": 8.2e17,
       "liquidationF": 9.3e17
     },
     {
       "name": "WETH",
-      "supplyCap": 25000e18,
+      "supplyCap": 100000e18,
       "borrowCF": 8e17,
       "liquidateCF": 8.5e17,
       "liquidationF": 9.5e17
     },
     {
       "name": "LINK",
-      "supplyCap": 100000e18,
+      "supplyCap": 2000000e18,
       "borrowCF": 7.7e17,
       "liquidateCF": 8.2e17,
       "liquidationF": 9.1e17
     },
     {
       "name": "sUSDe",
-      "supplyCap": 1000000e18,
+      "supplyCap": 5000000e18,
       "borrowCF": 6e17,
       "liquidateCF": 6.5e17,
       "liquidationF": 7.7e17
