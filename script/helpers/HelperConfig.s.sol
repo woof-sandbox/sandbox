@@ -75,7 +75,7 @@ contract HelperConfig is Script {
 
     constructor() {
         networkConfigs[SEPOLIA_TESTNET_CHAIN_ID] = getSepoliaTestnetConfig();
-        networkConfigs[VIRTUAL_SEPOLIA_TESTNET_CHAIN_ID] = getSepoliaTestnetConfig();
+        networkConfigs[VIRTUAL_SEPOLIA_TESTNET_CHAIN_ID] = getVirtualSepoliaTestnetConfig();
     }
 
     function getConfig() public view returns (NetworkConfig memory) {
@@ -87,12 +87,73 @@ contract HelperConfig is Script {
         }
     }
 
+    function getChainConfigPath() public view returns (string memory) {
+        if (11155111 == block.chainid) {
+            return string.concat(vm.projectRoot(), "/script/configs/sepolia.json");
+        } else if (111555111 == block.chainid) {
+            return string.concat(vm.projectRoot(), "/script/configs/vNetSepolia.json");
+        } else {
+            revert HelperConfig__InvalidChainId();
+        }
+    }
+
+    function getMarketPath(string memory marketName) public view returns (string memory) {
+        if (11155111 == block.chainid) {
+            return string.concat(vm.projectRoot(), "/markets/sepolia/", marketName, ".json");
+        } else if (111555111 == block.chainid) {
+            return string.concat(vm.projectRoot(), "/markets/vNetSepolia/", marketName, ".json");
+        } else {
+            revert HelperConfig__InvalidChainId();
+        }
+    }
+
+    function getCometAddress(string memory marketName) public view returns (address) {
+        string memory path = getMarketPath(marketName);
+        string memory json = vm.readFile(path);
+        return json.readAddress(".comet");
+    }
+
     /*//////////////////////////////////////////////////////////////
                                 CONFIGS
     //////////////////////////////////////////////////////////////*/
 
     function getSepoliaTestnetConfig() public view returns (NetworkConfig memory) {
         string memory path = string.concat(vm.projectRoot(), "/script/configs/sepolia.json");
+        string memory json = vm.readFile(path);
+
+        NetworkConfig memory config;
+
+        // Read basic config
+        config.owner = json.readAddress(".owner");
+        config.dao = json.readAddress(".dao");
+        config.treasury = json.readAddress(".treasury");
+        config.curator = json.readAddress(".curator");
+        config.sandboxController = json.readAddress(".SandboxController");
+        config.configControllerImplementation = json.readAddress(".ConfigControllerImplementation");
+        config.configControllerFactory = json.readAddress(".ConfigControllerFactory");
+        config.cometImplementation = json.readAddress(".CometImplementation");
+        config.sandboxCometFactory = json.readAddress(".SandboxCometFactory");
+
+        // Read assets
+        config.usdc = _readAssetConfig(json, ".assets.USDC");
+        config.wbtc = _readAssetConfig(json, ".assets.WBTC");
+        config.weth = _readAssetConfig(json, ".assets.WETH");
+        config.link = _readAssetConfig(json, ".assets.LINK");
+        config.stETH = _readAssetConfig(json, ".assets.stETH");
+        config.wstETH = _readAssetConfig(json, ".assets.wstETH");
+        config.sUSDe = _readAssetConfig(json, ".assets.sUSDe");
+        config.snx = _readAssetConfig(json, ".assets.SNX");
+        config.jpy = _readAssetConfig(json, ".assets.JPY");
+        config.oETH = _readAssetConfig(json, ".assets.oETH");
+
+        // Read sandbox controller config
+        config.sandboxControllerConfig = _readSandboxControllerConfig(json);
+
+        return config;
+    }
+
+    function getVirtualSepoliaTestnetConfig() public view returns (NetworkConfig memory) {
+        string memory path = string.concat(vm.projectRoot(), "/script/configs/vNetSepolia.json");
         string memory json = vm.readFile(path);
 
         NetworkConfig memory config;

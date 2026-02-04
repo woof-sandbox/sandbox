@@ -153,19 +153,19 @@ contract DeployPriceFeeds is Script {
         vm.stopBroadcast();
 
         /*//////////////////////////////////////////////////////////////
-                             UPDATE CONFIG
+                                UPDATE CONFIG
         //////////////////////////////////////////////////////////////*/
-        string memory path = string.concat(vm.projectRoot(), "/script/configs/sepolia.json");
+        string memory networkConfigPath = helperConfig.getChainConfigPath();
 
-        vm.writeJson(vm.toString(usdc), path, ".assets.USDC.priceFeed");
-        vm.writeJson(vm.toString(wbtc), path, ".assets.WBTC.priceFeed");
-        vm.writeJson(vm.toString(weth), path, ".assets.WETH.priceFeed");
-        vm.writeJson(vm.toString(link), path, ".assets.LINK.priceFeed");
-        vm.writeJson(vm.toString(stETH), path, ".assets.stETH.priceFeed");
-        vm.writeJson(vm.toString(wstETH), path, ".assets.wstETH.priceFeed");
-        vm.writeJson(vm.toString(susde), path, ".assets.sUSDe.priceFeed");
-        vm.writeJson(vm.toString(snx), path, ".assets.SNX.priceFeed");
-        vm.writeJson(vm.toString(jpy), path, ".assets.JPY.priceFeed");
-        vm.writeJson(vm.toString(oETH), path, ".assets.oETH.priceFeed");
+        vm.writeJson(vm.toString(usdc), networkConfigPath, ".assets.USDC.priceFeed");
+        vm.writeJson(vm.toString(wbtc), networkConfigPath, ".assets.WBTC.priceFeed");
+        vm.writeJson(vm.toString(weth), networkConfigPath, ".assets.WETH.priceFeed");
+        vm.writeJson(vm.toString(link), networkConfigPath, ".assets.LINK.priceFeed");
+        vm.writeJson(vm.toString(stETH), networkConfigPath, ".assets.stETH.priceFeed");
+        vm.writeJson(vm.toString(wstETH), networkConfigPath, ".assets.wstETH.priceFeed");
+        vm.writeJson(vm.toString(susde), networkConfigPath, ".assets.sUSDe.priceFeed");
+        vm.writeJson(vm.toString(snx), networkConfigPath, ".assets.SNX.priceFeed");
+        vm.writeJson(vm.toString(jpy), networkConfigPath, ".assets.JPY.priceFeed");
+        vm.writeJson(vm.toString(oETH), networkConfigPath, ".assets.oETH.priceFeed");
     }
 }

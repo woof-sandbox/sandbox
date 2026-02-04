@@ -4,6 +4,7 @@ pragma solidity 0.8.28;
 import { Script, console } from "forge-std/Script.sol";
 import { stdJson } from "forge-std/StdJson.sol";
 import { SandboxComet } from "contracts/SandboxComet.sol";
+import { HelperConfig } from "script/helpers/HelperConfig.s.sol";
 
 contract DeployCometImplementation is Script {
     function run() public {
@@ -19,14 +20,10 @@ contract DeployCometImplementation is Script {
 
         console.log("CometImplementation deployed at:", cometImplementation);
 
-        string memory path;
-        if (11155111 == block.chainid) {
-            path = string.concat(vm.projectRoot(), "/script/configs/sepolia.json");
-        } else {
-            revert("Invalid chain ID");
-        }
+        HelperConfig helperConfig = new HelperConfig();
+        string memory networkConfigPath = helperConfig.getChainConfigPath();
 
-        vm.writeJson(vm.toString(cometImplementation), path, ".CometImplementation");
-        console.log("CometImplementation address written to:", path);
+        vm.writeJson(vm.toString(cometImplementation), networkConfigPath, ".CometImplementation");
+        console.log("CometImplementation address written to:", networkConfigPath);
     }
 }

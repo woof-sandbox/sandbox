@@ -12,10 +12,10 @@ contract DeploySandboxCometFactory is Script {
     function run() public {
         HelperConfig helperConfig = new HelperConfig();
         HelperConfig.NetworkConfig memory config = helperConfig.getConfig();
-        deploySandboxCometFactory(config);
+        deploySandboxCometFactory(config, helperConfig);
     }
 
-    function deploySandboxCometFactory(HelperConfig.NetworkConfig memory config) public returns (address sandboxCometFactory) {
+    function deploySandboxCometFactory(HelperConfig.NetworkConfig memory config, HelperConfig helperConfig) public returns (address sandboxCometFactory) {
         uint256 configControllerFactoryDeployerPrivateKey = vm.envUint("CONFIG_CONTROLLER_FACTORY_DEPLOYER_PRIVATE_KEY");
 
         vm.startBroadcast(configControllerFactoryDeployerPrivateKey);
@@ -24,14 +24,8 @@ contract DeploySandboxCometFactory is Script {
 
         console.log("SandboxCometFactory deployed at:", sandboxCometFactory);
 
-        string memory path;
-        if (11155111 == block.chainid) {
-            path = string.concat(vm.projectRoot(), "/script/configs/sepolia.json");
-        } else {
-            revert("Invalid chain ID");
-        }
-
-        vm.writeJson(vm.toString(sandboxCometFactory), path, ".SandboxCometFactory");
-        console.log("SandboxCometFactory address written to:", path);
+        string memory networkConfigPath = helperConfig.getChainConfigPath();
+        vm.writeJson(vm.toString(sandboxCometFactory), networkConfigPath, ".SandboxCometFactory");
+        console.log("SandboxCometFactory address written to:", networkConfigPath);
     }
 }

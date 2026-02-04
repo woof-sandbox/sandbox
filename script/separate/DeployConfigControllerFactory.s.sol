@@ -12,10 +12,10 @@ contract DeployConfigControllerFactory is Script {
     function run() public {
         HelperConfig helperConfig = new HelperConfig();
         HelperConfig.NetworkConfig memory config = helperConfig.getConfig();
-        deployConfigControllerFactory(config);
+        deployConfigControllerFactory(config, helperConfig);
     }
 
-    function deployConfigControllerFactory(HelperConfig.NetworkConfig memory config) public returns (address configControllerFactory) {
+    function deployConfigControllerFactory(HelperConfig.NetworkConfig memory config, HelperConfig helperConfig) public returns (address configControllerFactory) {
         uint256 configControllerFactoryDeployerPrivateKey = vm.envUint("CONFIG_CONTROLLER_FACTORY_DEPLOYER_PRIVATE_KEY");
 
         vm.startBroadcast(configControllerFactoryDeployerPrivateKey);
@@ -24,13 +24,7 @@ contract DeployConfigControllerFactory is Script {
 
         console.log("ConfigControllerFactory deployed at:", configControllerFactory);
 
-        string memory path;
-        if (11155111 == block.chainid) {
-            path = string.concat(vm.projectRoot(), "/script/configs/sepolia.json");
-        } else {
-            revert("Invalid chain ID");
-        }
-
-        vm.writeJson(vm.toString(configControllerFactory), path, ".ConfigControllerFactory");
+        string memory networkConfigPath = helperConfig.getChainConfigPath();
+        vm.writeJson(vm.toString(configControllerFactory), networkConfigPath, ".ConfigControllerFactory");
     }
 }

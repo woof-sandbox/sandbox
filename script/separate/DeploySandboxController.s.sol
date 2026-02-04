@@ -13,10 +13,10 @@ contract DeploySandboxController is Script {
         HelperConfig helperConfig = new HelperConfig();
         HelperConfig.NetworkConfig memory config = helperConfig.getConfig();
 
-        deploySandboxController(config);
+        deploySandboxController(config, helperConfig);
     }
 
-    function deploySandboxController(HelperConfig.NetworkConfig memory config) public returns (address sandboxController) {
+    function deploySandboxController(HelperConfig.NetworkConfig memory config, HelperConfig helperConfig) public returns (address sandboxController) {
         uint256 sandboxControllerDeployerPrivateKey = vm.envUint("SANDBOX_CONTROLLER_DEPLOYER_PRIVATE_KEY");
 
         ISandboxController.SandboxControllerConfiguration memory sandboxControllerConfig = ISandboxController
@@ -51,13 +51,7 @@ contract DeploySandboxController is Script {
 
         console.log("SandboxController deployed at:", sandboxController);
 
-        string memory path;
-        if (11155111 == block.chainid) {
-            path = string.concat(vm.projectRoot(), "/script/configs/sepolia.json");
-        } else {
-            revert("Invalid chain ID");
-        }
-
-        vm.writeJson(vm.toString(sandboxController), path, ".SandboxController");
+        string memory networkConfigPath = helperConfig.getChainConfigPath();
+        vm.writeJson(vm.toString(sandboxController), networkConfigPath, ".SandboxController");
     }
 }

@@ -27,28 +27,28 @@
   "collaterals": [
     {
       "name": "WBTC",
-      "supplyCap": 10000e8,
+      "supplyCap": 150000e8,
       "borrowCF": 7.5e17,
       "liquidateCF": 8.2e17,
       "liquidationF": 9.3e17
     },
     {
       "name": "WETH",
-      "supplyCap": 25000e18,
+      "supplyCap": 100000e18,
       "borrowCF": 8e17,
       "liquidateCF": 8.5e17,
       "liquidationF": 9.5e17
     },
     {
       "name": "LINK",
-      "supplyCap": 100000e18,
+      "supplyCap": 2000000e18,
       "borrowCF": 7.7e17,
       "liquidateCF": 8.2e17,
       "liquidationF": 9.1e17
     },
     {
       "name": "sUSDe",
-      "supplyCap": 1000000e18,
+      "supplyCap": 5000000e18,
       "borrowCF": 6e17,
       "liquidateCF": 6.5e17,
       "liquidationF": 7.7e17

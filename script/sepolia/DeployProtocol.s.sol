@@ -17,7 +17,7 @@ contract DeployProtocol is Script {
 
         // Deploy SandboxController
         DeploySandboxController deploySandboxController = new DeploySandboxController();
-        deploySandboxController.deploySandboxController(config);
+        deploySandboxController.deploySandboxController(config, helperConfig);
         config = helperConfig.getConfig();
 
         // Deploy Config Controller Implementation
@@ -27,7 +27,7 @@ contract DeployProtocol is Script {
 
         // Deploy Config Controller Factory
         DeployConfigControllerFactory deployConfigControllerFactory = new DeployConfigControllerFactory();
-        deployConfigControllerFactory.deployConfigControllerFactory(config);
+        deployConfigControllerFactory.deployConfigControllerFactory(config, helperConfig);
         config = helperConfig.getConfig();
 
         // Deploy Comet Implementation
@@ -37,7 +37,7 @@ contract DeployProtocol is Script {
 
         // Deploy Sandbox Comet Factory
         DeploySandboxCometFactory deploySandboxCometFactory = new DeploySandboxCometFactory();
-        deploySandboxCometFactory.deploySandboxCometFactory(config);
+        deploySandboxCometFactory.deploySandboxCometFactory(config, helperConfig);
         config = helperConfig.getConfig();
     }
 }

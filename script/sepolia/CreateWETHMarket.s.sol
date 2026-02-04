@@ -18,13 +18,13 @@ contract CreateWETHMarket is Script {
         CreateConfigController createConfigController = new CreateConfigController();
         CreateMarket createMarket = new CreateMarket();
 
-        string memory marketPath = string.concat(vm.projectRoot(), "/markets/sepolia/weth.json");
-        string memory sepoliaConfigPath = string.concat(vm.projectRoot(), "/script/configs/sepolia.json");
+        string memory marketPath = helperConfig.getMarketPath("weth");
+        string memory networkConfigPath = helperConfig.getChainConfigPath();
 
-        whitelistBaseAsset.whitelistBaseAsset(config, marketPath, sepoliaConfigPath);
+        whitelistBaseAsset.whitelistBaseAsset(config, marketPath, networkConfigPath);
 
         createConfigController.createConfigController(config, marketPath);
 
-        createMarket.createMarket(marketPath, sepoliaConfigPath);
+        createMarket.createMarket(marketPath, networkConfigPath);
     }
 }
