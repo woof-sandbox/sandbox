@@ -3,8 +3,11 @@ pragma solidity 0.8.28;
 
 import { Script, console } from "forge-std/Script.sol";
 import { SandboxComet } from "contracts/SandboxComet.sol";
+import { CometExtension } from "contracts/CometExtension.sol";
 import { HelperConfig } from "script/helpers/HelperConfig.s.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+
+import { console } from "forge-std/console.sol";
 
 contract DeployProtocol is Script {
     HelperConfig.NetworkConfig config;
@@ -13,79 +16,146 @@ contract DeployProtocol is Script {
         HelperConfig helperConfig = new HelperConfig();
         config = helperConfig.getConfig();
 
-        SandboxComet cometUSDC = SandboxComet(payable(0xC1D21B24Ef9B02ecFa1D30c89b98366437F68144));
-        SandboxComet cometUSDC2 = SandboxComet(payable(0x9A6EAfF541a9ACc85B98582d69658176aE5A086a));
-        SandboxComet cometWBTC = SandboxComet(payable(0x9d4223477C668eB60C01fd7148dA38cA1Df614fB));
-        SandboxComet cometWETH = SandboxComet(payable(0xc50E5F19B9dF6F3542b82660423c1DC1cc2BA439));
+        SandboxComet cometUSDC = SandboxComet(payable(0x38e04acB66733d22137b827Af3c11F19716a9e88));
+        SandboxComet cometUSDC2 = SandboxComet(payable(0xc8C64E32FF87391094e61E097E7b7341F47bc32B));
+        SandboxComet cometWBTC = SandboxComet(payable(0x70F7d9Db40f2EAB325aB13241b2d1BDE373995C1));
+        SandboxComet cometWETH = SandboxComet(payable(0x4056De1f717c7D6d7d681F9560742463211ecF4f));
 
         IERC20 link = IERC20(config.link.tokenAddress);
         IERC20 usdc = IERC20(config.usdc.tokenAddress);
         IERC20 weth = IERC20(config.weth.tokenAddress);
         IERC20 wbtc = IERC20(config.wbtc.tokenAddress);
+        IERC20 susde = IERC20(config.sUSDe.tokenAddress);
+        IERC20 snx = IERC20(config.snx.tokenAddress);
+        IERC20 jpy = IERC20(config.jpy.tokenAddress);
+        IERC20 oETH = IERC20(config.oETH.tokenAddress);
+        IERC20 stETH = IERC20(config.stETH.tokenAddress);
+        IERC20 wstETH = IERC20(config.wstETH.tokenAddress);
+
 
         // vm.startBroadcast();
 
-        // // supply
-        // link.approve(address(cometUSDC), 1e18);
-        // cometUSDC.supply(address(link), 1e18);
-        // // borrow
-        // cometUSDC.withdraw(address(usdc), 5e6);
-        // // repay
-        // usdc.approve(address(cometUSDC), 10e6);
-        // cometUSDC.repayAllFrom(0x0309004C4fB9943797f5C530abd8cddE564A9fD4, 0x0309004C4fB9943797f5C530abd8cddE564A9fD4);
-        // // withdraw
-        // cometUSDC.withdraw(address(link), 0.9e18);
+        // //
+        // usdc.approve(address(cometUSDC), type(uint256).max);
+        // usdc.approve(address(cometUSDC2), type(uint256).max);
+        // cometUSDC.supply(address(usdc), 1000e6);
+        // cometUSDC2.supply(address(usdc), 1000e6);
 
-        // // supply
-        // weth.approve(address(cometUSDC2), 0.002e18);
+        // //
+        // weth.approve(address(cometWETH), type(uint256).max);
+        // cometWETH.supply(address(weth), 0.05e18);
+
+        // //
+        // wbtc.approve(address(cometWBTC), type(uint256).max);
+        // cometWBTC.supply(address(wbtc), 0.0001e8);
+
+        /*//////////////////////////////////////////////////////////////
+                                    
+        //////////////////////////////////////////////////////////////*/
+
+        // weth.approve(address(cometUSDC), type(uint256).max);
+        // weth.approve(address(cometUSDC2), type(uint256).max);
+        // cometUSDC.supply(address(weth), 0.01e18);
         // cometUSDC2.supply(address(weth), 0.002e18);
-        // // borrow
-        // cometUSDC2.withdraw(address(usdc), 5e6);
-        // // repay
-        // uint256 borrowBalance = cometUSDC2.borrowBalanceOf(0x0309004C4fB9943797f5C530abd8cddE564A9fD4);
-        // usdc.approve(address(cometUSDC2), borrowBalance);
-        // // cometUSDC2.repayAllFrom(0x0309004C4fB9943797f5C530abd8cddE564A9fD4, 0x0309004C4fB9943797f5C530abd8cddE564A9fD4);
-        // cometUSDC2.supply(address(usdc), borrowBalance);
-        // // withdraw
-        // cometUSDC2.withdraw(address(weth), 0.0019e18);
 
-        // // supply
-        // link.approve(address(cometWBTC), 3e18);
-        // cometWBTC.supply(address(link), 3e18);
-        // // borrow
-        // cometWBTC.withdraw(address(wbtc), 0.0001e8);
-        // // repay
-        // uint256 borrowBalance = cometWBTC.borrowBalanceOf(0x0309004C4fB9943797f5C530abd8cddE564A9fD4);
-        // wbtc.approve(address(cometWBTC), borrowBalance);
-        // cometWBTC.supply(address(wbtc), borrowBalance);
-        // // withdraw
-        // cometWBTC.withdraw(address(link), 3e18 - 5);
+        // link.approve(address(cometWETH), type(uint256).max);
+        // cometWETH.supply(address(link), 15e18);
 
-        // // supply
-        // link.approve(address(cometWETH), 2e18);
-        // cometWETH.supply(address(link), 2e18);
-        // // borrow
-        // cometWETH.withdraw(address(weth), 900000000000000);
-        // // repay
-        // uint256 borrowBalance = cometWETH.borrowBalanceOf(0x0309004C4fB9943797f5C530abd8cddE564A9fD4);
-        // weth.approve(address(cometWETH), borrowBalance);
-        // cometWETH.supply(address(weth), borrowBalance);
-        // // withdraw
-        // cometWETH.withdraw(address(link), 2e18 - 2);
-
-        // weth.approve(address(cometWETH), 2 ether);
-        // cometWETH.supply(address(weth), 2 ether);
+        // link.approve(address(cometWBTC), type(uint256).max);
+        // cometWBTC.supply(address(link), 15e18);
 
         // vm.stopBroadcast();
 
-        vm.startBroadcast();
+        /*//////////////////////////////////////////////////////////////
+                                 BORROW
+        //////////////////////////////////////////////////////////////*/
 
-        // cometWETH.withdrawAllFrom(0xFC73F49D78faF266157d03F7CDC72D4DdaA7Ddf1, 0xFC73F49D78faF266157d03F7CDC72D4DdaA7Ddf1);
-        weth.approve(address(cometWETH), 2 ether);
-        cometWETH.repayAllFrom(0xFC73F49D78faF266157d03F7CDC72D4DdaA7Ddf1, 0xFC73F49D78faF266157d03F7CDC72D4DdaA7Ddf1);
-        // uint256 wethBalance = weth.balanceOf(address(cometWETH));
-        // console.log(wethBalance);
+        // vm.startBroadcast(0x44908EF517c28DE800222A9F2030efbb01eE9aFe);
 
+        // weth.approve(address(cometUSDC), type(uint256).max);
+        // weth.approve(address(cometUSDC2), type(uint256).max);
+        // link.approve(address(cometWETH), type(uint256).max);
+        // link.approve(address(cometWBTC), type(uint256).max);
+
+        // cometUSDC.supply(address(weth), 1e18);
+        // cometUSDC2.supply(address(weth), 1e18);
+        // cometWETH.supply(address(link), 24e18);
+        // cometWBTC.supply(address(link), 24e18);
+
+        // cometUSDC.withdraw(address(usdc), 100e6);
+        // cometUSDC2.withdraw(address(usdc), 100e6);
+        // cometWETH.withdraw(address(weth), 0.01e18);
+        // cometWBTC.withdraw(address(wbtc), 0.001e8);
+
+        // vm.stopBroadcast();
+
+        // vm.startBroadcast(0x0309004C4fB9943797f5C530abd8cddE564A9fD4);
+        // weth.approve(address(cometWETH), type(uint256).max);
+        // cometWETH.supply(address(weth), 1.1e18);
+        // vm.stopBroadcast();
+
+        vm.startBroadcast(0x0309004C4fB9943797f5C530abd8cddE564A9fD4);
+
+
+        /*//////////////////////////////////////////////////////////////
+                                    USDC
+        //////////////////////////////////////////////////////////////*/
+        // wbtc.approve(address(cometUSDC), type(uint256).max);
+        // weth.approve(address(cometUSDC), type(uint256).max);
+        // link.approve(address(cometUSDC), type(uint256).max);
+        // susde.approve(address(cometUSDC), type(uint256).max);
+
+        // cometUSDC.supply(address(wbtc), 0.001e8);
+        // cometUSDC.supply(address(weth), 0.01e18);
+        // cometUSDC.supply(address(link), 15e18);
+        // cometUSDC.supply(address(susde), 100e18);
+
+        // cometUSDC.withdraw(address(usdc), 100e6);
+
+        /*//////////////////////////////////////////////////////////////
+                                    USDC 2
+        //////////////////////////////////////////////////////////////*/
+
+        // wbtc.approve(address(cometUSDC2), type(uint256).max);
+        // weth.approve(address(cometUSDC2), type(uint256).max);
+
+        // cometUSDC2.supply(address(wbtc), 0.01e8);
+        // cometUSDC2.supply(address(weth), 0.002e18);
+
+        // cometUSDC2.withdraw(address(usdc), 100e6);
+
+        /*//////////////////////////////////////////////////////////////
+                                WETH
+        //////////////////////////////////////////////////////////////*/
+        // stETH.approve(address(cometWETH), type(uint256).max);
+        // wstETH.approve(address(cometWETH), type(uint256).max);
+        // link.approve(address(cometWETH), type(uint256).max);
+        // oETH.approve(address(cometWETH), type(uint256).max);
+
+        // cometWETH.supply(address(stETH), 0.053255e18);
+        // cometWETH.supply(address(wstETH), 0.05e18);
+        // cometWETH.supply(address(link), 24e18);
+        // cometWETH.supply(address(oETH), 0.05e18);
+
+        // cometWETH.withdraw(address(weth), 0.004e18);
+
+        /*//////////////////////////////////////////////////////////////
+                                    WBTC
+        //////////////////////////////////////////////////////////////*/
+
+        // jpy.approve(address(cometWBTC), type(uint256).max);
+        // weth.approve(address(cometWBTC), type(uint256).max);
+        // link.approve(address(cometWBTC), type(uint256).max);
+        // snx.approve(address(cometWBTC), type(uint256).max);
+
+        // cometWBTC.supply(address(jpy), 100e18);
+        // cometWBTC.supply(address(weth), 0.01e18);
+        // cometWBTC.supply(address(link), 24e18);
+        // cometWBTC.supply(address(snx), 100e18);
+
+        // cometWBTC.withdraw(address(wbtc), 0.001e8);
+        
         vm.stopBroadcast();
     }
 }
+

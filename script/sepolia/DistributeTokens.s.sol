@@ -26,19 +26,31 @@ contract DistributeTokens is Script {
         tokens[9] = config.oETH.tokenAddress;
 
         address[] memory recipients = new address[](1);
-        recipients[0] = 0x800cE94b7cA3aeb5F5BAf1179A7d25B84EFE3e68;
+        recipients[0] = 0x7f7341A187A070A73DB66Fa14af8E9eAD3cf1336;
+
+        // uint256[] memory amounts = new uint256[](10);
+        // amounts[0] = 500e6;
+        // amounts[1] = 0.01e8;
+        // amounts[2] = 0.05e18;
+        // amounts[3] = 5e18;
+        // amounts[4] = 0.05e18;
+        // amounts[5] = 0.05e18;
+        // amounts[6] = 500e18;
+        // amounts[7] = 100e18;
+        // amounts[8] = 1000e18;
+        // amounts[9] = 0.05e18;
 
         uint256[] memory amounts = new uint256[](10);
-        amounts[0] = 500e6;
-        amounts[1] = 0.01e8;
-        amounts[2] = 0.05e18;
-        amounts[3] = 5e18;
-        amounts[4] = 0.05e18;
-        amounts[5] = 0.05e18;
-        amounts[6] = 500e6;
-        amounts[7] = 100e18;
-        amounts[8] = 1000e18;
-        amounts[9] = 0.05e18;
+        amounts[0] = 1000000e6;
+        amounts[1] = 1000e8;
+        amounts[2] = 100000e18;
+        amounts[3] = 1000000e18;
+        amounts[4] = 100000e18;
+        amounts[5] = 100000e18;
+        amounts[6] = 1000000e18;
+        amounts[7] = 1000000e18;
+        amounts[8] = 11000000e18;
+        amounts[9] = 100000e18;
 
         vm.startBroadcast(ownerPrivateKey);
 
@@ -47,6 +59,9 @@ contract DistributeTokens is Script {
                 WETH9 weth = WETH9(payable(tokens[i]));
                 weth.mintTo(recipients[0], amounts[i] * 1000);
             } else {
+                if (tokens[i] == config.sUSDe.tokenAddress) {
+                    MockERC20(tokens[i]).mintTo(recipients[0], amounts[i] * 5000);
+                }
                 MockERC20(tokens[i]).mintTo(recipients[0], amounts[i] * 1000);
             }
         }

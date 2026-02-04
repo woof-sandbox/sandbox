@@ -32,7 +32,7 @@ contract DeployFauceteer is Script {
         amounts[3] = 5e18;
         amounts[4] = 0.05e18;
         amounts[5] = 0.05e18;
-        amounts[6] = 500e6;
+        amounts[6] = 500e18;
         amounts[7] = 100e18;
         amounts[8] = 1000e18;
         amounts[9] = 0.05e18;
@@ -42,8 +42,15 @@ contract DeployFauceteer is Script {
         address fauceteer = address(new Fauceteer(0x0309004C4fB9943797f5C530abd8cddE564A9fD4, tokens, amounts));
 
         for (uint256 i = 0; i < tokens.length; i++) {
-            IERC20(tokens[i]).transfer(fauceteer, amounts[i] * 5000);
+            IERC20(tokens[i]).approve(fauceteer, type(uint256).max);
         }
+
+        Fauceteer(fauceteer).addTokens();
+        Fauceteer(fauceteer).addTokens();
+        Fauceteer(fauceteer).addTokens();
+        
+        // Test call
+        // Fauceteer(fauceteer).drip{value: 0.0001 ether}(0x4bb5E7fC4B819Aca84cd71E289E310779B99f63c);
 
         vm.stopBroadcast();
 

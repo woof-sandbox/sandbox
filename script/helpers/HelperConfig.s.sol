@@ -65,6 +65,7 @@ contract HelperConfig is Script {
     //////////////////////////////////////////////////////////////*/
 
     uint256 public constant SEPOLIA_TESTNET_CHAIN_ID = 11155111;
+    uint256 public constant VIRTUAL_SEPOLIA_TESTNET_CHAIN_ID = 111555111;
 
     mapping(uint256 => NetworkConfig) public networkConfigs;
 
@@ -74,6 +75,7 @@ contract HelperConfig is Script {
 
     constructor() {
         networkConfigs[SEPOLIA_TESTNET_CHAIN_ID] = getSepoliaTestnetConfig();
+        networkConfigs[VIRTUAL_SEPOLIA_TESTNET_CHAIN_ID] = getSepoliaTestnetConfig();
     }
 
     function getConfig() public view returns (NetworkConfig memory) {
