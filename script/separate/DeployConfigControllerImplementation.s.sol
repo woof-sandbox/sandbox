@@ -4,6 +4,7 @@ pragma solidity 0.8.28;
 import { Script, console } from "forge-std/Script.sol";
 import { stdJson } from "forge-std/StdJson.sol";
 import { ConfigController } from "contracts/ConfigController.sol";
+import { HelperConfig } from "script/helpers/HelperConfig.s.sol";
 
 contract DeployConfigControllerImplementation is Script {
     using stdJson for string;
@@ -21,15 +22,8 @@ contract DeployConfigControllerImplementation is Script {
 
         console.log("ConfigControllerImplementation deployed at:", configControllerImplementation);
 
-        string memory path;
-        if (11155111 == block.chainid) {
-            path = string.concat(vm.projectRoot(), "/script/configs/sepolia.json");
-        } else if (111555111 == block.chainid) {
-            path = string.concat(vm.projectRoot(), "/script/configs/sepolia.json");
-        } else {
-            revert("Invalid chain ID");
-        }
-
-        vm.writeJson(vm.toString(configControllerImplementation), path, ".ConfigControllerImplementation");
+        HelperConfig helperConfig = new HelperConfig();
+        string memory networkConfigPath = helperConfig.getChainConfigPath();
+        vm.writeJson(vm.toString(configControllerImplementation), networkConfigPath, ".ConfigControllerImplementation");
     }
 }

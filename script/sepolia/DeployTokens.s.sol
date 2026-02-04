@@ -6,6 +6,7 @@ import { stdJson } from "lib/forge-std/src/StdJson.sol";
 
 import { WETH9 } from "contracts/test/WETH9.sol";
 import { MockERC20 } from "contracts/test/MockERC20.sol";
+import { HelperConfig } from "script/helpers/HelperConfig.s.sol";
 
 contract DeployTokens is Script {
     using stdJson for string;
@@ -33,17 +34,18 @@ contract DeployTokens is Script {
         /*//////////////////////////////////////////////////////////////
                              UPDATE CONFIG
         //////////////////////////////////////////////////////////////*/
-        string memory path = string.concat(vm.projectRoot(), "/script/configs/sepolia.json");
+        HelperConfig helperConfig = new HelperConfig();
+        string memory networkConfigPath = helperConfig.getChainConfigPath();
 
-        vm.writeJson(vm.toString(usdc), path, ".assets.USDC.address");
-        vm.writeJson(vm.toString(wbtc), path, ".assets.WBTC.address");
-        vm.writeJson(vm.toString(weth), path, ".assets.WETH.address");
-        vm.writeJson(vm.toString(link), path, ".assets.LINK.address");
-        vm.writeJson(vm.toString(stETH), path, ".assets.stETH.address");
-        vm.writeJson(vm.toString(wstETH), path, ".assets.wstETH.address");
-        vm.writeJson(vm.toString(susde), path, ".assets.sUSDe.address");
-        vm.writeJson(vm.toString(snx), path, ".assets.SNX.address");
-        vm.writeJson(vm.toString(jpy), path, ".assets.JPY.address");
-        vm.writeJson(vm.toString(oETH), path, ".assets.oETH.address");
+        vm.writeJson(vm.toString(usdc), networkConfigPath, ".assets.USDC.address");
+        vm.writeJson(vm.toString(wbtc), networkConfigPath, ".assets.WBTC.address");
+        vm.writeJson(vm.toString(weth), networkConfigPath, ".assets.WETH.address");
+        vm.writeJson(vm.toString(link), networkConfigPath, ".assets.LINK.address");
+        vm.writeJson(vm.toString(stETH), networkConfigPath, ".assets.stETH.address");
+        vm.writeJson(vm.toString(wstETH), networkConfigPath, ".assets.wstETH.address");
+        vm.writeJson(vm.toString(susde), networkConfigPath, ".assets.sUSDe.address");
+        vm.writeJson(vm.toString(snx), networkConfigPath, ".assets.SNX.address");
+        vm.writeJson(vm.toString(jpy), networkConfigPath, ".assets.JPY.address");
+        vm.writeJson(vm.toString(oETH), networkConfigPath, ".assets.oETH.address");
     }
 }

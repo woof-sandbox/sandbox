@@ -20,10 +20,10 @@ contract MarketSimulation is Script {
         HelperConfig helperConfig = new HelperConfig();
         config = helperConfig.getConfig();
 
-        SandboxComet cometUSDC = SandboxComet(payable(0x4d7F8042430C96e8C0Aa791BC5f51f4c1F0A61Ef));
-        SandboxComet cometUSDC2 = SandboxComet(payable(0x32334944FAfB06340844204F0AcCAd53C70817E1));
-        SandboxComet cometWBTC = SandboxComet(payable(0x478a4C4aBBDc44E4B16858975a20B934C6ba06aF));
-        SandboxComet cometWETH = SandboxComet(payable(0xc3873dFBdB8D158e6c3BC953f2143C64CB636441));
+        SandboxComet cometUSDC = SandboxComet(payable(helperConfig.getCometAddress("usdc")));
+        SandboxComet cometUSDC2 = SandboxComet(payable(helperConfig.getCometAddress("usdc2")));
+        SandboxComet cometWBTC = SandboxComet(payable(helperConfig.getCometAddress("wbtc")));
+        SandboxComet cometWETH = SandboxComet(payable(helperConfig.getCometAddress("weth")));
 
         IERC20 link = IERC20(config.link.tokenAddress);
         IERC20 usdc = IERC20(config.usdc.tokenAddress);

@@ -1,10 +1,10 @@
 {
-  "name": "Sandbox USDC 2",
-  "configController": "0xCc88030ef0a2315225292c86c32944fDbd81929d",
-  "comet": "0xc8C64E32FF87391094e61E097E7b7341F47bc32B",
-  "configControllerName": "USDC 2 ConfigController",
+  "name": "Sandbox USDC",
+  "configController": "0x09C4989f25b1925D8846aeDc3333c6ff4B6A01Ae",
+  "comet": "0x4d7F8042430C96e8C0Aa791BC5f51f4c1F0A61Ef",
+  "configControllerName": "USDC ConfigController",
   "owner": "0x0309004C4fB9943797f5C530abd8cddE564A9fD4",
-  "curator": "0xd2822a1B8E9dF1c28966417cc7FfD3427C82D258",
+  "curator": "0x44908EF517c28DE800222A9F2030efbb01eE9aFe",
   "guardian": "0x0000000000000000000000000000000000000000",
   "curatorFee": "100",
   "curatorProposalDuration": "3600",
@@ -38,6 +38,20 @@
       "borrowCF": 8e17,
       "liquidateCF": 8.5e17,
       "liquidationF": 9.5e17
+    },
+    {
+      "name": "LINK",
+      "supplyCap": 2000000e18,
+      "borrowCF": 7.7e17,
+      "liquidateCF": 8.2e17,
+      "liquidationF": 9.1e17
+    },
+    {
+      "name": "sUSDe",
+      "supplyCap": 5000000e18,
+      "borrowCF": 6e17,
+      "liquidateCF": 6.5e17,
+      "liquidationF": 7.7e17
     }
   ]
 }

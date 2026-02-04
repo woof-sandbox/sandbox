@@ -16,11 +16,11 @@ contract CreateUSDCMarket2 is Script {
         CreateConfigController createConfigController = new CreateConfigController();
         CreateMarket createMarket = new CreateMarket();
 
-        string memory marketPath = string.concat(vm.projectRoot(), "/markets/sepolia/usdc2.json");
-        string memory sepoliaConfigPath = string.concat(vm.projectRoot(), "/script/configs/sepolia.json");
+        string memory marketPath = helperConfig.getMarketPath("usdc2");
+        string memory networkConfigPath = helperConfig.getChainConfigPath();
 
         createConfigController.createConfigController(config, marketPath);
 
-        createMarket.createMarket(marketPath, sepoliaConfigPath);
+        createMarket.createMarket(marketPath, networkConfigPath);
     }
 }
