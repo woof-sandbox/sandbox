@@ -1,7 +1,7 @@
 {
   "name": "Sandbox USDC 2",
-  "configController": "0x6C40bE55eC4F250812A7c6Fb33566C5E679D6281",
-  "comet": "0x32334944FAfB06340844204F0AcCAd53C70817E1",
+  "configController": "0x6d5b116B27d5e54e73c38A19aD2BCEC10a4Ac58a",
+  "comet": "0x00CF68E94664f5bf928232CFBc0a27760aBd9Feb",
   "configControllerName": "USDC 2 ConfigController",
   "owner": "0x0309004C4fB9943797f5C530abd8cddE564A9fD4",
   "curator": "0xd2822a1B8E9dF1c28966417cc7FfD3427C82D258",

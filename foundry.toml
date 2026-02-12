@@ -15,7 +15,12 @@ fs_permissions = [
     { access = "read-write", path = "./markets/sepolia/usdc.json"},
     { access = "read-write", path = "./markets/sepolia/usdc2.json"},
     { access = "read-write", path = "./markets/sepolia/wbtc.json"},
-    { access = "read-write", path = "./markets/sepolia/weth.json"}
+    { access = "read-write", path = "./markets/sepolia/weth.json"},
+    { access = "read-write", path = "./script/configs/vNetSepolia.json"},
+    { access = "read-write", path = "./markets/vNetSepolia/usdc.json"},
+    { access = "read-write", path = "./markets/vNetSepolia/usdc2.json"},
+    { access = "read-write", path = "./markets/vNetSepolia/wbtc.json"},
+    { access = "read-write", path = "./markets/vNetSepolia/weth.json"}
 ]
 
 [fmt]

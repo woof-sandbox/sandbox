@@ -81,7 +81,7 @@ contract MarketSimulation is Script {
 
         // vm.stopBroadcast();
 
-        // vm.startBroadcast(collateralSupplyerPrivateKey);
+        vm.startBroadcast(collateralSupplyerPrivateKey);
 
         /*//////////////////////////////////////////////////////////////
                                 APPROVALS
@@ -140,14 +140,14 @@ contract MarketSimulation is Script {
                                     WBTC
         //////////////////////////////////////////////////////////////*/
 
-        // cometWBTC.supply(address(jpy), 18300e18);
-        // cometWBTC.supply(address(weth), 73e18);
-        // cometWBTC.supply(address(link), 14800e18);
-        // cometWBTC.supply(address(snx), 8600e18);
+        cometWBTC.supply(address(jpy), 18300e18);
+        cometWBTC.supply(address(weth), 73e18);
+        cometWBTC.supply(address(link), 14800e18);
+        cometWBTC.supply(address(snx), 8600e18);
 
-        // cometWBTC.withdraw(address(wbtc), 1.8e8);
+        cometWBTC.withdraw(address(wbtc), 1.8e8);
         
-        // vm.stopBroadcast();
+        vm.stopBroadcast();
     }
 }
 
