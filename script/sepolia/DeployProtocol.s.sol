@@ -205,7 +205,7 @@ contract DeployProtocol is Script {
             targetPercent: 2e17, // 20%
             storeFrontPriceFactor: 6e17, // 60%
             minUpdateTime: 300, // 5 minutes
-            maxUpdateTime: 3600, // 1 hour
+            maxUpdateTime: 3600 // 1 hour
         });
         // Deploy SandboxController with valid parameters
         SandboxController sandboxController = new SandboxController(
